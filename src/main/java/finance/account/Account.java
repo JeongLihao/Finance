@@ -48,4 +48,7 @@ public class Account {
         balance -= amount;
         return true;
     }
+    public void setBalance(long balance) {
+        this.balance = balance;
+    }
 }
