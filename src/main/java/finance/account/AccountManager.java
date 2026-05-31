@@ -6,8 +6,8 @@ import java.util.UUID;
 import java.util.ArrayList;
 import java.util.List;
 import finance.data.EconomySavedData;
-import net.minecraftforge.event.server.ServerStartingEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
+
+
 import finance.data.EconomySavedData;
 
 public class AccountManager {
@@ -80,11 +80,6 @@ public class AccountManager {
         return ACCOUNTS;
     }
 
-    @SubscribeEvent
-    public void onServerStarting(ServerStartingEvent event) {
-
-        EconomySavedData.get(event.getServer());
-    }
 
 }
 

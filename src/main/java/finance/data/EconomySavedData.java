@@ -56,7 +56,7 @@ public class EconomySavedData extends SavedData {
 
             Account account = AccountManager.getAccount(playerUUID);
 
-            account.deposit(balance);
+            account.setBalance(balance);
         }
 
         return data;
