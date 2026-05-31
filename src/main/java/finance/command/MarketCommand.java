@@ -12,6 +12,8 @@ import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import finance.market.Order;
+import finance.commodity.CommodityInventoryManager;
+import finance.account.AccountManager;
 
 public class MarketCommand {
 
@@ -90,6 +92,24 @@ public class MarketCommand {
                                                                                                             context,
                                                                                                             "quantity"
                                                                                                     );
+                                                                                            long totalCost =
+                                                                                                    price * quantity;
+
+                                                                                            long balance =
+                                                                                                    AccountManager.getBalance(
+                                                                                                            player.getUUID()
+                                                                                                    );
+
+                                                                                            if (balance < totalCost) {
+
+                                                                                                player.sendSystemMessage(
+                                                                                                        Component.literal(
+                                                                                                                "Not enough balance."
+                                                                                                        )
+                                                                                                );
+
+                                                                                                return 0;
+                                                                                            }
 
                                                                                             Order order =
                                                                                                     new Order(
@@ -159,6 +179,23 @@ public class MarketCommand {
                                                                                                             context,
                                                                                                             "quantity"
                                                                                                     );
+                                                                                            int owned =
+                                                                                                    CommodityInventoryManager
+                                                                                                            .getCommodityAmount(
+                                                                                                                    player.getUUID(),
+                                                                                                                    commodity
+                                                                                                            );
+
+                                                                                            if (owned < quantity) {
+
+                                                                                                player.sendSystemMessage(
+                                                                                                        Component.literal(
+                                                                                                                "Not enough commodity."
+                                                                                                        )
+                                                                                                );
+
+                                                                                                return 0;
+                                                                                            }
 
                                                                                             Order order =
                                                                                                     new Order(
