@@ -1,5 +1,5 @@
 package finance.commodity;
-
+import finance.data.CommodityInventorySavedData;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -44,6 +44,8 @@ public class CommodityInventoryManager {
                         commodityId,
                         amount
                 );
+
+        CommodityInventorySavedData.markDirty();
     }
 
     public static boolean removeCommodity(
@@ -52,10 +54,22 @@ public class CommodityInventoryManager {
             int amount
     ) {
 
-        return getInventory(playerId)
-                .removeCommodity(
-                        commodityId,
-                        amount
-                );
+        boolean success =
+                getInventory(playerId)
+                        .removeCommodity(
+                                commodityId,
+                                amount
+                        );
+
+        if (success) {
+            CommodityInventorySavedData.markDirty();
+        }
+
+        return success;
+    }
+    public static Map<UUID, CommodityInventory>
+    getInventories() {
+
+        return INVENTORIES;
     }
 }

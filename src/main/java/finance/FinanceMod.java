@@ -16,6 +16,7 @@ import finance.command.CommodityCommand;
 import finance.command.InventoryCommand;
 import net.minecraftforge.event.server.ServerStartingEvent;
 import finance.data.EconomySavedData;
+import finance.data.CommodityInventorySavedData;
 
 @Mod(FinanceMod.MOD_ID)
 public class FinanceMod {
@@ -69,13 +70,22 @@ public class FinanceMod {
 
         InventoryCommand.register(event.getDispatcher());
     }
-
     @SubscribeEvent
-    public void onServerStarting(ServerStartingEvent event) {
+    public void onServerStarting(
+            ServerStartingEvent event
+    ) {
 
-        System.out.println("FINANCE SERVER START");
+        System.out.println(
+                "FINANCE SERVER START"
+        );
 
-        EconomySavedData.get(event.getServer());
+        EconomySavedData.get(
+                event.getServer()
+        );
+
+        CommodityInventorySavedData.get(
+                event.getServer()
+        );
     }
 }
 
