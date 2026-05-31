@@ -7,6 +7,15 @@ public class CommodityInventory {
 
     private final Map<String, Integer> commodities =
             new HashMap<>();
+    public void setCommodity(
+            String commodityId,
+            int amount
+    ) {
+        commodities.put(
+                commodityId,
+                amount
+        );
+    }
 
     public int getAmount(String commodityId) {
 
