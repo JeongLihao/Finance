@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Iterator;
 import finance.account.AccountManager;
 import java.util.UUID;
+import finance.commodity.CommodityInventoryManager;
 
 
 public class MarketManager {
@@ -93,10 +94,36 @@ public class MarketManager {
 
             if (!paid) {
 
-                System.out.println("TRADE FAILED: insufficient funds");
+                System.out.println(
+                        "TRADE FAILED: insufficient funds"
+                );
 
                 return false;
             }
+
+            boolean commodityTransferred =
+                    CommodityInventoryManager
+                            .removeCommodity(
+                                    seller,
+                                    newOrder.getCommodityId(),
+                                    newOrder.getQuantity()
+                            );
+
+            if (!commodityTransferred) {
+
+                System.out.println(
+                        "TRADE FAILED: seller inventory error"
+                );
+
+                return false;
+            }
+
+            CommodityInventoryManager
+                    .addCommodity(
+                            buyer,
+                            newOrder.getCommodityId(),
+                            newOrder.getQuantity()
+                    );
 
 
             System.out.println("================================");
