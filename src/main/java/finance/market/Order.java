@@ -13,7 +13,7 @@ public class Order {
 
     private final long price;
 
-    private final int quantity;
+    private int quantity;
 
     private final LocalDateTime timestamp;
 
@@ -31,6 +31,23 @@ public class Order {
         this.price = price;
         this.quantity = quantity;
         this.timestamp = LocalDateTime.now();
+    }
+
+    public Order(
+            UUID playerId,
+            String commodityId,
+            OrderType type,
+            long price,
+            int quantity,
+            LocalDateTime timestamp
+    ) {
+
+        this.playerId = playerId;
+        this.commodityId = commodityId;
+        this.type = type;
+        this.price = price;
+        this.quantity = quantity;
+        this.timestamp = timestamp;
     }
 
     public UUID getPlayerId() {
@@ -55,5 +72,15 @@ public class Order {
 
     public LocalDateTime getTimestamp() {
         return timestamp;
+    }
+
+    public void reduceQuantity(int amount) {
+        if (amount > 0) {
+            this.quantity -= amount;
+        }
+    }
+
+    public void setQuantity(int quantity) {
+        this.quantity = quantity;
     }
 }

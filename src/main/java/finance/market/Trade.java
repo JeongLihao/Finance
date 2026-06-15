@@ -32,6 +32,23 @@ public class Trade {
         this.timestamp = LocalDateTime.now();
     }
 
+    public Trade(
+            UUID buyer,
+            UUID seller,
+            String commodityId,
+            long price,
+            int quantity,
+            LocalDateTime timestamp
+    ) {
+
+        this.buyer = buyer;
+        this.seller = seller;
+        this.commodityId = commodityId;
+        this.price = price;
+        this.quantity = quantity;
+        this.timestamp = timestamp;
+    }
+
     public UUID getBuyer() {
         return buyer;
     }

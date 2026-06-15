@@ -51,4 +51,22 @@ public class Account {
     public void setBalance(long balance) {
         this.balance = balance;
     }
+
+    public boolean freezeFunds(long amount) {
+        if (amount <= 0 || balance < amount) {
+            return false;
+        }
+        balance -= amount;
+        frozenBalance += amount;
+        return true;
+    }
+
+    public void unfreezeFunds(long amount) {
+        if (amount <= 0) {
+            return;
+        }
+        long actual = Math.min(amount, frozenBalance);
+        frozenBalance -= actual;
+        balance += actual;
+    }
 }
