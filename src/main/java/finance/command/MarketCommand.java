@@ -7,40 +7,90 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import finance.market.MarketManager;
 import finance.market.Order;
 import finance.market.OrderType;
+import finance.market.Trade;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
-import finance.market.Order;
 import finance.commodity.CommodityInventoryManager;
 import finance.account.AccountManager;
 
+import java.util.List;
+
 public class MarketCommand {
 
-    public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
+    public static void register(
+            CommandDispatcher<CommandSourceStack> dispatcher
+    ) {
 
         dispatcher.register(
                 Commands.literal("market")
+
+                        // /market orders — list all open orders
                         .then(
                                 Commands.literal("orders")
-
                                         .executes(context -> {
 
                                             ServerPlayer player =
                                                     context.getSource()
                                                             .getPlayerOrException();
 
-                                            for (Order order : MarketManager.getOrders()) {
+                                            List<Order> orders =
+                                                    MarketManager.getOrders();
+
+                                            if (orders.isEmpty()) {
 
                                                 player.sendSystemMessage(
                                                         Component.literal(
-                                                                order.getType()
-                                                                        + " "
+                                                                "No open orders."
+                                                        )
+                                                );
+
+                                                return 1;
+                                            }
+
+                                            player.sendSystemMessage(
+                                                    Component.literal(
+                                                            "=== Open Orders ==="
+                                                    )
+                                            );
+
+                                            for (int i = 0;
+                                                 i < orders.size();
+                                                 i++) {
+
+                                                Order order =
+                                                        orders.get(i);
+
+                                                ServerPlayer ownerPlayer =
+                                                        context.getSource()
+                                                                .getServer()
+                                                                .getPlayerList()
+                                                                .getPlayer(
+                                                                        order.getPlayerId()
+                                                                );
+
+                                                String owner =
+                                                        ownerPlayer != null
+                                                                ? ownerPlayer.getName()
+                                                                        .getString()
+                                                                : order.getPlayerId()
+                                                                        .toString()
+                                                                        .substring(0, 8);
+
+                                                player.sendSystemMessage(
+                                                        Component.literal(
+                                                                "#" + i
+                                                                        + " ["
+                                                                        + order.getType()
+                                                                        + "] "
                                                                         + order.getCommodityId()
-                                                                        + " Price:"
-                                                                        + order.getPrice()
-                                                                        + " Qty:"
+                                                                        + " x"
                                                                         + order.getQuantity()
+                                                                        + " @"
+                                                                        + order.getPrice()
+                                                                        + " by "
+                                                                        + owner
                                                         )
                                                 );
                                             }
@@ -48,6 +98,8 @@ public class MarketCommand {
                                             return 1;
                                         })
                         )
+
+                        // /market buy <commodity> <price> <quantity>
                         .then(
                                 Commands.literal("buy")
 
@@ -92,6 +144,7 @@ public class MarketCommand {
                                                                                                             context,
                                                                                                             "quantity"
                                                                                                     );
+
                                                                                             long totalCost =
                                                                                                     price * quantity;
 
@@ -104,7 +157,9 @@ public class MarketCommand {
 
                                                                                                 player.sendSystemMessage(
                                                                                                         Component.literal(
-                                                                                                                "Not enough balance."
+                                                                                                                "Not enough balance. "
+                                                                                                                        + "Need: " + totalCost
+                                                                                                                        + " Have: " + balance
                                                                                                         )
                                                                                                 );
 
@@ -124,7 +179,12 @@ public class MarketCommand {
 
                                                                                             player.sendSystemMessage(
                                                                                                     Component.literal(
-                                                                                                            "Buy order placed."
+                                                                                                            "Buy order placed: "
+                                                                                                                    + quantity
+                                                                                                                    + "x "
+                                                                                                                    + commodity
+                                                                                                                    + " @"
+                                                                                                                    + price
                                                                                                     )
                                                                                             );
 
@@ -135,6 +195,7 @@ public class MarketCommand {
                                         )
                         )
 
+                        // /market sell <commodity> <price> <quantity>
                         .then(
                                 Commands.literal("sell")
 
@@ -179,6 +240,7 @@ public class MarketCommand {
                                                                                                             context,
                                                                                                             "quantity"
                                                                                                     );
+
                                                                                             int owned =
                                                                                                     CommodityInventoryManager
                                                                                                             .getCommodityAmount(
@@ -190,7 +252,9 @@ public class MarketCommand {
 
                                                                                                 player.sendSystemMessage(
                                                                                                         Component.literal(
-                                                                                                                "Not enough commodity."
+                                                                                                                "Not enough commodity. "
+                                                                                                                        + "Have: " + owned
+                                                                                                                        + " Need: " + quantity
                                                                                                         )
                                                                                                 );
 
@@ -210,7 +274,12 @@ public class MarketCommand {
 
                                                                                             player.sendSystemMessage(
                                                                                                     Component.literal(
-                                                                                                            "Sell order placed."
+                                                                                                            "Sell order placed: "
+                                                                                                                    + quantity
+                                                                                                                    + "x "
+                                                                                                                    + commodity
+                                                                                                                    + " @"
+                                                                                                                    + price
                                                                                                     )
                                                                                             );
 
@@ -219,6 +288,152 @@ public class MarketCommand {
                                                                         )
                                                         )
                                         )
+                        )
+
+                        // /market cancel <index>
+                        .then(
+                                Commands.literal("cancel")
+
+                                        .then(
+                                                Commands.argument(
+                                                                "index",
+                                                                IntegerArgumentType.integer(0)
+                                                        )
+
+                                                        .executes(context -> {
+
+                                                            ServerPlayer player =
+                                                                    context.getSource()
+                                                                            .getPlayerOrException();
+
+                                                            int index =
+                                                                    IntegerArgumentType.getInteger(
+                                                                            context,
+                                                                            "index"
+                                                                    );
+
+                                                            boolean success =
+                                                                    MarketManager.cancelOrder(
+                                                                            index,
+                                                                            player.getUUID()
+                                                                    );
+
+                                                            if (!success) {
+
+                                                                player.sendSystemMessage(
+                                                                        Component.literal(
+                                                                                "Cancel failed. "
+                                                                                        + "Check the index "
+                                                                                        + "or that it is your order."
+                                                                        )
+                                                                );
+
+                                                                return 0;
+                                                            }
+
+                                                            player.sendSystemMessage(
+                                                                    Component.literal(
+                                                                            "Order #"
+                                                                                    + index
+                                                                                    + " cancelled."
+                                                                    )
+                                                            );
+
+                                                            return 1;
+                                                        })
+                                        )
+                        )
+
+                        // /market history — view trade history
+                        .then(
+                                Commands.literal("history")
+                                        .executes(context -> {
+
+                                            ServerPlayer player =
+                                                    context.getSource()
+                                                            .getPlayerOrException();
+
+                                            List<Trade> trades =
+                                                    MarketManager.getTradeHistory();
+
+                                            if (trades.isEmpty()) {
+
+                                                player.sendSystemMessage(
+                                                        Component.literal(
+                                                                "No trade history."
+                                                        )
+                                                );
+
+                                                return 1;
+                                            }
+
+                                            player.sendSystemMessage(
+                                                    Component.literal(
+                                                            "=== Trade History ==="
+                                                    )
+                                            );
+
+                                            int start = Math.max(
+                                                    0,
+                                                    trades.size() - 20
+                                            );
+
+                                            for (int i = start;
+                                                 i < trades.size();
+                                                 i++) {
+
+                                                Trade trade =
+                                                        trades.get(i);
+
+                                                ServerPlayer buyerPlayer =
+                                                        context.getSource()
+                                                                .getServer()
+                                                                .getPlayerList()
+                                                                .getPlayer(
+                                                                        trade.getBuyer()
+                                                                );
+
+                                                ServerPlayer sellerPlayer =
+                                                        context.getSource()
+                                                                .getServer()
+                                                                .getPlayerList()
+                                                                .getPlayer(
+                                                                        trade.getSeller()
+                                                                );
+
+                                                String buyerName =
+                                                        buyerPlayer != null
+                                                                ? buyerPlayer.getName()
+                                                                        .getString()
+                                                                : trade.getBuyer()
+                                                                        .toString()
+                                                                        .substring(0, 8);
+
+                                                String sellerName =
+                                                        sellerPlayer != null
+                                                                ? sellerPlayer.getName()
+                                                                        .getString()
+                                                                : trade.getSeller()
+                                                                        .toString()
+                                                                        .substring(0, 8);
+
+                                                player.sendSystemMessage(
+                                                        Component.literal(
+                                                                trade.getCommodityId()
+                                                                        + " x"
+                                                                        + trade.getQuantity()
+                                                                        + " @"
+                                                                        + trade.getPrice()
+                                                                        + " | "
+                                                                        + buyerName
+                                                                        + " ← "
+                                                                        + sellerName
+                                                        )
+                                                );
+                                            }
+
+                                            return 1;
+                                        })
                         )
         );
     }

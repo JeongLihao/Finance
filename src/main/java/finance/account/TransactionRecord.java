@@ -23,6 +23,17 @@ public class TransactionRecord {
         this.timestamp = LocalDateTime.now();
     }
 
+    public TransactionRecord(
+            UUID from, UUID to, long amount, String type,
+            LocalDateTime timestamp
+    ) {
+        this.from = from;
+        this.to = to;
+        this.amount = amount;
+        this.type = type;
+        this.timestamp = timestamp;
+    }
+
     public UUID getFrom() {
         return from;
     }

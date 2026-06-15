@@ -7,12 +7,10 @@ import java.util.ArrayList;
 import java.util.List;
 import finance.data.EconomySavedData;
 
-
-import finance.data.EconomySavedData;
-
 public class AccountManager {
 
     private static final Map<UUID, Account> ACCOUNTS = new HashMap<>();
+    private static final List<TransactionRecord> TRANSACTIONS = new ArrayList<>();
 
     public static Account getAccount(UUID playerId) {
 
@@ -47,7 +45,7 @@ public class AccountManager {
 
     public static boolean transfer(UUID from, UUID to, long amount) {
 
-        if (amount <= 0) {
+        if (amount <= 0 || from.equals(to)) {
             return false;
         }
 
@@ -61,7 +59,7 @@ public class AccountManager {
         receiver.deposit(amount);
         EconomySavedData.markDirty();
 
-        TRANSACTIONS.add(
+        addTransactionRecord(
                 new TransactionRecord(
                         from,
                         to,
@@ -72,12 +70,35 @@ public class AccountManager {
 
         return true;
     }
-    private static final List<TransactionRecord> TRANSACTIONS = new ArrayList<>();
     public static List<TransactionRecord> getTransactions() {
         return TRANSACTIONS;
     }
     public static Map<UUID, Account> getAccounts() {
         return ACCOUNTS;
+    }
+
+    public static void addTransactionRecord(TransactionRecord record) {
+        TRANSACTIONS.add(record);
+        while (TRANSACTIONS.size() > 500) {
+            TRANSACTIONS.remove(0);
+        }
+    }
+
+    public static void clearTransactions() {
+        TRANSACTIONS.clear();
+    }
+
+    public static boolean freezeFunds(UUID playerId, long amount) {
+        boolean success = getAccount(playerId).freezeFunds(amount);
+        if (success) {
+            EconomySavedData.markDirty();
+        }
+        return success;
+    }
+
+    public static void unfreezeFunds(UUID playerId, long amount) {
+        getAccount(playerId).unfreezeFunds(amount);
+        EconomySavedData.markDirty();
     }
 
 
