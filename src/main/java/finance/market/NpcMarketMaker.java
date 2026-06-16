@@ -30,8 +30,8 @@ public class NpcMarketMaker {
     /** NPC 系统账户 UUID（nil UUID，不会与真实玩家冲突） */
     public static final UUID NPC_UUID = new UUID(0L, 0L);
 
-    /** 初始注入资金：10 亿 */
-    private static final long INITIAL_NPC_BALANCE = 1_000_000_000L;
+    /** 初始注入资金：1000 万 */
+    private static final long INITIAL_NPC_BALANCE = 10_000_000L;
 
     /** 每种商品初始库存 */
     private static final int INITIAL_NPC_STOCK = 100_000;
@@ -247,6 +247,23 @@ public class NpcMarketMaker {
     // ================================================================
     // Tick（由 FinanceMod.onServerTick 驱动）
     // ================================================================
+
+    /** 每个 MC 日 NPC 库存自然消耗 2%~5%，模拟外部市场需求 */
+    public static void naturalConsumeAll() {
+        for (MarketPrice mp : MARKET_PRICES.values()) {
+            String commodityId = mp.getCommodityId();
+            long stock = CommodityInventoryManager.getCommodityAmount(NPC_UUID, commodityId);
+            if (stock <= 0) continue;
+
+            double ratio = 0.02 + Math.random() * 0.03;
+            int consumeQty = (int) Math.max(1, Math.round(stock * ratio));
+            consumeQty = (int) Math.min(consumeQty, stock);
+
+            CommodityInventoryManager.removeCommodity(NPC_UUID, commodityId, consumeQty);
+            long newStock = CommodityInventoryManager.getCommodityAmount(NPC_UUID, commodityId);
+            mp.recomputePrice(newStock);
+        }
+    }
 
     public static void tickAllMomentum() {
         for (MarketPrice mp : MARKET_PRICES.values()) {

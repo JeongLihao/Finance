@@ -3,12 +3,12 @@ package finance.company;
 import java.util.UUID;
 
 /**
- * 系统公司初始化 —— 首次启动时自动创建基础蓝筹股公司。
- * 系统公司上限 5 家，当前创建 3 家，每家附带初始库存。
+ * 系统公司初始化 —— 首次启动时自动创建基础公司。
  */
 public class SystemCompanyInitializer {
 
-    private static final int MAX_SYSTEM_COMPANIES = 5;
+    private static final int INITIAL_CASH = 50_000;
+    private static final int INITIAL_STOCK = 200;
 
     public static void initialize() {
         if (!CompanyManager.getCompanies().isEmpty()) {
@@ -19,28 +19,38 @@ public class SystemCompanyInitializer {
                 UUID.randomUUID(),
                 "Iron Mining Corp",
                 CompanyType.MINING,
-                500_000
+                INITIAL_CASH
         );
-        ironMining.addInventory("iron", 5000);
-        ironMining.addInventory("coal", 2000);
+        ironMining.addInventory("iron", INITIAL_STOCK);
+        ironMining.addInventory("coal", INITIAL_STOCK);
         CompanyManager.register(ironMining);
 
         Company coalEnergy = new Company(
                 UUID.randomUUID(),
                 "Coal Energy Group",
                 CompanyType.ENERGY,
-                500_000
+                INITIAL_CASH
         );
-        coalEnergy.addInventory("coal", 5000);
+        coalEnergy.addInventory("coal", INITIAL_STOCK);
         CompanyManager.register(coalEnergy);
 
         Company wheatAgri = new Company(
                 UUID.randomUUID(),
                 "Wheat Agriculture Ltd",
                 CompanyType.AGRICULTURE,
-                500_000
+                INITIAL_CASH
         );
-        wheatAgri.addInventory("wheat", 5000);
+        wheatAgri.addInventory("wheat", INITIAL_STOCK);
         CompanyManager.register(wheatAgri);
+
+        Company steelMfg = new Company(
+                UUID.randomUUID(),
+                "Steel Manufacturing Inc",
+                CompanyType.MANUFACTURING,
+                INITIAL_CASH
+        );
+        steelMfg.addInventory("iron", INITIAL_STOCK);
+        steelMfg.addInventory("steel", 100);
+        CompanyManager.register(steelMfg);
     }
 }

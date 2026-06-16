@@ -34,6 +34,14 @@ public class CompanyManager {
         return null;
     }
 
+    /** 每日经营 tick —— 所有公司生产 + 自动交易（由 FinanceMod 每天调用一次） */
+    public static void tickAll() {
+        for (Company c : COMPANIES.values()) {
+            c.produce();
+            c.autoTrade();
+        }
+    }
+
     /** 清空所有公司（数据加载前调用） */
     public static void clearCompanies() {
         COMPANIES.clear();

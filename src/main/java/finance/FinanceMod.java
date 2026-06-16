@@ -15,6 +15,7 @@ import finance.command.CommodityCommand;
 import finance.command.InventoryCommand;
 import finance.command.CompaniesCommand;
 import finance.command.CompanyCommand;
+import finance.company.CompanyManager;
 import finance.company.SystemCompanyInitializer;
 import net.minecraftforge.event.server.ServerStartingEvent;
 import finance.data.EconomySavedData;
@@ -76,6 +77,15 @@ public class FinanceMod {
                         5
                 )
         );
+
+        CommodityRegistry.register(
+                new Commodity(
+                        "steel",
+                        "Steel",
+                        CommodityCategory.INDUSTRIAL,
+                        20
+                )
+        );
     }
 
     /** 注册所有命令 */
@@ -131,9 +141,11 @@ public class FinanceMod {
         int tick = server.getTickCount();
         if (tick <= 0) return;
 
-        // 每个MC天发出一轮事件脉冲（24000 ticks）
+        // 每个MC天发出一轮事件脉冲 + 公司经营（24000 ticks）
         if (tick % 24000 == 0) {
             EventManager.onDayTick(server);
+            CompanyManager.tickAll();
+            NpcMarketMaker.naturalConsumeAll();
         }
 
         // 每3分钟刷新噪音（3600 ticks）
