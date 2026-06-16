@@ -21,6 +21,7 @@ import net.minecraft.server.level.ServerPlayer;
 import finance.commodity.CommodityInventoryManager;
 import finance.account.AccountManager;
 import finance.event.EventManager;
+import finance.company.CompanyManager;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -1014,6 +1015,7 @@ public class MarketCommand {
                                                         .executes(context -> {
                                                             EventManager.onDayTick(
                                                                     context.getSource().getServer());
+                                                            CompanyManager.tickAll();
                                                             context.getSource().sendSuccess(
                                                                     () -> Component.literal(
                                                                             "完成。" + EventManager.getTimerSummary()
