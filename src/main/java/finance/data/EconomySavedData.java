@@ -194,10 +194,41 @@ public class EconomySavedData extends SavedData {
             priceTag.putLong("MidPrice", mp.getMidPrice());
             priceTag.putLong("BasePrice", mp.getBasePrice());
             priceTag.putDouble("Spread", mp.getSpread());
+
+            // 24h 统计
+            priceTag.putLong("DayHigh", mp.getDayHigh());
+            priceTag.putLong("DayLow", mp.getDayLow());
+            priceTag.putInt("DayVolume", mp.getDayVolume());
+            priceTag.putLong("DayOpen", mp.getDayOpen());
+
             pricesTag.add(priceTag);
         }
 
         tag.put("MarketPrices", pricesTag);
+
+        // ---- 保存价格快照 ----
+        ListTag snapshotsTag = new ListTag();
+
+        for (MarketPrice mp :
+                NpcMarketMaker.getAllMarketPrices().values()) {
+
+            CompoundTag commoditySnapTag = new CompoundTag();
+            commoditySnapTag.putString("CommodityId", mp.getCommodityId());
+
+            ListTag snapsList = new ListTag();
+            for (MarketPrice.PriceSnapshot snap : mp.getSnapshots()) {
+                CompoundTag snapTag = new CompoundTag();
+                snapTag.putLong("Timestamp",
+                        snap.getTimestamp().toEpochSecond(ZoneOffset.UTC));
+                snapTag.putLong("Price", snap.getPrice());
+                snapTag.putInt("Volume", snap.getVolume());
+                snapsList.add(snapTag);
+            }
+            commoditySnapTag.put("Snapshots", snapsList);
+            snapshotsTag.add(commoditySnapTag);
+        }
+
+        tag.put("PriceSnapshots", snapshotsTag);
 
         return tag;
     }
@@ -400,7 +431,62 @@ public class EconomySavedData extends SavedData {
                 );
                 mp.setMidPrice(midPrice);
 
+                // 恢复 24h 统计
+                if (priceTag.contains("DayOpen")) {
+                    mp.setDayOpen(priceTag.getLong("DayOpen"));
+                }
+
                 NpcMarketMaker.putMarketPrice(commodityId, mp);
+            }
+        }
+
+        // ---- 加载价格快照 ----
+        if (tag.contains("PriceSnapshots")) {
+
+            ListTag snapshotsTag = tag.getList(
+                    "PriceSnapshots",
+                    Tag.TAG_COMPOUND
+            );
+
+            for (Tag rawTag : snapshotsTag) {
+
+                CompoundTag commoditySnapTag = (CompoundTag) rawTag;
+                String commodityId =
+                        commoditySnapTag.getString("CommodityId");
+
+                MarketPrice mp =
+                        NpcMarketMaker.getMarketPrice(commodityId);
+                if (mp == null) {
+                    continue;
+                }
+
+                ListTag snapsList = commoditySnapTag.getList(
+                        "Snapshots",
+                        Tag.TAG_COMPOUND
+                );
+
+                for (Tag rawSnap : snapsList) {
+
+                    CompoundTag snapTag = (CompoundTag) rawSnap;
+                    long epochSeconds = snapTag.getLong("Timestamp");
+                    long price = snapTag.getLong("Price");
+                    int volume = snapTag.getInt("Volume");
+
+                    MarketPrice.PriceSnapshot snap =
+                            new MarketPrice.PriceSnapshot(
+                                    LocalDateTime.ofEpochSecond(
+                                            epochSeconds,
+                                            0,
+                                            ZoneOffset.UTC
+                                    ),
+                                    price,
+                                    volume
+                            );
+
+                    mp.getSnapshots().add(snap);
+                }
+
+                mp.recomputeDayStats();
             }
         }
 
