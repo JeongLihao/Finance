@@ -197,9 +197,17 @@ public class NpcMarketMaker {
             AccountManager.deposit(NPC_UUID, INITIAL_NPC_BALANCE - npcBalance);
         }
 
-        // 注入初始库存（每种商品给 10 万）
+        // 预创建价格 + 注入初始库存（每种商品给 10 万）
         for (Commodity commodity : CommodityRegistry.getAllCommodities()) {
             String id = commodity.getId();
+
+            // 确保价格条目存在（数据加载后可能已存在，跳过）
+            if (!MARKET_PRICES.containsKey(id)) {
+                MARKET_PRICES.put(id, new MarketPrice(
+                        id, commodity.getBasePrice(), DEFAULT_SPREAD
+                ));
+            }
+
             int currentStock = CommodityInventoryManager.getCommodityAmount(NPC_UUID, id);
             if (currentStock < INITIAL_NPC_STOCK) {
                 CommodityInventoryManager.addCommodity(NPC_UUID, id, INITIAL_NPC_STOCK - currentStock);
