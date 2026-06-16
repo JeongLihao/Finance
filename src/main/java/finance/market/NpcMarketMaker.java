@@ -91,6 +91,10 @@ public class NpcMarketMaker {
                 new Trade(NPC_UUID, playerId, commodityId, bidPrice, quantity)
         );
 
+        // 7. 动态价格调整：玩家卖出 → 供过于求 → 降价
+        price.adjustAfterNpcBuy(quantity);
+        price.recordTrade(bidPrice, quantity);
+
         return true;
     }
 
@@ -137,6 +141,10 @@ public class NpcMarketMaker {
         MarketManager.addTradeToHistory(
                 new Trade(playerId, NPC_UUID, commodityId, askPrice, quantity)
         );
+
+        // 7. 动态价格调整：玩家买入 → 供不应求 → 涨价
+        price.adjustAfterNpcSell(quantity);
+        price.recordTrade(askPrice, quantity);
 
         return true;
     }

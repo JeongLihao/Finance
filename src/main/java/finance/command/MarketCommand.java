@@ -33,6 +33,8 @@ import java.util.List;
  *   <li>/market npc buy ＜commodity＞ ＜quantity＞ —— 卖给 NPC</li>
  *   <li>/market npc sell ＜commodity＞ ＜quantity＞ —— 从 NPC 购买</li>
  *   <li>/market npc prices —— 查看 NPC 报价</li>
+ *   <li>/market price —— 查看所有商品行情（价格 + 涨跌幅 + 成交量）</li>
+ *   <li>/market price ＜commodity＞ —— 查看单个商品详情</li>
  * </ul>
  */
 public class MarketCommand {
@@ -762,6 +764,152 @@ public class MarketCommand {
                                                                         )
                                                                 );
                                                             }
+
+                                                            return 1;
+                                                        })
+                                        )
+                        )
+
+                        // ================================================
+                        // /market price —— 行情查询
+                        // ================================================
+                        .then(
+                                Commands.literal("price")
+
+                                        // /market price —— 所有商品概览
+                                        .executes(context -> {
+
+                                            ServerPlayer player =
+                                                    context.getSource()
+                                                            .getPlayerOrException();
+
+                                            Collection<MarketPrice> allPrices =
+                                                    NpcMarketMaker.getAllMarketPrices()
+                                                            .values();
+
+                                            if (allPrices.isEmpty()) {
+
+                                                player.sendSystemMessage(
+                                                        Component.literal(
+                                                                "No market data available."
+                                                        )
+                                                );
+
+                                                return 1;
+                                            }
+
+                                            player.sendSystemMessage(
+                                                    Component.literal(
+                                                            "=== Market Prices ==="
+                                                    )
+                                            );
+
+                                            for (MarketPrice mp : allPrices) {
+
+                                                long bid = mp.getBidPrice();
+                                                long ask = mp.getAskPrice();
+                                                double change = mp.getDayChange();
+                                                int vol = mp.getDayVolume();
+
+                                                String changeStr;
+                                                if (change > 0) {
+                                                    changeStr = " +" + String.format("%.0f", change) + "%";
+                                                } else if (change < 0) {
+                                                    changeStr = " " + String.format("%.0f", change) + "%";
+                                                } else {
+                                                    changeStr = " 0%";
+                                                }
+
+                                                player.sendSystemMessage(
+                                                        Component.literal(
+                                                                mp.getCommodityId()
+                                                                        + "  " + mp.getMidPrice()
+                                                                        + changeStr
+                                                                        + "  Buy:" + bid
+                                                                        + "  Sell:" + ask
+                                                                        + "  Vol:" + vol
+                                                        )
+                                                );
+                                            }
+
+                                            return 1;
+                                        })
+
+                                        // /market price <commodity> —— 单个商品详情
+                                        .then(
+                                                Commands.argument(
+                                                                "commodity",
+                                                                StringArgumentType.word()
+                                                        )
+
+                                                        .executes(context -> {
+
+                                                            ServerPlayer player =
+                                                                    context.getSource()
+                                                                            .getPlayerOrException();
+
+                                                            String commodity =
+                                                                    StringArgumentType.getString(
+                                                                            context,
+                                                                            "commodity"
+                                                                    );
+
+                                                            MarketPrice mp =
+                                                                    NpcMarketMaker.getMarketPrice(commodity);
+
+                                                            if (mp == null) {
+
+                                                                player.sendSystemMessage(
+                                                                        Component.literal(
+                                                                                "Unknown commodity: '"
+                                                                                        + commodity + "'."
+                                                                        )
+                                                                );
+
+                                                                return 0;
+                                                            }
+
+                                                            long bid = mp.getBidPrice();
+                                                            long ask = mp.getAskPrice();
+                                                            double change = mp.getDayChange();
+
+                                                            String changeStr;
+                                                            if (change > 0) {
+                                                                changeStr = "+" + String.format("%.0f", change) + "%";
+                                                            } else if (change < 0) {
+                                                                changeStr = String.format("%.0f", change) + "%";
+                                                            } else {
+                                                                changeStr = "0%";
+                                                            }
+
+                                                            player.sendSystemMessage(
+                                                                    Component.literal(
+                                                                            "=== " + commodity + " ==="
+                                                                    )
+                                                            );
+
+                                                            player.sendSystemMessage(
+                                                                    Component.literal(
+                                                                            "Price: " + mp.getMidPrice()
+                                                                                    + "  Bid: " + bid
+                                                                                    + "  Ask: " + ask
+                                                                    )
+                                                            );
+
+                                                            player.sendSystemMessage(
+                                                                    Component.literal(
+                                                                            "24h High: " + mp.getDayHigh()
+                                                                                    + "  Low: " + mp.getDayLow()
+                                                                                    + "  Volume: " + mp.getDayVolume()
+                                                                    )
+                                                            );
+
+                                                            player.sendSystemMessage(
+                                                                    Component.literal(
+                                                                            "Change: " + changeStr
+                                                                                    + "  Base: " + mp.getBasePrice()
+                                                                    )
+                                                            );
 
                                                             return 1;
                                                         })

@@ -26,8 +26,7 @@ public class BalanceCommand {
                                     Component.literal("Balance: " + balance)
                             );
 
-                            return 1;
-                        })
+                            return 1;})
         );
     }
 }
