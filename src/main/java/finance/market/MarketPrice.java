@@ -11,7 +11,7 @@ import finance.event.MarketEvent;
  *
  * <h3>定价机制（混合模型 D）</h3>
  * <pre>
- *   finalPrice = fundamentalPrice + tradeMomentum + noiseOffset + eventImpact
+ *   finalPrice = fundamentalPrice × (1 + tradeMomentum) + noiseOffset (+ eventImpact via fundamentalPrice multiplier)
  * </pre>
  * <ul>
  *   <li>fundamentalPrice = basePrice × REFERENCE_STOCK / npcStock（库存驱动，主导 ~70%）</li>
@@ -234,7 +234,7 @@ public class MarketPrice {
         // 3. 动能 × 基准价 + 噪音整价偏移
         long price = Math.round(fundamental * (1.0 + tradeMomentum)) + noiseOffset;
 
-        // 5. 限制波动范围
+        // 4. 限制波动范围
         long floor = Math.max(1, Math.round(basePrice * MIN_PRICE_RATIO));
         long ceiling = Math.round(basePrice * MAX_PRICE_RATIO);
         midPrice = Math.max(floor, Math.min(ceiling, price));
@@ -309,6 +309,11 @@ public class MarketPrice {
         snapshots.clear();
         tradeMomentum = 0;
         noiseOffset = 0;
+    }
+
+    /** 设置最近一次计算的 NPC 库存（持久化恢复后使用，使 recalculateFromCurrent 可用） */
+    public void setLastNpcStock(long stock) {
+        this.lastNpcStock = stock;
     }
 
     /**

@@ -3,6 +3,8 @@ package finance.command;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.LongArgumentType;
 import finance.account.AccountManager;
+import finance.account.TransactionRecord;
+import finance.account.TransactionType;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.EntityArgument;
@@ -52,6 +54,19 @@ public class FinanceCommand {
                                                                             AccountManager.deposit(
                                                                                     target.getUUID(),
                                                                                     amount
+                                                                            );
+
+                                                                            ServerPlayer source =
+                                                                                    context.getSource()
+                                                                                            .getPlayerOrException();
+
+                                                                            AccountManager.addTransactionRecord(
+                                                                                    new TransactionRecord(
+                                                                                            source.getUUID(),
+                                                                                            target.getUUID(),
+                                                                                            amount,
+                                                                                            TransactionType.ADMIN_GIVE
+                                                                                    )
                                                                             );
 
                                                                             context.getSource().sendSuccess(

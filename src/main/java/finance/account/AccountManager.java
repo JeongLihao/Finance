@@ -90,7 +90,7 @@ public class AccountManager {
                         from,
                         to,
                         amount,
-                        "TRANSFER"
+                        TransactionType.TRANSFER
                 )
         );
 
