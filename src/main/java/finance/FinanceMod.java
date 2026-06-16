@@ -47,7 +47,7 @@ public class FinanceMod {
                         "iron",
                         "Iron",
                         CommodityCategory.RAW_MATERIAL,
-                        100
+                        10
                 )
         );
 
@@ -56,7 +56,7 @@ public class FinanceMod {
                         "wheat",
                         "Wheat",
                         CommodityCategory.FOOD,
-                        30
+                        8
                 )
         );
 
@@ -65,7 +65,7 @@ public class FinanceMod {
                         "coal",
                         "Coal",
                         CommodityCategory.ENERGY,
-                        50
+                        5
                 )
         );
     }

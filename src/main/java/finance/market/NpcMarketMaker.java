@@ -91,8 +91,9 @@ public class NpcMarketMaker {
                 new Trade(NPC_UUID, playerId, commodityId, bidPrice, quantity)
         );
 
-        // 7. 动态价格调整：玩家卖出 → 供过于求 → 降价
-        price.adjustAfterNpcBuy(quantity);
+        // 7. 库存驱动价格更新
+        long newNpcStock = CommodityInventoryManager.getCommodityAmount(NPC_UUID, commodityId);
+        price.recomputePrice(newNpcStock);
         price.recordTrade(bidPrice, quantity);
 
         return true;
@@ -142,8 +143,9 @@ public class NpcMarketMaker {
                 new Trade(playerId, NPC_UUID, commodityId, askPrice, quantity)
         );
 
-        // 7. 动态价格调整：玩家买入 → 供不应求 → 涨价
-        price.adjustAfterNpcSell(quantity);
+        // 7. 库存驱动价格更新
+        long newNpcStock = CommodityInventoryManager.getCommodityAmount(NPC_UUID, commodityId);
+        price.recomputePrice(newNpcStock);
         price.recordTrade(askPrice, quantity);
 
         return true;
