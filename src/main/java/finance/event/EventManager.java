@@ -78,40 +78,42 @@ public class EventManager {
             }
         }
 
-        // ---- 独立计时器触发（高级优先） ----
+        // ---- 独立计时器触发（互不干扰，可在同一天同时触发） ----
         List<String> commodityIds = CommodityRegistry.getAllCommodities()
                 .stream().map(c -> c.getId()).toList();
 
-        if (commodityIds.isEmpty()) return;
-
-        EventTier tier = null;
-        if (timerBlackSwan >= TIMER_BLACK_SWAN) {
-            tier = EventTier.BLACK_SWAN;
-            timerBlackSwan = 0;
-        } else if (timerMajor >= TIMER_MAJOR) {
-            tier = EventTier.MAJOR;
-            timerMajor = 0;
-        } else if (timerMinor >= TIMER_MINOR) {
-            tier = EventTier.MINOR;
-            timerMinor = 0;
-        }
-
-        if (tier != null) {
-            MarketEvent newEvent = EventTemplates.roll(tier, commodityIds);
-            if (newEvent != null) {
-                activeEvents.add(newEvent);
-
-                if (newEvent.affectsAll()) {
-                    NpcMarketMaker.applyEventToAll(newEvent);
-                } else {
-                    NpcMarketMaker.applyEvent(newEvent.getCommodityId(), newEvent);
-                }
-
-                broadcastEvent(server, newEvent);
+        if (!commodityIds.isEmpty()) {
+            if (timerBlackSwan >= TIMER_BLACK_SWAN) {
+                timerBlackSwan = 0;
+                fireEvent(EventTier.BLACK_SWAN, commodityIds, server);
+            }
+            if (timerMajor >= TIMER_MAJOR) {
+                timerMajor = 0;
+                fireEvent(EventTier.MAJOR, commodityIds, server);
+            }
+            if (timerMinor >= TIMER_MINOR) {
+                timerMinor = 0;
+                fireEvent(EventTier.MINOR, commodityIds, server);
             }
         }
 
         EconomySavedData.markDirty();
+    }
+
+    private static void fireEvent(EventTier tier, List<String> commodityIds,
+                                   MinecraftServer server) {
+        MarketEvent newEvent = EventTemplates.roll(tier, commodityIds);
+        if (newEvent == null) return;
+
+        activeEvents.add(newEvent);
+
+        if (newEvent.affectsAll()) {
+            NpcMarketMaker.applyEventToAll(newEvent);
+        } else {
+            NpcMarketMaker.applyEvent(newEvent.getCommodityId(), newEvent);
+        }
+
+        broadcastEvent(server, newEvent);
     }
 
     // ================================================================
@@ -155,23 +157,12 @@ public class EventManager {
     }
 
     /** 测试命令：直接触发指定等级的事件 */
-    public static void fireTestEvent(EventTier tier, net.minecraft.server.MinecraftServer server) {
+    public static void fireTestEvent(EventTier tier, MinecraftServer server) {
         List<String> commodityIds = CommodityRegistry.getAllCommodities()
                 .stream().map(c -> c.getId()).toList();
         if (commodityIds.isEmpty()) return;
 
-        MarketEvent event = EventTemplates.roll(tier, commodityIds);
-        if (event == null) return;
-
-        activeEvents.add(event);
-
-        if (event.affectsAll()) {
-            NpcMarketMaker.applyEventToAll(event);
-        } else {
-            NpcMarketMaker.applyEvent(event.getCommodityId(), event);
-        }
-
-        broadcastEvent(server, event);
+        fireEvent(tier, commodityIds, server);
         EconomySavedData.markDirty();
     }
 

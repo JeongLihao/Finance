@@ -5,6 +5,7 @@ import java.util.Map;
 import java.util.UUID;
 import finance.account.AccountManager;
 import finance.account.TransactionRecord;
+import finance.account.TransactionType;
 import finance.commodity.CommodityInventoryManager;
 import finance.commodity.CommodityRegistry;
 import finance.commodity.Commodity;
@@ -60,6 +61,9 @@ public class NpcMarketMaker {
         }
 
         MarketPrice price = getMarketPrice(commodityId);
+        if (price == null) {
+            return false;
+        }
         long bidPrice = price.getBidPrice();
         long totalPayment = bidPrice * quantity;
 
@@ -84,7 +88,7 @@ public class NpcMarketMaker {
 
         // 5. 记录流水
         AccountManager.addTransactionRecord(
-                new TransactionRecord(NPC_UUID, playerId, totalPayment, "NPC_BUY")
+                new TransactionRecord(NPC_UUID, playerId, totalPayment, TransactionType.NPC_BUY)
         );
 
         // 6. 记录成交（NPC 是买方，玩家是卖方）
@@ -112,6 +116,9 @@ public class NpcMarketMaker {
         }
 
         MarketPrice price = getMarketPrice(commodityId);
+        if (price == null) {
+            return false;
+        }
         long askPrice = price.getAskPrice();
         long totalCost = askPrice * quantity;
 
@@ -136,7 +143,7 @@ public class NpcMarketMaker {
 
         // 5. 记录流水
         AccountManager.addTransactionRecord(
-                new TransactionRecord(playerId, NPC_UUID, totalCost, "NPC_SELL")
+                new TransactionRecord(playerId, NPC_UUID, totalCost, TransactionType.NPC_SELL)
         );
 
         // 6. 记录成交（玩家是买方，NPC 是卖方）
@@ -208,29 +215,28 @@ public class NpcMarketMaker {
             AccountManager.deposit(NPC_UUID, INITIAL_NPC_BALANCE - npcBalance);
         }
 
-        // 预创建价格 + 注入初始库存（每种商品给 10 万）
+        // 预创建价格 + 注入初始库存
         for (Commodity commodity : CommodityRegistry.getAllCommodities()) {
             String id = commodity.getId();
+            long actualStock = CommodityInventoryManager.getCommodityAmount(NPC_UUID, id);
 
-            // 确保价格条目存在（数据加载后可能已存在，跳过）
             MarketPrice mp = MARKET_PRICES.get(id);
             if (mp == null) {
-                mp = new MarketPrice(
-                        id, commodity.getBasePrice(), DEFAULT_SPREAD
-                );
+                // 新商品：创建 MarketPrice，注入初始库存，计算基础价格
+                mp = new MarketPrice(id, commodity.getBasePrice(), DEFAULT_SPREAD);
                 MARKET_PRICES.put(id, mp);
-            }
 
-            // 重置库存到基准值（每次服务器启动统一重置）
-            int currentStock = CommodityInventoryManager.getCommodityAmount(NPC_UUID, id);
-            if (currentStock < INITIAL_NPC_STOCK) {
-                CommodityInventoryManager.addCommodity(NPC_UUID, id, INITIAL_NPC_STOCK - currentStock);
+                if (actualStock < INITIAL_NPC_STOCK) {
+                    CommodityInventoryManager.addCommodity(NPC_UUID, id, (int)(INITIAL_NPC_STOCK - actualStock));
+                }
+                long stockAfterSeed = CommodityInventoryManager.getCommodityAmount(NPC_UUID, id);
+                mp.recomputePrice(stockAfterSeed);
+                mp.resetDayStats();
+            } else {
+                // 从磁盘恢复的已有商品：保持加载的价格，只重置日内统计
+                mp.setLastNpcStock(actualStock);
+                mp.resetDayStats();
             }
-
-            // 基于实际库存重新计算价格，重置 24h 统计
-            long actualStock = CommodityInventoryManager.getCommodityAmount(NPC_UUID, id);
-            mp.recomputePrice(actualStock);
-            mp.resetDayStats();
         }
     }
 

@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Iterator;
 import finance.account.AccountManager;
 import finance.account.TransactionRecord;
+import finance.account.TransactionType;
 import finance.data.EconomySavedData;
 import java.util.UUID;
 import finance.commodity.CommodityInventoryManager;
@@ -24,6 +25,10 @@ import finance.commodity.CommodityInventoryManager;
  *
  * <h3>数据结构</h3>
  * ORDERS 是订单簿（当前所有未成交订单），TRADE_HISTORY 是成交历史（最多 500 条）。
+ *
+ * <h3>已知限制</h3>
+ * P2P 订单簿与 NPC 做市商是两套独立交易系统，同一商品在两处的价格可以不同，
+ * 存在理论上的跨市场套利空间。未来可考虑统一报价或对 P2P 订单收取手续费来缩小价差。
  */
 public class MarketManager {
 
@@ -206,7 +211,7 @@ public class MarketManager {
                             buyer,
                             seller,
                             paymentAmount,
-                            "MARKET_TRADE"
+                            TransactionType.MARKET_TRADE
                     )
             );
 
@@ -219,6 +224,13 @@ public class MarketManager {
                             tradeQty
                     )
             );
+
+            // 记录到行情统计（P2P 交易也贡献日内成交量和价格快照）
+            MarketPrice mp = NpcMarketMaker.getMarketPrice(
+                    newOrder.getCommodityId());
+            if (mp != null) {
+                mp.recordTrade(tradePrice, tradeQty);
+            }
 
             // Step 4: 更新订单数量
             remaining -= tradeQty;

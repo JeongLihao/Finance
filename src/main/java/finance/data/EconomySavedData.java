@@ -13,6 +13,7 @@ import finance.market.MarketPrice;
 import finance.market.NpcMarketMaker;
 import finance.market.Order;
 import finance.market.OrderType;
+import finance.account.TransactionType;
 import finance.market.Trade;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
@@ -99,7 +100,7 @@ public class EconomySavedData extends SavedData {
             txTag.putUUID("From", record.getFrom());
             txTag.putUUID("To", record.getTo());
             txTag.putLong("Amount", record.getAmount());
-            txTag.putString("Type", record.getType());
+            txTag.putString("Type", record.getType().name());
 
             txTag.putLong(
                     "Timestamp",
@@ -319,7 +320,8 @@ public class EconomySavedData extends SavedData {
                 UUID from = txTag.getUUID("From");
                 UUID to = txTag.getUUID("To");
                 long amount = txTag.getLong("Amount");
-                String type = txTag.getString("Type");
+                TransactionType type = TransactionType.valueOf(
+                        txTag.getString("Type"));
 
                 long epochSeconds = txTag.getLong("Timestamp");
 
