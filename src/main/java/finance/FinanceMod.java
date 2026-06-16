@@ -13,6 +13,8 @@ import finance.commodity.CommodityRegistry;
 import finance.command.MarketCommand;
 import finance.command.CommodityCommand;
 import finance.command.InventoryCommand;
+import finance.command.CompaniesCommand;
+import finance.company.SystemCompanyInitializer;
 import net.minecraftforge.event.server.ServerStartingEvent;
 import finance.data.EconomySavedData;
 import finance.data.CommodityInventorySavedData;
@@ -33,6 +35,7 @@ import net.minecraftforge.event.TickEvent.ServerTickEvent;
  *   <li>/market price [commodity] | top | losers —— 行情查询、涨跌排行</li>
  *   <li>/commodity give —— 管理员发商品（需要 OP）</li>
  *   <li>/inventory —— 查看商品库存</li>
+ *   <li>/companies —— 查看注册公司</li>
  * </ul>
  */
 @Mod(FinanceMod.MOD_ID)
@@ -88,6 +91,8 @@ public class FinanceMod {
         CommodityCommand.register(event.getDispatcher());
 
         InventoryCommand.register(event.getDispatcher());
+
+        CompaniesCommand.register(event.getDispatcher());
     }
 
     /** 服务器启动时加载持久化数据 */
@@ -106,6 +111,9 @@ public class FinanceMod {
 
         // 初始化 NPC 做市商
         NpcMarketMaker.seedNpcIfNeeded();
+
+        // 初始化系统公司
+        SystemCompanyInitializer.initialize();
     }
 
     /** Tick 调度 —— 驱动事件压力、动量衰减和噪音刷新 */
