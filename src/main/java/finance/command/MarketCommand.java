@@ -981,6 +981,31 @@ public class MarketCommand {
                         )
 
                         // ================================================
+                        // /market overview —— 市场概览（全部商品一行一个）
+                        // ================================================
+                        .then(
+                                Commands.literal("overview")
+                                        .executes(context -> {
+                                            ServerPlayer player = context.getSource().getPlayerOrException();
+                                            Collection<MarketPrice> all = NpcMarketMaker.getAllMarketPrices().values();
+                                            if (all.isEmpty()) {
+                                                player.sendSystemMessage(Component.literal("No market data."));
+                                                return 1;
+                                            }
+                                            player.sendSystemMessage(Component.literal("=== MARKET OVERVIEW ==="));
+                                            for (MarketPrice mp : all) {
+                                                String changeStr = formatDayChange(mp.getDayChange());
+                                                player.sendSystemMessage(Component.literal(
+                                                        mp.getCommodityId()
+                                                                + "  " + mp.getMidPrice()
+                                                                + "  " + changeStr
+                                                                + "  " + formatMomentum(mp.getTradeMomentum())));
+                                            }
+                                            return 1;
+                                        })
+                        )
+
+                        // ================================================
                         // /market debug nextday —— 手动推进一个 MC 天（测试用）
                         // ================================================
                         .then(
