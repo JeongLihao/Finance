@@ -59,7 +59,7 @@ public class PayCommand {
 
                                                                 sender.sendSystemMessage(
                                                                         Component.literal(
-                                                                                "Not enough balance."
+                                                                                "余额不足。"
                                                                         )
                                                                 );
 
@@ -68,19 +68,19 @@ public class PayCommand {
 
                                                             sender.sendSystemMessage(
                                                                     Component.literal(
-                                                                            "Paid "
-                                                                                    + amount
-                                                                                    + " to "
+                                                                            "已向 "
                                                                                     + target.getName().getString()
+                                                                                    + " 支付 "
+                                                                                    + amount
                                                                     )
                                                             );
 
                                                             target.sendSystemMessage(
                                                                     Component.literal(
-                                                                            "Received "
-                                                                                    + amount
-                                                                                    + " from "
+                                                                            "收到来自 "
                                                                                     + sender.getName().getString()
+                                                                                    + " 的 "
+                                                                                    + amount
                                                                     )
                                                             );
 

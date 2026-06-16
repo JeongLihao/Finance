@@ -23,7 +23,7 @@ public class BalanceCommand {
                             long balance = AccountManager.getBalance(player.getUUID());
 
                             player.sendSystemMessage(
-                                    Component.literal("Balance: " + balance)
+                                    Component.literal("余额: " + balance)
                             );
 
                             return 1;})

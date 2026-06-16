@@ -14,6 +14,7 @@ import finance.command.MarketCommand;
 import finance.command.CommodityCommand;
 import finance.command.InventoryCommand;
 import finance.command.CompaniesCommand;
+import finance.command.CompanyCommand;
 import finance.company.SystemCompanyInitializer;
 import net.minecraftforge.event.server.ServerStartingEvent;
 import finance.data.EconomySavedData;
@@ -36,6 +37,7 @@ import net.minecraftforge.event.TickEvent.ServerTickEvent;
  *   <li>/commodity give —— 管理员发商品（需要 OP）</li>
  *   <li>/inventory —— 查看商品库存</li>
  *   <li>/companies —— 查看注册公司</li>
+ *   <li>/company info <name> —— 查询公司详情与估值</li>
  * </ul>
  */
 @Mod(FinanceMod.MOD_ID)
@@ -93,6 +95,8 @@ public class FinanceMod {
         InventoryCommand.register(event.getDispatcher());
 
         CompaniesCommand.register(event.getDispatcher());
+
+        CompanyCommand.register(event.getDispatcher());
     }
 
     /** 服务器启动时加载持久化数据 */
