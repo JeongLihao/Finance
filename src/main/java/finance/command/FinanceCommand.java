@@ -71,10 +71,10 @@ public class FinanceCommand {
 
                                                                             context.getSource().sendSuccess(
                                                                                     () -> Component.literal(
-                                                                                            "Gave "
-                                                                                                    + amount
-                                                                                                    + " to "
+                                                                                            "已向 "
                                                                                                     + target.getName().getString()
+                                                                                                    + " 发放 "
+                                                                                                    + amount
                                                                                     ),
                                                                                     true
                                                                             );

@@ -24,6 +24,16 @@ public class CompanyManager {
         return COMPANIES.get(id);
     }
 
+    /** 按名称查找公司（忽略大小写），无匹配返回 null */
+    public static Company getCompanyByName(String name) {
+        for (Company c : COMPANIES.values()) {
+            if (c.getName().equalsIgnoreCase(name)) {
+                return c;
+            }
+        }
+        return null;
+    }
+
     /** 清空所有公司（数据加载前调用） */
     public static void clearCompanies() {
         COMPANIES.clear();

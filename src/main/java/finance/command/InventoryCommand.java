@@ -33,7 +33,7 @@ public class InventoryCommand {
                                             .getInventory(player.getUUID());
 
                             player.sendSystemMessage(
-                                    Component.literal("=== Inventory ===")
+                                    Component.literal("=== 商品库存 ===")
                             );
 
                             for (Map.Entry<String, Integer> entry :

@@ -75,7 +75,7 @@ public class CommodityCommand {
                                                                                             context.getSource()
                                                                                                     .sendSuccess(
                                                                                                             () -> Component.literal(
-                                                                                                                    "Given "
+                                                                                                                    "已发放 "
                                                                                                                             + amount
                                                                                                                             + " "
                                                                                                                             + commodity

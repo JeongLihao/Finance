@@ -71,7 +71,7 @@ public class MarketCommand {
 
                                                 player.sendSystemMessage(
                                                         Component.literal(
-                                                                "No open orders."
+                                                                "暂无挂单。"
                                                         )
                                                 );
 
@@ -80,7 +80,7 @@ public class MarketCommand {
 
                                             player.sendSystemMessage(
                                                     Component.literal(
-                                                            "=== Open Orders ==="
+                                                            "=== 当前挂单 ==="
                                                     )
                                             );
 
@@ -119,7 +119,7 @@ public class MarketCommand {
                                                                         + order.getQuantity()
                                                                         + " @"
                                                                         + order.getPrice()
-                                                                        + " by "
+                                                                        + " 挂单者: "
                                                                         + owner
                                                         )
                                                 );
@@ -190,9 +190,9 @@ public class MarketCommand {
 
                                                                                                 player.sendSystemMessage(
                                                                                                         Component.literal(
-                                                                                                                "Not enough balance. "
-                                                                                                                        + "Need: " + totalCost
-                                                                                                                        + " Have: " + balance
+                                                                                                                "余额不足，"
+                                                                                                                        + "需要: " + totalCost
+                                                                                                                        + " 拥有: " + balance
                                                                                                         )
                                                                                                 );
 
@@ -212,7 +212,7 @@ public class MarketCommand {
 
                                                                                             player.sendSystemMessage(
                                                                                                     Component.literal(
-                                                                                                            "Buy order placed: "
+                                                                                                            "买单已挂: "
                                                                                                                     + quantity
                                                                                                                     + "x "
                                                                                                                     + commodity
@@ -288,9 +288,9 @@ public class MarketCommand {
 
                                                                                                 player.sendSystemMessage(
                                                                                                         Component.literal(
-                                                                                                                "Not enough commodity. "
-                                                                                                                        + "Have: " + owned
-                                                                                                                        + " Need: " + quantity
+                                                                                                                "库存不足，commodity. "
+                                                                                                                        + "拥有: " + owned
+                                                                                                                        + " 需要: " + quantity
                                                                                                         )
                                                                                                 );
 
@@ -310,7 +310,7 @@ public class MarketCommand {
 
                                                                                             player.sendSystemMessage(
                                                                                                     Component.literal(
-                                                                                                            "Sell order placed: "
+                                                                                                            "卖单已挂: "
                                                                                                                     + quantity
                                                                                                                     + "x "
                                                                                                                     + commodity
@@ -360,9 +360,7 @@ public class MarketCommand {
 
                                                                 player.sendSystemMessage(
                                                                         Component.literal(
-                                                                                "Cancel failed. "
-                                                                                        + "Check the index "
-                                                                                        + "or that it is your order."
+                                                                                "取消失败，请检查编号是否是你的订单。"
                                                                         )
                                                                 );
 
@@ -371,9 +369,9 @@ public class MarketCommand {
 
                                                             player.sendSystemMessage(
                                                                     Component.literal(
-                                                                            "Order #"
+                                                                            "订单 #"
                                                                                     + index
-                                                                                    + " cancelled."
+                                                                                    + " 已取消。"
                                                                     )
                                                             );
 
@@ -400,7 +398,7 @@ public class MarketCommand {
 
                                                 player.sendSystemMessage(
                                                         Component.literal(
-                                                                "No trade history."
+                                                                "暂无成交记录。"
                                                         )
                                                 );
 
@@ -409,7 +407,7 @@ public class MarketCommand {
 
                                             player.sendSystemMessage(
                                                     Component.literal(
-                                                            "=== Trade History ==="
+                                                            "=== 成交记录 ==="
                                                     )
                                             );
 
@@ -483,16 +481,16 @@ public class MarketCommand {
                                                             String commodity = StringArgumentType.getString(context, "commodity");
                                                             MarketPrice mp = NpcMarketMaker.getMarketPrice(commodity);
                                                             if (mp == null) {
-                                                                player.sendSystemMessage(Component.literal("Unknown commodity: '" + commodity + "'."));
+                                                                player.sendSystemMessage(Component.literal("未知商品: '" + commodity + "'."));
                                                                 return 0;
                                                             }
                                                             List<MarketPrice.PriceSnapshot> snaps = mp.getSnapshots();
                                                             if (snaps.isEmpty()) {
-                                                                player.sendSystemMessage(Component.literal("No price history for " + commodity + "."));
+                                                                player.sendSystemMessage(Component.literal("暂无价格历史: " + commodity + "."));
                                                                 return 1;
                                                             }
                                                             int start = Math.max(0, snaps.size() - 20);
-                                                            player.sendSystemMessage(Component.literal("=== " + commodity + " Price History ==="));
+                                                            player.sendSystemMessage(Component.literal("=== " + commodity + " 价格历史 ==="));
                                                             DateTimeFormatter fmt = DateTimeFormatter.ofPattern("MM-dd HH:mm");
                                                             for (int i = start; i < snaps.size(); i++) {
                                                                 MarketPrice.PriceSnapshot snap = snaps.get(i);
@@ -546,11 +544,11 @@ public class MarketCommand {
 
                                                                                                 ctx.player().sendSystemMessage(
                                                                                                         Component.literal(
-                                                                                                                "Not enough "
+                                                                                                                "库存不足，"
                                                                                                                         + ctx.commodity()
-                                                                                                                        + ". Have: " + owned
-                                                                                                                        + " Need: " + ctx.quantity()
-                                                                                                                        + " (NPC buys @"
+                                                                                                                        + ". 拥有: " + owned
+                                                                                                                        + " 需要: " + ctx.quantity()
+                                                                                                                        + " (NPC买入价: "
                                                                                                                         + bid + ")"
                                                                                                         )
                                                                                                 );
@@ -569,7 +567,7 @@ public class MarketCommand {
 
                                                                                                 ctx.player().sendSystemMessage(
                                                                                                         Component.literal(
-                                                                                                                "NPC cannot buy right now."
+                                                                                                                "NPC 暂时无法买入。"
                                                                                                         )
                                                                                                 );
 
@@ -581,12 +579,12 @@ public class MarketCommand {
 
                                                                                             ctx.player().sendSystemMessage(
                                                                                                     Component.literal(
-                                                                                                            "Sold "
+                                                                                                            "已卖出 "
                                                                                                                     + ctx.quantity() + "x "
                                                                                                                     + ctx.commodity()
-                                                                                                                    + " to NPC @"
+                                                                                                                    + " 给 NPC，单价: "
                                                                                                                     + bidPrice
-                                                                                                                    + " each. Received: "
+                                                                                                                    + "  收入: "
                                                                                                                     + received
                                                                                                     )
                                                                                             );
@@ -630,9 +628,9 @@ public class MarketCommand {
 
                                                                                                 ctx.player().sendSystemMessage(
                                                                                                         Component.literal(
-                                                                                                                "NPC doesn't have enough "
+                                                                                                                "NPC 库存不足: "
                                                                                                                         + ctx.commodity()
-                                                                                                                        + ". Available: "
+                                                                                                                        + "  可用: "
                                                                                                                         + npcStock
                                                                                                         )
                                                                                                 );
@@ -653,10 +651,10 @@ public class MarketCommand {
 
                                                                                                 ctx.player().sendSystemMessage(
                                                                                                         Component.literal(
-                                                                                                                "Not enough balance. "
-                                                                                                                        + "Need: " + totalCost
-                                                                                                                        + " Have: " + balance
-                                                                                                                        + " (NPC sells @"
+                                                                                                                "余额不足，"
+                                                                                                                        + "需要: " + totalCost
+                                                                                                                        + " 拥有: " + balance
+                                                                                                                        + " (NPC卖出价: "
                                                                                                                         + askPrice + ")"
                                                                                                         )
                                                                                                 );
@@ -675,7 +673,7 @@ public class MarketCommand {
 
                                                                                                 ctx.player().sendSystemMessage(
                                                                                                         Component.literal(
-                                                                                                                "NPC cannot sell right now."
+                                                                                                                "NPC 暂时无法卖出。"
                                                                                                         )
                                                                                                 );
 
@@ -684,12 +682,12 @@ public class MarketCommand {
 
                                                                                             ctx.player().sendSystemMessage(
                                                                                                     Component.literal(
-                                                                                                            "Bought "
+                                                                                                            "已买入 "
                                                                                                                     + ctx.quantity() + "x "
                                                                                                                     + ctx.commodity()
-                                                                                                                    + " from NPC @"
+                                                                                                                    + " 从 NPC，单价: "
                                                                                                                     + askPrice
-                                                                                                                    + " each. Paid: "
+                                                                                                                    + "  支付: "
                                                                                                                     + totalCost
                                                                                                     )
                                                                                             );
@@ -717,7 +715,7 @@ public class MarketCommand {
 
                                                                 player.sendSystemMessage(
                                                                         Component.literal(
-                                                                                "No NPC prices available."
+                                                                                "暂无 NPC 报价。"
                                                                         )
                                                                 );
 
@@ -726,7 +724,7 @@ public class MarketCommand {
 
                                                             player.sendSystemMessage(
                                                                     Component.literal(
-                                                                            "=== NPC Market Prices ==="
+                                                                            "=== NPC 报价 ==="
                                                                     )
                                                             );
 
@@ -738,8 +736,8 @@ public class MarketCommand {
                                                                 player.sendSystemMessage(
                                                                         Component.literal(
                                                                                 mp.getCommodityId()
-                                                                                        + "  Buy: " + bid
-                                                                                        + "  Sell: " + ask
+                                                                                        + "  买入: " + bid
+                                                                                        + "  卖出: " + ask
                                                                         )
                                                                 );
                                                             }
@@ -758,12 +756,12 @@ public class MarketCommand {
                                             ServerPlayer player = context.getSource().getPlayerOrException();
                                             Collection<MarketPrice> all = NpcMarketMaker.getAllMarketPrices().values();
                                             if (all.isEmpty()) {
-                                                player.sendSystemMessage(Component.literal("No market data."));
+                                                player.sendSystemMessage(Component.literal("暂无行情数据。"));
                                                 return 1;
                                             }
                                             List<MarketPrice> sorted = new ArrayList<>(all);
                                             sorted.sort((a, b) -> Double.compare(b.getDayChange(), a.getDayChange()));
-                                            player.sendSystemMessage(Component.literal("=== TOP GAINERS ==="));
+                                            player.sendSystemMessage(Component.literal("=== 涨幅排行 ==="));
                                             int count = 0;
                                             for (MarketPrice mp : sorted) {
                                                 if (count >= 5) break;
@@ -777,7 +775,7 @@ public class MarketCommand {
                                                 count++;
                                             }
                                             if (count == 0) {
-                                                player.sendSystemMessage(Component.literal("(none up today)"));
+                                                player.sendSystemMessage(Component.literal("（今日无上涨）"));
                                             }
                                             return 1;
                                         })
@@ -792,12 +790,12 @@ public class MarketCommand {
                                             ServerPlayer player = context.getSource().getPlayerOrException();
                                             Collection<MarketPrice> all = NpcMarketMaker.getAllMarketPrices().values();
                                             if (all.isEmpty()) {
-                                                player.sendSystemMessage(Component.literal("No market data."));
+                                                player.sendSystemMessage(Component.literal("暂无行情数据。"));
                                                 return 1;
                                             }
                                             List<MarketPrice> sorted = new ArrayList<>(all);
                                             sorted.sort((a, b) -> Double.compare(a.getDayChange(), b.getDayChange()));
-                                            player.sendSystemMessage(Component.literal("=== TOP LOSERS ==="));
+                                            player.sendSystemMessage(Component.literal("=== 跌幅排行 ==="));
                                             int count = 0;
                                             for (MarketPrice mp : sorted) {
                                                 if (count >= 5) break;
@@ -811,7 +809,7 @@ public class MarketCommand {
                                                 count++;
                                             }
                                             if (count == 0) {
-                                                player.sendSystemMessage(Component.literal("(none down today)"));
+                                                player.sendSystemMessage(Component.literal("（今日无下跌）"));
                                             }
                                             return 1;
                                         })
@@ -838,7 +836,7 @@ public class MarketCommand {
 
                                                 player.sendSystemMessage(
                                                         Component.literal(
-                                                                "No market data available."
+                                                                "暂无行情数据。"
                                                         )
                                                 );
 
@@ -847,7 +845,7 @@ public class MarketCommand {
 
                                             player.sendSystemMessage(
                                                     Component.literal(
-                                                            "=== Market Prices ==="
+                                                            "=== 商品行情 ==="
                                                     )
                                             );
 
@@ -870,9 +868,9 @@ public class MarketCommand {
                                                                         + changeStr
                                                                         + " " + formatMomentum(mp.getTradeMomentum())
                                                                         + eventMark
-                                                                        + "  Buy:" + bid
-                                                                        + "  Sell:" + ask
-                                                                        + "  Vol:" + vol
+                                                                        + "  买入:" + bid
+                                                                        + "  卖出:" + ask
+                                                                        + "  量:" + vol
                                                         )
                                                 );
                                             }
@@ -906,7 +904,7 @@ public class MarketCommand {
 
                                                                 player.sendSystemMessage(
                                                                         Component.literal(
-                                                                                "Unknown commodity: '"
+                                                                                "未知商品: '"
                                                                                         + commodity + "'."
                                                                         )
                                                                 );
@@ -928,23 +926,23 @@ public class MarketCommand {
 
                                                             player.sendSystemMessage(
                                                                     Component.literal(
-                                                                            "Price: " + mp.getMidPrice()
-                                                                                    + "  Bid: " + bid
-                                                                                    + "  Ask: " + ask
+                                                                            "价格: " + mp.getMidPrice()
+                                                                                    + "  买价: " + bid
+                                                                                    + "  卖价: " + ask
                                                                     )
                                                             );
 
                                                             player.sendSystemMessage(
                                                                     Component.literal(
-                                                                            "24h High: " + mp.getDayHigh()
-                                                                                    + "  Low: " + mp.getDayLow()
-                                                                                    + "  Volume: " + mp.getDayVolume()
+                                                                            "24h 最高: " + mp.getDayHigh()
+                                                                                    + "  最低: " + mp.getDayLow()
+                                                                                    + "  成交量: " + mp.getDayVolume()
                                                                     )
                                                             );
 
                                                             player.sendSystemMessage(
                                                                     Component.literal(
-                                                                            "Change: " + changeStr
+                                                                            "涨跌: " + changeStr
                                                                                     + "  " + formatMomentum(mp.getTradeMomentum())
                                                                     )
                                                             );
@@ -958,8 +956,8 @@ public class MarketCommand {
 
                                                             player.sendSystemMessage(
                                                                     Component.literal(
-                                                                            "NPC Stock: " + npcStock
-                                                                                    + "  (Ref: " + MarketPrice.REFERENCE_STOCK + ")"
+                                                                            "NPC 库存: " + npcStock
+                                                                                    + "  (参考: " + MarketPrice.REFERENCE_STOCK + ")"
                                                                     )
                                                             );
 
@@ -989,10 +987,10 @@ public class MarketCommand {
                                             ServerPlayer player = context.getSource().getPlayerOrException();
                                             Collection<MarketPrice> all = NpcMarketMaker.getAllMarketPrices().values();
                                             if (all.isEmpty()) {
-                                                player.sendSystemMessage(Component.literal("No market data."));
+                                                player.sendSystemMessage(Component.literal("暂无行情数据。"));
                                                 return 1;
                                             }
-                                            player.sendSystemMessage(Component.literal("=== MARKET OVERVIEW ==="));
+                                            player.sendSystemMessage(Component.literal("=== 市场概览 ==="));
                                             for (MarketPrice mp : all) {
                                                 String changeStr = formatDayChange(mp.getDayChange());
                                                 player.sendSystemMessage(Component.literal(
@@ -1018,8 +1016,8 @@ public class MarketCommand {
                                                                     context.getSource().getServer());
                                                             context.getSource().sendSuccess(
                                                                     () -> Component.literal(
-                                                                            "Done. " + EventManager.getTimerSummary()
-                                                                                    + " Active:" + EventManager.getActiveEvents().size()),
+                                                                            "完成。" + EventManager.getTimerSummary()
+                                                                                    + " 活跃事件:" + EventManager.getActiveEvents().size()),
                                                                     true);
                                                             return 1;
                                                         })
@@ -1030,7 +1028,7 @@ public class MarketCommand {
                                                             context.getSource().sendSuccess(
                                                                     () -> Component.literal(
                                                                             EventManager.getTimerSummary()
-                                                                                    + " Active:" + EventManager.getActiveEvents().size()),
+                                                                                    + " 活跃事件:" + EventManager.getActiveEvents().size()),
                                                                     false);
                                                             return 1;
                                                         })
@@ -1067,7 +1065,7 @@ public class MarketCommand {
         int quantity = IntegerArgumentType.getInteger(context, "quantity");
         MarketPrice price = NpcMarketMaker.getMarketPrice(commodity);
         if (price == null) {
-            player.sendSystemMessage(Component.literal("Unknown commodity: '" + commodity + "'."));
+            player.sendSystemMessage(Component.literal("未知商品: '" + commodity + "'."));
             return null;
         }
         return new NpcTradeContext(player, commodity, quantity, price);
@@ -1083,8 +1081,8 @@ public class MarketCommand {
     }
 
     private static String formatMomentum(double momentum) {
-        if (momentum > 0.005) return "↑ Bullish";
-        if (momentum < -0.005) return "↓ Bearish";
-        return "→ Neutral";
+        if (momentum > 0.005) return "↑ 看涨";
+        if (momentum < -0.005) return "↓ 看跌";
+        return "→ 持平";
     }
 }
