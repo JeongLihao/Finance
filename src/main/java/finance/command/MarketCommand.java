@@ -4,6 +4,10 @@ import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.LongArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
+import com.mojang.brigadier.context.CommandContext;
+import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import finance.event.EventTier;
+import finance.event.MarketEvent;
 import finance.market.MarketManager;
 import finance.market.MarketPrice;
 import finance.market.NpcMarketMaker;
@@ -16,6 +20,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import finance.commodity.CommodityInventoryManager;
 import finance.account.AccountManager;
+import finance.event.EventManager;
 
 import java.util.Collection;
 import java.util.List;
@@ -494,55 +499,27 @@ public class MarketCommand {
 
                                                                                         .executes(context -> {
 
-                                                                                            ServerPlayer player =
-                                                                                                    context.getSource()
-                                                                                                            .getPlayerOrException();
-
-                                                                                            String commodity =
-                                                                                                    StringArgumentType.getString(
-                                                                                                            context,
-                                                                                                            "commodity"
-                                                                                                    );
-
-                                                                                            int quantity =
-                                                                                                    IntegerArgumentType.getInteger(
-                                                                                                            context,
-                                                                                                            "quantity"
-                                                                                                    );
-
-                                                                                            MarketPrice price =
-                                                                                                    NpcMarketMaker.getMarketPrice(commodity);
-
-                                                                                            if (price == null) {
-
-                                                                                                player.sendSystemMessage(
-                                                                                                        Component.literal(
-                                                                                                                "Unknown commodity: '"
-                                                                                                                        + commodity + "'."
-                                                                                                        )
-                                                                                                );
-
-                                                                                                return 0;
-                                                                                            }
+                                                                                            NpcTradeContext ctx = resolveNpcTrade(context);
+                                                                                            if (ctx == null) return 0;
 
                                                                                             // 检查玩家库存
                                                                                             int owned =
                                                                                                     CommodityInventoryManager
                                                                                                             .getCommodityAmount(
-                                                                                                                    player.getUUID(),
-                                                                                                                    commodity
+                                                                                                                    ctx.player().getUUID(),
+                                                                                                                    ctx.commodity()
                                                                                                             );
 
-                                                                                            if (owned < quantity) {
+                                                                                            if (owned < ctx.quantity()) {
 
-                                                                                                long bid = price.getBidPrice();
+                                                                                                long bid = ctx.price().getBidPrice();
 
-                                                                                                player.sendSystemMessage(
+                                                                                                ctx.player().sendSystemMessage(
                                                                                                         Component.literal(
                                                                                                                 "Not enough "
-                                                                                                                        + commodity
+                                                                                                                        + ctx.commodity()
                                                                                                                         + ". Have: " + owned
-                                                                                                                        + " Need: " + quantity
+                                                                                                                        + " Need: " + ctx.quantity()
                                                                                                                         + " (NPC buys @"
                                                                                                                         + bid + ")"
                                                                                                         )
@@ -553,14 +530,14 @@ public class MarketCommand {
 
                                                                                             boolean success =
                                                                                                     NpcMarketMaker.npcBuy(
-                                                                                                            player.getUUID(),
-                                                                                                            commodity,
-                                                                                                            quantity
+                                                                                                            ctx.player().getUUID(),
+                                                                                                            ctx.commodity(),
+                                                                                                            ctx.quantity()
                                                                                                     );
 
                                                                                             if (!success) {
 
-                                                                                                player.sendSystemMessage(
+                                                                                                ctx.player().sendSystemMessage(
                                                                                                         Component.literal(
                                                                                                                 "NPC cannot buy right now."
                                                                                                         )
@@ -569,14 +546,14 @@ public class MarketCommand {
                                                                                                 return 0;
                                                                                             }
 
-                                                                                            long bidPrice = price.getBidPrice();
-                                                                                            long received = bidPrice * quantity;
+                                                                                            long bidPrice = ctx.price().getBidPrice();
+                                                                                            long received = bidPrice * ctx.quantity();
 
-                                                                                            player.sendSystemMessage(
+                                                                                            ctx.player().sendSystemMessage(
                                                                                                     Component.literal(
                                                                                                             "Sold "
-                                                                                                                    + quantity + "x "
-                                                                                                                    + commodity
+                                                                                                                    + ctx.quantity() + "x "
+                                                                                                                    + ctx.commodity()
                                                                                                                     + " to NPC @"
                                                                                                                     + bidPrice
                                                                                                                     + " each. Received: "
@@ -608,51 +585,23 @@ public class MarketCommand {
 
                                                                                         .executes(context -> {
 
-                                                                                            ServerPlayer player =
-                                                                                                    context.getSource()
-                                                                                                            .getPlayerOrException();
-
-                                                                                            String commodity =
-                                                                                                    StringArgumentType.getString(
-                                                                                                            context,
-                                                                                                            "commodity"
-                                                                                                    );
-
-                                                                                            int quantity =
-                                                                                                    IntegerArgumentType.getInteger(
-                                                                                                            context,
-                                                                                                            "quantity"
-                                                                                                    );
-
-                                                                                            MarketPrice price =
-                                                                                                    NpcMarketMaker.getMarketPrice(commodity);
-
-                                                                                            if (price == null) {
-
-                                                                                                player.sendSystemMessage(
-                                                                                                        Component.literal(
-                                                                                                                "Unknown commodity: '"
-                                                                                                                        + commodity + "'."
-                                                                                                        )
-                                                                                                );
-
-                                                                                                return 0;
-                                                                                            }
+                                                                                            NpcTradeContext ctx = resolveNpcTrade(context);
+                                                                                            if (ctx == null) return 0;
 
                                                                                             // 检查 NPC 库存
                                                                                             int npcStock =
                                                                                                     CommodityInventoryManager
                                                                                                             .getCommodityAmount(
                                                                                                                     NpcMarketMaker.NPC_UUID,
-                                                                                                                    commodity
+                                                                                                                    ctx.commodity()
                                                                                                             );
 
-                                                                                            if (npcStock < quantity) {
+                                                                                            if (npcStock < ctx.quantity()) {
 
-                                                                                                player.sendSystemMessage(
+                                                                                                ctx.player().sendSystemMessage(
                                                                                                         Component.literal(
                                                                                                                 "NPC doesn't have enough "
-                                                                                                                        + commodity
+                                                                                                                        + ctx.commodity()
                                                                                                                         + ". Available: "
                                                                                                                         + npcStock
                                                                                                         )
@@ -662,17 +611,17 @@ public class MarketCommand {
                                                                                             }
 
                                                                                             // 检查玩家余额
-                                                                                            long askPrice = price.getAskPrice();
-                                                                                            long totalCost = askPrice * quantity;
+                                                                                            long askPrice = ctx.price().getAskPrice();
+                                                                                            long totalCost = askPrice * ctx.quantity();
 
                                                                                             long balance =
                                                                                                     AccountManager.getBalance(
-                                                                                                            player.getUUID()
+                                                                                                            ctx.player().getUUID()
                                                                                                     );
 
                                                                                             if (balance < totalCost) {
 
-                                                                                                player.sendSystemMessage(
+                                                                                                ctx.player().sendSystemMessage(
                                                                                                         Component.literal(
                                                                                                                 "Not enough balance. "
                                                                                                                         + "Need: " + totalCost
@@ -687,14 +636,14 @@ public class MarketCommand {
 
                                                                                             boolean success =
                                                                                                     NpcMarketMaker.npcSell(
-                                                                                                            player.getUUID(),
-                                                                                                            commodity,
-                                                                                                            quantity
+                                                                                                            ctx.player().getUUID(),
+                                                                                                            ctx.commodity(),
+                                                                                                            ctx.quantity()
                                                                                                     );
 
                                                                                             if (!success) {
 
-                                                                                                player.sendSystemMessage(
+                                                                                                ctx.player().sendSystemMessage(
                                                                                                         Component.literal(
                                                                                                                 "NPC cannot sell right now."
                                                                                                         )
@@ -703,11 +652,11 @@ public class MarketCommand {
                                                                                                 return 0;
                                                                                             }
 
-                                                                                            player.sendSystemMessage(
+                                                                                            ctx.player().sendSystemMessage(
                                                                                                     Component.literal(
                                                                                                             "Bought "
-                                                                                                                    + quantity + "x "
-                                                                                                                    + commodity
+                                                                                                                    + ctx.quantity() + "x "
+                                                                                                                    + ctx.commodity()
                                                                                                                     + " from NPC @"
                                                                                                                     + askPrice
                                                                                                                     + " each. Paid: "
@@ -811,20 +760,17 @@ public class MarketCommand {
                                                 double change = mp.getDayChange();
                                                 int vol = mp.getDayVolume();
 
-                                                String changeStr;
-                                                if (change > 0) {
-                                                    changeStr = " +" + String.format("%.0f", change) + "%";
-                                                } else if (change < 0) {
-                                                    changeStr = " " + String.format("%.0f", change) + "%";
-                                                } else {
-                                                    changeStr = " 0%";
-                                                }
+                                                String changeStr = " " + formatDayChange(change);
+                                                String eventMark = mp.hasActiveEvent()
+                                                        ? " [事件:" + mp.getActiveEvent().getName() + "]"
+                                                        : "";
 
                                                 player.sendSystemMessage(
                                                         Component.literal(
                                                                 mp.getCommodityId()
                                                                         + "  " + mp.getMidPrice()
                                                                         + changeStr
+                                                                        + eventMark
                                                                         + "  Buy:" + bid
                                                                         + "  Sell:" + ask
                                                                         + "  Vol:" + vol
@@ -873,14 +819,7 @@ public class MarketCommand {
                                                             long ask = mp.getAskPrice();
                                                             double change = mp.getDayChange();
 
-                                                            String changeStr;
-                                                            if (change > 0) {
-                                                                changeStr = "+" + String.format("%.0f", change) + "%";
-                                                            } else if (change < 0) {
-                                                                changeStr = String.format("%.0f", change) + "%";
-                                                            } else {
-                                                                changeStr = "0%";
-                                                            }
+                                                            String changeStr = formatDayChange(change);
 
                                                             player.sendSystemMessage(
                                                                     Component.literal(
@@ -911,10 +850,111 @@ public class MarketCommand {
                                                                     )
                                                             );
 
+                                                            int npcStock =
+                                                                    CommodityInventoryManager
+                                                                            .getCommodityAmount(
+                                                                                    NpcMarketMaker.NPC_UUID,
+                                                                                    commodity
+                                                                            );
+
+                                                            player.sendSystemMessage(
+                                                                    Component.literal(
+                                                                            "NPC Stock: " + npcStock
+                                                                                    + "  (Ref: " + MarketPrice.REFERENCE_STOCK + ")"
+                                                                    )
+                                                            );
+
+                                                            if (mp.hasActiveEvent()) {
+                                                                MarketEvent ev = mp.getActiveEvent();
+                                                                String remain = ev.getRemainingDesc();
+                                                                player.sendSystemMessage(
+                                                                        Component.literal(
+                                                                                "[事件] " + ev.getName()
+                                                                                        + " " + ev.getChangePct()
+                                                                                        + " 剩余:" + remain
+                                                                        )
+                                                                );
+                                                            }
+
                                                             return 1;
                                                         })
                                         )
                         )
+
+                        // ================================================
+                        // /market debug nextday —— 手动推进一个 MC 天（测试用）
+                        // ================================================
+                        .then(
+                                Commands.literal("debug")
+                                        .requires(source -> source.hasPermission(2))
+                                        .then(
+                                                Commands.literal("nextday")
+                                                        .executes(context -> {
+                                                            EventManager.onDayTick(
+                                                                    context.getSource().getServer());
+                                                            context.getSource().sendSuccess(
+                                                                    () -> Component.literal(
+                                                                            "Done. " + EventManager.getTimerSummary()
+                                                                                    + " Active:" + EventManager.getActiveEvents().size()),
+                                                                    true);
+                                                            return 1;
+                                                        })
+                                        )
+                                        .then(
+                                                Commands.literal("pressure")
+                                                        .executes(context -> {
+                                                            context.getSource().sendSuccess(
+                                                                    () -> Component.literal(
+                                                                            EventManager.getTimerSummary()
+                                                                                    + " Active:" + EventManager.getActiveEvents().size()),
+                                                                    false);
+                                                            return 1;
+                                                        })
+                                        )
+                                        .then(
+                                                Commands.literal("fire")
+                                                        .then(Commands.literal("minor")
+                                                                .executes(context -> {
+                                                                    EventManager.fireTestEvent(EventTier.MINOR, context.getSource().getServer());
+                                                                    return 1;
+                                                                }))
+                                                        .then(Commands.literal("major")
+                                                                .executes(context -> {
+                                                                    EventManager.fireTestEvent(EventTier.MAJOR, context.getSource().getServer());
+                                                                    return 1;
+                                                                }))
+                                                        .then(Commands.literal("blackswan")
+                                                                .executes(context -> {
+                                                                    EventManager.fireTestEvent(EventTier.BLACK_SWAN, context.getSource().getServer());
+                                                                    return 1;
+                                                                }))
+                                        )
+                        )
         );
+    }
+
+    // ---- helpers ----
+
+    private record NpcTradeContext(ServerPlayer player, String commodity, int quantity, MarketPrice price) {}
+
+    private static NpcTradeContext resolveNpcTrade(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        ServerPlayer player = context.getSource().getPlayerOrException();
+        String commodity = StringArgumentType.getString(context, "commodity");
+        int quantity = IntegerArgumentType.getInteger(context, "quantity");
+        MarketPrice price = NpcMarketMaker.getMarketPrice(commodity);
+        if (price == null) {
+            player.sendSystemMessage(Component.literal("Unknown commodity: '" + commodity + "'."));
+            return null;
+        }
+        return new NpcTradeContext(player, commodity, quantity, price);
+    }
+
+    private static String formatDayChange(double change) {
+        if (change > 0) {
+            return "+" + String.format("%.0f", change) + "%";
+        } else if (change < 0) {
+            return String.format("%.0f", change) + "%";
+        }
+        return "0%";
     }
 }

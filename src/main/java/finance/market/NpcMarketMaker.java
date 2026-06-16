@@ -8,6 +8,7 @@ import finance.account.TransactionRecord;
 import finance.commodity.CommodityInventoryManager;
 import finance.commodity.CommodityRegistry;
 import finance.commodity.Commodity;
+import finance.event.MarketEvent;
 
 /**
  * NPC 做市商引擎 —— 为所有注册商品提供双向报价，保证市场流动性。
@@ -91,9 +92,9 @@ public class NpcMarketMaker {
                 new Trade(NPC_UUID, playerId, commodityId, bidPrice, quantity)
         );
 
-        // 7. 库存驱动价格更新
+        // 7. 混合定价更新
         long newNpcStock = CommodityInventoryManager.getCommodityAmount(NPC_UUID, commodityId);
-        price.recomputePrice(newNpcStock);
+        price.onNpcTrade(newNpcStock, true, quantity);
         price.recordTrade(bidPrice, quantity);
 
         return true;
@@ -143,9 +144,9 @@ public class NpcMarketMaker {
                 new Trade(playerId, NPC_UUID, commodityId, askPrice, quantity)
         );
 
-        // 7. 库存驱动价格更新
+        // 7. 混合定价更新
         long newNpcStock = CommodityInventoryManager.getCommodityAmount(NPC_UUID, commodityId);
-        price.recomputePrice(newNpcStock);
+        price.onNpcTrade(newNpcStock, false, quantity);
         price.recordTrade(askPrice, quantity);
 
         return true;
@@ -212,15 +213,77 @@ public class NpcMarketMaker {
             String id = commodity.getId();
 
             // 确保价格条目存在（数据加载后可能已存在，跳过）
-            if (!MARKET_PRICES.containsKey(id)) {
-                MARKET_PRICES.put(id, new MarketPrice(
+            MarketPrice mp = MARKET_PRICES.get(id);
+            if (mp == null) {
+                mp = new MarketPrice(
                         id, commodity.getBasePrice(), DEFAULT_SPREAD
-                ));
+                );
+                MARKET_PRICES.put(id, mp);
             }
 
+            // 重置库存到基准值（每次服务器启动统一重置）
             int currentStock = CommodityInventoryManager.getCommodityAmount(NPC_UUID, id);
             if (currentStock < INITIAL_NPC_STOCK) {
                 CommodityInventoryManager.addCommodity(NPC_UUID, id, INITIAL_NPC_STOCK - currentStock);
+            }
+
+            // 基于实际库存重新计算价格，重置 24h 统计
+            long actualStock = CommodityInventoryManager.getCommodityAmount(NPC_UUID, id);
+            mp.recomputePrice(actualStock);
+            mp.resetDayStats();
+        }
+    }
+
+    // ================================================================
+    // Tick（由 FinanceMod.onServerTick 驱动）
+    // ================================================================
+
+    public static void tickAllMomentum() {
+        for (MarketPrice mp : MARKET_PRICES.values()) {
+            mp.tickMomentum();
+            mp.recalculateFromCurrent();
+        }
+    }
+
+    public static void tickAllNoise() {
+        for (MarketPrice mp : MARKET_PRICES.values()) {
+            mp.tickNoise();
+            mp.recalculateFromCurrent();
+        }
+    }
+
+    // ================================================================
+    // 事件（由 EventManager 调用）
+    // ================================================================
+
+    public static void applyEvent(String commodityId, MarketEvent event) {
+        MarketPrice mp = MARKET_PRICES.get(commodityId);
+        if (mp != null) {
+            mp.applyEvent(event);
+            mp.recalculateFromCurrent();
+        }
+    }
+
+    public static void applyEventToAll(MarketEvent event) {
+        for (MarketPrice mp : MARKET_PRICES.values()) {
+            mp.applyEvent(event);
+            mp.recalculateFromCurrent();
+        }
+    }
+
+    public static void removeEvent(String commodityId, MarketEvent event) {
+        MarketPrice mp = MARKET_PRICES.get(commodityId);
+        if (mp != null && mp.getActiveEvent() == event) {
+            mp.removeEvent();
+            mp.recalculateFromCurrent();
+        }
+    }
+
+    public static void removeEventFromAll(MarketEvent event) {
+        for (MarketPrice mp : MARKET_PRICES.values()) {
+            if (mp.getActiveEvent() == event) {
+                mp.removeEvent();
+                mp.recalculateFromCurrent();
             }
         }
     }

@@ -4,7 +4,6 @@ import net.minecraftforge.fml.common.Mod;
 import finance.command.BalanceCommand;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.RegisterCommandsEvent;
-import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import finance.command.FinanceCommand;
 import finance.command.PayCommand;
@@ -18,6 +17,9 @@ import net.minecraftforge.event.server.ServerStartingEvent;
 import finance.data.EconomySavedData;
 import finance.data.CommodityInventorySavedData;
 import finance.market.NpcMarketMaker;
+import finance.event.EventManager;
+import net.minecraftforge.event.TickEvent.Phase;
+import net.minecraftforge.event.TickEvent.ServerTickEvent;
 
 /**
  * Finance 模组入口。
@@ -101,7 +103,35 @@ public class FinanceMod {
                 event.getServer()
         );
 
-        // 初始化 NPC 做市商（注入资金和初始库存）
+        // 初始化 NPC 做市商 + 事件阈值
         NpcMarketMaker.seedNpcIfNeeded();
+        EventManager.setProductionThresholds();
+    }
+
+    /** Tick 调度 —— 驱动事件压力、动量衰减和噪音刷新 */
+    @SubscribeEvent
+    public void onServerTick(ServerTickEvent event) {
+        if (event.phase == Phase.END) return;
+
+        net.minecraft.server.MinecraftServer server = event.getServer();
+        if (server == null) return;
+
+        int tick = server.getTickCount();
+        if (tick <= 0) return;
+
+        // 每个MC天发出一轮事件脉冲（24000 ticks）
+        if (tick % 24000 == 0) {
+            EventManager.onDayTick(server);
+        }
+
+        // 每3分钟刷新噪音（3600 ticks）
+        if (tick % 3600 == 0) {
+            NpcMarketMaker.tickAllNoise();
+        }
+
+        // 每分钟衰减动能（1200 ticks）
+        if (tick % 1200 == 0) {
+            NpcMarketMaker.tickAllMomentum();
+        }
     }
 }
