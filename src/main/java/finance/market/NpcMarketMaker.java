@@ -233,9 +233,13 @@ public class NpcMarketMaker {
                 mp.recomputePrice(stockAfterSeed);
                 mp.resetDayStats();
             } else {
-                // 从磁盘恢复的已有商品：保持加载的价格，只重置日内统计
-                mp.setLastNpcStock(actualStock);
-                mp.resetDayStats();
+                // 从磁盘恢复的已有商品：确保库存充足，基于实际库存重新计算价格
+                if (actualStock < INITIAL_NPC_STOCK) {
+                    CommodityInventoryManager.addCommodity(NPC_UUID, id, (int)(INITIAL_NPC_STOCK - actualStock));
+                }
+                long stockAfterSeed = CommodityInventoryManager.getCommodityAmount(NPC_UUID, id);
+                mp.recomputePrice(stockAfterSeed);
+                mp.resetDayStatsOnly();
             }
         }
     }

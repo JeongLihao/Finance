@@ -22,8 +22,10 @@ import finance.commodity.CommodityInventoryManager;
 import finance.account.AccountManager;
 import finance.event.EventManager;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.time.format.DateTimeFormatter;
 
 /**
  * /market 命令 —— 市场交易系统入口。
@@ -473,6 +475,34 @@ public class MarketCommand {
 
                                             return 1;
                                         })
+                                        // /market history <commodity> —— 查看价格历史
+                                        .then(
+                                                Commands.argument("commodity", StringArgumentType.word())
+                                                        .executes(context -> {
+                                                            ServerPlayer player = context.getSource().getPlayerOrException();
+                                                            String commodity = StringArgumentType.getString(context, "commodity");
+                                                            MarketPrice mp = NpcMarketMaker.getMarketPrice(commodity);
+                                                            if (mp == null) {
+                                                                player.sendSystemMessage(Component.literal("Unknown commodity: '" + commodity + "'."));
+                                                                return 0;
+                                                            }
+                                                            List<MarketPrice.PriceSnapshot> snaps = mp.getSnapshots();
+                                                            if (snaps.isEmpty()) {
+                                                                player.sendSystemMessage(Component.literal("No price history for " + commodity + "."));
+                                                                return 1;
+                                                            }
+                                                            int start = Math.max(0, snaps.size() - 20);
+                                                            player.sendSystemMessage(Component.literal("=== " + commodity + " Price History ==="));
+                                                            DateTimeFormatter fmt = DateTimeFormatter.ofPattern("MM-dd HH:mm");
+                                                            for (int i = start; i < snaps.size(); i++) {
+                                                                MarketPrice.PriceSnapshot snap = snaps.get(i);
+                                                                String t = snap.getTimestamp().format(fmt);
+                                                                player.sendSystemMessage(Component.literal(
+                                                                        t + "  " + snap.getPrice() + "  x" + snap.getVolume()));
+                                                            }
+                                                            return 1;
+                                                        })
+                                        )
                         )
 
                         // ================================================
@@ -720,6 +750,74 @@ public class MarketCommand {
                         )
 
                         // ================================================
+                        // /market top —— 涨幅排行
+                        // ================================================
+                        .then(
+                                Commands.literal("top")
+                                        .executes(context -> {
+                                            ServerPlayer player = context.getSource().getPlayerOrException();
+                                            Collection<MarketPrice> all = NpcMarketMaker.getAllMarketPrices().values();
+                                            if (all.isEmpty()) {
+                                                player.sendSystemMessage(Component.literal("No market data."));
+                                                return 1;
+                                            }
+                                            List<MarketPrice> sorted = new ArrayList<>(all);
+                                            sorted.sort((a, b) -> Double.compare(b.getDayChange(), a.getDayChange()));
+                                            player.sendSystemMessage(Component.literal("=== TOP GAINERS ==="));
+                                            int count = 0;
+                                            for (MarketPrice mp : sorted) {
+                                                if (count >= 5) break;
+                                                double ch = mp.getDayChange();
+                                                if (ch <= 0) break;
+                                                player.sendSystemMessage(Component.literal(
+                                                        (count + 1) + ". " + mp.getCommodityId()
+                                                                + "  " + mp.getMidPrice()
+                                                                + "  " + formatDayChange(ch)
+                                                                + "  " + formatMomentum(mp.getTradeMomentum())));
+                                                count++;
+                                            }
+                                            if (count == 0) {
+                                                player.sendSystemMessage(Component.literal("(none up today)"));
+                                            }
+                                            return 1;
+                                        })
+                        )
+
+                        // ================================================
+                        // /market losers —— 跌幅排行
+                        // ================================================
+                        .then(
+                                Commands.literal("losers")
+                                        .executes(context -> {
+                                            ServerPlayer player = context.getSource().getPlayerOrException();
+                                            Collection<MarketPrice> all = NpcMarketMaker.getAllMarketPrices().values();
+                                            if (all.isEmpty()) {
+                                                player.sendSystemMessage(Component.literal("No market data."));
+                                                return 1;
+                                            }
+                                            List<MarketPrice> sorted = new ArrayList<>(all);
+                                            sorted.sort((a, b) -> Double.compare(a.getDayChange(), b.getDayChange()));
+                                            player.sendSystemMessage(Component.literal("=== TOP LOSERS ==="));
+                                            int count = 0;
+                                            for (MarketPrice mp : sorted) {
+                                                if (count >= 5) break;
+                                                double ch = mp.getDayChange();
+                                                if (ch >= 0) break;
+                                                player.sendSystemMessage(Component.literal(
+                                                        (count + 1) + ". " + mp.getCommodityId()
+                                                                + "  " + mp.getMidPrice()
+                                                                + "  " + formatDayChange(ch)
+                                                                + "  " + formatMomentum(mp.getTradeMomentum())));
+                                                count++;
+                                            }
+                                            if (count == 0) {
+                                                player.sendSystemMessage(Component.literal("(none down today)"));
+                                            }
+                                            return 1;
+                                        })
+                        )
+
+                        // ================================================
                         // /market price —— 行情查询
                         // ================================================
                         .then(
@@ -770,6 +868,7 @@ public class MarketCommand {
                                                                 mp.getCommodityId()
                                                                         + "  " + mp.getMidPrice()
                                                                         + changeStr
+                                                                        + " " + formatMomentum(mp.getTradeMomentum())
                                                                         + eventMark
                                                                         + "  Buy:" + bid
                                                                         + "  Sell:" + ask
@@ -846,7 +945,7 @@ public class MarketCommand {
                                                             player.sendSystemMessage(
                                                                     Component.literal(
                                                                             "Change: " + changeStr
-                                                                                    + "  Base: " + mp.getBasePrice()
+                                                                                    + "  " + formatMomentum(mp.getTradeMomentum())
                                                                     )
                                                             );
 
@@ -956,5 +1055,11 @@ public class MarketCommand {
             return String.format("%.0f", change) + "%";
         }
         return "0%";
+    }
+
+    private static String formatMomentum(double momentum) {
+        if (momentum > 0.005) return "↑ Bullish";
+        if (momentum < -0.005) return "↓ Bearish";
+        return "→ Neutral";
     }
 }
