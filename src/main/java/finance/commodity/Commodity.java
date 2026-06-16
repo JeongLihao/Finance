@@ -1,13 +1,19 @@
 package finance.commodity;
 
+/**
+ * 商品定义 —— 可在市场中交易的商品类型。
+ */
 public class Commodity {
 
+    /** 商品唯一 ID（用于命令参数和持久化） */
     private final String id;
 
+    /** 商品显示名称 */
     private final String displayName;
 
     private final CommodityCategory category;
 
+    /** 基础价格（初始参考价） */
     private long basePrice;
 
     public Commodity(

@@ -10,6 +10,9 @@ import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 
+/**
+ * /commodity give ＜target＞ ＜commodityId＞ ＜amount＞ —— 管理员命令，给玩家发放商品（需要 OP 2 级权限）。
+ */
 public class CommodityCommand {
 
     public static void register(
