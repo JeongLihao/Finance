@@ -14,12 +14,12 @@ import java.util.List;
  *   <li>askPrice = midPrice × (1 + spread) — NPC 卖出价（玩家从 NPC 买入）</li>
  * </ul>
  *
- * <h3>动态价格</h3>
- * 每次 NPC 交易后 midPrice 随供求关系自动调整：
+ * <h3>动态价格（库存驱动）</h3>
+ * 价格由 NPC 库存直接决定：
  * <ul>
- *   <li>玩家卖给 NPC → 供过于求 → midPrice 下跌</li>
- *   <li>玩家从 NPC 买 → 供不应求 → midPrice 上涨</li>
- *   <li>波动幅度 = max(1, quantity × basePrice / BASE_LIQUIDITY)</li>
+ *   <li>midPrice = basePrice × REFERENCE_STOCK / npcStock</li>
+ *   <li>库存越多 → 供过于求 → 价格越低</li>
+ *   <li>库存越少 → 供不应求 → 价格越高</li>
  *   <li>波动范围：basePrice × 0.1 ~ basePrice × 10</li>
  * </ul>
  */
@@ -27,20 +27,17 @@ public class MarketPrice {
 
     // ---- 价格波动参数 ----
 
-    /** 流动性基准：需要交易多少价值才能让价格变动 1 */
-    private static final int BASE_LIQUIDITY = 1000;
-
     /** 价格下限比例（最低跌到基准价的 10%） */
     private static final double MIN_PRICE_RATIO = 0.1;
 
     /** 价格上限比例（最高涨到基准价的 10 倍） */
     private static final double MAX_PRICE_RATIO = 10.0;
 
+    /** NPC 参考库存量（库存 = 此值时价格 = basePrice） */
+    static final long REFERENCE_STOCK = 100_000;
+
     /** 每种商品最多保留的快照数量 */
     static final int MAX_SNAPSHOTS = 200;
-
-    /** 最小影响数量：低于该数量的交易不引发价格波动（2 组 = 128） */
-    private static final int MIN_TRADE_QUANTITY = 128;
 
     // ---- 字段 ----
 
@@ -133,23 +130,18 @@ public class MarketPrice {
     // ================================================================
 
     /**
-     * NPC 从玩家买入商品后调用 —— 供过于求，降价。
+     * 根据 NPC 当前库存重新计算 midPrice。
+     * 交易后由 NpcMarketMaker 调用。
+     *
+     * @param npcStock NPC 当前持有该商品的数量
      */
-    public void adjustAfterNpcBuy(int quantity) {
-        if (quantity < MIN_TRADE_QUANTITY) return;
-        long impact = Math.max(1, (long) quantity * basePrice / BASE_LIQUIDITY);
-        long floor = Math.max(1, (long) (basePrice * MIN_PRICE_RATIO));
-        midPrice = Math.max(floor, midPrice - impact);
-    }
+    public void recomputePrice(long npcStock) {
+        if (npcStock <= 0) return;
 
-    /**
-     * NPC 向玩家卖出商品后调用 —— 供不应求，涨价。
-     */
-    public void adjustAfterNpcSell(int quantity) {
-        if (quantity < MIN_TRADE_QUANTITY) return;
-        long impact = Math.max(1, (long) quantity * basePrice / BASE_LIQUIDITY);
+        double ratio = (double) REFERENCE_STOCK / npcStock;
+        long floor = Math.max(1, (long) (basePrice * MIN_PRICE_RATIO));
         long ceiling = (long) (basePrice * MAX_PRICE_RATIO);
-        midPrice = Math.min(ceiling, midPrice + impact);
+        midPrice = Math.max(floor, Math.min(ceiling, (long) (basePrice * ratio)));
     }
 
     // ================================================================
