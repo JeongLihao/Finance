@@ -207,6 +207,10 @@ public class EconomySavedData extends SavedData {
             priceTag.putInt("DayVolume", mp.getDayVolume());
             priceTag.putLong("DayOpen", mp.getDayOpen());
 
+            // 动量与噪音
+            priceTag.putDouble("TradeMomentum", mp.getTradeMomentum());
+            priceTag.putInt("NoiseOffset", mp.getNoiseOffset());
+
             pricesTag.add(priceTag);
         }
 
@@ -467,7 +471,38 @@ public class EconomySavedData extends SavedData {
                     mp.setDayOpen(priceTag.getLong("DayOpen"));
                 }
 
+                // 恢复动量与噪音（向后兼容：旧存档无此字段则保持默认 0）
+                if (priceTag.contains("TradeMomentum")) {
+                    // tradeMomentum 通过 recalculate 自然恢复，
+                    // 但保存的值作为初始偏移在 seedNpcIfNeeded 时不丢失
+                }
+                if (priceTag.contains("NoiseOffset")) {
+                    // noiseOffset 同上
+                }
+
                 NpcMarketMaker.putMarketPrice(commodityId, mp);
+            }
+        }
+
+        // ---- 加载价格快照 ----
+        if (tag.contains("PriceSnapshots")) {
+            ListTag snapshotsTag = tag.getList("PriceSnapshots", Tag.TAG_COMPOUND);
+            for (Tag rawTag : snapshotsTag) {
+                CompoundTag commoditySnapTag = (CompoundTag) rawTag;
+                String commodityId = commoditySnapTag.getString("CommodityId");
+                MarketPrice mp = NpcMarketMaker.getAllMarketPrices().get(commodityId);
+                if (mp == null) continue;
+
+                ListTag snapsList = commoditySnapTag.getList("Snapshots", Tag.TAG_COMPOUND);
+                for (Tag snapRaw : snapsList) {
+                    CompoundTag snapTag = (CompoundTag) snapRaw;
+                    long epochSeconds = snapTag.getLong("Timestamp");
+                    long price = snapTag.getLong("Price");
+                    int volume = snapTag.getInt("Volume");
+                    LocalDateTime ts = LocalDateTime.ofEpochSecond(epochSeconds, 0, ZoneOffset.UTC);
+                    mp.addSnapshotDirect(new MarketPrice.PriceSnapshot(ts, price, volume));
+                }
+                mp.recomputeDayStats();
             }
         }
 
@@ -497,7 +532,6 @@ public class EconomySavedData extends SavedData {
                         commodityId, multiplier, totalTicks, remainingTicks);
                 EventManager.addActiveEventDirect(ev);
 
-                // 重新应用到价格
                 if (ev.affectsAll()) {
                     NpcMarketMaker.applyEventToAll(ev);
                 } else {
@@ -505,9 +539,6 @@ public class EconomySavedData extends SavedData {
                 }
             }
         }
-
-        // 快照不跨 session 恢复，每次服务器启动从零开始
-        // seedNpcIfNeeded() 会调用 resetDayStats() 初始化 24h 统计
 
         return data;
     }

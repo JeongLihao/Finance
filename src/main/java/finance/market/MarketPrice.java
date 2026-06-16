@@ -202,6 +202,9 @@ public class MarketPrice {
         this.activeEvent = null;
     }
 
+    public double getTradeMomentum() { return tradeMomentum; }
+    public int getNoiseOffset() { return noiseOffset; }
+
     public boolean hasActiveEvent() {
         return activeEvent != null;
     }
@@ -299,7 +302,7 @@ public class MarketPrice {
     }
 
     /**
-     * 重置 24h 统计和快照（服务器启动时调用，清除旧数据）。
+     * 重置全部统计（新商品首次初始化时调用）。
      */
     public void resetDayStats() {
         dayHigh = midPrice;
@@ -309,6 +312,25 @@ public class MarketPrice {
         snapshots.clear();
         tradeMomentum = 0;
         noiseOffset = 0;
+    }
+
+    /**
+     * 仅重置 24h OHLC（服务器重启时用于已持久化的商品，
+     * 保留 snapshots、momentum、noiseOffset）。
+     */
+    public void resetDayStatsOnly() {
+        dayHigh = midPrice;
+        dayLow = midPrice;
+        dayVolume = 0;
+        dayOpen = midPrice;
+    }
+
+    /** 从磁盘恢复快照（持久化加载时使用） */
+    public void addSnapshotDirect(PriceSnapshot snap) {
+        snapshots.add(snap);
+        while (snapshots.size() > MAX_SNAPSHOTS) {
+            snapshots.remove(0);
+        }
     }
 
     /** 设置最近一次计算的 NPC 库存（持久化恢复后使用，使 recalculateFromCurrent 可用） */

@@ -29,7 +29,8 @@ import net.minecraftforge.event.TickEvent.ServerTickEvent;
  *   <li>/balance —— 查询余额</li>
  *   <li>/pay —— 转账</li>
  *   <li>/finance give —— 管理员发钱（需要 OP）</li>
- *   <li>/market buy/sell/orders/cancel/history/npc —— 市场交易与 NPC 做市商</li>
+ *   <li>/market buy | sell | orders | cancel | history [commodity] | npc —— P2P & NPC 交易</li>
+ *   <li>/market price [commodity] | top | losers —— 行情查询、涨跌排行</li>
  *   <li>/commodity give —— 管理员发商品（需要 OP）</li>
  *   <li>/inventory —— 查看商品库存</li>
  * </ul>
