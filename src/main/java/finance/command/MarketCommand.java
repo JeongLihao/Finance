@@ -30,8 +30,8 @@ import java.util.List;
  *   <li>/market sell ＜commodity＞ ＜price＞ ＜quantity＞ —— 挂卖单</li>
  *   <li>/market cancel ＜index＞ —— 取消指定订单</li>
  *   <li>/market history —— 查看最近 20 条成交历史</li>
- *   <li>/market npc buy ＜commodity＞ ＜quantity＞ —— 卖给 NPC</li>
- *   <li>/market npc sell ＜commodity＞ ＜quantity＞ —— 从 NPC 购买</li>
+ *   <li>/market npc sell ＜commodity＞ ＜quantity＞ —— 卖给 NPC</li>
+ *   <li>/market npc buy ＜commodity＞ ＜quantity＞ —— 从 NPC 购买</li>
  *   <li>/market npc prices —— 查看 NPC 报价</li>
  *   <li>/market price —— 查看所有商品行情（价格 + 涨跌幅 + 成交量）</li>
  *   <li>/market price ＜commodity＞ —— 查看单个商品详情</li>
@@ -476,9 +476,9 @@ public class MarketCommand {
                         .then(
                                 Commands.literal("npc")
 
-                                        // /market npc buy <commodity> <quantity>
+                                        // /market npc sell <commodity> <quantity>
                                         .then(
-                                                Commands.literal("buy")
+                                                Commands.literal("sell")
 
                                                         .then(
                                                                 Commands.argument(
@@ -590,9 +590,9 @@ public class MarketCommand {
                                                         )
                                         )
 
-                                        // /market npc sell <commodity> <quantity>
+                                        // /market npc buy <commodity> <quantity>
                                         .then(
-                                                Commands.literal("sell")
+                                                Commands.literal("buy")
 
                                                         .then(
                                                                 Commands.argument(
