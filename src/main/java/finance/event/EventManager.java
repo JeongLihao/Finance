@@ -25,10 +25,12 @@ import java.util.Random;
  */
 public class EventManager {
 
-    // ---- 测试阈值（生产改回 9/45/225） ----
-    private static int TIMER_MINOR = 1;
-    private static int TIMER_MAJOR = 3;
-    private static int TIMER_BLACK_SWAN = 6;
+    /** 一级事件触发间隔（MC天）：9天 ≈ 3小时 */
+    private static final int TIMER_MINOR = 9;
+    /** 二级事件触发间隔（MC天）：45天 ≈ 15小时 */
+    private static final int TIMER_MAJOR = 45;
+    /** 黑天鹅触发间隔（MC天）：225天 ≈ 75小时 */
+    private static final int TIMER_BLACK_SWAN = 225;
 
     private static final Random RANDOM = new Random();
 
@@ -36,7 +38,6 @@ public class EventManager {
     private static int timerMajor = 0;
     private static int timerBlackSwan = 0;
 
-    private static boolean productionThresholds = false;
     private static final List<MarketEvent> activeEvents = new ArrayList<>();
 
     // ================================================================
@@ -184,16 +185,6 @@ public class EventManager {
             }
         }
         return null;
-    }
-
-    /** 切换到生产阈值 */
-    public static void setProductionThresholds() {
-        if (!productionThresholds) {
-            TIMER_MINOR = 9;
-            TIMER_MAJOR = 45;
-            TIMER_BLACK_SWAN = 225;
-            productionThresholds = true;
-        }
     }
 
     // ================================================================

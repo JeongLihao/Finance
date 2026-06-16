@@ -103,9 +103,8 @@ public class FinanceMod {
                 event.getServer()
         );
 
-        // 初始化 NPC 做市商 + 事件阈值
+        // 初始化 NPC 做市商
         NpcMarketMaker.seedNpcIfNeeded();
-        EventManager.setProductionThresholds();
     }
 
     /** Tick 调度 —— 驱动事件压力、动量衰减和噪音刷新 */
