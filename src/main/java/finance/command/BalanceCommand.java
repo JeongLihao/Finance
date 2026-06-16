@@ -7,6 +7,9 @@ import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 
+/**
+ * /balance —— 查询自己的账户余额。
+ */
 public class BalanceCommand {
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {

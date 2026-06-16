@@ -9,6 +9,9 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import java.util.Map;
 
+/**
+ * /inventory —— 查看自己的商品库存。
+ */
 public class InventoryCommand {
 
     public static void register(

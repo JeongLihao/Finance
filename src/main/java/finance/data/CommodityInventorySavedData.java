@@ -12,12 +12,20 @@ import net.minecraft.world.level.storage.DimensionDataStorage;
 import java.util.Map;
 import java.util.UUID;
 
+/**
+ * 商品库存持久化 —— 与 {@link EconomySavedData} 分开存储，
+ * 将玩家的商品持有量写入 Minecraft 世界存档。
+ */
 public class CommodityInventorySavedData extends SavedData {
 
     public static final String DATA_NAME =
             "finance_inventory";
 
     private static CommodityInventorySavedData INSTANCE;
+
+    // ================================================================
+    // 保存
+    // ================================================================
 
     @Override
     public CompoundTag save(CompoundTag tag) {
@@ -70,6 +78,10 @@ public class CommodityInventorySavedData extends SavedData {
         return tag;
     }
 
+    // ================================================================
+    // 加载
+    // ================================================================
+
     public static CommodityInventorySavedData load(
             CompoundTag tag
     ) {
@@ -115,6 +127,10 @@ public class CommodityInventorySavedData extends SavedData {
         return data;
     }
 
+    // ================================================================
+    // 实例管理
+    // ================================================================
+
     public static CommodityInventorySavedData get(
             MinecraftServer server
     ) {
@@ -133,6 +149,7 @@ public class CommodityInventorySavedData extends SavedData {
         return INSTANCE;
     }
 
+    /** 标记数据已修改 */
     public static void markDirty() {
 
         if (INSTANCE != null) {

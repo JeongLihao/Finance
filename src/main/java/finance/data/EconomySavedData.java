@@ -4,6 +4,8 @@ import finance.account.Account;
 import finance.account.AccountManager;
 import finance.account.TransactionRecord;
 import finance.market.MarketManager;
+import finance.market.MarketPrice;
+import finance.market.NpcMarketMaker;
 import finance.market.Order;
 import finance.market.OrderType;
 import finance.market.Trade;
@@ -20,14 +22,31 @@ import java.util.Map;
 import java.util.UUID;
 import net.minecraft.world.level.storage.DimensionDataStorage;
 
+/**
+ * 经济数据持久化 —— 将账户余额、交易记录、市场订单和成交历史
+ * 写入 Minecraft 的世界存档中，服务器重启后自动恢复。
+ *
+ * <h3>保存内容</h3>
+ * <ul>
+ *   <li>账户余额（含冻结金额）</li>
+ *   <li>最近 500 条交易记录</li>
+ *   <li>成交历史</li>
+ *   <li>未成交的活跃订单</li>
+ *   <li>NPC 做市商价格</li>
+ * </ul>
+ */
 public class EconomySavedData extends SavedData {
 
     public static final String DATA_NAME = "finance_data";
 
+    // ================================================================
+    // 保存
+    // ================================================================
+
     @Override
     public CompoundTag save(CompoundTag tag) {
 
-        // ---- Save account balances ----
+        // ---- 保存账户余额 ----
         ListTag accountsTag = new ListTag();
 
         for (Map.Entry<UUID, Account> entry :
@@ -55,13 +74,12 @@ public class EconomySavedData extends SavedData {
 
         tag.put("Accounts", accountsTag);
 
-        // ---- Save transaction records ----
+        // ---- 保存交易记录（仅最近 500 条） ----
         ListTag transactionsTag = new ListTag();
 
         List<TransactionRecord> allTxns =
                 AccountManager.getTransactions();
 
-        // Only persist the last 500 transactions
         int txStart = Math.max(
                 0,
                 allTxns.size() - 500
@@ -91,7 +109,7 @@ public class EconomySavedData extends SavedData {
 
         tag.put("Transactions", transactionsTag);
 
-        // ---- Save trade history ----
+        // ---- 保存成交历史 ----
         ListTag tradesTag = new ListTag();
 
         for (Trade trade : MarketManager.getTradeHistory()) {
@@ -120,7 +138,7 @@ public class EconomySavedData extends SavedData {
 
         tag.put("Trades", tradesTag);
 
-        // ---- Save open orders ----
+        // ---- 保存活跃订单 ----
         ListTag ordersTag = new ListTag();
 
         for (Order order : MarketManager.getOrders()) {
@@ -165,14 +183,38 @@ public class EconomySavedData extends SavedData {
 
         tag.put("Orders", ordersTag);
 
+        // ---- 保存 NPC 市场价格 ----
+        ListTag pricesTag = new ListTag();
+
+        for (MarketPrice mp :
+                NpcMarketMaker.getAllMarketPrices().values()) {
+
+            CompoundTag priceTag = new CompoundTag();
+            priceTag.putString("CommodityId", mp.getCommodityId());
+            priceTag.putLong("MidPrice", mp.getMidPrice());
+            priceTag.putLong("BasePrice", mp.getBasePrice());
+            priceTag.putDouble("Spread", mp.getSpread());
+            pricesTag.add(priceTag);
+        }
+
+        tag.put("MarketPrices", pricesTag);
+
         return tag;
     }
 
+    // ================================================================
+    // 加载
+    // ================================================================
+
+    /**
+     * 从 NBT 数据恢复全部经济状态。
+     * 注意：加载时如果发现 FrozenBalance，需要将 balance+frozen 设为总余额后重新冻结。
+     */
     public static EconomySavedData load(CompoundTag tag) {
 
         EconomySavedData data = new EconomySavedData();
 
-        // ---- Load account balances ----
+        // ---- 加载账户余额 ----
         ListTag accountsTag = tag.getList(
                 "Accounts",
                 Tag.TAG_COMPOUND
@@ -187,14 +229,11 @@ public class EconomySavedData extends SavedData {
 
             Account account = AccountManager.getAccount(playerUUID);
 
-            // Restore frozen balance alongside available balance.
-            // The saved "Balance" is the available (unfrozen)
-            // portion, so total = balance + frozen.
             if (accountTag.contains("FrozenBalance")) {
                 long frozen =
                         accountTag.getLong("FrozenBalance");
 
-                // Set total balance, then freeze the frozen portion
+                // 已保存的 Balance 是可用余额，总余额 = 可用 + 冻结
                 account.setBalance(balance + frozen);
 
                 if (frozen > 0) {
@@ -206,7 +245,7 @@ public class EconomySavedData extends SavedData {
             }
         }
 
-        // ---- Load transaction records ----
+        // ---- 加载交易记录 ----
         if (tag.contains("Transactions")) {
 
             AccountManager.clearTransactions();
@@ -241,7 +280,7 @@ public class EconomySavedData extends SavedData {
             }
         }
 
-        // ---- Load trade history ----
+        // ---- 加载成交历史 ----
         if (tag.contains("Trades")) {
 
             MarketManager.clearTradeHistory();
@@ -279,7 +318,7 @@ public class EconomySavedData extends SavedData {
             }
         }
 
-        // ---- Load open orders ----
+        // ---- 加载活跃订单 ----
         if (tag.contains("Orders")) {
 
             MarketManager.clearOrders();
@@ -323,13 +362,56 @@ public class EconomySavedData extends SavedData {
                         )
                 );
 
+                // 使用 addOrderDirect 跳过资产冻结
+                // （资产在上次运行时已冻结）
                 MarketManager.addOrderDirect(order);
+            }
+        }
+
+        // ---- 加载 NPC 市场价格 ----
+        if (tag.contains("MarketPrices")) {
+
+            NpcMarketMaker.clearMarketPrices();
+
+            ListTag pricesTag = tag.getList(
+                    "MarketPrices",
+                    Tag.TAG_COMPOUND
+            );
+
+            for (Tag rawTag : pricesTag) {
+
+                CompoundTag priceTag = (CompoundTag) rawTag;
+
+                String commodityId =
+                        priceTag.getString("CommodityId");
+
+                // 跳过已从注册表中移除的商品
+                if (finance.commodity.CommodityRegistry
+                        .getCommodity(commodityId) == null) {
+                    continue;
+                }
+
+                long midPrice = priceTag.getLong("MidPrice");
+                long basePrice = priceTag.getLong("BasePrice");
+                double spread = priceTag.getDouble("Spread");
+
+                MarketPrice mp = new MarketPrice(
+                        commodityId, basePrice, spread
+                );
+                mp.setMidPrice(midPrice);
+
+                NpcMarketMaker.putMarketPrice(commodityId, mp);
             }
         }
 
         return data;
     }
 
+    // ================================================================
+    // 实例管理
+    // ================================================================
+
+    /** 获取或创建 EconomySavedData 实例（服务器启动时调用） */
     public static EconomySavedData get(MinecraftServer server) {
 
         DimensionDataStorage storage =
@@ -346,6 +428,7 @@ public class EconomySavedData extends SavedData {
 
     private static EconomySavedData INSTANCE;
 
+    /** 标记数据已修改，下次存档时写入磁盘 */
     public static void markDirty() {
         if (INSTANCE != null) {
             INSTANCE.setDirty();

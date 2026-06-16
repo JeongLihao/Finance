@@ -9,6 +9,9 @@ import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 
+/**
+ * /finance give ＜target＞ ＜amount＞ —— 管理员命令，凭空创造货币发给玩家（需要 OP 2 级权限）。
+ */
 public class FinanceCommand {
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {

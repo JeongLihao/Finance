@@ -9,6 +9,9 @@ import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 
+/**
+ * /pay ＜target＞ ＜amount＞ —— 向其他玩家转账。
+ */
 public class PayCommand {
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {

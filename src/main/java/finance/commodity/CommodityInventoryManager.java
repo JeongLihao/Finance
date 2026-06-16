@@ -1,14 +1,21 @@
 package finance.commodity;
+
 import finance.data.CommodityInventorySavedData;
+
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
+/**
+ * 商品背包管理器 —— 所有商品库存操作的入口。
+ * 每次修改库存后自动标记持久化为脏数据。
+ */
 public class CommodityInventoryManager {
 
     private static final Map<UUID, CommodityInventory>
             INVENTORIES = new HashMap<>();
 
+    /** 获取或创建玩家背包（懒加载） */
     public static CommodityInventory getInventory(
             UUID playerId
     ) {
@@ -24,6 +31,7 @@ public class CommodityInventoryManager {
         return INVENTORIES.get(playerId);
     }
 
+    /** 查询玩家持有某商品的数量 */
     public static int getCommodityAmount(
             UUID playerId,
             String commodityId
@@ -33,6 +41,7 @@ public class CommodityInventoryManager {
                 .getAmount(commodityId);
     }
 
+    /** 增加商品（购买、管理命令等） */
     public static void addCommodity(
             UUID playerId,
             String commodityId,
@@ -48,6 +57,7 @@ public class CommodityInventoryManager {
         CommodityInventorySavedData.markDirty();
     }
 
+    /** 扣除商品（下单 SELL 时调用），不足返回 false */
     public static boolean removeCommodity(
             UUID playerId,
             String commodityId,
@@ -67,6 +77,7 @@ public class CommodityInventoryManager {
 
         return success;
     }
+
     public static Map<UUID, CommodityInventory>
     getInventories() {
 
