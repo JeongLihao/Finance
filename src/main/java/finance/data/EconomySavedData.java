@@ -3,6 +3,8 @@ package finance.data;
 import finance.account.Account;
 import finance.account.AccountManager;
 import finance.account.TransactionRecord;
+import finance.commodity.Commodity;
+import finance.commodity.CommodityRegistry;
 import finance.market.MarketManager;
 import finance.market.MarketPrice;
 import finance.market.NpcMarketMaker;
@@ -417,14 +419,17 @@ public class EconomySavedData extends SavedData {
                         priceTag.getString("CommodityId");
 
                 // 跳过已从注册表中移除的商品
-                if (finance.commodity.CommodityRegistry
-                        .getCommodity(commodityId) == null) {
+                Commodity commodity =
+                        CommodityRegistry.getCommodity(commodityId);
+                if (commodity == null) {
                     continue;
                 }
 
                 long midPrice = priceTag.getLong("MidPrice");
-                long basePrice = priceTag.getLong("BasePrice");
                 double spread = priceTag.getDouble("Spread");
+
+                // basePrice 始终从 CommodityRegistry 取最新值
+                long basePrice = commodity.getBasePrice();
 
                 MarketPrice mp = new MarketPrice(
                         commodityId, basePrice, spread
