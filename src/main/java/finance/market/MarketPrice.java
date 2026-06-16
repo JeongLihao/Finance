@@ -3,24 +3,27 @@ package finance.market;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
+import finance.event.MarketEvent;
 
 /**
  * 商品中间价 —— NPC 做市商的报价基准。
  *
- * <h3>定价机制</h3>
- * NPC 双向报价围绕中间价展开：
+ * <h3>定价机制（混合模型 D）</h3>
+ * <pre>
+ *   finalPrice = fundamentalPrice + tradeMomentum + noiseOffset + eventImpact
+ * </pre>
  * <ul>
- *   <li>bidPrice = midPrice × (1 - spread) — NPC 买入价（玩家卖给 NPC）</li>
- *   <li>askPrice = midPrice × (1 + spread) — NPC 卖出价（玩家从 NPC 买入）</li>
+ *   <li>fundamentalPrice = basePrice × REFERENCE_STOCK / npcStock（库存驱动，主导 ~70%）</li>
+ *   <li>tradeMomentum（成交动能，单笔交易的短期冲击，随时间衰减 ~20%）</li>
+ *   <li>noiseOffset（市场噪音 ±1~3%，模拟运输成本/信息误差 ~10%）</li>
+ *   <li>eventImpact（主题事件倍率，偶发）</li>
  * </ul>
  *
- * <h3>动态价格（库存驱动）</h3>
- * 价格由 NPC 库存直接决定：
+ * <h3>报价</h3>
  * <ul>
- *   <li>midPrice = basePrice × REFERENCE_STOCK / npcStock</li>
- *   <li>库存越多 → 供过于求 → 价格越低</li>
- *   <li>库存越少 → 供不应求 → 价格越高</li>
- *   <li>波动范围：basePrice × 0.1 ~ basePrice × 10</li>
+ *   <li>bidPrice = midPrice × (1 - spread) — NPC 买入价</li>
+ *   <li>askPrice = midPrice × (1 + spread) — NPC 卖出价</li>
  * </ul>
  */
 public class MarketPrice {
@@ -34,10 +37,27 @@ public class MarketPrice {
     private static final double MAX_PRICE_RATIO = 10.0;
 
     /** NPC 参考库存量（库存 = 此值时价格 = basePrice） */
-    static final long REFERENCE_STOCK = 100_000;
+    public static final long REFERENCE_STOCK = 100_000;
 
     /** 每种商品最多保留的快照数量 */
     static final int MAX_SNAPSHOTS = 200;
+
+    /** 价格灵敏度：stock 偏离 REFERENCE 1% 时，fundamental 变动 SENSITIVITY% */
+    private static final double SENSITIVITY = 5.0;
+
+    /** 动量缩放：一笔相当于 REFERENCE 1% 的交易产生 MOMENTUM_SCALE% 的动量溢价 */
+    private static final double MOMENTUM_SCALE = 50;
+
+    /** 每分钟动量衰减率（乘 0.5 即减半） */
+    private static final double MOMENTUM_DECAY = 0.5;
+
+    /** 噪音偏移最大幅度（相对于 basePrice 20%） */
+    private static final double MAX_NOISE_RATIO = 0.2;
+
+    /** 动量衰减到低于此阈值则归零 */
+    private static final double MOMENTUM_MIN = 0.001;
+
+    private static final Random RANDOM = new Random();
 
     // ---- 字段 ----
 
@@ -51,6 +71,18 @@ public class MarketPrice {
 
     /** 价差比例，默认 0.05（5%） */
     private double spread;
+
+    /** 累计成交动量（会随时间衰减） */
+    private double tradeMomentum;
+
+    /** 当前噪音偏移（整价偏移，如 -1/0/+1） */
+    private int noiseOffset;
+
+    /** 当前生效的事件，null 表示无 */
+    private MarketEvent activeEvent;
+
+    /** 最近一次计算的 NPC 库存（用于 tick 后重算） */
+    private long lastNpcStock;
 
     // ---- 24h 统计 ----
 
@@ -76,6 +108,7 @@ public class MarketPrice {
         this.dayLow = basePrice;
         this.dayOpen = basePrice;
         this.dayVolume = 0;
+        this.lastNpcStock = REFERENCE_STOCK;
     }
 
     // ================================================================
@@ -126,22 +159,100 @@ public class MarketPrice {
     }
 
     // ================================================================
-    // 价格调整
+    // 混合定价引擎
     // ================================================================
 
     /**
-     * 根据 NPC 当前库存重新计算 midPrice。
-     * 交易后由 NpcMarketMaker 调用。
-     *
-     * @param npcStock NPC 当前持有该商品的数量
+     * 每次 NPC 交易后调用。
+     * @param npcStock    NPC 当前库存（交易后）
+     * @param npcWasBuyer true = NPC 买入（玩家卖出，利空）
+     * @param quantity    成交量
      */
-    public void recomputePrice(long npcStock) {
+    public void onNpcTrade(long npcStock, boolean npcWasBuyer, int quantity) {
         if (npcStock <= 0) return;
 
-        double ratio = (double) REFERENCE_STOCK / npcStock;
-        long floor = Math.max(1, (long) (basePrice * MIN_PRICE_RATIO));
-        long ceiling = (long) (basePrice * MAX_PRICE_RATIO);
-        midPrice = Math.max(floor, Math.min(ceiling, (long) (basePrice * ratio)));
+        // 动能：交易量占参考库存的比例 × 缩放系数
+        double impact = (double) quantity / REFERENCE_STOCK * MOMENTUM_SCALE;
+        tradeMomentum += npcWasBuyer ? -impact : impact;
+
+        recalculate(npcStock);
+    }
+
+    /** 每分钟衰减动能 */
+    public void tickMomentum() {
+        tradeMomentum *= MOMENTUM_DECAY;
+        if (Math.abs(tradeMomentum) < MOMENTUM_MIN) tradeMomentum = 0;
+    }
+
+    /** 每 3 分钟噪音随机游走，幅度不超过 basePrice 的 20% */
+    public void tickNoise() {
+        int maxNoise = Math.max(1, (int) Math.round(basePrice * MAX_NOISE_RATIO));
+        noiseOffset += RANDOM.nextInt(3) - 1;
+        if (noiseOffset > maxNoise) noiseOffset = maxNoise;
+        if (noiseOffset < -maxNoise) noiseOffset = -maxNoise;
+    }
+
+    /** 应用主题事件 */
+    public void applyEvent(MarketEvent event) {
+        this.activeEvent = event;
+    }
+
+    /** 移除主题事件 */
+    public void removeEvent() {
+        this.activeEvent = null;
+    }
+
+    public boolean hasActiveEvent() {
+        return activeEvent != null;
+    }
+
+    public MarketEvent getActiveEvent() {
+        return activeEvent;
+    }
+
+    // ---- 内部计算 ----
+
+    /**
+     * 综合计算 finalPrice = fundamental + momentum + noise + event。
+     */
+    private void recalculate(long npcStock) {
+        this.lastNpcStock = npcStock;
+
+        // 1. 库存基准价
+        double deviation = (double)(REFERENCE_STOCK - npcStock) / REFERENCE_STOCK;
+        double fundamental = basePrice * (1.0 + deviation * SENSITIVITY);
+
+        // 2. 事件倍率：确保对低价商品也有可见效果（至少 ±1）
+        if (activeEvent != null) {
+            double before = fundamental;
+            fundamental *= activeEvent.getPriceMultiplier();
+            if (Math.abs(fundamental - before) < 1.0 && Math.abs(fundamental - before) > 1e-6) {
+                fundamental = before + Math.signum(fundamental - before);
+            }
+        }
+
+        // 3. 动能 × 基准价 + 噪音整价偏移
+        long price = Math.round(fundamental * (1.0 + tradeMomentum)) + noiseOffset;
+
+        // 5. 限制波动范围
+        long floor = Math.max(1, Math.round(basePrice * MIN_PRICE_RATIO));
+        long ceiling = Math.round(basePrice * MAX_PRICE_RATIO);
+        midPrice = Math.max(floor, Math.min(ceiling, price));
+    }
+
+    /**
+     * 根据 NPC 当前库存重新计算 midPrice（无成交动能和噪音时使用）。
+     * 保留以兼容持久化恢复和 seedNpcIfNeeded。
+     */
+    public void recomputePrice(long npcStock) {
+        recalculate(npcStock);
+    }
+
+    /** 使用最近库存重新计算（tickMomentum/tickNoise 后调用） */
+    public void recalculateFromCurrent() {
+        if (lastNpcStock > 0) {
+            recalculate(lastNpcStock);
+        }
     }
 
     // ================================================================
@@ -185,6 +296,19 @@ public class MarketPrice {
     /** 设置 24h 开盘价（持久化恢复时使用） */
     public void setDayOpen(long dayOpen) {
         this.dayOpen = dayOpen;
+    }
+
+    /**
+     * 重置 24h 统计和快照（服务器启动时调用，清除旧数据）。
+     */
+    public void resetDayStats() {
+        dayHigh = midPrice;
+        dayLow = midPrice;
+        dayVolume = 0;
+        dayOpen = midPrice;
+        snapshots.clear();
+        tradeMomentum = 0;
+        noiseOffset = 0;
     }
 
     /**

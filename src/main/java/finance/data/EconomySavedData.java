@@ -5,6 +5,9 @@ import finance.account.AccountManager;
 import finance.account.TransactionRecord;
 import finance.commodity.Commodity;
 import finance.commodity.CommodityRegistry;
+import finance.event.EventManager;
+import finance.event.EventTier;
+import finance.event.MarketEvent;
 import finance.market.MarketManager;
 import finance.market.MarketPrice;
 import finance.market.NpcMarketMaker;
@@ -232,6 +235,27 @@ public class EconomySavedData extends SavedData {
 
         tag.put("PriceSnapshots", snapshotsTag);
 
+        // ---- 保存事件状态 ----
+        tag.putInt("TimerMinor", EventManager.getTimerMinor());
+        tag.putInt("TimerMajor", EventManager.getTimerMajor());
+        tag.putInt("TimerBlackSwan", EventManager.getTimerBlackSwan());
+
+        ListTag eventsTag = new ListTag();
+        for (MarketEvent ev : EventManager.getActiveEvents()) {
+            CompoundTag evTag = new CompoundTag();
+            evTag.putString("Name", ev.getName());
+            evTag.putString("Description", ev.getDescription());
+            evTag.putString("Tier", ev.getTier().name());
+            if (ev.getCommodityId() != null) {
+                evTag.putString("CommodityId", ev.getCommodityId());
+            }
+            evTag.putDouble("PriceMultiplier", ev.getPriceMultiplier());
+            evTag.putInt("TotalTicks", ev.getTotalTicks());
+            evTag.putInt("RemainingTicks", ev.getRemainingTicks());
+            eventsTag.add(evTag);
+        }
+        tag.put("ActiveEvents", eventsTag);
+
         return tag;
     }
 
@@ -445,55 +469,43 @@ public class EconomySavedData extends SavedData {
             }
         }
 
-        // ---- 加载价格快照 ----
-        if (tag.contains("PriceSnapshots")) {
+        // ---- 加载事件状态 ----
+        if (tag.contains("TimerMinor")) {
+            EventManager.setTimers(
+                    tag.getInt("TimerMinor"),
+                    tag.getInt("TimerMajor"),
+                    tag.getInt("TimerBlackSwan"));
+        }
 
-            ListTag snapshotsTag = tag.getList(
-                    "PriceSnapshots",
-                    Tag.TAG_COMPOUND
-            );
+        if (tag.contains("ActiveEvents")) {
+            EventManager.clearActiveEvents();
+            ListTag eventsTag = tag.getList("ActiveEvents", Tag.TAG_COMPOUND);
+            for (Tag rawTag : eventsTag) {
+                CompoundTag evTag = (CompoundTag) rawTag;
+                String name = evTag.getString("Name");
+                String description = evTag.getString("Description");
+                EventTier tier = EventTier.valueOf(evTag.getString("Tier"));
+                String commodityId = evTag.contains("CommodityId")
+                        ? evTag.getString("CommodityId") : null;
+                double multiplier = evTag.getDouble("PriceMultiplier");
+                int totalTicks = evTag.getInt("TotalTicks");
+                int remainingTicks = evTag.getInt("RemainingTicks");
 
-            for (Tag rawTag : snapshotsTag) {
+                MarketEvent ev = new MarketEvent(name, description, tier,
+                        commodityId, multiplier, totalTicks, remainingTicks);
+                EventManager.addActiveEventDirect(ev);
 
-                CompoundTag commoditySnapTag = (CompoundTag) rawTag;
-                String commodityId =
-                        commoditySnapTag.getString("CommodityId");
-
-                MarketPrice mp =
-                        NpcMarketMaker.getMarketPrice(commodityId);
-                if (mp == null) {
-                    continue;
+                // 重新应用到价格
+                if (ev.affectsAll()) {
+                    NpcMarketMaker.applyEventToAll(ev);
+                } else {
+                    NpcMarketMaker.applyEvent(ev.getCommodityId(), ev);
                 }
-
-                ListTag snapsList = commoditySnapTag.getList(
-                        "Snapshots",
-                        Tag.TAG_COMPOUND
-                );
-
-                for (Tag rawSnap : snapsList) {
-
-                    CompoundTag snapTag = (CompoundTag) rawSnap;
-                    long epochSeconds = snapTag.getLong("Timestamp");
-                    long price = snapTag.getLong("Price");
-                    int volume = snapTag.getInt("Volume");
-
-                    MarketPrice.PriceSnapshot snap =
-                            new MarketPrice.PriceSnapshot(
-                                    LocalDateTime.ofEpochSecond(
-                                            epochSeconds,
-                                            0,
-                                            ZoneOffset.UTC
-                                    ),
-                                    price,
-                                    volume
-                            );
-
-                    mp.getSnapshots().add(snap);
-                }
-
-                mp.recomputeDayStats();
             }
         }
+
+        // 快照不跨 session 恢复，每次服务器启动从零开始
+        // seedNpcIfNeeded() 会调用 resetDayStats() 初始化 24h 统计
 
         return data;
     }
