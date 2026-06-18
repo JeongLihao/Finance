@@ -31,6 +31,15 @@ public class CompanyManager {
         return COMPANIES.get(id);
     }
 
+    public static Company getCompanyByOwner(UUID ownerId) {
+        for (Company c : COMPANIES.values()) {
+            if (ownerId.equals(c.getOwnerId())) {
+                return c;
+            }
+        }
+        return null;
+    }
+
     /** 按名称查找公司（忽略大小写），无匹配返回 null */
     public static Company getCompanyByName(String name) {
         for (Company c : COMPANIES.values()) {
@@ -39,6 +48,10 @@ public class CompanyManager {
             }
         }
         return null;
+    }
+
+    public static boolean hasCompanyNamed(String name) {
+        return getCompanyByName(name) != null;
     }
 
     /** 每日经营 tick —— 所有公司生产 + 自动交易（由 FinanceMod 每天调用一次） */

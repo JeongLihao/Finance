@@ -20,6 +20,7 @@ public class Company {
     private final UUID companyId;
     private final String name;
     private final CompanyType type;
+    private final UUID ownerId;
     private long cash;
     private final Map<String, Integer> inventory = new HashMap<>();
 
@@ -30,15 +31,22 @@ public class Company {
     private static final int RAW_MATERIAL_RESERVE_DAYS = 3;
 
     public Company(UUID companyId, String name, CompanyType type, long cash) {
+        this(companyId, name, type, cash, null);
+    }
+
+    public Company(UUID companyId, String name, CompanyType type, long cash, UUID ownerId) {
         this.companyId = companyId;
         this.name = name;
         this.type = type;
         this.cash = cash;
+        this.ownerId = ownerId;
     }
 
     public UUID getCompanyId() { return companyId; }
     public String getName() { return name; }
     public CompanyType getType() { return type; }
+    public UUID getOwnerId() { return ownerId; }
+    public boolean isPlayerOwned() { return ownerId != null; }
     public long getCash() { return cash; }
 
     // ---- 库存 ----
