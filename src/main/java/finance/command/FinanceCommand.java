@@ -5,6 +5,7 @@ import com.mojang.brigadier.arguments.LongArgumentType;
 import finance.account.AccountManager;
 import finance.account.TransactionRecord;
 import finance.account.TransactionType;
+import finance.gui.FinanceGuiOpener;
 import finance.market.NpcMarketMaker;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
@@ -21,10 +22,19 @@ public class FinanceCommand {
 
         dispatcher.register(
                 Commands.literal("finance")
-                        .requires(source -> source.hasPermission(2))
+                        .then(
+                                Commands.literal("gui")
+                                        .executes(context -> {
+                                            ServerPlayer player =
+                                                    context.getSource().getPlayerOrException();
+                                            FinanceGuiOpener.openMarketOverview(player);
+                                            return 1;
+                                        })
+                        )
 
                         .then(
                                 Commands.literal("give")
+                                        .requires(source -> source.hasPermission(2))
 
                                         .then(
                                                 Commands.argument(

@@ -22,8 +22,10 @@ import finance.data.EconomySavedData;
 import finance.data.CommodityInventorySavedData;
 import finance.market.NpcMarketMaker;
 import finance.event.EventManager;
+import finance.registry.ModMenus;
 import net.minecraftforge.event.TickEvent.Phase;
 import net.minecraftforge.event.TickEvent.ServerTickEvent;
+import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 
 /**
  * Finance 模组入口。
@@ -48,6 +50,7 @@ public class FinanceMod {
 
     public FinanceMod(){
 
+        ModMenus.register(FMLJavaModLoadingContext.get().getModEventBus());
         MinecraftForge.EVENT_BUS.register(this);
 
         // ---- 注册默认商品 ----
