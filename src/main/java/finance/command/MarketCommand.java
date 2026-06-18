@@ -24,6 +24,7 @@ import finance.account.AccountManager;
 import finance.event.EventManager;
 import finance.company.CompanyManager;
 import finance.commodity.CommodityRegistry;
+import finance.gui.FinanceGuiOpener;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -55,6 +56,19 @@ public class MarketCommand {
 
         dispatcher.register(
                 Commands.literal("market")
+
+                        // ================================================
+                        // /market gui —— 打开市场总览界面
+                        // ================================================
+                        .then(
+                                Commands.literal("gui")
+                                        .executes(context -> {
+                                            ServerPlayer player =
+                                                    context.getSource().getPlayerOrException();
+                                            FinanceGuiOpener.openMarketOverview(player);
+                                            return 1;
+                                        })
+                        )
 
                         // ================================================
                         // /market orders —— 查看订单簿
