@@ -65,7 +65,10 @@ public class NpcMarketMaker {
             return false;
         }
         long bidPrice = price.getBidPrice();
-        long totalPayment = bidPrice * quantity;
+        long totalPayment = multiplyPriceQuantity(bidPrice, quantity);
+        if (totalPayment <= 0) {
+            return false;
+        }
 
         // 1. 检查玩家库存
         int playerStock = CommodityInventoryManager.getCommodityAmount(playerId, commodityId);
@@ -120,7 +123,10 @@ public class NpcMarketMaker {
             return false;
         }
         long askPrice = price.getAskPrice();
-        long totalCost = askPrice * quantity;
+        long totalCost = multiplyPriceQuantity(askPrice, quantity);
+        if (totalCost <= 0) {
+            return false;
+        }
 
         // 1. 检查 NPC 库存
         int npcStock = CommodityInventoryManager.getCommodityAmount(NPC_UUID, commodityId);
@@ -233,13 +239,12 @@ public class NpcMarketMaker {
                 mp.recomputePrice(stockAfterSeed);
                 mp.resetDayStats();
             } else {
-                // 从磁盘恢复的已有商品：确保库存充足，基于实际库存重新计算价格
+                // 从磁盘恢复的已有商品：确保库存充足，保留已保存的统计与短期因子
                 if (actualStock < INITIAL_NPC_STOCK) {
                     CommodityInventoryManager.addCommodity(NPC_UUID, id, (int)(INITIAL_NPC_STOCK - actualStock));
                 }
                 long stockAfterSeed = CommodityInventoryManager.getCommodityAmount(NPC_UUID, id);
                 mp.recomputePrice(stockAfterSeed);
-                mp.resetDayStatsOnly();
             }
         }
     }
@@ -312,6 +317,14 @@ public class NpcMarketMaker {
                 mp.removeEvent();
                 mp.recalculateFromCurrent();
             }
+        }
+    }
+
+    private static long multiplyPriceQuantity(long price, int quantity) {
+        try {
+            return Math.multiplyExact(price, (long) quantity);
+        } catch (ArithmeticException ex) {
+            return -1;
         }
     }
 }

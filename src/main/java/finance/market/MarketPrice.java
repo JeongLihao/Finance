@@ -296,6 +296,21 @@ public class MarketPrice {
         this.spread = spread;
     }
 
+    public void setTradeMomentum(double tradeMomentum) {
+        this.tradeMomentum = tradeMomentum;
+    }
+
+    public void setNoiseOffset(int noiseOffset) {
+        int maxNoise = Math.max(1, (int) Math.round(basePrice * MAX_NOISE_RATIO));
+        if (noiseOffset > maxNoise) {
+            this.noiseOffset = maxNoise;
+        } else if (noiseOffset < -maxNoise) {
+            this.noiseOffset = -maxNoise;
+        } else {
+            this.noiseOffset = noiseOffset;
+        }
+    }
+
     /** 设置 24h 开盘价（持久化恢复时使用） */
     public void setDayOpen(long dayOpen) {
         this.dayOpen = dayOpen;

@@ -6,6 +6,7 @@ import java.util.Iterator;
 import finance.account.AccountManager;
 import finance.account.TransactionRecord;
 import finance.account.TransactionType;
+import finance.commodity.CommodityRegistry;
 import finance.data.EconomySavedData;
 import java.util.UUID;
 import finance.commodity.CommodityInventoryManager;
@@ -47,19 +48,26 @@ public class MarketManager {
      * BUY 单先冻结资金，SELL 单先扣除库存商品，然后尝试撮合。
      * 未能完全成交的剩余数量作为新订单加入订单簿。
      */
-    public static void placeOrder(Order order) {
+    public static boolean placeOrder(Order order) {
+
+        if (CommodityRegistry.getCommodity(order.getCommodityId()) == null) {
+            return false;
+        }
 
         // ---- 冻结资产 ----
         if (order.getType() == OrderType.BUY) {
 
-            long totalCost = order.getPrice()
-                    * order.getQuantity();
+            long totalCost = multiplyPriceQuantity(order.getPrice(), order.getQuantity());
+
+            if (totalCost <= 0) {
+                return false;
+            }
 
             if (!AccountManager.freezeFunds(
                     order.getPlayerId(),
                     totalCost
             )) {
-                return;
+                return false;
             }
 
         } else {
@@ -73,7 +81,7 @@ public class MarketManager {
                             );
 
             if (!removed) {
-                return;
+                return false;
             }
         }
 
@@ -86,6 +94,8 @@ public class MarketManager {
             ORDERS.add(order);
             EconomySavedData.markDirty();
         }
+
+        return true;
     }
 
     // ================================================================
@@ -171,7 +181,10 @@ public class MarketManager {
 
             // 成交价 = 卖方定价
             long tradePrice = sellOrder.getPrice();
-            long paymentAmount = tradePrice * tradeQty;
+            long paymentAmount = multiplyPriceQuantity(tradePrice, tradeQty);
+            if (paymentAmount < 0) {
+                continue;
+            }
 
             // 卖方商品已在下单时冻结，此处信任冻结量足够
             int frozenQty = (newOrder.getType() == OrderType.SELL)
@@ -186,24 +199,28 @@ public class MarketManager {
             // 执行成交
             // ============================================
 
-            // Step 1: 商品交割（卖方 → 买方）
+            // Step 1: 资金结算（买方 → 卖方）
+            long frozenAmount = multiplyPriceQuantity(buyOrder.getPrice(), tradeQty);
+            if (frozenAmount < 0) {
+                continue;
+            }
+
+            if (!AccountManager.settleFrozenFunds(buyer, frozenAmount, paymentAmount)) {
+                continue;
+            }
+
+            // 支付卖方（成交价 × 数量）
+            AccountManager.deposit(seller, paymentAmount);
+
+            // 差价（买方出价 - 成交价）由 settleFrozenFunds 自动退回买方余额
+
+            // Step 2: 商品交割（卖方 → 买方）
             // 卖方的商品在下单时已从库存扣除，此处直接给买方
             CommodityInventoryManager.addCommodity(
                     buyer,
                     newOrder.getCommodityId(),
                     tradeQty
             );
-
-            // Step 2: 资金结算（买方 → 卖方）
-            long frozenAmount = buyOrder.getPrice() * tradeQty;
-
-            // 解冻买方冻结的全部资金
-            AccountManager.unfreezeFunds(buyer, frozenAmount);
-
-            // 支付卖方（成交价 × 数量）
-            AccountManager.deposit(seller, paymentAmount);
-
-            // 差价（买方出价 - 成交价）由 unfreezeFunds 自动退回买方余额
 
             // Step 3: 记录交易
             AccountManager.addTransactionRecord(
@@ -271,8 +288,11 @@ public class MarketManager {
         // 退还冻结资产
         if (order.getType() == OrderType.BUY) {
 
-            long totalCost = order.getPrice()
-                    * order.getQuantity();
+            long totalCost = multiplyPriceQuantity(order.getPrice(), order.getQuantity());
+
+            if (totalCost <= 0) {
+                return false;
+            }
 
             AccountManager.unfreezeFunds(
                     order.getPlayerId(),
@@ -329,5 +349,13 @@ public class MarketManager {
     /** 清空订单簿（数据加载前调用） */
     public static void clearOrders() {
         ORDERS.clear();
+    }
+
+    private static long multiplyPriceQuantity(long price, int quantity) {
+        try {
+            return Math.multiplyExact(price, (long) quantity);
+        } catch (ArithmeticException ex) {
+            return -1;
+        }
     }
 }

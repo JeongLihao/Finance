@@ -88,4 +88,23 @@ public class Account {
         frozenBalance -= actual;
         balance += actual;
     }
+
+    /**
+     * 从冻结资金中完成一笔结算。
+     * reservedAmount 是本次成交对应的冻结资金，paymentAmount 是实际支付金额。
+     * 两者的差额会退回可用余额。
+     */
+    public boolean settleFrozenFunds(long reservedAmount, long paymentAmount) {
+        if (reservedAmount <= 0 || paymentAmount < 0 || paymentAmount > reservedAmount) {
+            return false;
+        }
+
+        if (frozenBalance < reservedAmount) {
+            return false;
+        }
+
+        frozenBalance -= reservedAmount;
+        balance += reservedAmount - paymentAmount;
+        return true;
+    }
 }

@@ -95,7 +95,8 @@ public class Company {
         MarketPrice mp = NpcMarketMaker.getMarketPrice(commodityId);
         if (mp == null) return;
         long askPrice = mp.getAskPrice();
-        long totalCost = askPrice * quantity;
+        long totalCost = multiplyPriceQuantity(askPrice, quantity);
+        if (totalCost <= 0) return;
 
         int npcStock = CommodityInventoryManager.getCommodityAmount(
                 NpcMarketMaker.NPC_UUID, commodityId);
@@ -138,16 +139,18 @@ public class Company {
                     NpcMarketMaker.NPC_UUID, commodityId);
 
             // NPC 余额是否充足
-            long totalCost = bidPrice * sellQty;
+            long totalCost = multiplyPriceQuantity(bidPrice, sellQty);
+            if (totalCost <= 0) continue;
             long npcBalance = AccountManager.getBalance(NpcMarketMaker.NPC_UUID);
 
             // 自适应调量：NPC 库存或余额不足时缩量
             while (sellQty > 1 && (npcStock < sellQty || npcBalance < totalCost)) {
                 sellQty /= 2;
-                totalCost = bidPrice * sellQty;
+                totalCost = multiplyPriceQuantity(bidPrice, sellQty);
+                if (totalCost <= 0) break;
             }
 
-            if (sellQty <= 0) continue;
+            if (sellQty <= 0 || totalCost <= 0) continue;
 
             if (removeInventory(commodityId, sellQty)) {
                 // 商品：公司 → NPC
@@ -196,5 +199,13 @@ public class Company {
         if (cash < amount) return false;
         cash -= amount;
         return true;
+    }
+
+    private static long multiplyPriceQuantity(long price, int quantity) {
+        try {
+            return Math.multiplyExact(price, (long) quantity);
+        } catch (ArithmeticException ex) {
+            return -1;
+        }
     }
 }

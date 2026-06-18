@@ -116,6 +116,15 @@ public class AccountManager {
         EconomySavedData.markDirty();
     }
 
+    /** 从已冻结资金中支付成交款，并把买方出价高于成交价的差额退回余额 */
+    public static boolean settleFrozenFunds(UUID playerId, long reservedAmount, long paymentAmount) {
+        boolean success = getAccount(playerId).settleFrozenFunds(reservedAmount, paymentAmount);
+        if (success) {
+            EconomySavedData.markDirty();
+        }
+        return success;
+    }
+
     // ================================================================
     // 交易记录管理
     // ================================================================
