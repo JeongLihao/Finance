@@ -6,6 +6,7 @@ import com.mojang.brigadier.arguments.LongArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import finance.event.EventTier;
 import finance.event.MarketEvent;
 import finance.market.MarketManager;
@@ -39,9 +40,9 @@ import java.time.format.DateTimeFormatter;
  *   <li>/market sell ＜commodity＞ ＜price＞ ＜quantity＞ —— 挂卖单</li>
  *   <li>/market cancel ＜index＞ —— 取消指定订单</li>
  *   <li>/market history —— 查看最近 20 条成交历史</li>
- *   <li>/market npc sell ＜commodity＞ ＜quantity＞ —— 卖给 NPC</li>
- *   <li>/market npc buy ＜commodity＞ ＜quantity＞ —— 从 NPC 购买</li>
- *   <li>/market npc prices —— 查看 NPC 报价</li>
+ *   <li>/market international sell ＜commodity＞ ＜quantity＞ —— 卖给国际市场</li>
+ *   <li>/market international buy ＜commodity＞ ＜quantity＞ —— 从国际市场购买</li>
+ *   <li>/market international prices —— 查看国际市场报价</li>
  *   <li>/market price —— 查看所有商品行情（价格 + 涨跌幅 + 成交量）</li>
  *   <li>/market price ＜commodity＞ —— 查看单个商品详情</li>
  * </ul>
@@ -552,258 +553,12 @@ public class MarketCommand {
                         )
 
                         // ================================================
-                        // /market npc —— NPC 做市商交易
+                        // /market international —— 国际市场交易
                         // ================================================
-                        .then(
-                                Commands.literal("npc")
+                        .then(registerInternationalMarketCommands("international"))
 
-                                        // /market npc sell <commodity> <quantity>
-                                        .then(
-                                                Commands.literal("sell")
-
-                                                        .then(
-                                                                Commands.argument(
-                                                                                "commodity",
-                                                                                StringArgumentType.word()
-                                                                        )
-
-                                                                        .then(
-                                                                                Commands.argument(
-                                                                                                "quantity",
-                                                                                                IntegerArgumentType.integer(1)
-                                                                                        )
-
-                                                                                        .executes(context -> {
-
-                                                                                            NpcTradeContext ctx = resolveNpcTrade(context);
-                                                                                            if (ctx == null) return 0;
-
-                                                                                            // 检查玩家库存
-                                                                                            int owned =
-                                                                                                    CommodityInventoryManager
-                                                                                                            .getCommodityAmount(
-                                                                                                                    ctx.player().getUUID(),
-                                                                                                                    ctx.commodity()
-                                                                                                            );
-
-                                                                                            if (owned < ctx.quantity()) {
-
-                                                                                                long bid = ctx.price().getBidPrice();
-
-                                                                                                ctx.player().sendSystemMessage(
-                                                                                                        Component.literal(
-                                                                                                                "库存不足，"
-                                                                                                                        + ctx.commodity()
-                                                                                                                        + ". 拥有: " + owned
-                                                                                                                        + " 需要: " + ctx.quantity()
-                                                                                                                        + " (NPC买入价: "
-                                                                                                                        + bid + ")"
-                                                                                                        )
-                                                                                                );
-
-                                                                                                return 0;
-                                                                                            }
-
-                                                                                            boolean success =
-                                                                                                    NpcMarketMaker.npcBuy(
-                                                                                                            ctx.player().getUUID(),
-                                                                                                            ctx.commodity(),
-                                                                                                            ctx.quantity()
-                                                                                                    );
-
-                                                                                            if (!success) {
-
-                                                                                                ctx.player().sendSystemMessage(
-                                                                                                        Component.literal(
-                                                                                                                "NPC 暂时无法买入。"
-                                                                                                        )
-                                                                                                );
-
-                                                                                                return 0;
-                                                                                            }
-
-                                                                                            long bidPrice = ctx.price().getBidPrice();
-                                                                                            long received = multiplyPriceQuantity(bidPrice, ctx.quantity());
-
-                                                                                            ctx.player().sendSystemMessage(
-                                                                                                    Component.literal(
-                                                                                                            "已卖出 "
-                                                                                                                    + ctx.quantity() + "x "
-                                                                                                                    + ctx.commodity()
-                                                                                                                    + " 给 NPC，单价: "
-                                                                                                                    + bidPrice
-                                                                                                                    + "  收入: "
-                                                                                                                    + received
-                                                                                                    )
-                                                                                            );
-
-                                                                                            return 1;
-                                                                                        })
-                                                                        )
-                                                        )
-                                        )
-
-                                        // /market npc buy <commodity> <quantity>
-                                        .then(
-                                                Commands.literal("buy")
-
-                                                        .then(
-                                                                Commands.argument(
-                                                                                "commodity",
-                                                                                StringArgumentType.word()
-                                                                        )
-
-                                                                        .then(
-                                                                                Commands.argument(
-                                                                                                "quantity",
-                                                                                                IntegerArgumentType.integer(1)
-                                                                                        )
-
-                                                                                        .executes(context -> {
-
-                                                                                            NpcTradeContext ctx = resolveNpcTrade(context);
-                                                                                            if (ctx == null) return 0;
-
-                                                                                            // 检查 NPC 库存
-                                                                                            int npcStock =
-                                                                                                    CommodityInventoryManager
-                                                                                                            .getCommodityAmount(
-                                                                                                                    NpcMarketMaker.NPC_UUID,
-                                                                                                                    ctx.commodity()
-                                                                                                            );
-
-                                                                                            if (npcStock < ctx.quantity()) {
-
-                                                                                                ctx.player().sendSystemMessage(
-                                                                                                        Component.literal(
-                                                                                                                "NPC 库存不足: "
-                                                                                                                        + ctx.commodity()
-                                                                                                                        + "  可用: "
-                                                                                                                        + npcStock
-                                                                                                        )
-                                                                                                );
-
-                                                                                                return 0;
-                                                                                            }
-
-                                                                                            // 检查玩家余额
-                                                                                            long askPrice = ctx.price().getAskPrice();
-                                                                                            long totalCost = multiplyPriceQuantity(askPrice, ctx.quantity());
-
-                                                                                            if (totalCost <= 0) {
-                                                                                                ctx.player().sendSystemMessage(
-                                                                                                        Component.literal(
-                                                                                                                "交易金额过大，无法提交。"
-                                                                                                        )
-                                                                                                );
-
-                                                                                                return 0;
-                                                                                            }
-
-                                                                                            long balance =
-                                                                                                    AccountManager.getBalance(
-                                                                                                            ctx.player().getUUID()
-                                                                                                    );
-
-                                                                                            if (balance < totalCost) {
-
-                                                                                                ctx.player().sendSystemMessage(
-                                                                                                        Component.literal(
-                                                                                                                "余额不足，"
-                                                                                                                        + "需要: " + totalCost
-                                                                                                                        + " 拥有: " + balance
-                                                                                                                        + " (NPC卖出价: "
-                                                                                                                        + askPrice + ")"
-                                                                                                        )
-                                                                                                );
-
-                                                                                                return 0;
-                                                                                            }
-
-                                                                                            boolean success =
-                                                                                                    NpcMarketMaker.npcSell(
-                                                                                                            ctx.player().getUUID(),
-                                                                                                            ctx.commodity(),
-                                                                                                            ctx.quantity()
-                                                                                                    );
-
-                                                                                            if (!success) {
-
-                                                                                                ctx.player().sendSystemMessage(
-                                                                                                        Component.literal(
-                                                                                                                "NPC 暂时无法卖出。"
-                                                                                                        )
-                                                                                                );
-
-                                                                                                return 0;
-                                                                                            }
-
-                                                                                            ctx.player().sendSystemMessage(
-                                                                                                    Component.literal(
-                                                                                                            "已买入 "
-                                                                                                                    + ctx.quantity() + "x "
-                                                                                                                    + ctx.commodity()
-                                                                                                                    + " 从 NPC，单价: "
-                                                                                                                    + askPrice
-                                                                                                                    + "  支付: "
-                                                                                                                    + totalCost
-                                                                                                    )
-                                                                                            );
-
-                                                                                            return 1;
-                                                                                        })
-                                                                        )
-                                                        )
-                                        )
-
-                                        // /market npc prices —— 查看所有 NPC 报价
-                                        .then(
-                                                Commands.literal("prices")
-                                                        .executes(context -> {
-
-                                                            ServerPlayer player =
-                                                                    context.getSource()
-                                                                            .getPlayerOrException();
-
-                                                            Collection<MarketPrice> allPrices =
-                                                                    NpcMarketMaker.getAllMarketPrices()
-                                                                            .values();
-
-                                                            if (allPrices.isEmpty()) {
-
-                                                                player.sendSystemMessage(
-                                                                        Component.literal(
-                                                                                "暂无 NPC 报价。"
-                                                                        )
-                                                                );
-
-                                                                return 1;
-                                                            }
-
-                                                            player.sendSystemMessage(
-                                                                    Component.literal(
-                                                                            "=== NPC 报价 ==="
-                                                                    )
-                                                            );
-
-                                                            for (MarketPrice mp : allPrices) {
-
-                                                                long bid = mp.getBidPrice();
-                                                                long ask = mp.getAskPrice();
-
-                                                                player.sendSystemMessage(
-                                                                        Component.literal(
-                                                                                mp.getCommodityId()
-                                                                                        + "  买入: " + bid
-                                                                                        + "  卖出: " + ask
-                                                                        )
-                                                                );
-                                                            }
-
-                                                            return 1;
-                                                        })
-                                        )
-                        )
+                        // /market npc —— 旧命令兼容别名
+                        .then(registerInternationalMarketCommands("npc"))
 
                         // ================================================
                         // /market top —— 涨幅排行
@@ -1005,7 +760,7 @@ public class MarketCommand {
                                                                     )
                                                             );
 
-                                                            int npcStock =
+                                                            int marketStock =
                                                                     CommodityInventoryManager
                                                                             .getCommodityAmount(
                                                                                     NpcMarketMaker.NPC_UUID,
@@ -1014,7 +769,7 @@ public class MarketCommand {
 
                                                             player.sendSystemMessage(
                                                                     Component.literal(
-                                                                            "NPC 库存: " + npcStock
+                                                                            "国际市场库存: " + marketStock
                                                                                     + "  (参考: " + MarketPrice.REFERENCE_STOCK + ")"
                                                                     )
                                                             );
@@ -1117,6 +872,232 @@ public class MarketCommand {
     // ---- helpers ----
 
     private record NpcTradeContext(ServerPlayer player, String commodity, int quantity, MarketPrice price) {}
+
+    private static LiteralArgumentBuilder<CommandSourceStack> registerInternationalMarketCommands(String name) {
+        return Commands.literal(name)
+                .then(
+                        Commands.literal("sell")
+                                .then(
+                                        Commands.argument(
+                                                        "commodity",
+                                                        StringArgumentType.word()
+                                                )
+                                                .then(
+                                                        Commands.argument(
+                                                                        "quantity",
+                                                                        IntegerArgumentType.integer(1)
+                                                                )
+                                                                .executes(context -> {
+                                                                    NpcTradeContext ctx = resolveNpcTrade(context);
+                                                                    if (ctx == null) return 0;
+
+                                                                    int owned =
+                                                                            CommodityInventoryManager
+                                                                                    .getCommodityAmount(
+                                                                                            ctx.player().getUUID(),
+                                                                                            ctx.commodity()
+                                                                                    );
+
+                                                                    if (owned < ctx.quantity()) {
+                                                                        long bid = ctx.price().getBidPrice();
+
+                                                                        ctx.player().sendSystemMessage(
+                                                                                Component.literal(
+                                                                                        "库存不足，"
+                                                                                                + ctx.commodity()
+                                                                                                + ". 拥有: " + owned
+                                                                                                + " 需要: " + ctx.quantity()
+                                                                                                + " (国际市场买入价: "
+                                                                                                + bid + ")"
+                                                                                )
+                                                                        );
+
+                                                                        return 0;
+                                                                    }
+
+                                                                    boolean success =
+                                                                            NpcMarketMaker.npcBuy(
+                                                                                    ctx.player().getUUID(),
+                                                                                    ctx.commodity(),
+                                                                                    ctx.quantity()
+                                                                            );
+
+                                                                    if (!success) {
+                                                                        ctx.player().sendSystemMessage(
+                                                                                Component.literal(
+                                                                                        "国际市场暂时无法买入。"
+                                                                                )
+                                                                        );
+
+                                                                        return 0;
+                                                                    }
+
+                                                                    long bidPrice = ctx.price().getBidPrice();
+                                                                    long received = multiplyPriceQuantity(bidPrice, ctx.quantity());
+
+                                                                    ctx.player().sendSystemMessage(
+                                                                            Component.literal(
+                                                                                    "已向国际市场卖出 "
+                                                                                            + ctx.quantity() + "x "
+                                                                                            + ctx.commodity()
+                                                                                            + "，单价: "
+                                                                                            + bidPrice
+                                                                                            + "  收入: "
+                                                                                            + received
+                                                                            )
+                                                                    );
+
+                                                                    return 1;
+                                                                })
+                                                )
+                                )
+                )
+                .then(
+                        Commands.literal("buy")
+                                .then(
+                                        Commands.argument(
+                                                        "commodity",
+                                                        StringArgumentType.word()
+                                                )
+                                                .then(
+                                                        Commands.argument(
+                                                                        "quantity",
+                                                                        IntegerArgumentType.integer(1)
+                                                                )
+                                                                .executes(context -> {
+                                                                    NpcTradeContext ctx = resolveNpcTrade(context);
+                                                                    if (ctx == null) return 0;
+
+                                                                    int marketStock =
+                                                                            CommodityInventoryManager
+                                                                                    .getCommodityAmount(
+                                                                                            NpcMarketMaker.NPC_UUID,
+                                                                                            ctx.commodity()
+                                                                                    );
+
+                                                                    if (marketStock < ctx.quantity()) {
+                                                                        ctx.player().sendSystemMessage(
+                                                                                Component.literal(
+                                                                                        "国际市场库存不足: "
+                                                                                                + ctx.commodity()
+                                                                                                + "  可用: "
+                                                                                                + marketStock
+                                                                                )
+                                                                        );
+
+                                                                        return 0;
+                                                                    }
+
+                                                                    long askPrice = ctx.price().getAskPrice();
+                                                                    long totalCost = multiplyPriceQuantity(askPrice, ctx.quantity());
+
+                                                                    if (totalCost <= 0) {
+                                                                        ctx.player().sendSystemMessage(
+                                                                                Component.literal(
+                                                                                        "交易金额过大，无法提交。"
+                                                                                )
+                                                                        );
+
+                                                                        return 0;
+                                                                    }
+
+                                                                    long balance =
+                                                                            AccountManager.getBalance(
+                                                                                    ctx.player().getUUID()
+                                                                            );
+
+                                                                    if (balance < totalCost) {
+                                                                        ctx.player().sendSystemMessage(
+                                                                                Component.literal(
+                                                                                        "余额不足，"
+                                                                                                + "需要: " + totalCost
+                                                                                                + " 拥有: " + balance
+                                                                                                + " (国际市场卖出价: "
+                                                                                                + askPrice + ")"
+                                                                                )
+                                                                        );
+
+                                                                        return 0;
+                                                                    }
+
+                                                                    boolean success =
+                                                                            NpcMarketMaker.npcSell(
+                                                                                    ctx.player().getUUID(),
+                                                                                    ctx.commodity(),
+                                                                                    ctx.quantity()
+                                                                            );
+
+                                                                    if (!success) {
+                                                                        ctx.player().sendSystemMessage(
+                                                                                Component.literal(
+                                                                                        "国际市场暂时无法卖出。"
+                                                                                )
+                                                                        );
+
+                                                                        return 0;
+                                                                    }
+
+                                                                    ctx.player().sendSystemMessage(
+                                                                            Component.literal(
+                                                                                    "已从国际市场买入 "
+                                                                                            + ctx.quantity() + "x "
+                                                                                            + ctx.commodity()
+                                                                                            + "，单价: "
+                                                                                            + askPrice
+                                                                                            + "  支付: "
+                                                                                            + totalCost
+                                                                            )
+                                                                    );
+
+                                                                    return 1;
+                                                                })
+                                                )
+                                )
+                )
+                .then(
+                        Commands.literal("prices")
+                                .executes(context -> {
+                                    ServerPlayer player =
+                                            context.getSource()
+                                                    .getPlayerOrException();
+
+                                    Collection<MarketPrice> allPrices =
+                                            NpcMarketMaker.getAllMarketPrices()
+                                                    .values();
+
+                                    if (allPrices.isEmpty()) {
+                                        player.sendSystemMessage(
+                                                Component.literal(
+                                                        "暂无国际市场报价。"
+                                                )
+                                        );
+
+                                        return 1;
+                                    }
+
+                                    player.sendSystemMessage(
+                                            Component.literal(
+                                                    "=== 国际市场报价 ==="
+                                            )
+                                    );
+
+                                    for (MarketPrice mp : allPrices) {
+                                        long bid = mp.getBidPrice();
+                                        long ask = mp.getAskPrice();
+
+                                        player.sendSystemMessage(
+                                                Component.literal(
+                                                        mp.getCommodityId()
+                                                                + "  买入: " + bid
+                                                                + "  卖出: " + ask
+                                                )
+                                        );
+                                    }
+
+                                    return 1;
+                                })
+                );
+    }
 
     private static NpcTradeContext resolveNpcTrade(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
         ServerPlayer player = context.getSource().getPlayerOrException();

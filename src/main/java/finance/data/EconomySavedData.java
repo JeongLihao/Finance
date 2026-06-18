@@ -41,7 +41,7 @@ import net.minecraft.world.level.storage.DimensionDataStorage;
  *   <li>最近 500 条交易记录</li>
  *   <li>成交历史</li>
  *   <li>未成交的活跃订单</li>
- *   <li>NPC 做市商价格</li>
+ *   <li>国际市场价格</li>
  * </ul>
  */
 public class EconomySavedData extends SavedData {
@@ -212,7 +212,7 @@ public class EconomySavedData extends SavedData {
 
         tag.put("Companies", companiesTag);
 
-        // ---- 保存 NPC 市场价格 ----
+        // ---- 保存国际市场价格 ----
         ListTag pricesTag = new ListTag();
 
         for (MarketPrice mp :
@@ -484,7 +484,7 @@ public class EconomySavedData extends SavedData {
             }
         }
 
-        // ---- 加载 NPC 市场价格 ----
+        // ---- 加载国际市场价格 ----
         if (tag.contains("MarketPrices")) {
 
             NpcMarketMaker.clearMarketPrices();

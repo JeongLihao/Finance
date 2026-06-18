@@ -13,7 +13,7 @@ import java.util.UUID;
 
 /**
  * 公司实体 —— 拥有现金、库存和实时市场估值。
- * 每个 MC 天自动生产商品，并将部分库存卖给 NPC 实现盈利。
+ * 每个 MC 天自动生产商品，并将可出售产出卖给国际市场实现盈利。
  */
 public class Company {
 
@@ -25,6 +25,9 @@ public class Company {
 
     /** 库存保留比例 —— 每天卖出 50%，保留 50% */
     private static final double SELL_RATIO = 0.5;
+
+    /** 原料安全库存天数，避免公司把生产原料卖掉后又立刻买回 */
+    private static final int RAW_MATERIAL_RESERVE_DAYS = 3;
 
     public Company(UUID companyId, String name, CompanyType type, long cash) {
         this.companyId = companyId;
@@ -67,7 +70,7 @@ public class Company {
         }
     }
 
-    /** 确保原料充足：不足时从 NPC 市场购买 */
+    /** 确保原料充足：不足时从国际市场购买 */
     private void consumeRawMaterials() {
         Map<String, Integer> consumption = type.getDailyConsumption();
         if (consumption.isEmpty()) return;
@@ -79,7 +82,7 @@ public class Company {
             int shortfall = needed - current;
 
             if (shortfall > 0) {
-                buyFromNpc(commodityId, shortfall);
+                buyFromInternationalMarket(commodityId, shortfall);
                 current = getInventoryAmount(commodityId);
             }
 
@@ -90,17 +93,17 @@ public class Company {
         }
     }
 
-    /** 从 NPC 市场购买原料 */
-    private void buyFromNpc(String commodityId, int quantity) {
+    /** 从国际市场购买原料 */
+    private void buyFromInternationalMarket(String commodityId, int quantity) {
         MarketPrice mp = NpcMarketMaker.getMarketPrice(commodityId);
         if (mp == null) return;
         long askPrice = mp.getAskPrice();
         long totalCost = multiplyPriceQuantity(askPrice, quantity);
         if (totalCost <= 0) return;
 
-        int npcStock = CommodityInventoryManager.getCommodityAmount(
+        int marketStock = CommodityInventoryManager.getCommodityAmount(
                 NpcMarketMaker.NPC_UUID, commodityId);
-        if (npcStock < quantity) return;
+        if (marketStock < quantity) return;
         if (cash < totalCost) return;
 
         CommodityInventoryManager.removeCommodity(NpcMarketMaker.NPC_UUID, commodityId, quantity);
@@ -118,12 +121,16 @@ public class Company {
         mp.recordTrade(askPrice, quantity);
     }
 
-    /** 每日自动交易 —— 将库存的一部分卖给 NPC 变现 */
+    /** 每日自动交易 —— 将可出售库存的一部分卖给国际市场变现 */
     public void autoTrade() {
         for (Map.Entry<String, Integer> entry : new HashMap<>(inventory).entrySet()) {
             String commodityId = entry.getKey();
             int amount = entry.getValue();
             if (amount <= 0) continue;
+
+            if (!type.getDailyProduction().containsKey(commodityId)) {
+                continue;
+            }
 
             MarketPrice mp = NpcMarketMaker.getMarketPrice(commodityId);
             if (mp == null) continue;
@@ -132,19 +139,24 @@ public class Company {
 
             // 卖出库存的 SELL_RATIO，至少卖 1 个
             int sellQty = Math.max(1, (int)(amount * SELL_RATIO));
+            int reserve = getReserveAmount(commodityId);
+            if (amount <= reserve) {
+                continue;
+            }
+            sellQty = Math.min(sellQty, amount - reserve);
             sellQty = Math.min(sellQty, amount);
 
-            // NPC 库存是否充足
-            int npcStock = CommodityInventoryManager.getCommodityAmount(
+            // 国际市场库存是否充足
+            int marketStock = CommodityInventoryManager.getCommodityAmount(
                     NpcMarketMaker.NPC_UUID, commodityId);
 
-            // NPC 余额是否充足
+            // 国际市场余额是否充足
             long totalCost = multiplyPriceQuantity(bidPrice, sellQty);
             if (totalCost <= 0) continue;
-            long npcBalance = AccountManager.getBalance(NpcMarketMaker.NPC_UUID);
+            long marketBalance = AccountManager.getBalance(NpcMarketMaker.NPC_UUID);
 
-            // 自适应调量：NPC 库存或余额不足时缩量
-            while (sellQty > 1 && (npcStock < sellQty || npcBalance < totalCost)) {
+            // 自适应调量：国际市场库存或余额不足时缩量
+            while (sellQty > 1 && (marketStock < sellQty || marketBalance < totalCost)) {
                 sellQty /= 2;
                 totalCost = multiplyPriceQuantity(bidPrice, sellQty);
                 if (totalCost <= 0) break;
@@ -153,9 +165,9 @@ public class Company {
             if (sellQty <= 0 || totalCost <= 0) continue;
 
             if (removeInventory(commodityId, sellQty)) {
-                // 商品：公司 → NPC
+                // 商品：公司 → 国际市场
                 CommodityInventoryManager.addCommodity(NpcMarketMaker.NPC_UUID, commodityId, sellQty);
-                // 资金：NPC → 公司
+                // 资金：国际市场 → 公司
                 AccountManager.withdraw(NpcMarketMaker.NPC_UUID, totalCost);
                 deposit(totalCost);
 
@@ -174,7 +186,7 @@ public class Company {
 
     // ---- 估值 ----
 
-    /** 库存市值 —— 按 NPC 做市商当前 midPrice 实时计价 */
+    /** 库存市值 —— 按国际市场当前 midPrice 实时计价 */
     public long inventoryValue() {
         long total = 0;
         for (Map.Entry<String, Integer> entry : inventory.entrySet()) {
@@ -207,5 +219,10 @@ public class Company {
         } catch (ArithmeticException ex) {
             return -1;
         }
+    }
+
+    private int getReserveAmount(String commodityId) {
+        return type.getDailyConsumption()
+                .getOrDefault(commodityId, 0) * RAW_MATERIAL_RESERVE_DAYS;
     }
 }
