@@ -5,6 +5,9 @@ import finance.account.AccountManager;
 import finance.account.TransactionRecord;
 import finance.commodity.Commodity;
 import finance.commodity.CommodityRegistry;
+import finance.company.Company;
+import finance.company.CompanyManager;
+import finance.company.CompanyType;
 import finance.event.EventManager;
 import finance.event.EventTier;
 import finance.event.MarketEvent;
@@ -188,6 +191,26 @@ public class EconomySavedData extends SavedData {
         }
 
         tag.put("Orders", ordersTag);
+
+        // ---- 保存系统公司 ----
+        ListTag companiesTag = new ListTag();
+
+        for (Company company : CompanyManager.getCompanies()) {
+            CompoundTag companyTag = new CompoundTag();
+            companyTag.putUUID("CompanyUUID", company.getCompanyId());
+            companyTag.putString("Name", company.getName());
+            companyTag.putString("Type", company.getType().name());
+            companyTag.putLong("Cash", company.getCash());
+
+            CompoundTag inventoryTag = new CompoundTag();
+            for (Map.Entry<String, Integer> entry : company.getInventory().entrySet()) {
+                inventoryTag.putInt(entry.getKey(), entry.getValue());
+            }
+            companyTag.put("Inventory", inventoryTag);
+            companiesTag.add(companyTag);
+        }
+
+        tag.put("Companies", companiesTag);
 
         // ---- 保存 NPC 市场价格 ----
         ListTag pricesTag = new ListTag();
@@ -431,6 +454,36 @@ public class EconomySavedData extends SavedData {
             }
         }
 
+        // ---- 加载系统公司 ----
+        if (tag.contains("Companies")) {
+            CompanyManager.clearCompaniesDirect();
+
+            ListTag companiesTag = tag.getList(
+                    "Companies",
+                    Tag.TAG_COMPOUND
+            );
+
+            for (Tag rawTag : companiesTag) {
+                CompoundTag companyTag = (CompoundTag) rawTag;
+
+                UUID companyUUID = companyTag.getUUID("CompanyUUID");
+                String name = companyTag.getString("Name");
+                CompanyType type = CompanyType.valueOf(companyTag.getString("Type"));
+                long cash = companyTag.getLong("Cash");
+
+                Company company = new Company(companyUUID, name, type, cash);
+
+                CompoundTag inventoryTag = companyTag.getCompound("Inventory");
+                for (String key : inventoryTag.getAllKeys()) {
+                    if (CommodityRegistry.getCommodity(key) != null) {
+                        company.addInventory(key, inventoryTag.getInt(key));
+                    }
+                }
+
+                CompanyManager.registerDirect(company);
+            }
+        }
+
         // ---- 加载 NPC 市场价格 ----
         if (tag.contains("MarketPrices")) {
 
@@ -473,11 +526,10 @@ public class EconomySavedData extends SavedData {
 
                 // 恢复动量与噪音（向后兼容：旧存档无此字段则保持默认 0）
                 if (priceTag.contains("TradeMomentum")) {
-                    // tradeMomentum 通过 recalculate 自然恢复，
-                    // 但保存的值作为初始偏移在 seedNpcIfNeeded 时不丢失
+                    mp.setTradeMomentum(priceTag.getDouble("TradeMomentum"));
                 }
                 if (priceTag.contains("NoiseOffset")) {
-                    // noiseOffset 同上
+                    mp.setNoiseOffset(priceTag.getInt("NoiseOffset"));
                 }
 
                 NpcMarketMaker.putMarketPrice(commodityId, mp);

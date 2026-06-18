@@ -1,5 +1,7 @@
 package finance.company;
 
+import finance.data.EconomySavedData;
+
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -13,6 +15,11 @@ public class CompanyManager {
     private static final Map<UUID, Company> COMPANIES = new HashMap<>();
 
     public static void register(Company company) {
+        COMPANIES.put(company.getCompanyId(), company);
+        EconomySavedData.markDirty();
+    }
+
+    public static void registerDirect(Company company) {
         COMPANIES.put(company.getCompanyId(), company);
     }
 
@@ -40,10 +47,16 @@ public class CompanyManager {
             c.produce();
             c.autoTrade();
         }
+        EconomySavedData.markDirty();
     }
 
     /** 清空所有公司（数据加载前调用） */
     public static void clearCompanies() {
+        COMPANIES.clear();
+        EconomySavedData.markDirty();
+    }
+
+    public static void clearCompaniesDirect() {
         COMPANIES.clear();
     }
 }

@@ -5,6 +5,7 @@ import com.mojang.brigadier.arguments.LongArgumentType;
 import finance.account.AccountManager;
 import finance.account.TransactionRecord;
 import finance.account.TransactionType;
+import finance.market.NpcMarketMaker;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.EntityArgument;
@@ -58,11 +59,13 @@ public class FinanceCommand {
 
                                                                             ServerPlayer source =
                                                                                     context.getSource()
-                                                                                            .getPlayerOrException();
+                                                                                            .getPlayer();
 
                                                                             AccountManager.addTransactionRecord(
                                                                                     new TransactionRecord(
-                                                                                            source.getUUID(),
+                                                                                            source != null
+                                                                                                    ? source.getUUID()
+                                                                                                    : NpcMarketMaker.NPC_UUID,
                                                                                             target.getUUID(),
                                                                                             amount,
                                                                                             TransactionType.ADMIN_GIVE

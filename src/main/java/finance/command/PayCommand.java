@@ -57,9 +57,13 @@ public class PayCommand {
 
                                                             if (!success) {
 
+                                                                String reason = sender.getUUID().equals(target.getUUID())
+                                                                        ? "不能向自己转账。"
+                                                                        : "余额不足。";
+
                                                                 sender.sendSystemMessage(
                                                                         Component.literal(
-                                                                                "余额不足。"
+                                                                                reason
                                                                         )
                                                                 );
 

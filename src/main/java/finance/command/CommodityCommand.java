@@ -4,6 +4,7 @@ import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import finance.commodity.CommodityInventoryManager;
+import finance.commodity.CommodityRegistry;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.EntityArgument;
@@ -64,6 +65,17 @@ public class CommodityCommand {
                                                                                                             context,
                                                                                                             "amount"
                                                                                                     );
+
+                                                                                            if (CommodityRegistry.getCommodity(commodity) == null) {
+                                                                                                context.getSource()
+                                                                                                        .sendFailure(
+                                                                                                                Component.literal(
+                                                                                                                        "未知商品: '" + commodity + "'。"
+                                                                                                                )
+                                                                                                        );
+
+                                                                                                return 0;
+                                                                                            }
 
                                                                                             CommodityInventoryManager
                                                                                                     .addCommodity(

@@ -22,6 +22,7 @@ import finance.commodity.CommodityInventoryManager;
 import finance.account.AccountManager;
 import finance.event.EventManager;
 import finance.company.CompanyManager;
+import finance.commodity.CommodityRegistry;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -178,9 +179,29 @@ public class MarketCommand {
                                                                                                             "quantity"
                                                                                                     );
 
+                                                                                            if (CommodityRegistry.getCommodity(commodity) == null) {
+                                                                                                player.sendSystemMessage(
+                                                                                                        Component.literal(
+                                                                                                                "未知商品: '" + commodity + "'。"
+                                                                                                        )
+                                                                                                );
+
+                                                                                                return 0;
+                                                                                            }
+
                                                                                             // 下单前检查余额是否足够
                                                                                             long totalCost =
-                                                                                                    price * quantity;
+                                                                                                    multiplyPriceQuantity(price, quantity);
+
+                                                                                            if (totalCost <= 0) {
+                                                                                                player.sendSystemMessage(
+                                                                                                        Component.literal(
+                                                                                                                "订单金额过大，无法提交。"
+                                                                                                        )
+                                                                                                );
+
+                                                                                                return 0;
+                                                                                            }
 
                                                                                             long balance =
                                                                                                     AccountManager.getBalance(
@@ -209,7 +230,15 @@ public class MarketCommand {
                                                                                                             quantity
                                                                                                     );
 
-                                                                                            MarketManager.placeOrder(order);
+                                                                                            if (!MarketManager.placeOrder(order)) {
+                                                                                                player.sendSystemMessage(
+                                                                                                        Component.literal(
+                                                                                                                "买单提交失败，请检查余额、商品和数量。"
+                                                                                                        )
+                                                                                                );
+
+                                                                                                return 0;
+                                                                                            }
 
                                                                                             player.sendSystemMessage(
                                                                                                     Component.literal(
@@ -277,6 +306,16 @@ public class MarketCommand {
                                                                                                             "quantity"
                                                                                                     );
 
+                                                                                            if (CommodityRegistry.getCommodity(commodity) == null) {
+                                                                                                player.sendSystemMessage(
+                                                                                                        Component.literal(
+                                                                                                                "未知商品: '" + commodity + "'。"
+                                                                                                        )
+                                                                                                );
+
+                                                                                                return 0;
+                                                                                            }
+
                                                                                             // 下单前检查库存是否足够
                                                                                             int owned =
                                                                                                     CommodityInventoryManager
@@ -289,7 +328,7 @@ public class MarketCommand {
 
                                                                                                 player.sendSystemMessage(
                                                                                                         Component.literal(
-                                                                                                                "库存不足，commodity. "
+                                                                                                                "库存不足，商品: " + commodity + "。"
                                                                                                                         + "拥有: " + owned
                                                                                                                         + " 需要: " + quantity
                                                                                                         )
@@ -307,7 +346,15 @@ public class MarketCommand {
                                                                                                             quantity
                                                                                                     );
 
-                                                                                            MarketManager.placeOrder(order);
+                                                                                            if (!MarketManager.placeOrder(order)) {
+                                                                                                player.sendSystemMessage(
+                                                                                                        Component.literal(
+                                                                                                                "卖单提交失败，请检查库存、商品和数量。"
+                                                                                                        )
+                                                                                                );
+
+                                                                                                return 0;
+                                                                                            }
 
                                                                                             player.sendSystemMessage(
                                                                                                     Component.literal(
@@ -576,7 +623,7 @@ public class MarketCommand {
                                                                                             }
 
                                                                                             long bidPrice = ctx.price().getBidPrice();
-                                                                                            long received = bidPrice * ctx.quantity();
+                                                                                            long received = multiplyPriceQuantity(bidPrice, ctx.quantity());
 
                                                                                             ctx.player().sendSystemMessage(
                                                                                                     Component.literal(
@@ -641,7 +688,17 @@ public class MarketCommand {
 
                                                                                             // 检查玩家余额
                                                                                             long askPrice = ctx.price().getAskPrice();
-                                                                                            long totalCost = askPrice * ctx.quantity();
+                                                                                            long totalCost = multiplyPriceQuantity(askPrice, ctx.quantity());
+
+                                                                                            if (totalCost <= 0) {
+                                                                                                ctx.player().sendSystemMessage(
+                                                                                                        Component.literal(
+                                                                                                                "交易金额过大，无法提交。"
+                                                                                                        )
+                                                                                                );
+
+                                                                                                return 0;
+                                                                                            }
 
                                                                                             long balance =
                                                                                                     AccountManager.getBalance(
@@ -1086,5 +1143,13 @@ public class MarketCommand {
         if (momentum > 0.005) return "↑ 看涨";
         if (momentum < -0.005) return "↓ 看跌";
         return "→ 持平";
+    }
+
+    private static long multiplyPriceQuantity(long price, int quantity) {
+        try {
+            return Math.multiplyExact(price, (long) quantity);
+        } catch (ArithmeticException ex) {
+            return -1;
+        }
     }
 }
