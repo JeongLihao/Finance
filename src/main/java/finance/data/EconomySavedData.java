@@ -201,6 +201,9 @@ public class EconomySavedData extends SavedData {
             companyTag.putString("Name", company.getName());
             companyTag.putString("Type", company.getType().name());
             companyTag.putLong("Cash", company.getCash());
+            if (company.getOwnerId() != null) {
+                companyTag.putUUID("OwnerUUID", company.getOwnerId());
+            }
 
             CompoundTag inventoryTag = new CompoundTag();
             for (Map.Entry<String, Integer> entry : company.getInventory().entrySet()) {
@@ -470,8 +473,11 @@ public class EconomySavedData extends SavedData {
                 String name = companyTag.getString("Name");
                 CompanyType type = CompanyType.valueOf(companyTag.getString("Type"));
                 long cash = companyTag.getLong("Cash");
+                UUID ownerUUID = companyTag.contains("OwnerUUID")
+                        ? companyTag.getUUID("OwnerUUID")
+                        : null;
 
-                Company company = new Company(companyUUID, name, type, cash);
+                Company company = new Company(companyUUID, name, type, cash, ownerUUID);
 
                 CompoundTag inventoryTag = companyTag.getCompound("Inventory");
                 for (String key : inventoryTag.getAllKeys()) {

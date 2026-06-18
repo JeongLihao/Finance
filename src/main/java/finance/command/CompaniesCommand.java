@@ -30,6 +30,7 @@ public class CompaniesCommand {
                                 player.sendSystemMessage(Component.literal(
                                         c.getName()
                                                 + " | " + c.getType()
+                                                + " | " + (c.isPlayerOwned() ? "玩家公司" : "系统公司")
                                                 + " | 现金: " + c.getCash()
                                                 + " | 估值: " + c.getEstimatedValue()));
                             }
