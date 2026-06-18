@@ -12,22 +12,22 @@ import finance.commodity.Commodity;
 import finance.event.MarketEvent;
 
 /**
- * NPC 做市商引擎 —— 为所有注册商品提供双向报价，保证市场流动性。
+ * 国际市场引擎 —— 为所有注册商品提供双向报价，保证市场流动性。
  *
  * <h3>定价机制</h3>
- * 每种商品维护一个"中间价"，NPC 以中间价 ± spread 双向报价：
+ * 每种商品维护一个"中间价"，国际市场以中间价 ± spread 双向报价：
  * <ul>
- *   <li>bidPrice = midPrice × (1 - spread) — NPC 从玩家处购买的价格</li>
- *   <li>askPrice = midPrice × (1 + spread) — NPC 向玩家出售的价格</li>
+ *   <li>bidPrice = midPrice × (1 - spread) — 国际市场买入价</li>
+ *   <li>askPrice = midPrice × (1 + spread) — 国际市场卖出价</li>
  * </ul>
  *
- * <h3>NPC 身份</h3>
- * NPC 使用 nil UUID {@code 00000000-0000-0000-0000-000000000000}，
- * 账户和库存由系统自动管理。
+ * <h3>系统账户</h3>
+ * 国际市场使用 nil UUID {@code 00000000-0000-0000-0000-000000000000}，
+ * 账户和库存由系统流动性池自动管理。
  */
 public class NpcMarketMaker {
 
-    /** NPC 系统账户 UUID（nil UUID，不会与真实玩家冲突） */
+    /** 国际市场系统账户 UUID（nil UUID，不会与真实玩家冲突） */
     public static final UUID NPC_UUID = new UUID(0L, 0L);
 
     /** 初始注入资金：1000 万 */
@@ -36,21 +36,27 @@ public class NpcMarketMaker {
     /** 每种商品初始库存 */
     private static final int INITIAL_NPC_STOCK = 100_000;
 
+    /** 国际市场低于参考库存时的每日基础补货比例 */
+    private static final double DAILY_RESTOCK_RATIO = 0.06;
+
+    /** 国际市场高于参考库存时的每日外部需求比例 */
+    private static final double DAILY_DEMAND_RATIO = 0.025;
+
     /** 默认价差：5% */
     private static final double DEFAULT_SPREAD = 0.05;
 
     /** 商品中间价映射 */
     private static final Map<String, MarketPrice> MARKET_PRICES = new HashMap<>();
 
-    /** 是否已完成 NPC 初始化 */
+    /** 是否已完成国际市场初始化 */
     private static boolean seeded = false;
 
     // ================================================================
-    // NPC 交易操作
+    // 国际市场交易操作
     // ================================================================
 
     /**
-     * NPC 向玩家购买商品（玩家卖商品给 NPC，玩家获得钱）。
+     * 国际市场向玩家购买商品（玩家卖出商品并获得资金）。
      *
      * @return 成功返回 true
      */
@@ -76,16 +82,16 @@ public class NpcMarketMaker {
             return false;
         }
 
-        // 2. 检查 NPC 余额
+        // 2. 检查国际市场余额
         if (AccountManager.getBalance(NPC_UUID) < totalPayment) {
             return false;
         }
 
-        // 3. 商品：玩家 → NPC
+        // 3. 商品：玩家 → 国际市场
         CommodityInventoryManager.removeCommodity(playerId, commodityId, quantity);
         CommodityInventoryManager.addCommodity(NPC_UUID, commodityId, quantity);
 
-        // 4. 资金：NPC → 玩家
+        // 4. 资金：国际市场 → 玩家
         AccountManager.withdraw(NPC_UUID, totalPayment);
         AccountManager.deposit(playerId, totalPayment);
 
@@ -94,7 +100,7 @@ public class NpcMarketMaker {
                 new TransactionRecord(NPC_UUID, playerId, totalPayment, TransactionType.NPC_BUY)
         );
 
-        // 6. 记录成交（NPC 是买方，玩家是卖方）
+        // 6. 记录成交（国际市场是买方，玩家是卖方）
         MarketManager.addTradeToHistory(
                 new Trade(NPC_UUID, playerId, commodityId, bidPrice, quantity)
         );
@@ -108,7 +114,7 @@ public class NpcMarketMaker {
     }
 
     /**
-     * NPC 向玩家出售商品（玩家从 NPC 买商品，玩家支付钱）。
+     * 国际市场向玩家出售商品（玩家买入商品并支付资金）。
      *
      * @return 成功返回 true
      */
@@ -128,7 +134,7 @@ public class NpcMarketMaker {
             return false;
         }
 
-        // 1. 检查 NPC 库存
+        // 1. 检查国际市场库存
         int npcStock = CommodityInventoryManager.getCommodityAmount(NPC_UUID, commodityId);
         if (npcStock < quantity) {
             return false;
@@ -139,11 +145,11 @@ public class NpcMarketMaker {
             return false;
         }
 
-        // 3. 资金：玩家 → NPC
+        // 3. 资金：玩家 → 国际市场
         AccountManager.withdraw(playerId, totalCost);
         AccountManager.deposit(NPC_UUID, totalCost);
 
-        // 4. 商品：NPC → 玩家
+        // 4. 商品：国际市场 → 玩家
         CommodityInventoryManager.removeCommodity(NPC_UUID, commodityId, quantity);
         CommodityInventoryManager.addCommodity(playerId, commodityId, quantity);
 
@@ -152,7 +158,7 @@ public class NpcMarketMaker {
                 new TransactionRecord(playerId, NPC_UUID, totalCost, TransactionType.NPC_SELL)
         );
 
-        // 6. 记录成交（玩家是买方，NPC 是卖方）
+        // 6. 记录成交（玩家是买方，国际市场是卖方）
         MarketManager.addTradeToHistory(
                 new Trade(playerId, NPC_UUID, commodityId, askPrice, quantity)
         );
@@ -202,11 +208,11 @@ public class NpcMarketMaker {
     }
 
     // ================================================================
-    // NPC 初始化
+    // 国际市场初始化
     // ================================================================
 
     /**
-     * 给 NPC 注入初始资金和库存（仅在首次调用时执行）。
+     * 给国际市场注入初始资金和库存（仅在首次调用时执行）。
      * 在服务器启动、数据加载完成后调用。
      */
     public static void seedNpcIfNeeded() {
@@ -253,18 +259,24 @@ public class NpcMarketMaker {
     // Tick（由 FinanceMod.onServerTick 驱动）
     // ================================================================
 
-    /** 每个 MC 日 NPC 库存自然消耗 2%~5%，模拟外部市场需求 */
+    /** 每个 MC 日执行国际市场外部需求和补货，使库存围绕参考值波动 */
     public static void naturalConsumeAll() {
         for (MarketPrice mp : MARKET_PRICES.values()) {
             String commodityId = mp.getCommodityId();
             long stock = CommodityInventoryManager.getCommodityAmount(NPC_UUID, commodityId);
-            if (stock <= 0) continue;
+            long target = MarketPrice.REFERENCE_STOCK;
 
-            double ratio = 0.02 + Math.random() * 0.03;
-            int consumeQty = (int) Math.max(1, Math.round(stock * ratio));
-            consumeQty = (int) Math.min(consumeQty, stock);
+            if (stock < target) {
+                long gap = target - stock;
+                int restockQty = (int) Math.max(1, Math.round(gap * DAILY_RESTOCK_RATIO));
+                CommodityInventoryManager.addCommodity(NPC_UUID, commodityId, restockQty);
+            } else if (stock > target) {
+                long surplus = stock - target;
+                int consumeQty = (int) Math.max(1, Math.round(surplus * DAILY_DEMAND_RATIO));
+                consumeQty = (int) Math.min(consumeQty, stock);
+                CommodityInventoryManager.removeCommodity(NPC_UUID, commodityId, consumeQty);
+            }
 
-            CommodityInventoryManager.removeCommodity(NPC_UUID, commodityId, consumeQty);
             long newStock = CommodityInventoryManager.getCommodityAmount(NPC_UUID, commodityId);
             mp.recomputePrice(newStock);
         }

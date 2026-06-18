@@ -28,7 +28,7 @@ import finance.commodity.CommodityInventoryManager;
  * ORDERS 是订单簿（当前所有未成交订单），TRADE_HISTORY 是成交历史（最多 500 条）。
  *
  * <h3>已知限制</h3>
- * P2P 订单簿与 NPC 做市商是两套独立交易系统，同一商品在两处的价格可以不同，
+ * P2P 订单簿与国际市场是两套独立交易系统，同一商品在两处的价格可以不同，
  * 存在理论上的跨市场套利空间。未来可考虑统一报价或对 P2P 订单收取手续费来缩小价差。
  */
 public class MarketManager {

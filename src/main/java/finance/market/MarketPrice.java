@@ -7,7 +7,7 @@ import java.util.Random;
 import finance.event.MarketEvent;
 
 /**
- * 商品中间价 —— NPC 做市商的报价基准。
+ * 商品中间价 —— 国际市场的报价基准。
  *
  * <h3>定价机制（混合模型 D）</h3>
  * <pre>
@@ -22,8 +22,8 @@ import finance.event.MarketEvent;
  *
  * <h3>报价</h3>
  * <ul>
- *   <li>bidPrice = midPrice × (1 - spread) — NPC 买入价</li>
- *   <li>askPrice = midPrice × (1 + spread) — NPC 卖出价</li>
+ *   <li>bidPrice = midPrice × (1 - spread) — 国际市场买入价</li>
+ *   <li>askPrice = midPrice × (1 + spread) — 国际市场卖出价</li>
  * </ul>
  */
 public class MarketPrice {
@@ -36,7 +36,7 @@ public class MarketPrice {
     /** 价格上限比例（最高涨到基准价的 10 倍） */
     private static final double MAX_PRICE_RATIO = 10.0;
 
-    /** NPC 参考库存量（库存 = 此值时价格 = basePrice） */
+    /** 国际市场参考库存量（库存 = 此值时价格 = basePrice） */
     public static final long REFERENCE_STOCK = 100_000;
 
     /** 每种商品最多保留的快照数量 */
@@ -81,7 +81,7 @@ public class MarketPrice {
     /** 当前生效的事件，null 表示无 */
     private MarketEvent activeEvent;
 
-    /** 最近一次计算的 NPC 库存（用于 tick 后重算） */
+    /** 最近一次计算的国际市场库存（用于 tick 后重算） */
     private long lastNpcStock;
 
     // ---- 24h 统计 ----
@@ -131,12 +131,12 @@ public class MarketPrice {
         return spread;
     }
 
-    /** NPC 买入价（玩家卖商品给 NPC 时的单价），最低为 1 */
+    /** 国际市场买入价（玩家卖出商品时的单价），最低为 1 */
     public long getBidPrice() {
         return Math.max(1, (long) (midPrice * (1 - spread)));
     }
 
-    /** NPC 卖出价（玩家从 NPC 买商品时的单价） */
+    /** 国际市场卖出价（玩家买入商品时的单价） */
     public long getAskPrice() {
         return (long) (midPrice * (1 + spread));
     }
@@ -163,9 +163,9 @@ public class MarketPrice {
     // ================================================================
 
     /**
-     * 每次 NPC 交易后调用。
-     * @param npcStock    NPC 当前库存（交易后）
-     * @param npcWasBuyer true = NPC 买入（玩家卖出，利空）
+     * 每次国际市场交易后调用。
+     * @param npcStock    国际市场当前库存（交易后）
+     * @param npcWasBuyer true = 国际市场买入（玩家卖出，利空）
      * @param quantity    成交量
      */
     public void onNpcTrade(long npcStock, boolean npcWasBuyer, int quantity) {
@@ -244,7 +244,7 @@ public class MarketPrice {
     }
 
     /**
-     * 根据 NPC 当前库存重新计算 midPrice（无成交动能和噪音时使用）。
+     * 根据国际市场当前库存重新计算 midPrice（无成交动能和噪音时使用）。
      * 保留以兼容持久化恢复和 seedNpcIfNeeded。
      */
     public void recomputePrice(long npcStock) {
@@ -263,7 +263,7 @@ public class MarketPrice {
     // ================================================================
 
     /**
-     * 记录一次 NPC 交易，更新 24h 统计和价格快照。
+     * 记录一次国际市场交易，更新 24h 统计和价格快照。
      *
      * @param tradePrice 成交单价
      * @param quantity   成交量
@@ -348,7 +348,7 @@ public class MarketPrice {
         }
     }
 
-    /** 设置最近一次计算的 NPC 库存（持久化恢复后使用，使 recalculateFromCurrent 可用） */
+    /** 设置最近一次计算的国际市场库存（持久化恢复后使用，使 recalculateFromCurrent 可用） */
     public void setLastNpcStock(long stock) {
         this.lastNpcStock = stock;
     }
@@ -374,7 +374,7 @@ public class MarketPrice {
     // ================================================================
 
     /**
-     * 价格快照 —— 记录每次 NPC 交易后的 midPrice 和成交量。
+     * 价格快照 —— 记录每次国际市场交易后的 midPrice 和成交量。
      * 为后续 K 线图和价格历史图表提供数据。
      */
     public static class PriceSnapshot {
