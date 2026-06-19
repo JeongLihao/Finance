@@ -9,7 +9,6 @@ import net.minecraft.server.MinecraftServer;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Random;
 
 /**
  * 事件管理器 —— 事件压力系统 + 调度 + 激活/过期管理。
@@ -32,7 +31,6 @@ public class EventManager {
     /** 黑天鹅触发间隔（MC天）：225天 ≈ 75小时 */
     private static final int TIMER_BLACK_SWAN = 225;
 
-    private static final Random RANDOM = new Random();
 
     private static int timerMinor = 0;
     private static int timerMajor = 0;

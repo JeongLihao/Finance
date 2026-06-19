@@ -3,7 +3,7 @@ package finance.market;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
 import finance.event.MarketEvent;
 
 /**
@@ -57,7 +57,6 @@ public class MarketPrice {
     /** 动量衰减到低于此阈值则归零 */
     private static final double MOMENTUM_MIN = 0.001;
 
-    private static final Random RANDOM = new Random();
 
     // ---- 字段 ----
 
@@ -187,7 +186,7 @@ public class MarketPrice {
     /** 每 3 分钟噪音随机游走，幅度不超过 basePrice 的 20% */
     public void tickNoise() {
         int maxNoise = Math.max(1, (int) Math.round(basePrice * MAX_NOISE_RATIO));
-        noiseOffset += RANDOM.nextInt(3) - 1;
+        noiseOffset += ThreadLocalRandom.current().nextInt(3) - 1;
         if (noiseOffset > maxNoise) noiseOffset = maxNoise;
         if (noiseOffset < -maxNoise) noiseOffset = -maxNoise;
     }

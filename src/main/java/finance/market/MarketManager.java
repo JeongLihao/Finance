@@ -10,6 +10,7 @@ import finance.commodity.CommodityRegistry;
 import finance.data.EconomySavedData;
 import java.util.UUID;
 import finance.commodity.CommodityInventoryManager;
+import finance.util.MathUtil;
 
 /**
  * 市场交易管理器 —— 订单簿撮合引擎。
@@ -57,7 +58,7 @@ public class MarketManager {
         // ---- 冻结资产 ----
         if (order.getType() == OrderType.BUY) {
 
-            long totalCost = multiplyPriceQuantity(order.getPrice(), order.getQuantity());
+            long totalCost = MathUtil.multiplyExactOrNegative1(order.getPrice(), order.getQuantity());
 
             if (totalCost <= 0) {
                 return false;
@@ -181,7 +182,7 @@ public class MarketManager {
 
             // 成交价 = 卖方定价
             long tradePrice = sellOrder.getPrice();
-            long paymentAmount = multiplyPriceQuantity(tradePrice, tradeQty);
+            long paymentAmount = MathUtil.multiplyExactOrNegative1(tradePrice, tradeQty);
             if (paymentAmount < 0) {
                 continue;
             }
@@ -200,7 +201,7 @@ public class MarketManager {
             // ============================================
 
             // Step 1: 资金结算（买方 → 卖方）
-            long frozenAmount = multiplyPriceQuantity(buyOrder.getPrice(), tradeQty);
+            long frozenAmount = MathUtil.multiplyExactOrNegative1(buyOrder.getPrice(), tradeQty);
             if (frozenAmount < 0) {
                 continue;
             }
@@ -288,7 +289,7 @@ public class MarketManager {
         // 退还冻结资产
         if (order.getType() == OrderType.BUY) {
 
-            long totalCost = multiplyPriceQuantity(order.getPrice(), order.getQuantity());
+            long totalCost = MathUtil.multiplyExactOrNegative1(order.getPrice(), order.getQuantity());
 
             if (totalCost <= 0) {
                 return false;
@@ -349,13 +350,5 @@ public class MarketManager {
     /** 清空订单簿（数据加载前调用） */
     public static void clearOrders() {
         ORDERS.clear();
-    }
-
-    private static long multiplyPriceQuantity(long price, int quantity) {
-        try {
-            return Math.multiplyExact(price, (long) quantity);
-        } catch (ArithmeticException ex) {
-            return -1;
-        }
     }
 }

@@ -10,6 +10,7 @@ import finance.commodity.CommodityInventoryManager;
 import finance.commodity.CommodityRegistry;
 import finance.commodity.Commodity;
 import finance.event.MarketEvent;
+import finance.util.MathUtil;
 
 /**
  * 国际市场引擎 —— 为所有注册商品提供双向报价，保证市场流动性。
@@ -71,7 +72,7 @@ public class NpcMarketMaker {
             return false;
         }
         long bidPrice = price.getBidPrice();
-        long totalPayment = multiplyPriceQuantity(bidPrice, quantity);
+        long totalPayment = MathUtil.multiplyExactOrNegative1(bidPrice, quantity);
         if (totalPayment <= 0) {
             return false;
         }
@@ -106,9 +107,7 @@ public class NpcMarketMaker {
         );
 
         // 7. 混合定价更新
-        long newNpcStock = CommodityInventoryManager.getCommodityAmount(NPC_UUID, commodityId);
-        price.onNpcTrade(newNpcStock, true, quantity);
-        price.recordTrade(bidPrice, quantity);
+        recordNpcTrade(commodityId, true, quantity, bidPrice);
 
         return true;
     }
@@ -129,7 +128,7 @@ public class NpcMarketMaker {
             return false;
         }
         long askPrice = price.getAskPrice();
-        long totalCost = multiplyPriceQuantity(askPrice, quantity);
+        long totalCost = MathUtil.multiplyExactOrNegative1(askPrice, quantity);
         if (totalCost <= 0) {
             return false;
         }
@@ -164,9 +163,7 @@ public class NpcMarketMaker {
         );
 
         // 7. 混合定价更新
-        long newNpcStock = CommodityInventoryManager.getCommodityAmount(NPC_UUID, commodityId);
-        price.onNpcTrade(newNpcStock, false, quantity);
-        price.recordTrade(askPrice, quantity);
+        recordNpcTrade(commodityId, false, quantity, askPrice);
 
         return true;
     }
@@ -174,6 +171,24 @@ public class NpcMarketMaker {
     // ================================================================
     // 价格管理
     // ================================================================
+
+    /**
+     * NPC 交易后统一更新行情：查询库存 → 更新动量 → 记录快照。
+     *
+     * @param commodityId  商品 ID
+     * @param npcWasBuyer  true = 国际市场买入（玩家卖出），false = 国际市场卖出（玩家买入）
+     * @param quantity     成交数量
+     * @param tradePrice   成交单价
+     */
+    public static void recordNpcTrade(String commodityId, boolean npcWasBuyer,
+                                       int quantity, long tradePrice) {
+        long newNpcStock = CommodityInventoryManager.getCommodityAmount(NPC_UUID, commodityId);
+        MarketPrice price = getMarketPrice(commodityId);
+        if (price != null) {
+            price.onNpcTrade(newNpcStock, npcWasBuyer, quantity);
+            price.recordTrade(tradePrice, quantity);
+        }
+    }
 
     /**
      * 获取商品的中间价，如果不存在则从 CommodityRegistry 懒创建。
@@ -239,7 +254,7 @@ public class NpcMarketMaker {
                 MARKET_PRICES.put(id, mp);
 
                 if (actualStock < INITIAL_NPC_STOCK) {
-                    CommodityInventoryManager.addCommodity(NPC_UUID, id, (int)(INITIAL_NPC_STOCK - actualStock));
+                    CommodityInventoryManager.setCommodity(NPC_UUID, id, INITIAL_NPC_STOCK);
                 }
                 long stockAfterSeed = CommodityInventoryManager.getCommodityAmount(NPC_UUID, id);
                 mp.recomputePrice(stockAfterSeed);
@@ -247,7 +262,7 @@ public class NpcMarketMaker {
             } else {
                 // 从磁盘恢复的已有商品：确保库存充足，保留已保存的统计与短期因子
                 if (actualStock < INITIAL_NPC_STOCK) {
-                    CommodityInventoryManager.addCommodity(NPC_UUID, id, (int)(INITIAL_NPC_STOCK - actualStock));
+                    CommodityInventoryManager.setCommodity(NPC_UUID, id, INITIAL_NPC_STOCK);
                 }
                 long stockAfterSeed = CommodityInventoryManager.getCommodityAmount(NPC_UUID, id);
                 mp.recomputePrice(stockAfterSeed);
@@ -329,14 +344,6 @@ public class NpcMarketMaker {
                 mp.removeEvent();
                 mp.recalculateFromCurrent();
             }
-        }
-    }
-
-    private static long multiplyPriceQuantity(long price, int quantity) {
-        try {
-            return Math.multiplyExact(price, (long) quantity);
-        } catch (ArithmeticException ex) {
-            return -1;
         }
     }
 }
