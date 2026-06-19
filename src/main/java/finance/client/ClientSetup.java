@@ -13,8 +13,9 @@ public class ClientSetup {
 
     @SubscribeEvent
     public static void onClientSetup(FMLClientSetupEvent event) {
-        event.enqueueWork(() ->
-                MenuScreens.register(ModMenus.MARKET_OVERVIEW.get(), MarketOverviewScreen::new)
-        );
+        event.enqueueWork(() -> {
+            MenuScreens.register(ModMenus.MARKET_OVERVIEW.get(), MarketOverviewScreen::new);
+            MenuScreens.register(ModMenus.FINANCE.get(), FinanceScreen::new);
+        });
     }
 }

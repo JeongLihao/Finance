@@ -19,16 +19,7 @@ public class CommodityInventoryManager {
     public static CommodityInventory getInventory(
             UUID playerId
     ) {
-
-        if (!INVENTORIES.containsKey(playerId)) {
-
-            INVENTORIES.put(
-                    playerId,
-                    new CommodityInventory()
-            );
-        }
-
-        return INVENTORIES.get(playerId);
+        return INVENTORIES.computeIfAbsent(playerId, k -> new CommodityInventory());
     }
 
     /** 查询玩家持有某商品的数量 */
@@ -76,6 +67,16 @@ public class CommodityInventoryManager {
         }
 
         return success;
+    }
+
+    /** 直接设置库存并标脏，适合批量初始化时避免反复读取和加减计算。 */
+    public static void setCommodity(
+            UUID playerId,
+            String commodityId,
+            int amount
+    ) {
+        getInventory(playerId).setCommodity(commodityId, amount);
+        CommodityInventorySavedData.markDirty();
     }
 
     public static Map<UUID, CommodityInventory>

@@ -28,12 +28,7 @@ public class AccountManager {
 
     /** 获取或创建玩家账户（懒加载） */
     public static Account getAccount(UUID playerId) {
-
-        if (!ACCOUNTS.containsKey(playerId)) {
-            ACCOUNTS.put(playerId, new Account(playerId));
-        }
-
-        return ACCOUNTS.get(playerId);
+        return ACCOUNTS.computeIfAbsent(playerId, Account::new);
     }
 
     public static long getBalance(UUID playerId) {

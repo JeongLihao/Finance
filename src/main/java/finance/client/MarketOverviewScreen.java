@@ -8,6 +8,8 @@ import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 
+import finance.util.FormatUtil;
+
 import java.util.List;
 
 public class MarketOverviewScreen extends AbstractContainerScreen<MarketOverviewMenu> {
@@ -83,10 +85,7 @@ public class MarketOverviewScreen extends AbstractContainerScreen<MarketOverview
     }
 
     private static String formatChange(double change) {
-        if (change > 0) {
-            return "+" + String.format("%.0f", change) + "%";
-        }
-        return String.format("%.0f", change) + "%";
+        return FormatUtil.formatPercent(change);
     }
 
     private static int changeColor(double change) {

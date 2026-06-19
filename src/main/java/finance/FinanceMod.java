@@ -22,7 +22,9 @@ import finance.data.EconomySavedData;
 import finance.data.CommodityInventorySavedData;
 import finance.market.NpcMarketMaker;
 import finance.event.EventManager;
+import finance.network.FinancePacketHandler;
 import finance.registry.ModMenus;
+import finance.stock.StockMarketManager;
 import net.minecraftforge.event.TickEvent.Phase;
 import net.minecraftforge.event.TickEvent.ServerTickEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
@@ -52,6 +54,7 @@ public class FinanceMod {
 
         ModMenus.register(FMLJavaModLoadingContext.get().getModEventBus());
         MinecraftForge.EVENT_BUS.register(this);
+        FinancePacketHandler.register();
 
         // ---- 注册默认商品 ----
         CommodityRegistry.register(
@@ -131,6 +134,9 @@ public class FinanceMod {
 
         // 初始化系统公司
         SystemCompanyInitializer.initialize();
+
+        // 初始化系统公司股票
+        StockMarketManager.seedSystemStocksIfNeeded();
     }
 
     /** Tick 调度 —— 驱动事件压力、动量衰减和噪音刷新 */

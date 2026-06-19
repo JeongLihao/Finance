@@ -3,7 +3,7 @@ package finance.event;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * 事件模板池 —— 按 tier 分类的预定义事件。
@@ -11,7 +11,6 @@ import java.util.Random;
  */
 public class EventTemplates {
 
-    private static final Random RANDOM = new Random();
 
     private static final List<Template> MINOR = new ArrayList<>();
     private static final List<Template> MAJOR = new ArrayList<>();
@@ -56,14 +55,14 @@ public class EventTemplates {
 
         if (pool.isEmpty()) return null;
 
-        Template template = pool.get(RANDOM.nextInt(pool.size()));
+        Template template = pool.get(ThreadLocalRandom.current().nextInt(pool.size()));
 
         // affectsAll = true → 影响全部商品（commodityId = null）
         String commodityId = template.affectsAll ? null
-                : commodityIds.get(RANDOM.nextInt(commodityIds.size()));
+                : commodityIds.get(ThreadLocalRandom.current().nextInt(commodityIds.size()));
 
         int pctRange = tier.maxPct - tier.minPct;
-        int pct = tier.minPct + (pctRange > 0 ? RANDOM.nextInt(pctRange + 1) : 0);
+        int pct = tier.minPct + (pctRange > 0 ? ThreadLocalRandom.current().nextInt(pctRange + 1) : 0);
         boolean positive = template.baseMultiplier >= 1.0;
         double multiplier = positive
                 ? 1.0 + pct / 100.0
@@ -71,7 +70,7 @@ public class EventTemplates {
 
         int duration = tier.minDuration;
         if (tier.maxDuration > tier.minDuration) {
-            duration += RANDOM.nextInt(tier.maxDuration - tier.minDuration + 1);
+            duration += ThreadLocalRandom.current().nextInt(tier.maxDuration - tier.minDuration + 1);
         }
 
         return new MarketEvent(template.name, template.description, tier,

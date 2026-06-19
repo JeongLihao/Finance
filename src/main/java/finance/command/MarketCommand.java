@@ -25,11 +25,15 @@ import finance.event.EventManager;
 import finance.company.CompanyManager;
 import finance.commodity.CommodityRegistry;
 import finance.gui.FinanceGuiOpener;
+import finance.util.MathUtil;
+import finance.util.FormatUtil;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.UUID;
 import java.time.format.DateTimeFormatter;
+import net.minecraft.server.MinecraftServer;
 
 /**
  * /market 命令 —— 市场交易系统入口。
@@ -108,22 +112,9 @@ public class MarketCommand {
                                                 Order order =
                                                         orders.get(i);
 
-                                                ServerPlayer ownerPlayer =
-                                                        context.getSource()
-                                                                .getServer()
-                                                                .getPlayerList()
-                                                                .getPlayer(
-                                                                        order.getPlayerId()
-                                                                );
-
-                                                // 在线玩家显示名字，离线玩家显示 UUID 前 8 位
-                                                String owner =
-                                                        ownerPlayer != null
-                                                                ? ownerPlayer.getName()
-                                                                        .getString()
-                                                                : order.getPlayerId()
-                                                                        .toString()
-                                                                        .substring(0, 8);
+                                                String owner = resolvePlayerName(
+                                                        context.getSource().getServer(),
+                                                        order.getPlayerId());
 
                                                 player.sendSystemMessage(
                                                         Component.literal(
@@ -147,10 +138,11 @@ public class MarketCommand {
                         )
 
                         // ================================================
-                        // /market buy ＜commodity＞ ＜price＞ ＜quantity＞
+                        // /market buy ＜commodity＞ ＜price＞ ＜quantity＞ （管理员）
                         // ================================================
                         .then(
                                 Commands.literal("buy")
+                                        .requires(source -> source.hasPermission(2))
 
                                         .then(
                                                 Commands.argument(
@@ -206,7 +198,7 @@ public class MarketCommand {
 
                                                                                             // 下单前检查余额是否足够
                                                                                             long totalCost =
-                                                                                                    multiplyPriceQuantity(price, quantity);
+                                                                                                    MathUtil.multiplyExactOrNegative1(price, quantity);
 
                                                                                             if (totalCost <= 0) {
                                                                                                 player.sendSystemMessage(
@@ -274,10 +266,11 @@ public class MarketCommand {
                         )
 
                         // ================================================
-                        // /market sell ＜commodity＞ ＜price＞ ＜quantity＞
+                        // /market sell ＜commodity＞ ＜price＞ ＜quantity＞ （管理员）
                         // ================================================
                         .then(
                                 Commands.literal("sell")
+                                        .requires(source -> source.hasPermission(2))
 
                                         .then(
                                                 Commands.argument(
@@ -487,37 +480,9 @@ public class MarketCommand {
                                                 Trade trade =
                                                         trades.get(i);
 
-                                                ServerPlayer buyerPlayer =
-                                                        context.getSource()
-                                                                .getServer()
-                                                                .getPlayerList()
-                                                                .getPlayer(
-                                                                        trade.getBuyer()
-                                                                );
-
-                                                ServerPlayer sellerPlayer =
-                                                        context.getSource()
-                                                                .getServer()
-                                                                .getPlayerList()
-                                                                .getPlayer(
-                                                                        trade.getSeller()
-                                                                );
-
-                                                String buyerName =
-                                                        buyerPlayer != null
-                                                                ? buyerPlayer.getName()
-                                                                        .getString()
-                                                                : trade.getBuyer()
-                                                                        .toString()
-                                                                        .substring(0, 8);
-
-                                                String sellerName =
-                                                        sellerPlayer != null
-                                                                ? sellerPlayer.getName()
-                                                                        .getString()
-                                                                : trade.getSeller()
-                                                                        .toString()
-                                                                        .substring(0, 8);
+                                                MinecraftServer server = context.getSource().getServer();
+                                                String buyerName = resolvePlayerName(server, trade.getBuyer());
+                                                String sellerName = resolvePlayerName(server, trade.getSeller());
 
                                                 player.sendSystemMessage(
                                                         Component.literal(
@@ -544,12 +509,12 @@ public class MarketCommand {
                                                             String commodity = StringArgumentType.getString(context, "commodity");
                                                             MarketPrice mp = NpcMarketMaker.getMarketPrice(commodity);
                                                             if (mp == null) {
-                                                                player.sendSystemMessage(Component.literal("未知商品: '" + commodity + "'."));
+                                                                player.sendSystemMessage(Component.literal("未知商品: '" + commodity + "'。"));
                                                                 return 0;
                                                             }
                                                             List<MarketPrice.PriceSnapshot> snaps = mp.getSnapshots();
                                                             if (snaps.isEmpty()) {
-                                                                player.sendSystemMessage(Component.literal("暂无价格历史: " + commodity + "."));
+                                                                player.sendSystemMessage(Component.literal("暂无价格历史: " + commodity + "。"));
                                                                 return 1;
                                                             }
                                                             int start = Math.max(0, snaps.size() - 20);
@@ -732,7 +697,7 @@ public class MarketCommand {
                                                                 player.sendSystemMessage(
                                                                         Component.literal(
                                                                                 "未知商品: '"
-                                                                                        + commodity + "'."
+                                                                                        + commodity + "'。"
                                                                         )
                                                                 );
 
@@ -891,6 +856,7 @@ public class MarketCommand {
         return Commands.literal(name)
                 .then(
                         Commands.literal("sell")
+                                .requires(source -> source.hasPermission(2))
                                 .then(
                                         Commands.argument(
                                                         "commodity",
@@ -947,7 +913,7 @@ public class MarketCommand {
                                                                     }
 
                                                                     long bidPrice = ctx.price().getBidPrice();
-                                                                    long received = multiplyPriceQuantity(bidPrice, ctx.quantity());
+                                                                    long received = MathUtil.multiplyExactOrNegative1(bidPrice, ctx.quantity());
 
                                                                     ctx.player().sendSystemMessage(
                                                                             Component.literal(
@@ -968,6 +934,7 @@ public class MarketCommand {
                 )
                 .then(
                         Commands.literal("buy")
+                                .requires(source -> source.hasPermission(2))
                                 .then(
                                         Commands.argument(
                                                         "commodity",
@@ -1003,7 +970,7 @@ public class MarketCommand {
                                                                     }
 
                                                                     long askPrice = ctx.price().getAskPrice();
-                                                                    long totalCost = multiplyPriceQuantity(askPrice, ctx.quantity());
+                                                                    long totalCost = MathUtil.multiplyExactOrNegative1(askPrice, ctx.quantity());
 
                                                                     if (totalCost <= 0) {
                                                                         ctx.player().sendSystemMessage(
@@ -1119,19 +1086,14 @@ public class MarketCommand {
         int quantity = IntegerArgumentType.getInteger(context, "quantity");
         MarketPrice price = NpcMarketMaker.getMarketPrice(commodity);
         if (price == null) {
-            player.sendSystemMessage(Component.literal("未知商品: '" + commodity + "'."));
+            player.sendSystemMessage(Component.literal("未知商品: '" + commodity + "'。"));
             return null;
         }
         return new NpcTradeContext(player, commodity, quantity, price);
     }
 
     private static String formatDayChange(double change) {
-        if (change > 0) {
-            return "+" + String.format("%.0f", change) + "%";
-        } else if (change < 0) {
-            return String.format("%.0f", change) + "%";
-        }
-        return "0%";
+        return FormatUtil.formatPercent(change);
     }
 
     private static String formatMomentum(double momentum) {
@@ -1140,11 +1102,11 @@ public class MarketCommand {
         return "→ 持平";
     }
 
-    private static long multiplyPriceQuantity(long price, int quantity) {
-        try {
-            return Math.multiplyExact(price, (long) quantity);
-        } catch (ArithmeticException ex) {
-            return -1;
-        }
+    /** 在线玩家显示名字，离线玩家显示 UUID 前 8 位 */
+    private static String resolvePlayerName(MinecraftServer server, UUID uuid) {
+        ServerPlayer player = server.getPlayerList().getPlayer(uuid);
+        return player != null
+                ? player.getName().getString()
+                : uuid.toString().substring(0, 8);
     }
 }

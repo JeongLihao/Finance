@@ -2,8 +2,8 @@ package finance.command;
 
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.StringArgumentType;
-import finance.account.AccountManager;
 import finance.company.Company;
+import finance.company.CompanyCreationService;
 import finance.company.CompanyManager;
 import finance.company.CompanyType;
 import net.minecraft.commands.CommandSourceStack;
@@ -13,21 +13,18 @@ import net.minecraft.server.level.ServerPlayer;
 
 import java.util.Arrays;
 import java.util.Map;
-import java.util.UUID;
 
 /**
  * /company —— 创建与查询公司。
  */
 public class CompanyCommand {
 
-    private static final long CREATE_COMPANY_COST = 10_000L;
-    private static final long INITIAL_PLAYER_COMPANY_CASH = 5_000L;
-
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(
                 Commands.literal("company")
                         .then(
                                 Commands.literal("create")
+                                        .requires(source -> source.hasPermission(2))
                                         .then(
                                                 Commands.argument("type", StringArgumentType.word())
                                                         .then(
@@ -45,45 +42,11 @@ public class CompanyCommand {
                                                                                 return 0;
                                                                             }
 
-                                                                            if (name.isEmpty() || name.length() > 32) {
-                                                                                player.sendSystemMessage(Component.literal(
-                                                                                        "公司名称长度需为 1-32 个字符。"));
-                                                                                return 0;
-                                                                            }
-
-                                                                            if (CompanyManager.getCompanyByOwner(player.getUUID()) != null) {
-                                                                                player.sendSystemMessage(Component.literal(
-                                                                                        "你已经拥有一家公司，暂时不能重复创建。"));
-                                                                                return 0;
-                                                                            }
-
-                                                                            if (CompanyManager.hasCompanyNamed(name)) {
-                                                                                player.sendSystemMessage(Component.literal(
-                                                                                        "公司名称已被占用: '" + name + "'。"));
-                                                                                return 0;
-                                                                            }
-
-                                                                            if (!AccountManager.withdraw(player.getUUID(), CREATE_COMPANY_COST)) {
-                                                                                player.sendSystemMessage(Component.literal(
-                                                                                        "余额不足，创建公司需要 " + CREATE_COMPANY_COST + "。"));
-                                                                                return 0;
-                                                                            }
-
-                                                                            Company company = new Company(
-                                                                                    UUID.randomUUID(),
-                                                                                    name,
-                                                                                    type,
-                                                                                    INITIAL_PLAYER_COMPANY_CASH,
-                                                                                    player.getUUID()
-                                                                            );
-                                                                            seedInitialInventory(company);
-                                                                            CompanyManager.register(company);
-
-                                                                            player.sendSystemMessage(Component.literal(
-                                                                                    "公司已创建: " + company.getName()
-                                                                                            + " | 行业: " + company.getType()
-                                                                                            + " | 启动资金: " + INITIAL_PLAYER_COMPANY_CASH));
-                                                                            return 1;
+                                                                            CompanyCreationService.Result result =
+                                                                                    CompanyCreationService.createPlayerCompany(
+                                                                                            player.getUUID(), type, name);
+                                                                            player.sendSystemMessage(Component.literal(result.message()));
+                                                                            return result.success() ? 1 : 0;
                                                                         })
                                                         )
                                         )
@@ -132,7 +95,7 @@ public class CompanyCommand {
     private static void sendCompanyInfo(ServerPlayer player, Company c) {
         player.sendSystemMessage(Component.literal("===================="));
         player.sendSystemMessage(Component.literal(c.getName()));
-        player.sendSystemMessage(Component.literal("行业: " + c.getType()));
+        player.sendSystemMessage(Component.literal("行业: " + c.getType().getDisplayName()));
         player.sendSystemMessage(Component.literal(
                 c.isPlayerOwned() ? "归属: 玩家公司" : "归属: 系统公司"));
         player.sendSystemMessage(Component.literal("现金: " + c.getCash()));
@@ -152,22 +115,21 @@ public class CompanyCommand {
     }
 
     private static CompanyType parseCompanyType(String typeName) {
+        // 先按英文枚举名匹配
         try {
             return CompanyType.valueOf(typeName.toUpperCase());
-        } catch (IllegalArgumentException ex) {
-            return null;
+        } catch (IllegalArgumentException ignored) {}
+        // 再按中文显示名匹配
+        for (CompanyType t : CompanyType.values()) {
+            if (t.getDisplayName().equals(typeName)) return t;
         }
+        return null;
     }
 
     private static String availableTypes() {
         return String.join(", ", Arrays.stream(CompanyType.values())
-                .map(Enum::name)
+                .map(t -> t.getDisplayName() + "(" + t.name() + ")")
                 .toList());
     }
 
-    private static void seedInitialInventory(Company company) {
-        for (String commodityId : company.getType().getCommodityIds()) {
-            company.addInventory(commodityId, 50);
-        }
-    }
 }

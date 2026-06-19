@@ -1,46 +1,157 @@
 package finance.gui;
 
+import finance.account.Account;
+import finance.account.AccountManager;
+import finance.company.Company;
+import finance.company.CompanyManager;
 import finance.commodity.CommodityInventoryManager;
+import finance.market.MarketManager;
 import finance.market.MarketPrice;
 import finance.market.NpcMarketMaker;
+import finance.market.Order;
+import finance.stock.Stock;
+import finance.stock.StockHolding;
+import finance.stock.StockMarketManager;
+import finance.stock.StockPortfolioManager;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.network.NetworkHooks;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
+/**
+ * 金融 GUI 打开器 —— 收集全部数据并打开统一的 FinanceMenu。
+ */
 public class FinanceGuiOpener {
 
-    public static void openMarketOverview(ServerPlayer player) {
-        List<MarketSnapshot> snapshots = new ArrayList<>();
+    public static void open(ServerPlayer player) {
+        UUID playerId = player.getUUID();
 
+        // 1. 市场行情
+        List<FinanceMenu.MarketRow> marketData = new ArrayList<>();
         for (MarketPrice price : NpcMarketMaker.getAllMarketPrices().values()) {
             int stock = CommodityInventoryManager.getCommodityAmount(
-                    NpcMarketMaker.NPC_UUID,
-                    price.getCommodityId()
-            );
-            snapshots.add(MarketSnapshot.fromMarketPrice(price, stock));
+                    NpcMarketMaker.NPC_UUID, price.getCommodityId());
+            marketData.add(new FinanceMenu.MarketRow(
+                    price.getCommodityId(), price.getMidPrice(),
+                    price.getBidPrice(), price.getAskPrice(),
+                    price.getDayChange(), price.getDayVolume(), stock));
         }
 
-        NetworkHooks.openScreen(
-                player,
-                new MarketOverviewProvider(snapshots),
-                buffer -> MarketSnapshot.writeList(buffer, snapshots)
-        );
+        // 2. 玩家订单
+        List<FinanceMenu.OrderRow> orderRows = new ArrayList<>();
+        List<Order> orders = MarketManager.getOrders();
+        for (int i = 0; i < orders.size(); i++) {
+            Order order = orders.get(i);
+            if (order.getPlayerId().equals(playerId)) {
+                orderRows.add(new FinanceMenu.OrderRow(
+                        i, order.getCommodityId(), order.getType().name(),
+                        order.getPrice(), order.getQuantity()));
+            }
+        }
+
+        // 3. 账户
+        Account account = AccountManager.getAccount(playerId);
+        long balance = account.getBalance();
+        long frozenBalance = account.getFrozenBalance();
+
+        // 4. 库存
+        Map<String, Integer> inventory = new LinkedHashMap<>(
+                CommodityInventoryManager.getInventory(playerId).getAllCommodities());
+
+        // 5. 公司
+        List<FinanceMenu.CompanyInfo> companyRows = new ArrayList<>();
+        for (Company company : CompanyManager.getCompanies()) {
+            companyRows.add(toCompanyInfo(company));
+        }
+
+        final FinanceMenu.CompanyInfo companyInfo;
+        Company company = CompanyManager.getCompanyByOwner(playerId);
+        if (company != null) {
+            companyInfo = toCompanyInfo(company);
+        } else {
+            companyInfo = null;
+        }
+
+        List<FinanceMenu.StockRow> stockRows = new ArrayList<>();
+        for (Stock stock : StockMarketManager.getStocks()) {
+            stockRows.add(new FinanceMenu.StockRow(
+                    stock.getSymbol(),
+                    localizeStockName(stock.getName()),
+                    stock.getLastPrice(),
+                    stock.getDayChange(),
+                    stock.getDayVolume(),
+                    stock.getAvailableShares()));
+        }
+
+        List<FinanceMenu.StockHoldingRow> stockHoldingRows = new ArrayList<>();
+        for (Map.Entry<String, StockHolding> entry :
+                StockPortfolioManager.getPortfolio(playerId).entrySet()) {
+            stockHoldingRows.add(new FinanceMenu.StockHoldingRow(
+                    entry.getKey(),
+                    entry.getValue().getQuantity(),
+                    entry.getValue().getAverageCost()));
+        }
+
+        // 打开菜单
+        NetworkHooks.openScreen(player,
+                new FinanceProvider(marketData, orderRows, balance, frozenBalance, inventory, companyInfo, companyRows, stockRows, stockHoldingRows),
+                buffer -> FinanceMenu.writeAll(buffer, marketData, orderRows, balance, frozenBalance, inventory, companyInfo, companyRows, stockRows, stockHoldingRows));
     }
 
-    private record MarketOverviewProvider(List<MarketSnapshot> snapshots) implements net.minecraft.world.MenuProvider {
+    /** 保留旧接口兼容 */
+    public static void openMarketOverview(ServerPlayer player) {
+        open(player);
+    }
+
+    private static FinanceMenu.CompanyInfo toCompanyInfo(Company company) {
+        return new FinanceMenu.CompanyInfo(
+                localizeCompanyName(company.getName()), company.getType().getDisplayName(),
+                company.getCash(), company.inventoryValue(),
+                company.getEstimatedValue(),
+                new LinkedHashMap<>(company.getInventory()),
+                company.isPlayerOwned());
+    }
+
+    private static String localizeCompanyName(String name) {
+        return switch (name) {
+            case "Iron Mining Corp" -> "铁矿集团";
+            case "Coal Energy Group" -> "煤矿能源";
+            case "Wheat Agriculture Ltd" -> "麦田农业";
+            case "Steel Manufacturing Inc" -> "钢铁制造";
+            default -> name;
+        };
+    }
+
+    private static String localizeStockName(String name) {
+        return switch (name) {
+            case "Iron Mining Corp" -> "铁矿集团";
+            case "Coal Energy Group" -> "煤矿能源";
+            case "Wheat Agriculture Ltd" -> "麦田农业";
+            case "Steel Manufacturing Inc" -> "钢铁制造";
+            default -> name;
+        };
+    }
+
+    private record FinanceProvider(List<FinanceMenu.MarketRow> marketData,
+                                    List<FinanceMenu.OrderRow> orderRows,
+                                    long balance, long frozenBalance,
+                                    Map<String, Integer> inventory,
+                                    FinanceMenu.CompanyInfo companyInfo,
+                                    List<FinanceMenu.CompanyInfo> allCompanies,
+                                    List<FinanceMenu.StockRow> stocks,
+                                    List<FinanceMenu.StockHoldingRow> stockHoldings)
+            implements net.minecraft.world.MenuProvider {
 
         @Override
         public Component getDisplayName() {
-            return Component.literal("国际市场");
+            return Component.literal("金融中心");
         }
 
         @Override
-        public MarketOverviewMenu createMenu(int containerId, net.minecraft.world.entity.player.Inventory inventory,
-                                             net.minecraft.world.entity.player.Player player) {
-            return new MarketOverviewMenu(containerId, snapshots);
+        public FinanceMenu createMenu(int containerId, net.minecraft.world.entity.player.Inventory inv,
+                                       net.minecraft.world.entity.player.Player player) {
+            return new FinanceMenu(containerId, marketData, orderRows, balance, frozenBalance, inventory, companyInfo, allCompanies, stocks, stockHoldings);
         }
     }
 }

@@ -18,6 +18,10 @@ import finance.market.Order;
 import finance.market.OrderType;
 import finance.account.TransactionType;
 import finance.market.Trade;
+import finance.stock.Stock;
+import finance.stock.StockHolding;
+import finance.stock.StockMarketManager;
+import finance.stock.StockPortfolioManager;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
@@ -286,6 +290,42 @@ public class EconomySavedData extends SavedData {
             eventsTag.add(evTag);
         }
         tag.put("ActiveEvents", eventsTag);
+
+        // ---- 保存股票 ----
+        ListTag stocksTag = new ListTag();
+        for (Stock stock : StockMarketManager.getStocks()) {
+            CompoundTag stockTag = new CompoundTag();
+            stockTag.putString("Symbol", stock.getSymbol());
+            stockTag.putString("Name", stock.getName());
+            stockTag.putUUID("CompanyUUID", stock.getCompanyId());
+            stockTag.putLong("TotalShares", stock.getTotalShares());
+            stockTag.putLong("AvailableShares", stock.getAvailableShares());
+            stockTag.putLong("LastPrice", stock.getLastPrice());
+            stockTag.putLong("PreviousClose", stock.getPreviousClose());
+            stockTag.putLong("DayVolume", stock.getDayVolume());
+            stocksTag.add(stockTag);
+        }
+        tag.put("Stocks", stocksTag);
+
+        // ---- 保存股票持仓 ----
+        ListTag portfoliosTag = new ListTag();
+        for (Map.Entry<UUID, Map<String, StockHolding>> portfolioEntry :
+                StockPortfolioManager.getPortfolios().entrySet()) {
+            CompoundTag portfolioTag = new CompoundTag();
+            portfolioTag.putUUID("PlayerUUID", portfolioEntry.getKey());
+            ListTag holdingsTag = new ListTag();
+            for (Map.Entry<String, StockHolding> holdingEntry : portfolioEntry.getValue().entrySet()) {
+                StockHolding holding = holdingEntry.getValue();
+                CompoundTag holdingTag = new CompoundTag();
+                holdingTag.putString("Symbol", holdingEntry.getKey());
+                holdingTag.putLong("Quantity", holding.getQuantity());
+                holdingTag.putLong("AverageCost", holding.getAverageCost());
+                holdingsTag.add(holdingTag);
+            }
+            portfolioTag.put("Holdings", holdingsTag);
+            portfoliosTag.add(portfolioTag);
+        }
+        tag.put("StockPortfolios", portfoliosTag);
 
         return tag;
     }
@@ -594,6 +634,47 @@ public class EconomySavedData extends SavedData {
                     NpcMarketMaker.applyEventToAll(ev);
                 } else {
                     NpcMarketMaker.applyEvent(ev.getCommodityId(), ev);
+                }
+            }
+        }
+
+        // ---- 加载股票 ----
+        if (tag.contains("Stocks")) {
+            StockMarketManager.clearStocks();
+            ListTag stocksTag = tag.getList("Stocks", Tag.TAG_COMPOUND);
+            for (Tag rawTag : stocksTag) {
+                CompoundTag stockTag = (CompoundTag) rawTag;
+                StockMarketManager.putStockDirect(new Stock(
+                        stockTag.getString("Symbol"),
+                        stockTag.getString("Name"),
+                        stockTag.getUUID("CompanyUUID"),
+                        stockTag.getLong("TotalShares"),
+                        stockTag.getLong("AvailableShares"),
+                        stockTag.getLong("LastPrice"),
+                        stockTag.getLong("PreviousClose"),
+                        stockTag.getLong("DayVolume")
+                ));
+            }
+        }
+
+        // ---- 加载股票持仓 ----
+        if (tag.contains("StockPortfolios")) {
+            StockPortfolioManager.clearPortfolios();
+            ListTag portfoliosTag = tag.getList("StockPortfolios", Tag.TAG_COMPOUND);
+            for (Tag rawTag : portfoliosTag) {
+                CompoundTag portfolioTag = (CompoundTag) rawTag;
+                UUID playerUUID = portfolioTag.getUUID("PlayerUUID");
+                ListTag holdingsTag = portfolioTag.getList("Holdings", Tag.TAG_COMPOUND);
+                for (Tag holdingRaw : holdingsTag) {
+                    CompoundTag holdingTag = (CompoundTag) holdingRaw;
+                    StockPortfolioManager.putHoldingDirect(
+                            playerUUID,
+                            holdingTag.getString("Symbol"),
+                            new StockHolding(
+                                    holdingTag.getLong("Quantity"),
+                                    holdingTag.getLong("AverageCost")
+                            )
+                    );
                 }
             }
         }

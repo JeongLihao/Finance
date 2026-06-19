@@ -1,5 +1,7 @@
 package finance.event;
 
+import finance.util.FormatUtil;
+
 /**
  * 市场事件实体 —— 代表一个正在生效或已过期的市场事件。
  */
@@ -65,11 +67,7 @@ public class MarketEvent {
     /** 价格变化百分比描述，如 "+20%" 或 "-15%" */
     public String getChangePct() {
         double pct = (priceMultiplier - 1.0) * 100;
-        if (pct >= 0) {
-            return "+" + String.format("%.0f", pct) + "%";
-        } else {
-            return String.format("%.0f", pct) + "%";
-        }
+        return FormatUtil.formatPercent(pct);
     }
 
     /** 持续时间描述，如 "3 MC天" 或 "15 分钟" */

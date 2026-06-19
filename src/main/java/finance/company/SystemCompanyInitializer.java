@@ -1,5 +1,7 @@
 package finance.company;
 
+import finance.data.EconomySavedData;
+
 import java.util.UUID;
 
 /**
@@ -17,40 +19,41 @@ public class SystemCompanyInitializer {
 
         Company ironMining = new Company(
                 UUID.randomUUID(),
-                "Iron Mining Corp",
+                "铁矿集团",
                 CompanyType.MINING,
                 INITIAL_CASH
         );
         ironMining.addInventory("iron", INITIAL_STOCK);
         ironMining.addInventory("coal", INITIAL_STOCK);
-        CompanyManager.register(ironMining);
+        CompanyManager.registerDirect(ironMining);
 
         Company coalEnergy = new Company(
                 UUID.randomUUID(),
-                "Coal Energy Group",
+                "煤矿能源",
                 CompanyType.ENERGY,
                 INITIAL_CASH
         );
         coalEnergy.addInventory("coal", INITIAL_STOCK);
-        CompanyManager.register(coalEnergy);
+        CompanyManager.registerDirect(coalEnergy);
 
         Company wheatAgri = new Company(
                 UUID.randomUUID(),
-                "Wheat Agriculture Ltd",
+                "麦田农业",
                 CompanyType.AGRICULTURE,
                 INITIAL_CASH
         );
         wheatAgri.addInventory("wheat", INITIAL_STOCK);
-        CompanyManager.register(wheatAgri);
+        CompanyManager.registerDirect(wheatAgri);
 
         Company steelMfg = new Company(
                 UUID.randomUUID(),
-                "Steel Manufacturing Inc",
+                "钢铁制造",
                 CompanyType.MANUFACTURING,
                 INITIAL_CASH
         );
         steelMfg.addInventory("iron", INITIAL_STOCK);
         steelMfg.addInventory("steel", 100);
-        CompanyManager.register(steelMfg);
+        CompanyManager.registerDirect(steelMfg);
+        EconomySavedData.markDirty();
     }
 }

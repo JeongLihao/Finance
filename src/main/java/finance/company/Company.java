@@ -6,6 +6,7 @@ import finance.account.TransactionType;
 import finance.commodity.CommodityInventoryManager;
 import finance.market.MarketPrice;
 import finance.market.NpcMarketMaker;
+import finance.util.MathUtil;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -72,16 +73,18 @@ public class Company {
 
     /** 每日生产 —— 先消耗原料，再生产 */
     public void produce() {
-        consumeRawMaterials();
+        if (!consumeRawMaterials()) {
+            return;
+        }
         for (Map.Entry<String, Integer> entry : type.getDailyProduction().entrySet()) {
             addInventory(entry.getKey(), entry.getValue());
         }
     }
 
     /** 确保原料充足：不足时从国际市场购买 */
-    private void consumeRawMaterials() {
+    private boolean consumeRawMaterials() {
         Map<String, Integer> consumption = type.getDailyConsumption();
-        if (consumption.isEmpty()) return;
+        if (consumption.isEmpty()) return true;
 
         for (Map.Entry<String, Integer> entry : consumption.entrySet()) {
             String commodityId = entry.getKey();
@@ -94,11 +97,17 @@ public class Company {
                 current = getInventoryAmount(commodityId);
             }
 
-            int toConsume = Math.min(current, needed);
-            if (toConsume > 0) {
-                removeInventory(commodityId, toConsume);
+            if (current < needed) {
+                return false;
             }
         }
+
+        for (Map.Entry<String, Integer> entry : consumption.entrySet()) {
+            if (!removeInventory(entry.getKey(), entry.getValue())) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /** 从国际市场购买原料 */
@@ -106,7 +115,7 @@ public class Company {
         MarketPrice mp = NpcMarketMaker.getMarketPrice(commodityId);
         if (mp == null) return;
         long askPrice = mp.getAskPrice();
-        long totalCost = multiplyPriceQuantity(askPrice, quantity);
+        long totalCost = MathUtil.multiplyExactOrNegative1(askPrice, quantity);
         if (totalCost <= 0) return;
 
         int marketStock = CommodityInventoryManager.getCommodityAmount(
@@ -123,10 +132,7 @@ public class Company {
                 new TransactionRecord(companyId, NpcMarketMaker.NPC_UUID,
                         totalCost, TransactionType.NPC_SELL));
 
-        long newNpcStock = CommodityInventoryManager.getCommodityAmount(
-                NpcMarketMaker.NPC_UUID, commodityId);
-        mp.onNpcTrade(newNpcStock, false, quantity);
-        mp.recordTrade(askPrice, quantity);
+        NpcMarketMaker.recordNpcTrade(commodityId, false, quantity, askPrice);
     }
 
     /** 每日自动交易 —— 将可出售库存的一部分卖给国际市场变现 */
@@ -154,19 +160,15 @@ public class Company {
             sellQty = Math.min(sellQty, amount - reserve);
             sellQty = Math.min(sellQty, amount);
 
-            // 国际市场库存是否充足
-            int marketStock = CommodityInventoryManager.getCommodityAmount(
-                    NpcMarketMaker.NPC_UUID, commodityId);
-
             // 国际市场余额是否充足
-            long totalCost = multiplyPriceQuantity(bidPrice, sellQty);
+            long totalCost = MathUtil.multiplyExactOrNegative1(bidPrice, sellQty);
             if (totalCost <= 0) continue;
             long marketBalance = AccountManager.getBalance(NpcMarketMaker.NPC_UUID);
 
-            // 自适应调量：国际市场库存或余额不足时缩量
-            while (sellQty > 1 && (marketStock < sellQty || marketBalance < totalCost)) {
+            // 自适应调量：国际市场余额不足时缩量
+            while (sellQty > 1 && marketBalance < totalCost) {
                 sellQty /= 2;
-                totalCost = multiplyPriceQuantity(bidPrice, sellQty);
+                totalCost = MathUtil.multiplyExactOrNegative1(bidPrice, sellQty);
                 if (totalCost <= 0) break;
             }
 
@@ -184,10 +186,7 @@ public class Company {
                                 totalCost, TransactionType.NPC_BUY));
 
                 // 更新行情
-                long newNpcStock = CommodityInventoryManager.getCommodityAmount(
-                        NpcMarketMaker.NPC_UUID, commodityId);
-                mp.onNpcTrade(newNpcStock, true, sellQty);
-                mp.recordTrade(bidPrice, sellQty);
+                NpcMarketMaker.recordNpcTrade(commodityId, true, sellQty, bidPrice);
             }
         }
     }
@@ -219,14 +218,6 @@ public class Company {
         if (cash < amount) return false;
         cash -= amount;
         return true;
-    }
-
-    private static long multiplyPriceQuantity(long price, int quantity) {
-        try {
-            return Math.multiplyExact(price, (long) quantity);
-        } catch (ArithmeticException ex) {
-            return -1;
-        }
     }
 
     private int getReserveAmount(String commodityId) {
