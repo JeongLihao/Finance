@@ -35,6 +35,12 @@ public class MarketOverviewScreen extends AbstractContainerScreen<MarketOverview
     }
 
     @Override
+    public void renderBackground(GuiGraphics graphics) {
+        // 只在面板区域绘制半透明遮罩，不遮挡游戏画面
+        graphics.fill(leftPos, topPos, leftPos + imageWidth, topPos + imageHeight, 0xB0101010);
+    }
+
+    @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         renderBackground(graphics);
         super.render(graphics, mouseX, mouseY, partialTick);
