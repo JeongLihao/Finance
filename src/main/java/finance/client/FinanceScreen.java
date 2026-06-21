@@ -1,21 +1,28 @@
 package finance.client;
 
 import com.mojang.blaze3d.systems.RenderSystem;
+import finance.commodity.Commodity;
 import finance.commodity.CommodityCategory;
+import finance.commodity.CommodityRegistry;
 import finance.company.CompanyType;
 import finance.gui.FinanceMenu;
+import finance.market.NpcMarketMaker;
 import finance.network.*;
 import finance.util.FormatUtil;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
 
 import java.util.*;
 
 /**
- * 金融操作中心 —— 贴近 Minecraft 原生容器风格的 5 标签页 GUI。
+ * 金融操作中心 GUI —— 6 标签页（管理员 7 个）。
  */
 public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
 
@@ -28,7 +35,7 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
     private static final int CONTENT_Y = 46;
     private static final int MARKET_TRADE_Y = 152;
 
-    // ---- Minecraft 风格色彩 ----
+    // ---- 色彩 ----
     private static final int COL_BG          = 0xFFE7E2D3;
     private static final int COL_TAB_BG      = 0xFFD6D0BE;
     private static final int COL_ACCENT      = 0xFF3F3F3F;
@@ -42,6 +49,9 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
     private static final int COL_ROW_SELECT  = 0xFFD5E3C7;
     private static final int COL_PANEL_BORDER = 0xFF373737;
     private static final int COL_BUTTON_BG   = 0xFFD0CAB8;
+    private static final int COL_DROPDOWN_BG = 0xFFF5F0E1;
+    private static final int COL_DROPDOWN_HOVER = 0xFFD5E3C7;
+    private static final int COL_CATEGORY    = 0xFFB8B0A0;
 
     // ---- 标签 ----
     private static final String[] BASE_TABS = {"行情", "交易", "订单", "库存", "公司", "股票"};
@@ -75,13 +85,16 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
     private CommodityCategory adminCategory = CommodityCategory.RAW_MATERIALS;
     private int adminSubTab = 0; // 0=从手中添加, 1=常用物品, 2=已注册商品
 
-    // ---- 缓存（避免每帧重复计算） ----
+    // ---- 商品下拉菜单（交易标签 + 行情标签） ----
+    private boolean dropdownOpen = false;
+    private CommodityCategory expandedCategory = null;
+    private int dropdownScroll = 0;
+
+    // ---- 缓存 ----
     private List<FinanceMenu.MarketRow> cachedMarketData;
     private FinanceMenu.MarketRow cachedSelectedRow;
     private String lastSelectedCommodity = "";
-    private int[] cachedButtonX;   // 商品按钮起始 X
-    private int[] cachedButtonW;   // 商品按钮宽度
-    private String[] cachedMidPriceStr;  // 格式化后的价格字符串
+    private String[] cachedMidPriceStr;
     private String[] cachedBidPriceStr;
     private String[] cachedAskPriceStr;
     private String[] cachedDayChangeStr;
@@ -89,9 +102,12 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
     private String[] cachedMarketStockStr;
     private boolean cacheDirty = true;
 
-    // ---- 已注册商品缓存（避免每帧分配 ArrayList） ----
-    private List<finance.commodity.Commodity> cachedCommodities;
+    private List<Commodity> cachedCommodities;
     private boolean commodityCacheDirty = true;
+
+    // ---- 分类商品缓存 ----
+    private Map<CommodityCategory, List<Commodity>> categorizedCommodities;
+    private boolean categorizedCacheDirty = true;
 
     public FinanceScreen(FinanceMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -105,7 +121,6 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         super.init();
         refreshCache();
 
-        // 检测管理员权限
         isAdmin = minecraft != null && minecraft.player != null && minecraft.player.hasPermissions(2);
         tabNames = isAdmin ? ADMIN_TABS : BASE_TABS;
 
@@ -142,16 +157,13 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         addWidget(stockQuantityBox);
 
         // 管理标签输入框
-        // "从手中添加"区域的价格输入框（紧跟"价格:"标签）
         adminBasePriceBox = new EditBox(font, leftPos + 228, topPos + CONTENT_Y - 2, 60, 14, Component.literal("价格"));
         adminBasePriceBox.setMaxLength(12);
         adminBasePriceBox.setValue("10");
         adminBasePriceBox.setVisible(false);
         addWidget(adminBasePriceBox);
 
-        // "手动添加"表单输入框（在"从手中添加"子页中）
         int adminFormY = topPos + CONTENT_Y + 52;
-
         adminCommodityIdBox = new EditBox(font, leftPos + 30, adminFormY, 80, 14, Component.literal("商品ID"));
         adminCommodityIdBox.setMaxLength(32);
         adminCommodityIdBox.setVisible(false);
@@ -172,15 +184,14 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         }
 
         commodityCacheDirty = true;
+        categorizedCacheDirty = true;
         updateInputVisibility();
     }
 
-    /** 刷新缓存数据（只在 init 或数据变化时调用） */
+    /** 刷新市场缓存 */
     private void refreshCache() {
         cachedMarketData = menu.getMarketData();
         int size = cachedMarketData.size();
-        cachedButtonX = new int[size];
-        cachedButtonW = new int[size];
         cachedMidPriceStr = new String[size];
         cachedBidPriceStr = new String[size];
         cachedAskPriceStr = new String[size];
@@ -188,16 +199,8 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         cachedDayVolumeStr = new String[size];
         cachedMarketStockStr = new String[size];
 
-        int btnX = 82;
         for (int i = 0; i < size; i++) {
             FinanceMenu.MarketRow row = cachedMarketData.get(i);
-            String label = commodityDisplayName(row.commodityId());
-            int w = Math.max(36, Math.min(74, font.width(label) + 12));
-            cachedButtonX[i] = btnX;
-            cachedButtonW[i] = w;
-            btnX += w + 3;
-
-            // 预格式化数字字符串
             cachedMidPriceStr[i] = Long.toString(row.midPrice());
             cachedBidPriceStr[i] = Long.toString(row.bidPrice());
             cachedAskPriceStr[i] = Long.toString(row.askPrice());
@@ -222,24 +225,40 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         }
     }
 
+    /** 构建按分类分组的商品缓存 */
+    private void rebuildCategorizedCache() {
+        Map<CommodityCategory, List<Commodity>> map = new LinkedHashMap<>();
+        for (CommodityCategory cat : CommodityCategory.values()) {
+            map.put(cat, new ArrayList<>());
+        }
+        for (Commodity c : CommodityRegistry.getAllCommodities()) {
+            map.get(c.getCategory()).add(c);
+        }
+        // 按显示名排序
+        for (List<Commodity> list : map.values()) {
+            list.sort(Comparator.comparing(Commodity::getDisplayName));
+        }
+        categorizedCommodities = map;
+        categorizedCacheDirty = false;
+    }
+
+    // ================================================================
+    // 渲染
+    // ================================================================
+
     @Override
     protected void renderBg(GuiGraphics g, float partialTick, int mouseX, int mouseY) {
         RenderSystem.enableBlend();
-
-        // 主面板背景
         g.fill(leftPos, topPos, leftPos + imageWidth, topPos + imageHeight, COL_BG);
         drawSimpleBorder(g, leftPos, topPos, imageWidth, imageHeight, COL_PANEL_BORDER);
-        // 标题栏和标签栏背景
         g.fill(leftPos + 1, topPos + 1, leftPos + imageWidth - 1, topPos + 21, 0xFFF4F0E2);
         g.fill(leftPos + 1, topPos + 22, leftPos + imageWidth - 1, topPos + 42, COL_TAB_BG);
         g.fill(leftPos + 1, topPos + 42, leftPos + imageWidth - 1, topPos + 43, COL_PANEL_BORDER);
-
         RenderSystem.disableBlend();
     }
 
     @Override
     public void renderBackground(GuiGraphics graphics) {
-        // 只在面板区域绘制半透明遮罩，不遮挡游戏画面
         graphics.fill(leftPos, topPos, leftPos + imageWidth, topPos + imageHeight, 0xB0101010);
     }
 
@@ -266,13 +285,16 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
             adminItemIdBox.render(graphics, mouseX, mouseY, partialTick);
             adminDisplayNameBox.render(graphics, mouseX, mouseY, partialTick);
         }
+        // 下拉菜单渲染在最上层
+        if (dropdownOpen && (currentTab == 0 || currentTab == 1)) {
+            renderDropdown(graphics, mouseX, mouseY);
+        }
         renderTooltip(graphics, mouseX, mouseY);
     }
 
     @Override
     protected void renderLabels(GuiGraphics g, int mouseX, int mouseY) {
-        // 标题
-            drawClippedString(g, "金融中心", 10, 7, 130, COL_TEXT);
+        drawClippedString(g, "金融中心", 10, 7, 130, COL_TEXT);
         renderTabs(g, mouseX, mouseY);
 
         switch (currentTab) {
@@ -293,28 +315,25 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         for (int i = 0; i < tabNames.length; i++) {
             String label = tabNames[i];
             int w = 48;
-            int tabX = x;
             boolean active = (i == currentTab);
-            boolean hovered = mouseX >= leftPos + tabX && mouseX < leftPos + tabX + w
+            boolean hovered = mouseX >= leftPos + x && mouseX < leftPos + x + w
                     && mouseY >= topPos + TAB_Y && mouseY < topPos + TAB_Y + TAB_H;
 
-            // 标签文字
             int textColor = active ? COL_TEXT : (hovered ? COL_TEXT : COL_TEXT_DIM);
             if (active || hovered) {
-                g.fill(tabX, TAB_Y - 1, tabX + w, TAB_Y + TAB_H, 0xFFECE6D5);
+                g.fill(x, TAB_Y - 1, x + w, TAB_Y + TAB_H, 0xFFECE6D5);
             }
-            drawClippedString(g, label, tabX + 5, TAB_Y + 2, w - 10, textColor);
-
-            // 活跃标签底部指示线
+            drawClippedString(g, label, x + 5, TAB_Y + 2, w - 10, textColor);
             if (active) {
-                g.fill(tabX + 3, TAB_Y + TAB_H - 1, tabX + w - 3, TAB_Y + TAB_H, COL_ACCENT);
+                g.fill(x + 3, TAB_Y + TAB_H - 1, x + w - 3, TAB_Y + TAB_H, COL_ACCENT);
             }
-
             x += w + 3;
         }
     }
 
-    // ---- 标签 0: 市场行情 ----
+    // ================================================================
+    // 标签 0: 市场行情 + 国际交易
+    // ================================================================
 
     private void renderMarketTab(GuiGraphics g) {
         if (cacheDirty) refreshCache();
@@ -325,7 +344,6 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         int headerY = CONTENT_Y;
         int size = cachedMarketData.size();
 
-        // 表格卡片背景
         int visibleRows = Math.min(size, 7);
         int tableBottom = 42 + visibleRows * ROW_HEIGHT;
         g.fill(tableX, headerY - 2, tableX + tableW, tableBottom, 0xFFF1ECDD);
@@ -355,14 +373,16 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
 
             int bg = selected ? COL_ROW_SELECT : ((i % 2 == 0) ? COL_ROW_EVEN : COL_ROW_ODD);
             g.fill(tableX + 1, y, tableX + tableW - 1, y + ROW_HEIGHT, bg);
-
             if (selected) {
                 g.fill(tableX + 1, y, tableX + 3, y + ROW_HEIGHT, COL_ACCENT);
             }
 
-            int textColor = selected ? 0xFFFFFFFF : COL_TEXT;
-            drawClippedString(g, commodityDisplayName(row.commodityId()), 12, y + 3, 56, selected ? COL_ACCENT : textColor);
-            drawClippedString(g, cachedMidPriceStr[i], 74, y + 3, 46, textColor);
+            // 物品图标
+            Commodity commodity = CommodityRegistry.getCommodity(row.commodityId());
+            renderItemIcon(g, commodity, 14, y + 1);
+
+            drawClippedString(g, commodityDisplayName(row.commodityId()), 28, y + 3, 40, selected ? COL_ACCENT : COL_TEXT);
+            drawClippedString(g, cachedMidPriceStr[i], 74, y + 3, 46, COL_TEXT);
             drawClippedString(g, cachedBidPriceStr[i], 126, y + 3, 46, COL_GOOD);
             drawClippedString(g, cachedAskPriceStr[i], 178, y + 3, 46, COL_WARN);
             drawClippedString(g, cachedDayChangeStr[i], 230, y + 3, 46, changeColor(row.dayChange()));
@@ -375,21 +395,20 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         drawSimpleSeparator(g, 8, tradeY - 4, imageWidth - 16);
         drawSectionTitle(g, "国际交易", 10, tradeY + 1);
 
-        // 商品选择按钮（使用缓存的 X 和 W）
-        for (int i = 0; i < size; i++) {
-            boolean sel = cachedMarketData.get(i).commodityId().equals(selectedCommodity);
-            drawButton(g, commodityDisplayName(cachedMarketData.get(i).commodityId()), cachedButtonX[i], tradeY, cachedButtonW[i], sel);
-        }
+        // 显示当前选中商品名（不是按钮行）
+        String selName = commodityDisplayName(selectedCommodity);
+        drawClippedString(g, "当前: " + selName, 82, tradeY + 1, 120, COL_ACCENT);
 
         // 信息行
         if (cachedSelectedRow != null) {
-            drawClippedString(g, "市场收购: " + cachedSelectedRow.bidPrice(), 10, tradeY + 20, 120, COL_GOOD);
-            drawClippedString(g, "市场出售: " + cachedSelectedRow.askPrice(), 140, tradeY + 20, 120, COL_WARN);
+            drawClippedString(g, "市场收购: " + cachedSelectedRow.bidPrice(), 10, tradeY + 18, 120, COL_GOOD);
+            drawClippedString(g, "市场出售: " + cachedSelectedRow.askPrice(), 140, tradeY + 18, 120, COL_WARN);
         }
-        drawClippedString(g, "余额: " + menu.getBalance(), 260, tradeY + 20, 110, COL_TEXT);
+        drawClippedString(g, "余额: " + menu.getBalance(), 260, tradeY + 18, 110, COL_TEXT);
         int owned = menu.getPlayerInventory().getOrDefault(selectedCommodity, 0);
-        drawClippedString(g, "持有: " + owned, 10, tradeY + 36, 130, COL_TEXT_DIM);
+        drawClippedString(g, "持有: " + owned, 10, tradeY + 32, 130, COL_TEXT_DIM);
 
+        // 数量 + 买卖按钮
         g.drawString(font, "数量:", 10, tradeY + 55, COL_TEXT_DIM, false);
         drawButton(g, "-", 100, tradeY + 52, 20, false);
         drawButton(g, "+", 124, tradeY + 52, 20, false);
@@ -400,16 +419,20 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         drawFilledButton(g, "卖给市场", 300, tradeY + 52, 68, COL_BAD);
     }
 
-    // ---- 标签 1: 交易下单 ----
+    // ================================================================
+    // 标签 1: 交易下单（分类下拉选择商品）
+    // ================================================================
 
     private void renderTradeTab(GuiGraphics g) {
         if (cacheDirty) refreshCache();
         refreshSelectedRow();
 
+        // ---- 商品选择下拉按钮 ----
         drawSectionTitle(g, "商品选择", 10, CONTENT_Y);
-        drawCommodityButtons(g, 82, CONTENT_Y + 14);
+        String btnLabel = commodityDisplayName(selectedCommodity) + " ▾";
+        drawButton(g, btnLabel, 82, CONTENT_Y, 140, dropdownOpen);
 
-        int cardY = CONTENT_Y + 34;
+        int cardY = CONTENT_Y + 20;
         int cardH = 66;
         g.fill(8, cardY, imageWidth - 8, cardY + cardH, 0xFFF1ECDD);
         g.fill(8, cardY, imageWidth - 8, cardY + 1, COL_PANEL_BORDER);
@@ -441,7 +464,81 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         drawFilledButton(g, "提交卖单", 102, 186, 84, COL_BAD);
     }
 
-    // ---- 标签 2: 订单管理 ----
+    // ================================================================
+    // 下拉菜单渲染
+    // ================================================================
+
+    /** 渲染分类下拉面板（在行情/交易标签中使用） */
+    private void renderDropdown(GuiGraphics g, int mouseX, int mouseY) {
+        if (categorizedCacheDirty) rebuildCategorizedCache();
+
+        int ddX = leftPos + 82;
+        int ddY = (currentTab == 0) ? topPos + MARKET_TRADE_Y + 14 : topPos + CONTENT_Y + 14;
+        int ddW = 200;
+        int ddH = 120;
+
+        // 背景
+        g.fill(ddX, ddY, ddX + ddW, ddY + ddH, COL_DROPDOWN_BG);
+        drawSimpleBorder(g, ddX, ddY, ddW, ddH, COL_PANEL_BORDER);
+
+        int localMx = mouseX - ddX;
+        int localMy = mouseY - ddY;
+        int y = 2 - dropdownScroll;
+        int maxY = ddH - 2;
+
+        for (CommodityCategory cat : CommodityCategory.values()) {
+            List<Commodity> items = categorizedCommodities.get(cat);
+            if (items == null || items.isEmpty()) continue;
+
+            // 分类标题
+            if (y + 12 > 0 && y < maxY) {
+                g.fill(2, y, ddW - 2, y + 12, COL_CATEGORY);
+                g.drawString(font, "▸ " + cat.getDisplayName(), 6, y + 2, COL_TEXT, false);
+            }
+            y += 14;
+
+            // 展开的分类显示其商品
+            if (expandedCategory == cat) {
+                for (Commodity c : items) {
+                    if (y + 14 > 0 && y < maxY) {
+                        boolean hovered = localMx > 0 && localMx < ddW && localMy >= y && localMy < y + 14;
+                        if (hovered) {
+                            g.fill(2, y, ddW - 2, y + 14, COL_DROPDOWN_HOVER);
+                        }
+                        renderItemIcon(g, c, 8, y + 1);
+                        drawClippedString(g, c.getDisplayName(), 26, y + 3, 100, COL_TEXT);
+                        drawClippedString(g, Long.toString(c.getBasePrice()), 140, y + 3, 50, COL_GOOD);
+                    }
+                    y += 14;
+                }
+            }
+        }
+
+        // 滚动条
+        int totalHeight = calcDropdownTotalHeight();
+        if (totalHeight > ddH) {
+            int barH = Math.max(10, ddH * ddH / totalHeight);
+            int barY = (int)((long) dropdownScroll * (ddH - barH) / (totalHeight - ddH));
+            g.fill(ddX + ddW - 5, ddY + barY, ddX + ddW - 2, ddY + barY + barH, COL_PANEL_BORDER);
+        }
+    }
+
+    private int calcDropdownTotalHeight() {
+        int h = 0;
+        for (CommodityCategory cat : CommodityCategory.values()) {
+            List<Commodity> items = categorizedCommodities.get(cat);
+            if (items == null || items.isEmpty()) continue;
+            h += 14; // 分类标题
+            if (expandedCategory == cat) {
+                h += items.size() * 14;
+            }
+        }
+        return h;
+    }
+
+    // ================================================================
+    // 标签 2: 订单管理
+    // ================================================================
 
     private void renderOrdersTab(GuiGraphics g) {
         int tableX = 8;
@@ -475,7 +572,6 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
             FinanceMenu.OrderRow row = orders.get(i);
             int y = rowY + i * ROW_HEIGHT;
             g.fill(tableX + 1, y, tableX + tableW - 1, y + ROW_HEIGHT, (i % 2 == 0) ? COL_ROW_EVEN : COL_ROW_ODD);
-
             drawClippedString(g, String.valueOf(i + 1), 12, y + 3, 20, COL_TEXT_DIM);
             drawClippedString(g, commodityDisplayName(row.commodityId()), 38, y + 3, 60, COL_TEXT);
             boolean isBuy = "BUY".equals(row.type());
@@ -486,10 +582,11 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         }
     }
 
-    // ---- 标签 3: 库存与账户 ----
+    // ================================================================
+    // 标签 3: 库存与账户
+    // ================================================================
 
     private void renderInventoryTab(GuiGraphics g) {
-        // 账户卡片
         int cardY = CONTENT_Y;
         int cardH = 38;
         g.fill(8, cardY, imageWidth - 8, cardY + cardH, 0xFFF1ECDD);
@@ -501,29 +598,54 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         g.drawString(font, "冻结: ", 190, cardY + 18, COL_TEXT_DIM, false);
         drawClippedString(g, Long.toString(menu.getFrozenBalance()), 224, cardY + 18, 120, COL_WARN);
 
-        // 库存卡片
         int invY = cardY + cardH + 6;
         int invH = imageHeight - invY - 4;
         g.fill(8, invY, imageWidth - 8, invY + invH, 0xFFF1ECDD);
         drawSimpleBorder(g, 8, invY, imageWidth - 16, invH, COL_PANEL_BORDER);
 
-        drawSectionTitle(g, "商品库存", 10, invY + 2);
+        drawSectionTitle(g, "商品库存（点击选择）", 10, invY + 2);
+        drawHeader(g, "商品", 14, invY + 16);
+        drawHeader(g, "库存", 140, invY + 16);
+        drawHeader(g, "背包", 210, invY + 16);
+
+        drawFilledButton(g, "存入", 280, invY + 14, 44, COL_GOOD);
+        drawFilledButton(g, "取出", 330, invY + 14, 44, COL_ACCENT);
+
+        g.fill(8, invY + 27, imageWidth - 8, invY + 28, COL_PANEL_BORDER);
+
         Map<String, Integer> inv = menu.getPlayerInventory();
-        if (inv.isEmpty()) {
-            g.drawString(font, "暂无商品", 12, invY + 18, COL_TEXT_DIM, false);
+        Map<String, Integer> mcInv = menu.getMcInventory();
+        Set<String> allCommodityIds = new LinkedHashSet<>();
+        allCommodityIds.addAll(inv.keySet());
+        allCommodityIds.addAll(mcInv.keySet());
+
+        if (allCommodityIds.isEmpty()) {
+            g.drawString(font, "暂无商品（可通过管理标签添加常用物品）", 12, invY + 32, COL_TEXT_DIM, false);
             return;
         }
-        int y = invY + 18;
+
+        int y = invY + 30;
         int maxY = invY + invH - ROW_HEIGHT;
-        for (Map.Entry<String, Integer> entry : inv.entrySet()) {
+        for (String commodityId : allCommodityIds) {
             if (y > maxY) break;
-            drawClippedString(g, commodityDisplayName(entry.getKey()), 16, y, 120, COL_TEXT);
-            drawClippedString(g, String.valueOf(entry.getValue()), 150, y, 120, COL_ACCENT);
+            boolean selected = commodityId.equals(selectedCommodity);
+            int bg = selected ? COL_ROW_SELECT : ((y / ROW_HEIGHT) % 2 == 0 ? COL_ROW_EVEN : COL_ROW_ODD);
+            g.fill(9, y, imageWidth - 9, y + ROW_HEIGHT, bg);
+            if (selected) {
+                g.fill(9, y, 11, y + ROW_HEIGHT, COL_ACCENT);
+            }
+            Commodity c = CommodityRegistry.getCommodity(commodityId);
+            renderItemIcon(g, c, 14, y + 1);
+            drawClippedString(g, commodityDisplayName(commodityId), 28, y + 3, 106, selected ? COL_ACCENT : COL_TEXT);
+            drawClippedString(g, String.valueOf(inv.getOrDefault(commodityId, 0)), 140, y + 3, 60, COL_TEXT);
+            drawClippedString(g, String.valueOf(mcInv.getOrDefault(commodityId, 0)), 210, y + 3, 60, COL_TEXT_DIM);
             y += ROW_HEIGHT;
         }
     }
 
-    // ---- 标签 4: 公司管理 ----
+    // ================================================================
+    // 标签 4: 公司管理
+    // ================================================================
 
     private void renderCompanyTab(GuiGraphics g) {
         FinanceMenu.CompanyInfo company = menu.getPlayerCompany();
@@ -599,6 +721,10 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         }
     }
 
+    // ================================================================
+    // 标签 5: 股票
+    // ================================================================
+
     private void renderStockTab(GuiGraphics g) {
         int headerY = CONTENT_Y;
         drawHeader(g, "代码", 12, headerY);
@@ -622,6 +748,7 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
             boolean selected = row.symbol().equals(selectedStock);
             g.fill(8, y, imageWidth - 8, y + ROW_HEIGHT,
                     selected ? COL_ROW_SELECT : (i % 2 == 0 ? COL_ROW_EVEN : COL_ROW_ODD));
+            if (selected) g.fill(8, y, 10, y + ROW_HEIGHT, COL_ACCENT);
             drawClippedString(g, displayStockSymbol(row), 12, y + 3, 46, selected ? COL_ACCENT : COL_TEXT);
             drawClippedString(g, row.name(), 62, y + 3, 96, COL_TEXT);
             drawClippedString(g, Long.toString(row.lastPrice()), 164, y + 3, 40, COL_TEXT);
@@ -663,61 +790,15 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         }
     }
 
-    private FinanceMenu.StockRow findSelectedStock() {
-        for (FinanceMenu.StockRow row : menu.getStocks()) {
-            if (row.symbol().equals(selectedStock)) {
-                return row;
-            }
-        }
-        return menu.getStocks().isEmpty() ? null : menu.getStocks().get(0);
-    }
-
-    private static String displayStockSymbol(FinanceMenu.StockRow row) {
-        return displaySymbol(row.symbol());
-    }
-
-    private static String displayHoldingSymbol(String symbol) {
-        return displaySymbol(symbol);
-    }
-
-    private static String displaySymbol(String symbol) {
-        return switch (symbol) {
-            case "IRONM", "MININ", "铁锭" -> "铁锭";
-            case "STONE", "ENERG", "石头" -> "石头";
-            case "WHEAT", "AGRIC", "小麦" -> "小麦";
-            default -> symbol;
-        };
-    }
-
-    // ---- 常用 MC 物品快捷列表 ----
-    private static final String[][] QUICK_ITEMS = {
-            {"gold",      "minecraft:gold_ingot",     "金锭",     "50", "RAW_MATERIALS"},
-            {"diamond",   "minecraft:diamond",        "钻石",    "200", "RAW_MATERIALS"},
-            {"emerald",   "minecraft:emerald",        "绿宝石",  "150", "RAW_MATERIALS"},
-            {"copper",    "minecraft:copper_ingot",   "铜锭",     "6", "RAW_MATERIALS"},
-            {"netherite", "minecraft:netherite_ingot","下界合金锭","500", "RAW_MATERIALS"},
-            {"coal",      "minecraft:coal",           "煤炭",      "5", "RAW_MATERIALS"},
-            {"redstone",  "minecraft:redstone",       "红石",     "8", "REDSTONE"},
-            {"lapis",     "minecraft:lapis_lazuli",   "青金石",   "12", "MISCELLANEOUS"},
-            {"bread",     "minecraft:bread",          "面包",     "15", "FOOD"},
-            {"apple",     "minecraft:apple",          "苹果",     "12", "FOOD"},
-            {"carrot",    "minecraft:carrot",         "胡萝卜",    "6", "FOOD"},
-            {"potato",    "minecraft:potato",         "土豆",      "6", "FOOD"},
-            {"oak_log",   "minecraft:oak_log",        "橡木原木",  "3", "BUILDING_BLOCKS"},
-            {"sand",      "minecraft:sand",           "沙子",      "1", "BUILDING_BLOCKS"},
-            {"glass",     "minecraft:glass",          "玻璃",      "4", "BUILDING_BLOCKS"},
-            {"brick",     "minecraft:brick",          "砖块",      "5", "BUILDING_BLOCKS"},
-            {"leather",   "minecraft:leather",        "皮革",     "10", "RAW_MATERIALS"},
-    };
-
-    // ---- 标签 6: 管理（管理员专用） ----
+    // ================================================================
+    // 标签 6: 管理（管理员专用）
+    // ================================================================
 
     private static final String[] ADMIN_SUB_TABS = {"从手中添加", "常用物品", "已注册商品"};
 
     private void renderAdminTab(GuiGraphics g) {
         int y = CONTENT_Y;
 
-        // 子标签栏
         int subX = 10;
         for (int i = 0; i < ADMIN_SUB_TABS.length; i++) {
             int w = 72;
@@ -742,17 +823,14 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
 
     /** 子页 0：从手中添加 + 手动添加 */
     private void renderAdminHandTab(GuiGraphics g, int y) {
-        // 从手中添加区域
         drawSectionTitle(g, "从手中添加", 10, y);
         drawFilledButton(g, "添加手持物品", 100, y - 2, 90, COL_GOOD);
         g.drawString(font, "价格:", 200, y, COL_TEXT_DIM, false);
         y += 18;
 
-        // 分隔线
         drawSimpleSeparator(g, 8, y, imageWidth - 16);
         y += 6;
 
-        // 手动添加表单
         drawSectionTitle(g, "手动添加", 10, y);
         y += 14;
 
@@ -767,31 +845,48 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         drawFilledButton(g, "添加", 244, y, 44, COL_GOOD);
     }
 
-    /** 子页 1：常用物品快捷添加 */
+    /** 子页 1：常用物品分类列表（带图标） */
     private void renderAdminQuickTab(GuiGraphics g, int y) {
-        drawSectionTitle(g, "常用物品（点击添加）", 10, y);
+        drawSectionTitle(g, "常用物品（点击添加，灰色已注册）", 10, y);
         y += 14;
 
-        int btnX = 10;
-        int btnY = y;
-        int btnW = 58;
-        int btnH = 14;
-        int gap = 2;
-        int maxBtnX = imageWidth - 10;
+        int listX = 10;
+        int listW = imageWidth - 20;
+        int maxYY = imageHeight - 4;
+
+        // 按 QUICK_ITEMS 中的分类分组显示
+        CommodityCategory lastCat = null;
         for (int i = 0; i < QUICK_ITEMS.length; i++) {
-            String label = QUICK_ITEMS[i][2];
-            if (btnX + btnW > maxBtnX) {
-                btnX = 10;
-                btnY += btnH + gap;
+            if (y + 14 > maxYY) break;
+
+            CommodityCategory cat = CommodityCategory.valueOf(QUICK_ITEMS[i][4]);
+            if (cat != lastCat) {
+                // 分类标题
+                g.fill(listX, y, listX + listW, y + 12, COL_CATEGORY);
+                g.drawString(font, "▸ " + cat.getDisplayName(), listX + 4, y + 2, COL_TEXT, false);
+                y += 14;
+                lastCat = cat;
+                if (y + 14 > maxYY) break;
             }
-            boolean alreadyRegistered = finance.commodity.CommodityRegistry.isRegistered(QUICK_ITEMS[i][0]);
-            if (alreadyRegistered) {
-                drawButton(g, label, btnX, btnY, btnW, false);
-                g.fill(btnX, btnY, btnX + btnW, btnY + btnH, 0x80808080);
+
+            boolean registered = CommodityRegistry.isRegistered(QUICK_ITEMS[i][0]);
+            int rowBg = registered ? 0xFFD0D0D0 : ((i % 2 == 0) ? COL_ROW_EVEN : COL_ROW_ODD);
+            g.fill(listX + 2, y, listX + listW - 2, y + 14, rowBg);
+
+            // 物品图标
+            Item item = BuiltInRegistries.ITEM.get(ResourceLocation.tryParse(QUICK_ITEMS[i][1]));
+            if (item != null) {
+                g.renderItem(new ItemStack(item), listX + 4, y + 1);
+            }
+
+            drawClippedString(g, QUICK_ITEMS[i][2], listX + 22, y + 3, 80, registered ? COL_TEXT_DIM : COL_TEXT);
+            drawClippedString(g, "基础价: " + QUICK_ITEMS[i][3], listX + 110, y + 3, 80, COL_TEXT_DIM);
+            if (registered) {
+                drawClippedString(g, "已注册", listX + listW - 46, y + 3, 40, COL_TEXT_DIM);
             } else {
-                drawButton(g, label, btnX, btnY, btnW, false);
+                drawFilledButton(g, "添加", listX + listW - 44, y, 36, COL_GOOD);
             }
-            btnX += btnW + gap;
+            y += 16;
         }
     }
 
@@ -808,12 +903,12 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         y += 12;
 
         if (commodityCacheDirty) {
-            cachedCommodities = new java.util.ArrayList<>(finance.commodity.CommodityRegistry.getAllCommodities());
+            cachedCommodities = new ArrayList<>(CommodityRegistry.getAllCommodities());
             commodityCacheDirty = false;
         }
         int maxRows = Math.min(cachedCommodities.size(), Math.max(1, (imageHeight - y - 4) / ROW_HEIGHT));
         for (int i = 0; i < maxRows; i++) {
-            finance.commodity.Commodity c = cachedCommodities.get(i);
+            Commodity c = cachedCommodities.get(i);
             int rowY = y + i * ROW_HEIGHT;
             g.fill(8, rowY, imageWidth - 8, rowY + ROW_HEIGHT, (i % 2 == 0) ? COL_ROW_EVEN : COL_ROW_ODD);
             drawClippedString(g, c.getId(), 10, rowY + 3, 64, COL_TEXT);
@@ -826,137 +921,32 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         }
     }
 
-    private boolean handleAdminClick(int mx, int my) {
-        int y = CONTENT_Y;
+    // ================================================================
+    // 常用物品定义
+    // ================================================================
 
-        // 子标签栏点击
-        int subX = 10;
-        for (int i = 0; i < ADMIN_SUB_TABS.length; i++) {
-            int w = 72;
-            if (mx >= subX && mx < subX + w && my >= y && my < y + 14) {
-                adminSubTab = i;
-                updateInputVisibility();
-                return true;
-            }
-            subX += w + 3;
-        }
-        y += 16 + 6; // 跳过子标签栏和分隔线
-
-        return switch (adminSubTab) {
-            case 0 -> handleAdminHandClick(mx, my, y);
-            case 1 -> handleAdminQuickClick(mx, my, y);
-            case 2 -> handleAdminRegisteredClick(mx, my, y);
-            default -> false;
-        };
-    }
-
-    /** 子页 0 点击：从手中添加 + 手动添加 */
-    private boolean handleAdminHandClick(int mx, int my, int y) {
-        // 从手中添加按钮
-        if (my >= y - 2 && my < y + 12 && mx >= 100 && mx < 190) {
-            long basePrice = parseLong(adminBasePriceBox.getValue());
-            if (basePrice <= 0) basePrice = 10;
-            FinancePacketHandler.CHANNEL.sendToServer(finance.network.AdminActionPacket.fromHand(basePrice));
-            return true;
-        }
-        // 价格输入框 — 让 EditBox 处理
-        if (my >= y - 2 && my < y + 12 && mx >= 228 && mx < 288) {
-            return false;
-        }
-        y += 18 + 6 + 14; // 跳过分隔线和手动添加标题
-
-        // 输入框第一行 — 让 EditBox 处理
-        if (my >= y && my < y + 16) {
-            return false;
-        }
-        y += 18;
-
-        // 分类选择按钮
-        if (my >= y && my < y + 13 && mx >= 152 && mx < 232) {
-            CommodityCategory[] cats = CommodityCategory.values();
-            int idx = adminCategory.ordinal();
-            adminCategory = cats[(idx + 1) % cats.length];
-            return true;
-        }
-
-        // 添加按钮
-        if (my >= y && my < y + 13 && mx >= 244 && mx < 288) {
-            String id = adminCommodityIdBox.getValue().trim().toLowerCase();
-            String itemId = adminItemIdBox.getValue().trim();
-            String displayName = adminDisplayNameBox.getValue().trim();
-            long basePrice = parseLong(adminBasePriceBox.getValue());
-
-            if (id.isEmpty()) {
-                return true;
-            }
-            if (displayName.isEmpty()) {
-                displayName = id;
-            }
-            if (itemId.isEmpty()) {
-                itemId = null;
-            }
-
-            FinancePacketHandler.CHANNEL.sendToServer(
-                    new finance.network.AdminActionPacket(id, itemId, displayName, basePrice, adminCategory));
-            return true;
-        }
-
-        return false;
-    }
-
-    /** 子页 1 点击：常用物品 */
-    private boolean handleAdminQuickClick(int mx, int my, int y) {
-        int btnX = 10;
-        int btnY = y;
-        int btnW = 58;
-        int btnH = 14;
-        int gap = 2;
-        int maxBtnX = imageWidth - 10;
-        for (int i = 0; i < QUICK_ITEMS.length; i++) {
-            if (btnX + btnW > maxBtnX) {
-                btnX = 10;
-                btnY += btnH + gap;
-            }
-            if (mx >= btnX && mx < btnX + btnW && my >= btnY && my < btnY + btnH) {
-                if (!finance.commodity.CommodityRegistry.isRegistered(QUICK_ITEMS[i][0])) {
-                    String id = QUICK_ITEMS[i][0];
-                    String itemId = QUICK_ITEMS[i][1];
-                    String displayName = QUICK_ITEMS[i][2];
-                    long basePrice = parseLong(QUICK_ITEMS[i][3]);
-                    CommodityCategory category = CommodityCategory.valueOf(QUICK_ITEMS[i][4]);
-                    FinancePacketHandler.CHANNEL.sendToServer(
-                            new finance.network.AdminActionPacket(id, itemId, displayName, basePrice, category));
-                }
-                return true;
-            }
-            btnX += btnW + gap;
-        }
-        return false;
-    }
-
-    /** 子页 2 点击：已注册商品删除 */
-    private boolean handleAdminRegisteredClick(int mx, int my, int y) {
-        y += 14 + 12; // 跳过标题和表头
-        if (commodityCacheDirty) {
-            cachedCommodities = new java.util.ArrayList<>(finance.commodity.CommodityRegistry.getAllCommodities());
-            commodityCacheDirty = false;
-        }
-        int maxRows = Math.min(cachedCommodities.size(), Math.max(1, (imageHeight - y - 4) / ROW_HEIGHT));
-        for (int i = 0; i < maxRows; i++) {
-            int rowY = y + i * ROW_HEIGHT;
-            if (my >= rowY + 1 && my < rowY + 14 && mx >= imageWidth - 46 && mx < imageWidth - 10) {
-                String commodityId = cachedCommodities.get(i).getId();
-                FinancePacketHandler.CHANNEL.sendToServer(
-                        new finance.network.AdminActionPacket(commodityId));
-                commodityCacheDirty = true; // 删除后标记缓存失效
-                return true;
-            }
-        }
-        return false;
-    }
+    private static final String[][] QUICK_ITEMS = {
+            {"gold",      "minecraft:gold_ingot",     "金锭",     "50", "RAW_MATERIALS"},
+            {"diamond",   "minecraft:diamond",        "钻石",    "200", "RAW_MATERIALS"},
+            {"emerald",   "minecraft:emerald",        "绿宝石",  "150", "RAW_MATERIALS"},
+            {"copper",    "minecraft:copper_ingot",   "铜锭",     "6", "RAW_MATERIALS"},
+            {"netherite", "minecraft:netherite_ingot","下界合金锭","500", "RAW_MATERIALS"},
+            {"coal",      "minecraft:coal",           "煤炭",      "5", "RAW_MATERIALS"},
+            {"leather",   "minecraft:leather",        "皮革",     "10", "RAW_MATERIALS"},
+            {"redstone",  "minecraft:redstone",       "红石",     "8", "REDSTONE"},
+            {"lapis",     "minecraft:lapis_lazuli",   "青金石",   "12", "MISCELLANEOUS"},
+            {"bread",     "minecraft:bread",          "面包",     "15", "FOOD"},
+            {"apple",     "minecraft:apple",          "苹果",     "12", "FOOD"},
+            {"carrot",    "minecraft:carrot",         "胡萝卜",    "6", "FOOD"},
+            {"potato",    "minecraft:potato",         "土豆",      "6", "FOOD"},
+            {"oak_log",   "minecraft:oak_log",        "橡木原木",  "3", "BUILDING_BLOCKS"},
+            {"sand",      "minecraft:sand",           "沙子",      "1", "BUILDING_BLOCKS"},
+            {"glass",     "minecraft:glass",          "玻璃",      "4", "BUILDING_BLOCKS"},
+            {"brick",     "minecraft:brick",          "砖块",      "5", "BUILDING_BLOCKS"},
+    };
 
     // ================================================================
-    // 交互
+    // 点击处理
     // ================================================================
 
     @Override
@@ -991,6 +981,7 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
                 int w = 48;
                 if (mx >= x && mx < x + w) {
                     currentTab = i;
+                    dropdownOpen = false;
                     updateInputVisibility();
                     return true;
                 }
@@ -998,20 +989,37 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
             }
         }
 
+        // 下拉菜单点击拦截（在其他标签逻辑之前）
+        if (dropdownOpen && (currentTab == 0 || currentTab == 1)) {
+            if (handleDropdownClick(mx, my)) return true;
+            // 点击下拉外部关闭
+            dropdownOpen = false;
+        }
+
         boolean handled = switch (currentTab) {
             case 0 -> handleMarketClick(mx, my);
             case 1 -> handleTradeClick(mx, my);
             case 2 -> handleOrdersClick(mx, my);
+            case 3 -> handleInventoryClick(mx, my);
             case 4 -> handleCompanyClick(mx, my);
             case 5 -> handleStockClick(mx, my);
             case 6 -> isAdmin && handleAdminClick(mx, my);
             default -> false;
         };
-        if (handled) {
-            return true;
-        }
+        if (handled) return true;
 
         return super.mouseClicked(mouseX, mouseY, button);
+    }
+
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
+        if (dropdownOpen && (currentTab == 0 || currentTab == 1)) {
+            int totalHeight = calcDropdownTotalHeight();
+            int maxScroll = Math.max(0, totalHeight - 116);
+            dropdownScroll = Math.max(0, Math.min(maxScroll, dropdownScroll - (int)(delta * 14)));
+            return true;
+        }
+        return super.mouseScrolled(mouseX, mouseY, delta);
     }
 
     @Override
@@ -1062,6 +1070,55 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         return super.charTyped(codePoint, modifiers);
     }
 
+    // ---- 下拉菜单点击 ----
+
+    private boolean handleDropdownClick(int mx, int my) {
+        int ddX = 82;
+        int ddY = (currentTab == 0) ? MARKET_TRADE_Y + 14 : CONTENT_Y + 14;
+        int ddW = 200;
+        int ddH = 120;
+
+        if (mx < ddX || mx >= ddX + ddW || my < ddY || my >= ddY + ddH) {
+            return false; // 点击外部，由上层关闭
+        }
+
+        if (categorizedCacheDirty) rebuildCategorizedCache();
+
+        int localMx = mx - ddX;
+        int localMy = my - ddY;
+        int y = 2 - dropdownScroll;
+
+        for (CommodityCategory cat : CommodityCategory.values()) {
+            List<Commodity> items = categorizedCommodities.get(cat);
+            if (items == null || items.isEmpty()) continue;
+
+            // 分类标题点击 → 展开/折叠
+            if (localMy >= y && localMy < y + 12) {
+                expandedCategory = (expandedCategory == cat) ? null : cat;
+                return true;
+            }
+            y += 14;
+
+            if (expandedCategory == cat) {
+                for (Commodity c : items) {
+                    if (localMy >= y && localMy < y + 14) {
+                        selectedCommodity = c.getId();
+                        if (currentTab == 1) {
+                            finance.market.MarketPrice mp = NpcMarketMaker.getMarketPrice(c.getId());
+                            if (mp != null) priceBox.setValue(Long.toString(mp.getMidPrice()));
+                        }
+                        dropdownOpen = false;
+                        expandedCategory = null;
+                        refreshSelectedRow();
+                        return true;
+                    }
+                    y += 14;
+                }
+            }
+        }
+        return true; // 点击在下拉区域内但未命中项目
+    }
+
     // ---- 标签 0 点击: 行情 + 国际交易 ----
 
     private boolean handleMarketClick(int mx, int my) {
@@ -1078,15 +1135,6 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         }
 
         int tradeY = MARKET_TRADE_Y;
-
-        // 商品选择按钮（使用缓存位置）
-        for (int i = 0; i < cachedMarketData.size(); i++) {
-            if (mx >= cachedButtonX[i] && mx < cachedButtonX[i] + cachedButtonW[i] && my >= tradeY && my < tradeY + 14) {
-                selectedCommodity = cachedMarketData.get(i).commodityId();
-                refreshSelectedRow();
-                return true;
-            }
-        }
 
         // 数量加减按钮
         if (my >= tradeY + 52 && my < tradeY + 66) {
@@ -1129,20 +1177,14 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
     // ---- 标签 1 点击: 交易 ----
 
     private boolean handleTradeClick(int mx, int my) {
-        // 商品选择按钮（使用缓存）
-        int x = 82;
-        for (int i = 0; i < cachedMarketData.size(); i++) {
-            FinanceMenu.MarketRow row = cachedMarketData.get(i);
-            if (mx >= x && mx < x + cachedButtonW[i] && my >= CONTENT_Y + 14 && my < CONTENT_Y + 28) {
-                selectedCommodity = row.commodityId();
-                priceBox.setValue(cachedMidPriceStr[i]);
-                refreshSelectedRow();
-                return true;
-            }
-            x += cachedButtonW[i] + 3;
+        // 下拉按钮
+        if (mx >= 82 && mx < 222 && my >= CONTENT_Y && my < CONTENT_Y + 13) {
+            dropdownOpen = !dropdownOpen;
+            dropdownScroll = 0;
+            return true;
         }
 
-        int cardY = CONTENT_Y + 34;
+        int cardY = CONTENT_Y + 20;
 
         // 价格加减
         if (my >= cardY + 4 && my < cardY + 18) {
@@ -1186,7 +1228,7 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
             }
         }
 
-        // 操作按钮
+        // 提交买单/卖单
         if (my >= 186 && my < 200) {
             long price = parseLong(priceBox.getValue());
             int qty = parseInt(quantityBox.getValue());
@@ -1220,6 +1262,55 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         return false;
     }
 
+    // ---- 标签 3 点击: 库存 ----
+
+    private boolean handleInventoryClick(int mx, int my) {
+        int cardY = CONTENT_Y;
+        int invY = cardY + 44;
+
+        // 存入按钮
+        if (mx >= 280 && mx < 324 && my >= invY + 14 && my < invY + 27) {
+            Commodity c = CommodityRegistry.getCommodity(selectedCommodity);
+            if (c != null && c.getItemId() != null) {
+                int mcAmount = menu.getMcInventory().getOrDefault(selectedCommodity, 0);
+                if (mcAmount > 0) {
+                    FinancePacketHandler.CHANNEL.sendToServer(
+                            new InventoryActionPacket(InventoryActionPacket.ActionType.DEPOSIT, selectedCommodity, mcAmount));
+                }
+            }
+            return true;
+        }
+
+        // 取出按钮
+        if (mx >= 330 && mx < 374 && my >= invY + 14 && my < invY + 27) {
+            int amount = menu.getPlayerInventory().getOrDefault(selectedCommodity, 0);
+            if (amount > 0) {
+                FinancePacketHandler.CHANNEL.sendToServer(
+                        new InventoryActionPacket(InventoryActionPacket.ActionType.WITHDRAW, selectedCommodity, amount));
+            }
+            return true;
+        }
+
+        // 表格行点击
+        int y = invY + 30;
+        int maxY = invY + (imageHeight - invY - 4) - ROW_HEIGHT;
+        Map<String, Integer> inv = menu.getPlayerInventory();
+        Map<String, Integer> mcInv = menu.getMcInventory();
+        Set<String> allIds = new LinkedHashSet<>();
+        allIds.addAll(inv.keySet());
+        allIds.addAll(mcInv.keySet());
+
+        for (String commodityId : allIds) {
+            if (y > maxY) break;
+            if (my >= y && my < y + ROW_HEIGHT && mx >= 8 && mx < imageWidth - 8) {
+                selectedCommodity = commodityId;
+                return true;
+            }
+            y += ROW_HEIGHT;
+        }
+        return false;
+    }
+
     // ---- 标签 4 点击: 公司 ----
 
     private boolean handleCompanyClick(int mx, int my) {
@@ -1227,7 +1318,6 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
 
         int cardY = CONTENT_Y;
 
-        // 行业选择按钮
         if (mx >= 55 && mx < 175 && my >= cardY + 56 && my < cardY + 70) {
             int idx = 0;
             for (int i = 0; i < COMPANY_TYPES.length; i++) {
@@ -1237,7 +1327,6 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
             return true;
         }
 
-        // 创建按钮
         if (mx >= 300 && mx < 376 && my >= cardY + 56 && my < cardY + 70) {
             String name = companyNameBox.getValue().trim();
             if (!name.isEmpty()) {
@@ -1247,6 +1336,8 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         }
         return false;
     }
+
+    // ---- 标签 5 点击: 股票 ----
 
     private boolean handleStockClick(int mx, int my) {
         int rowY = CONTENT_Y + 14;
@@ -1288,6 +1379,129 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         return false;
     }
 
+    // ---- 管理标签点击 ----
+
+    private boolean handleAdminClick(int mx, int my) {
+        int y = CONTENT_Y;
+
+        int subX = 10;
+        for (int i = 0; i < ADMIN_SUB_TABS.length; i++) {
+            int w = 72;
+            if (mx >= subX && mx < subX + w && my >= y && my < y + 14) {
+                adminSubTab = i;
+                updateInputVisibility();
+                return true;
+            }
+            subX += w + 3;
+        }
+        y += 16 + 6;
+
+        return switch (adminSubTab) {
+            case 0 -> handleAdminHandClick(mx, my, y);
+            case 1 -> handleAdminQuickClick(mx, my, y);
+            case 2 -> handleAdminRegisteredClick(mx, my, y);
+            default -> false;
+        };
+    }
+
+    private boolean handleAdminHandClick(int mx, int my, int y) {
+        if (my >= y - 2 && my < y + 12 && mx >= 100 && mx < 190) {
+            long basePrice = parseLong(adminBasePriceBox.getValue());
+            if (basePrice <= 0) basePrice = 10;
+            FinancePacketHandler.CHANNEL.sendToServer(AdminActionPacket.fromHand(basePrice));
+            return true;
+        }
+        if (my >= y - 2 && my < y + 12 && mx >= 228 && mx < 288) {
+            return false;
+        }
+        y += 18 + 6 + 14;
+
+        if (my >= y && my < y + 16) {
+            return false;
+        }
+        y += 18;
+
+        if (my >= y && my < y + 13 && mx >= 152 && mx < 232) {
+            CommodityCategory[] cats = CommodityCategory.values();
+            int idx = adminCategory.ordinal();
+            adminCategory = cats[(idx + 1) % cats.length];
+            return true;
+        }
+
+        if (my >= y && my < y + 13 && mx >= 244 && mx < 288) {
+            String id = adminCommodityIdBox.getValue().trim().toLowerCase();
+            String itemId = adminItemIdBox.getValue().trim();
+            String displayName = adminDisplayNameBox.getValue().trim();
+            long basePrice = parseLong(adminBasePriceBox.getValue());
+
+            if (id.isEmpty()) return true;
+            if (displayName.isEmpty()) displayName = id;
+            if (itemId.isEmpty()) itemId = null;
+
+            FinancePacketHandler.CHANNEL.sendToServer(
+                    new AdminActionPacket(id, itemId, displayName, basePrice, adminCategory));
+            return true;
+        }
+
+        return false;
+    }
+
+    /** 子页 1 点击：常用物品分类列表 */
+    private boolean handleAdminQuickClick(int mx, int my, int startY) {
+        int y = startY + 14; // 跳过标题
+        int listX = 10;
+        int listW = imageWidth - 20;
+        int maxYY = imageHeight - 4;
+
+        CommodityCategory lastCat = null;
+        for (int i = 0; i < QUICK_ITEMS.length; i++) {
+            if (y + 14 > maxYY) break;
+
+            CommodityCategory cat = CommodityCategory.valueOf(QUICK_ITEMS[i][4]);
+            if (cat != lastCat) {
+                y += 14; // 分类标题行
+                lastCat = cat;
+                if (y + 14 > maxYY) break;
+            }
+
+            boolean registered = CommodityRegistry.isRegistered(QUICK_ITEMS[i][0]);
+            // 点击整行或"添加"按钮
+            if (mx >= listX + 2 && mx < listX + listW - 2 && my >= y && my < y + 14) {
+                if (!registered) {
+                    String id = QUICK_ITEMS[i][0];
+                    String itemId = QUICK_ITEMS[i][1];
+                    String displayName = QUICK_ITEMS[i][2];
+                    long basePrice = parseLong(QUICK_ITEMS[i][3]);
+                    CommodityCategory category = CommodityCategory.valueOf(QUICK_ITEMS[i][4]);
+                    FinancePacketHandler.CHANNEL.sendToServer(
+                            new AdminActionPacket(id, itemId, displayName, basePrice, category));
+                }
+                return true;
+            }
+            y += 16;
+        }
+        return false;
+    }
+
+    private boolean handleAdminRegisteredClick(int mx, int my, int y) {
+        y += 14 + 12;
+        if (commodityCacheDirty) {
+            cachedCommodities = new ArrayList<>(CommodityRegistry.getAllCommodities());
+            commodityCacheDirty = false;
+        }
+        int maxRows = Math.min(cachedCommodities.size(), Math.max(1, (imageHeight - y - 4) / ROW_HEIGHT));
+        for (int i = 0; i < maxRows; i++) {
+            int rowY = y + i * ROW_HEIGHT;
+            if (my >= rowY + 1 && my < rowY + 14 && mx >= imageWidth - 46 && mx < imageWidth - 10) {
+                String commodityId = cachedCommodities.get(i).getId();
+                FinancePacketHandler.CHANNEL.sendToServer(new AdminActionPacket(commodityId));
+                commodityCacheDirty = true;
+                return true;
+            }
+        }
+        return false;
+    }
+
     // ================================================================
     // 绘制辅助
     // ================================================================
@@ -1308,6 +1522,40 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         adminBasePriceBox.setVisible(adminHand);
     }
 
+    /** 渲染物品图标（12x12，居中在 13px 行高中） */
+    private void renderItemIcon(GuiGraphics g, Commodity commodity, int x, int y) {
+        if (commodity == null) return;
+        String itemId = commodity.getItemId();
+        if (itemId == null) return;
+        Item item = BuiltInRegistries.ITEM.get(ResourceLocation.tryParse(itemId));
+        if (item == null) return;
+        g.renderItem(new ItemStack(item), x, y);
+    }
+
+    private FinanceMenu.StockRow findSelectedStock() {
+        for (FinanceMenu.StockRow row : menu.getStocks()) {
+            if (row.symbol().equals(selectedStock)) return row;
+        }
+        return menu.getStocks().isEmpty() ? null : menu.getStocks().get(0);
+    }
+
+    private static String displayStockSymbol(FinanceMenu.StockRow row) {
+        return displaySymbol(row.symbol());
+    }
+
+    private static String displayHoldingSymbol(String symbol) {
+        return displaySymbol(symbol);
+    }
+
+    private static String displaySymbol(String symbol) {
+        return switch (symbol) {
+            case "IRONM", "MININ", "铁锭" -> "铁锭";
+            case "STONE", "ENERG", "石头" -> "石头";
+            case "WHEAT", "AGRIC", "小麦" -> "小麦";
+            default -> symbol;
+        };
+    }
+
     private void drawSimpleBorder(GuiGraphics g, int x, int y, int w, int h, int color) {
         g.fill(x, y, x + w, y + 1, color);
         g.fill(x, y + h - 1, x + w, y + h, color);
@@ -1319,14 +1567,12 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         g.fill(x, y, x + w, y + 1, COL_PANEL_BORDER);
     }
 
-    /** 区域标题（带装饰线） */
     private void drawSectionTitle(GuiGraphics g, String label, int x, int y) {
         g.drawString(font, label, x, y, COL_TEXT, false);
         int textEnd = x + font.width(label) + 4;
         g.fill(textEnd, y + 5, Math.min(textEnd + 40, imageWidth - 10), y + 6, COL_PANEL_BORDER);
     }
 
-    /** 表头 */
     private void drawHeader(GuiGraphics g, String label, int x, int y) {
         g.drawString(font, label, x, y, COL_TEXT, false);
     }
@@ -1344,17 +1590,6 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         g.fill(x, y, x + w, y + 13, color);
         drawSimpleBorder(g, x, y, w, 13, COL_PANEL_BORDER);
         drawCenteredClippedString(g, label, x, y + 3, w, 0xFFFFFFFF);
-    }
-
-    private void drawCommodityButtons(GuiGraphics g, int startX, int y) {
-        if (cacheDirty) refreshCache();
-        int x = startX;
-        for (int i = 0; i < cachedMarketData.size(); i++) {
-            FinanceMenu.MarketRow row = cachedMarketData.get(i);
-            boolean selected = row.commodityId().equals(selectedCommodity);
-            drawButton(g, commodityDisplayName(row.commodityId()), x, y, cachedButtonW[i], selected);
-            x += cachedButtonW[i] + 3;
-        }
     }
 
     private void drawClippedString(GuiGraphics g, String text, int x, int y, int maxWidth, int color) {
@@ -1396,9 +1631,8 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         try { return Integer.parseInt(s); } catch (Exception e) { return 1; }
     }
 
-    /** 根据商品 ID 获取中文显示名，找不到则返回原 ID */
     private static String commodityDisplayName(String commodityId) {
-        finance.commodity.Commodity c = finance.commodity.CommodityRegistry.getCommodity(commodityId);
+        Commodity c = CommodityRegistry.getCommodity(commodityId);
         return c != null ? c.getDisplayName() : commodityId;
     }
 }

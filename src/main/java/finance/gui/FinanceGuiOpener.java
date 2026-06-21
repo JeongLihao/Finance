@@ -13,6 +13,8 @@ import finance.stock.Stock;
 import finance.stock.StockHolding;
 import finance.stock.StockMarketManager;
 import finance.stock.StockPortfolioManager;
+import finance.commodity.Commodity;
+import finance.util.InventoryUtil;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.network.NetworkHooks;
@@ -92,10 +94,22 @@ public class FinanceGuiOpener {
                     entry.getValue().getAverageCost()));
         }
 
+        // 6. MC 物品栏数据（商品ID → 对应物品在 MC 物品栏中的数量）
+        Map<String, Integer> mcInv = new LinkedHashMap<>();
+        for (Commodity commodity : finance.commodity.CommodityRegistry.getAllCommodities()) {
+            String itemId = commodity.getItemId();
+            if (itemId != null && !itemId.isEmpty()) {
+                int count = InventoryUtil.countItemInInventory(player, itemId);
+                if (count > 0) {
+                    mcInv.put(commodity.getId(), count);
+                }
+            }
+        }
+
         // 打开菜单
         NetworkHooks.openScreen(player,
-                new FinanceProvider(marketData, orderRows, balance, frozenBalance, inventory, companyInfo, companyRows, stockRows, stockHoldingRows),
-                buffer -> FinanceMenu.writeAll(buffer, marketData, orderRows, balance, frozenBalance, inventory, companyInfo, companyRows, stockRows, stockHoldingRows));
+                new FinanceProvider(marketData, orderRows, balance, frozenBalance, inventory, companyInfo, companyRows, stockRows, stockHoldingRows, mcInv),
+                buffer -> FinanceMenu.writeAll(buffer, marketData, orderRows, balance, frozenBalance, inventory, companyInfo, companyRows, stockRows, stockHoldingRows, mcInv));
     }
 
     private static FinanceMenu.CompanyInfo toCompanyInfo(Company company) {
@@ -114,7 +128,8 @@ public class FinanceGuiOpener {
                                     FinanceMenu.CompanyInfo companyInfo,
                                     List<FinanceMenu.CompanyInfo> allCompanies,
                                     List<FinanceMenu.StockRow> stocks,
-                                    List<FinanceMenu.StockHoldingRow> stockHoldings)
+                                    List<FinanceMenu.StockHoldingRow> stockHoldings,
+                                    Map<String, Integer> mcInventory)
             implements net.minecraft.world.MenuProvider {
 
         @Override
@@ -125,7 +140,7 @@ public class FinanceGuiOpener {
         @Override
         public FinanceMenu createMenu(int containerId, net.minecraft.world.entity.player.Inventory inv,
                                        net.minecraft.world.entity.player.Player player) {
-            return new FinanceMenu(containerId, marketData, orderRows, balance, frozenBalance, inventory, companyInfo, allCompanies, stocks, stockHoldings);
+            return new FinanceMenu(containerId, marketData, orderRows, balance, frozenBalance, inventory, companyInfo, allCompanies, stocks, stockHoldings, mcInventory);
         }
     }
 }

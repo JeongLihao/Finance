@@ -40,6 +40,7 @@ public class FinanceMenu extends AbstractContainerMenu {
     private final List<CompanyInfo> allCompanies;
     private final List<StockRow> stocks;
     private final List<StockHoldingRow> stockHoldings;
+    private final Map<String, Integer> mcInventory; // 商品ID → MC物品栏数量
 
     // ---- 构造 ----
 
@@ -54,14 +55,16 @@ public class FinanceMenu extends AbstractContainerMenu {
                 readCompanyInfo(buffer),
                 readCompanyInfoList(buffer),
                 readStockRows(buffer),
-                readStockHoldingRows(buffer));
+                readStockHoldingRows(buffer),
+                readStringIntMap(buffer));
     }
 
     /** 从服务端直接构造 */
     public FinanceMenu(int containerId, List<MarketRow> marketData, List<OrderRow> playerOrders,
                        long balance, long frozenBalance, Map<String, Integer> playerInventory,
                        CompanyInfo playerCompany, List<CompanyInfo> allCompanies,
-                       List<StockRow> stocks, List<StockHoldingRow> stockHoldings) {
+                       List<StockRow> stocks, List<StockHoldingRow> stockHoldings,
+                       Map<String, Integer> mcInventory) {
         super(ModMenus.FINANCE.get(), containerId);
         this.marketData = marketData;
         this.playerOrders = playerOrders;
@@ -72,6 +75,7 @@ public class FinanceMenu extends AbstractContainerMenu {
         this.allCompanies = allCompanies;
         this.stocks = stocks;
         this.stockHoldings = stockHoldings;
+        this.mcInventory = mcInventory;
     }
 
     // ---- getter ----
@@ -85,6 +89,7 @@ public class FinanceMenu extends AbstractContainerMenu {
     public List<CompanyInfo> getAllCompanies() { return allCompanies; }
     public List<StockRow> getStocks() { return stocks; }
     public List<StockHoldingRow> getStockHoldings() { return stockHoldings; }
+    public Map<String, Integer> getMcInventory() { return mcInventory; }
 
     @Override
     public boolean stillValid(Player player) { return true; }
@@ -98,7 +103,8 @@ public class FinanceMenu extends AbstractContainerMenu {
                                  List<OrderRow> playerOrders, long balance, long frozenBalance,
                                  Map<String, Integer> playerInventory, CompanyInfo playerCompany,
                                  List<CompanyInfo> allCompanies,
-                                 List<StockRow> stocks, List<StockHoldingRow> stockHoldings) {
+                                 List<StockRow> stocks, List<StockHoldingRow> stockHoldings,
+                                 Map<String, Integer> mcInventory) {
         writeMarketData(buffer, marketData);
         writeOrderRows(buffer, playerOrders);
         buffer.writeVarLong(balance);
@@ -108,6 +114,7 @@ public class FinanceMenu extends AbstractContainerMenu {
         writeCompanyInfoList(buffer, allCompanies);
         writeStockRows(buffer, stocks);
         writeStockHoldingRows(buffer, stockHoldings);
+        writeStringIntMap(buffer, mcInventory != null ? mcInventory : new java.util.LinkedHashMap<>());
     }
 
     private static void writeMarketData(FriendlyByteBuf buffer, List<MarketRow> list) {

@@ -11,6 +11,7 @@ import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * 股票市场第一版：系统公司股票 + 当前价直接买卖。
@@ -66,6 +67,20 @@ public class StockMarketManager {
 
     public static void putStockDirect(Stock stock) {
         STOCKS.put(stock.getSymbol(), stock);
+    }
+
+    /** 根据公司 ID 移除对应股票，返回被移除的股票（可能为 null） */
+    public static Stock removeStockByCompanyId(UUID companyId) {
+        java.util.Iterator<Map.Entry<String, Stock>> it = STOCKS.entrySet().iterator();
+        while (it.hasNext()) {
+            Stock stock = it.next().getValue();
+            if (stock.getCompanyId().equals(companyId)) {
+                it.remove();
+                EconomySavedData.markDirty();
+                return stock;
+            }
+        }
+        return null;
     }
 
     public static void clearStocks() {
