@@ -16,6 +16,7 @@ import java.util.UUID;
  */
 public class Order {
 
+    private final UUID orderId;
     private final UUID playerId;
 
     /** 商品 ID，对应 CommodityRegistry 中注册的商品 */
@@ -31,7 +32,7 @@ public class Order {
 
     private final LocalDateTime timestamp;
 
-    /** 新建订单，时间戳自动设为当前时间 */
+    /** 新建订单，时间戳和 ID 自动设为当前时间/随机 UUID */
     public Order(
             UUID playerId,
             String commodityId,
@@ -40,6 +41,7 @@ public class Order {
             int quantity
     ) {
 
+        this.orderId = UUID.randomUUID();
         this.playerId = playerId;
         this.commodityId = commodityId;
         this.type = type;
@@ -48,8 +50,9 @@ public class Order {
         this.timestamp = LocalDateTime.now();
     }
 
-    /** 从持久化数据恢复订单，使用指定时间戳 */
+    /** 从持久化数据恢复订单，使用指定时间戳和 ID */
     public Order(
+            UUID orderId,
             UUID playerId,
             String commodityId,
             OrderType type,
@@ -58,12 +61,17 @@ public class Order {
             LocalDateTime timestamp
     ) {
 
+        this.orderId = orderId;
         this.playerId = playerId;
         this.commodityId = commodityId;
         this.type = type;
         this.price = price;
         this.quantity = quantity;
         this.timestamp = timestamp;
+    }
+
+    public UUID getOrderId() {
+        return orderId;
     }
 
     public UUID getPlayerId() {

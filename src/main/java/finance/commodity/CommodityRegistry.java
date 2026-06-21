@@ -32,4 +32,14 @@ public class CommodityRegistry {
 
         return COMMODITIES.values();
     }
+
+    /** 移除商品（管理员操作），返回是否成功 */
+    public static boolean removeCommodity(String id) {
+        return COMMODITIES.remove(id) != null;
+    }
+
+    /** 检查商品是否已注册 */
+    public static boolean isRegistered(String id) {
+        return COMMODITIES.containsKey(id);
+    }
 }

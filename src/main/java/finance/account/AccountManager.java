@@ -127,8 +127,8 @@ public class AccountManager {
     /** 添加交易记录，超过 500 条自动删除最早记录 */
     public static void addTransactionRecord(TransactionRecord record) {
         TRANSACTIONS.add(record);
-        while (TRANSACTIONS.size() > 500) {
-            TRANSACTIONS.remove(0);
+        if (TRANSACTIONS.size() > 500) {
+            TRANSACTIONS.subList(0, TRANSACTIONS.size() - 500).clear();
         }
     }
 

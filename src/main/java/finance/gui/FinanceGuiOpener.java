@@ -41,11 +41,10 @@ public class FinanceGuiOpener {
         // 2. 玩家订单
         List<FinanceMenu.OrderRow> orderRows = new ArrayList<>();
         List<Order> orders = MarketManager.getOrders();
-        for (int i = 0; i < orders.size(); i++) {
-            Order order = orders.get(i);
+        for (Order order : orders) {
             if (order.getPlayerId().equals(playerId)) {
                 orderRows.add(new FinanceMenu.OrderRow(
-                        i, order.getCommodityId(), order.getType().name(),
+                        order.getOrderId(), order.getCommodityId(), order.getType().name(),
                         order.getPrice(), order.getQuantity()));
             }
         }
@@ -77,7 +76,7 @@ public class FinanceGuiOpener {
         for (Stock stock : StockMarketManager.getStocks()) {
             stockRows.add(new FinanceMenu.StockRow(
                     stock.getSymbol(),
-                    localizeStockName(stock.getName()),
+                    stock.getName(),
                     stock.getLastPrice(),
                     stock.getDayChange(),
                     stock.getDayVolume(),
@@ -106,31 +105,11 @@ public class FinanceGuiOpener {
 
     private static FinanceMenu.CompanyInfo toCompanyInfo(Company company) {
         return new FinanceMenu.CompanyInfo(
-                localizeCompanyName(company.getName()), company.getType().getDisplayName(),
+                company.getName(), company.getType().getDisplayName(),
                 company.getCash(), company.inventoryValue(),
                 company.getEstimatedValue(),
                 new LinkedHashMap<>(company.getInventory()),
                 company.isPlayerOwned());
-    }
-
-    private static String localizeCompanyName(String name) {
-        return switch (name) {
-            case "Iron Mining Corp" -> "铁矿集团";
-            case "Coal Energy Group" -> "煤矿能源";
-            case "Wheat Agriculture Ltd" -> "麦田农业";
-            case "Steel Manufacturing Inc" -> "钢铁制造";
-            default -> name;
-        };
-    }
-
-    private static String localizeStockName(String name) {
-        return switch (name) {
-            case "Iron Mining Corp" -> "铁矿集团";
-            case "Coal Energy Group" -> "煤矿能源";
-            case "Wheat Agriculture Ltd" -> "麦田农业";
-            case "Steel Manufacturing Inc" -> "钢铁制造";
-            default -> name;
-        };
     }
 
     private record FinanceProvider(List<FinanceMenu.MarketRow> marketData,

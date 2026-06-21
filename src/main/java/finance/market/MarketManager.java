@@ -268,21 +268,30 @@ public class MarketManager {
     // ================================================================
 
     /**
-     * 取消指定索引的订单，退还冻结的资产。
+     * 取消指定订单（按订单 ID 查找），退还冻结的资产。
      * <ul>
      *   <li>BUY 单：解冻资金</li>
      *   <li>SELL 单：退还商品</li>
      * </ul>
      */
-    public static boolean cancelOrder(int index, UUID playerId) {
+    public static boolean cancelOrder(UUID orderId, UUID playerId) {
 
-        if (index < 0 || index >= ORDERS.size()) {
-            return false;
+        Iterator<Order> iterator = ORDERS.iterator();
+        Order order = null;
+
+        while (iterator.hasNext()) {
+            Order candidate = iterator.next();
+            if (candidate.getOrderId().equals(orderId)) {
+                if (!candidate.getPlayerId().equals(playerId)) {
+                    return false;
+                }
+                order = candidate;
+                iterator.remove();
+                break;
+            }
         }
 
-        Order order = ORDERS.get(index);
-
-        if (!order.getPlayerId().equals(playerId)) {
+        if (order == null) {
             return false;
         }
 
@@ -308,7 +317,6 @@ public class MarketManager {
             );
         }
 
-        ORDERS.remove(index);
         EconomySavedData.markDirty();
         return true;
     }
@@ -319,6 +327,15 @@ public class MarketManager {
 
     public static List<Order> getOrders() {
         return ORDERS;
+    }
+
+    /** 取消指定索引的订单（供命令使用），索引越界或非本人订单返回 false */
+    public static boolean cancelOrderByIndex(int index, UUID playerId) {
+        if (index < 0 || index >= ORDERS.size()) {
+            return false;
+        }
+        Order order = ORDERS.get(index);
+        return cancelOrder(order.getOrderId(), playerId);
     }
 
     public static List<Trade> getTradeHistory() {
@@ -332,8 +349,8 @@ public class MarketManager {
     /** 添加成交记录并维护 500 条上限 */
     public static void addTradeToHistory(Trade trade) {
         TRADE_HISTORY.add(trade);
-        while (TRADE_HISTORY.size() > 500) {
-            TRADE_HISTORY.remove(0);
+        if (TRADE_HISTORY.size() > 500) {
+            TRADE_HISTORY.subList(0, TRADE_HISTORY.size() - 500).clear();
         }
     }
 

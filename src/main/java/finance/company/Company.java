@@ -81,30 +81,28 @@ public class Company {
         }
     }
 
-    /** 确保原料充足：不足时从国际市场购买 */
+    /** 确保原料充足：不足时从国际市场购买。购买失败则有多少消耗多少，不阻塞生产。 */
     private boolean consumeRawMaterials() {
         Map<String, Integer> consumption = type.getDailyConsumption();
         if (consumption.isEmpty()) return true;
 
+        // 尝试补充不足的原料
         for (Map.Entry<String, Integer> entry : consumption.entrySet()) {
             String commodityId = entry.getKey();
             int needed = entry.getValue();
             int current = getInventoryAmount(commodityId);
-            int shortfall = needed - current;
-
-            if (shortfall > 0) {
-                buyFromInternationalMarket(commodityId, shortfall);
-                current = getInventoryAmount(commodityId);
-            }
 
             if (current < needed) {
-                return false;
+                buyFromInternationalMarket(commodityId, needed - current);
             }
         }
 
+        // 有多少消耗多少，不因原料不足而完全阻塞生产
         for (Map.Entry<String, Integer> entry : consumption.entrySet()) {
-            if (!removeInventory(entry.getKey(), entry.getValue())) {
-                return false;
+            int current = getInventoryAmount(entry.getKey());
+            int toConsume = Math.min(current, entry.getValue());
+            if (toConsume > 0) {
+                removeInventory(entry.getKey(), toConsume);
             }
         }
         return true;
