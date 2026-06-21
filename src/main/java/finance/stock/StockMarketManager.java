@@ -146,8 +146,6 @@ public class StockMarketManager {
             case MINING -> "铁矿";
             case ENERGY -> "煤能";
             case AGRICULTURE -> "麦田";
-            case MANUFACTURING -> "钢铁";
-            default -> "";
         };
     }
 

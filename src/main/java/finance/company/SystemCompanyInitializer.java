@@ -45,15 +45,6 @@ public class SystemCompanyInitializer {
         wheatAgri.addInventory("wheat", INITIAL_STOCK);
         CompanyManager.registerDirect(wheatAgri);
 
-        Company steelMfg = new Company(
-                UUID.randomUUID(),
-                "钢铁制造",
-                CompanyType.MANUFACTURING,
-                INITIAL_CASH
-        );
-        steelMfg.addInventory("iron", INITIAL_STOCK);
-        steelMfg.addInventory("steel", 100);
-        CompanyManager.registerDirect(steelMfg);
         EconomySavedData.markDirty();
     }
 }

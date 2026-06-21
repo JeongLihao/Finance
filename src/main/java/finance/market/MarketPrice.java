@@ -280,8 +280,8 @@ public class MarketPrice {
 
         // 记录快照
         snapshots.add(new PriceSnapshot(LocalDateTime.now(), midPrice, quantity));
-        while (snapshots.size() > MAX_SNAPSHOTS) {
-            snapshots.remove(0);
+        if (snapshots.size() > MAX_SNAPSHOTS) {
+            snapshots.subList(0, snapshots.size() - MAX_SNAPSHOTS).clear();
         }
     }
 
@@ -339,11 +339,19 @@ public class MarketPrice {
         dayOpen = midPrice;
     }
 
+    /** 每个 MC 天结束时调用，重置日内统计并记录新一天的开盘价 */
+    public void newDayReset() {
+        dayOpen = midPrice;
+        dayHigh = midPrice;
+        dayLow = midPrice;
+        dayVolume = 0;
+    }
+
     /** 从磁盘恢复快照（持久化加载时使用） */
     public void addSnapshotDirect(PriceSnapshot snap) {
         snapshots.add(snap);
-        while (snapshots.size() > MAX_SNAPSHOTS) {
-            snapshots.remove(0);
+        if (snapshots.size() > MAX_SNAPSHOTS) {
+            snapshots.subList(0, snapshots.size() - MAX_SNAPSHOTS).clear();
         }
     }
 

@@ -10,10 +10,7 @@ public enum CompanyType {
 
     MINING("矿业",        List.of("iron", "coal"),       Map.of("iron", 100, "coal", 50), Map.of()),
     AGRICULTURE("农业",    List.of("wheat"),              Map.of("wheat", 80),             Map.of()),
-    ENERGY("能源",         List.of("coal"),               Map.of("coal", 120),             Map.of()),
-    MANUFACTURING("制造业", List.of("iron", "steel"),     Map.of("steel", 40),             Map.of("iron", 80)),
-    LOGISTICS("物流",      List.of(),                     Map.of(),                        Map.of()),
-    BANKING("银行",        List.of(),                     Map.of(),                        Map.of());
+    ENERGY("能源",         List.of("coal"),               Map.of("coal", 120),             Map.of());
 
     private final String displayName;
     private final List<String> commodityIds;

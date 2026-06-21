@@ -311,6 +311,13 @@ public class NpcMarketMaker {
         }
     }
 
+    /** 每个 MC 天结束时重置所有商品的日内统计 */
+    public static void resetAllDayStats() {
+        for (MarketPrice mp : MARKET_PRICES.values()) {
+            mp.newDayReset();
+        }
+    }
+
     // ================================================================
     // 事件（由 EventManager 调用）
     // ================================================================

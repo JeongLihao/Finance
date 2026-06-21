@@ -51,5 +51,11 @@ public class FinancePacketHandler {
                 OpenFinanceGuiPacket::encode,
                 OpenFinanceGuiPacket::decode,
                 OpenFinanceGuiPacket::handle);
+
+        CHANNEL.registerMessage(packetId++,
+                AdminActionPacket.class,
+                AdminActionPacket::encode,
+                AdminActionPacket::decode,
+                AdminActionPacket::handle);
     }
 }

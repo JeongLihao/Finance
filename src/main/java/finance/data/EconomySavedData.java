@@ -4,6 +4,7 @@ import finance.account.Account;
 import finance.account.AccountManager;
 import finance.account.TransactionRecord;
 import finance.commodity.Commodity;
+import finance.commodity.CommodityCategory;
 import finance.commodity.CommodityRegistry;
 import finance.company.Company;
 import finance.company.CompanyManager;
@@ -159,6 +160,11 @@ public class EconomySavedData extends SavedData {
             CompoundTag orderTag = new CompoundTag();
 
             orderTag.putUUID(
+                    "OrderId",
+                    order.getOrderId()
+            );
+
+            orderTag.putUUID(
                     "PlayerUUID",
                     order.getPlayerId()
             );
@@ -269,6 +275,21 @@ public class EconomySavedData extends SavedData {
         }
 
         tag.put("PriceSnapshots", snapshotsTag);
+
+        // ---- 保存商品定义（管理员添加的自定义商品） ----
+        ListTag commoditiesTag = new ListTag();
+        for (Commodity commodity : CommodityRegistry.getAllCommodities()) {
+            CompoundTag cTag = new CompoundTag();
+            cTag.putString("Id", commodity.getId());
+            cTag.putString("DisplayName", commodity.getDisplayName());
+            cTag.putString("Category", commodity.getCategory().name());
+            cTag.putLong("BasePrice", commodity.getBasePrice());
+            if (commodity.getItemId() != null) {
+                cTag.putString("ItemId", commodity.getItemId());
+            }
+            commoditiesTag.add(cTag);
+        }
+        tag.put("CommodityDefinitions", commoditiesTag);
 
         // ---- 保存事件状态 ----
         tag.putInt("TimerMinor", EventManager.getTimerMinor());
@@ -462,6 +483,10 @@ public class EconomySavedData extends SavedData {
                 CompoundTag orderTag =
                         (CompoundTag) rawTag;
 
+                UUID orderId = orderTag.contains("OrderId")
+                        ? orderTag.getUUID("OrderId")
+                        : UUID.randomUUID();
+
                 UUID playerUUID =
                         orderTag.getUUID("PlayerUUID");
 
@@ -479,6 +504,7 @@ public class EconomySavedData extends SavedData {
                         orderTag.getLong("Timestamp");
 
                 Order order = new Order(
+                        orderId,
                         playerUUID,
                         commodityId,
                         type,
@@ -527,6 +553,24 @@ public class EconomySavedData extends SavedData {
                 }
 
                 CompanyManager.registerDirect(company);
+            }
+        }
+
+        // ---- 加载商品定义（管理员添加的自定义商品，必须在市场价格之前） ----
+        if (tag.contains("CommodityDefinitions")) {
+            ListTag commoditiesTag = tag.getList("CommodityDefinitions", Tag.TAG_COMPOUND);
+            for (Tag rawTag : commoditiesTag) {
+                CompoundTag cTag = (CompoundTag) rawTag;
+                String id = cTag.getString("Id");
+                if (CommodityRegistry.isRegistered(id)) continue;
+
+                String displayName = cTag.getString("DisplayName");
+                CommodityCategory category = CommodityCategory.valueOf(cTag.getString("Category"));
+                long basePrice = cTag.getLong("BasePrice");
+                String itemId = cTag.contains("ItemId") ? cTag.getString("ItemId") : null;
+
+                Commodity commodity = new Commodity(id, itemId, displayName, category, basePrice);
+                CommodityRegistry.register(commodity);
             }
         }
 

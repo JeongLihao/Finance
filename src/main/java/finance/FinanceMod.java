@@ -60,8 +60,9 @@ public class FinanceMod {
         CommodityRegistry.register(
                 new Commodity(
                         "iron",
-                        "Iron",
-                        CommodityCategory.RAW_MATERIAL,
+                        "minecraft:iron_ingot",
+                        "铁锭",
+                        CommodityCategory.RAW_MATERIALS,
                         10
                 )
         );
@@ -69,7 +70,8 @@ public class FinanceMod {
         CommodityRegistry.register(
                 new Commodity(
                         "wheat",
-                        "Wheat",
+                        "minecraft:wheat",
+                        "小麦",
                         CommodityCategory.FOOD,
                         8
                 )
@@ -78,18 +80,10 @@ public class FinanceMod {
         CommodityRegistry.register(
                 new Commodity(
                         "coal",
-                        "Coal",
-                        CommodityCategory.ENERGY,
+                        "minecraft:coal",
+                        "煤炭",
+                        CommodityCategory.RAW_MATERIALS,
                         5
-                )
-        );
-
-        CommodityRegistry.register(
-                new Commodity(
-                        "steel",
-                        "Steel",
-                        CommodityCategory.INDUSTRIAL,
-                        20
                 )
         );
     }
@@ -152,6 +146,7 @@ public class FinanceMod {
 
         // 每个MC天发出一轮事件脉冲 + 公司经营（24000 ticks）
         if (tick % 24000 == 0) {
+            NpcMarketMaker.resetAllDayStats();
             EventManager.onDayTick(server);
             CompanyManager.tickAll();
             NpcMarketMaker.naturalConsumeAll();

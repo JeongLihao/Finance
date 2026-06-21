@@ -407,7 +407,7 @@ public class MarketCommand {
                                                                     );
 
                                                             boolean success =
-                                                                    MarketManager.cancelOrder(
+                                                                    MarketManager.cancelOrderByIndex(
                                                                             index,
                                                                             player.getUUID()
                                                                     );
