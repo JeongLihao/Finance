@@ -18,26 +18,26 @@ public class EventTemplates {
 
     static {
         // ---- 一级事件（MINOR）±5%~10%，影响单个商品 ----
-        MINOR.add(new Template("运输延误", "交通受阻导致货物积压", false, 1.08, 14400));
-        MINOR.add(new Template("天气异常", "恶劣天气影响产出", false, 0.93, 16000));
-        MINOR.add(new Template("矿工罢工", "矿工要求加薪停产", false, 1.10, 24000));
-        MINOR.add(new Template("丰收消息", "本季产量超出预期", false, 0.95, 12000));
-        MINOR.add(new Template("需求激增", "市场短期需求上升", false, 1.06, 14000));
-        MINOR.add(new Template("库存清仓", "商人为腾仓低价出货", false, 0.92, 13000));
+        MINOR.add(new Template("运输延误", "交通受阻导致货物积压", false, 1.08));
+        MINOR.add(new Template("天气异常", "恶劣天气影响产出", false, 0.93));
+        MINOR.add(new Template("矿工罢工", "矿工要求加薪停产", false, 1.10));
+        MINOR.add(new Template("丰收消息", "本季产量超出预期", false, 0.95));
+        MINOR.add(new Template("需求激增", "市场短期需求上升", false, 1.06));
+        MINOR.add(new Template("库存清仓", "商人为腾仓低价出货", false, 0.92));
 
         // ---- 二级事件（MAJOR）±15%~25%，影响单个商品 ----
-        MAJOR.add(new Template("发现大型矿脉", "勘探队发现丰富矿藏", false, 0.80, 48000));
-        MAJOR.add(new Template("粮食歉收", "病虫害导致大面积减产", false, 1.22, 48000));
-        MAJOR.add(new Template("能源短缺", "燃料供应中断", false, 1.18, 72000));
-        MAJOR.add(new Template("贸易禁运", "邻国实施出口限制", false, 1.25, 36000));
-        MAJOR.add(new Template("技术革新", "新工艺大幅降低生产成本", false, 0.83, 50000));
-        MAJOR.add(new Template("投机狂潮", "游资涌入推高价格", false, 1.20, 60000));
+        MAJOR.add(new Template("发现大型矿脉", "勘探队发现丰富矿藏", false, 0.80));
+        MAJOR.add(new Template("粮食歉收", "病虫害导致大面积减产", false, 1.22));
+        MAJOR.add(new Template("能源短缺", "燃料供应中断", false, 1.18));
+        MAJOR.add(new Template("贸易禁运", "邻国实施出口限制", false, 1.25));
+        MAJOR.add(new Template("技术革新", "新工艺大幅降低生产成本", false, 0.83));
+        MAJOR.add(new Template("投机狂潮", "游资涌入推高价格", false, 1.20));
 
         // ---- 三级事件（BLACK_SWAN）±40%~60% ----
-        BLACK_SWANS.add(new Template("战争爆发", "大战波及主要产区，恐慌性抢购", true, 1.50, 120000));
-        BLACK_SWANS.add(new Template("金融危机", "全球信用体系崩溃，资产抛售", true, 0.60, 96000));
-        BLACK_SWANS.add(new Template("科技突破", "革命性技术淘汰了传统产业", false, 0.45, 72000));
-        BLACK_SWANS.add(new Template("资源枯竭", "主力矿场彻底采空", false, 1.60, 72000));
+        BLACK_SWANS.add(new Template("战争爆发", "大战波及主要产区，恐慌性抢购", true, 1.50));
+        BLACK_SWANS.add(new Template("金融危机", "全球信用体系崩溃，资产抛售", true, 0.60));
+        BLACK_SWANS.add(new Template("科技突破", "革命性技术淘汰了传统产业", false, 0.45));
+        BLACK_SWANS.add(new Template("资源枯竭", "主力矿场彻底采空", false, 1.60));
     }
 
     /**
@@ -96,15 +96,13 @@ public class EventTemplates {
         /** true = 影响全部商品，false = 影响单个随机商品 */
         public final boolean affectsAll;
         public final double baseMultiplier;
-        public final int defaultDuration;
 
         public Template(String name, String description, boolean affectsAll,
-                        double baseMultiplier, int defaultDuration) {
+                        double baseMultiplier) {
             this.name = name;
             this.description = description;
             this.affectsAll = affectsAll;
             this.baseMultiplier = baseMultiplier;
-            this.defaultDuration = defaultDuration;
         }
     }
 }

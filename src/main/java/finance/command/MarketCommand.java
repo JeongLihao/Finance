@@ -69,7 +69,7 @@ public class MarketCommand {
                                         .executes(context -> {
                                             ServerPlayer player =
                                                     context.getSource().getPlayerOrException();
-                                            FinanceGuiOpener.openMarketOverview(player);
+                                            FinanceGuiOpener.open(player);
                                             return 1;
                                         })
                         )
@@ -562,7 +562,7 @@ public class MarketCommand {
                                                 player.sendSystemMessage(Component.literal(
                                                         (count + 1) + ". " + mp.getCommodityId()
                                                                 + "  " + mp.getMidPrice()
-                                                                + "  " + formatDayChange(ch)
+                                                                + "  " + FormatUtil.formatPercent(ch)
                                                                 + "  " + formatMomentum(mp.getTradeMomentum())));
                                                 count++;
                                             }
@@ -596,7 +596,7 @@ public class MarketCommand {
                                                 player.sendSystemMessage(Component.literal(
                                                         (count + 1) + ". " + mp.getCommodityId()
                                                                 + "  " + mp.getMidPrice()
-                                                                + "  " + formatDayChange(ch)
+                                                                + "  " + FormatUtil.formatPercent(ch)
                                                                 + "  " + formatMomentum(mp.getTradeMomentum())));
                                                 count++;
                                             }
@@ -648,7 +648,7 @@ public class MarketCommand {
                                                 double change = mp.getDayChange();
                                                 int vol = mp.getDayVolume();
 
-                                                String changeStr = " " + formatDayChange(change);
+                                                String changeStr = " " + FormatUtil.formatPercent(change);
                                                 String eventMark = mp.hasActiveEvent()
                                                         ? " [事件:" + mp.getActiveEvent().getName() + "]"
                                                         : "";
@@ -708,7 +708,7 @@ public class MarketCommand {
                                                             long ask = mp.getAskPrice();
                                                             double change = mp.getDayChange();
 
-                                                            String changeStr = formatDayChange(change);
+                                                            String changeStr = FormatUtil.formatPercent(change);
 
                                                             player.sendSystemMessage(
                                                                     Component.literal(
@@ -784,7 +784,7 @@ public class MarketCommand {
                                             }
                                             player.sendSystemMessage(Component.literal("=== 市场概览 ==="));
                                             for (MarketPrice mp : all) {
-                                                String changeStr = formatDayChange(mp.getDayChange());
+                                                String changeStr = FormatUtil.formatPercent(mp.getDayChange());
                                                 player.sendSystemMessage(Component.literal(
                                                         mp.getCommodityId()
                                                                 + "  " + mp.getMidPrice()
@@ -1090,10 +1090,6 @@ public class MarketCommand {
             return null;
         }
         return new NpcTradeContext(player, commodity, quantity, price);
-    }
-
-    private static String formatDayChange(double change) {
-        return FormatUtil.formatPercent(change);
     }
 
     private static String formatMomentum(double momentum) {

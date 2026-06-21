@@ -143,9 +143,9 @@ public class StockMarketManager {
 
     private static String symbolForType(CompanyType type) {
         return switch (type) {
-            case MINING -> "铁矿";
-            case ENERGY -> "煤能";
-            case AGRICULTURE -> "麦田";
+            case RAW_MATERIALS -> "铁锭";
+            case BUILDING_BLOCKS -> "石头";
+            case FOOD -> "小麦";
         };
     }
 

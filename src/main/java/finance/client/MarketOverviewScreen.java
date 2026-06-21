@@ -78,7 +78,7 @@ public class MarketOverviewScreen extends AbstractContainerScreen<MarketOverview
             graphics.drawString(font, Long.toString(snapshot.midPrice()), 58, y, 0xE6E9ED, false);
             graphics.drawString(font, Long.toString(snapshot.bidPrice()), 96, y, 0xB7E4C7, false);
             graphics.drawString(font, Long.toString(snapshot.askPrice()), 134, y, 0xFFD6A5, false);
-            graphics.drawString(font, formatChange(snapshot.dayChange()), 174, y, changeColor(snapshot.dayChange()), false);
+            graphics.drawString(font, FormatUtil.formatPercent(snapshot.dayChange()), 174, y, changeColor(snapshot.dayChange()), false);
             graphics.drawString(font, Integer.toString(snapshot.dayVolume()), 214, y, 0xC8CED6, false);
             graphics.drawString(font, Integer.toString(snapshot.marketStock()), 256, y, 0xC8CED6, false);
         }
@@ -88,10 +88,6 @@ public class MarketOverviewScreen extends AbstractContainerScreen<MarketOverview
 
     private void drawHeader(GuiGraphics graphics, String label, int x, int y) {
         graphics.drawString(font, label, x, y, 0x9EA8B3, false);
-    }
-
-    private static String formatChange(double change) {
-        return FormatUtil.formatPercent(change);
     }
 
     private static int changeColor(double change) {

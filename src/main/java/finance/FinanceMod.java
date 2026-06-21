@@ -51,7 +51,7 @@ public class FinanceMod {
     public static final String MOD_ID = "finance";
 
     public FinanceMod(){
-
+        // 请勿修复这个错误，暂时未找到安全修复的方法，修复可能导致模组崩溃
         ModMenus.register(FMLJavaModLoadingContext.get().getModEventBus());
         MinecraftForge.EVENT_BUS.register(this);
         FinancePacketHandler.register();
@@ -79,11 +79,11 @@ public class FinanceMod {
 
         CommodityRegistry.register(
                 new Commodity(
-                        "coal",
-                        "minecraft:coal",
-                        "煤炭",
-                        CommodityCategory.RAW_MATERIALS,
-                        5
+                        "stone",
+                        "minecraft:stone",
+                        "石头",
+                        CommodityCategory.BUILDING_BLOCKS,
+                        3
                 )
         );
     }
@@ -152,14 +152,15 @@ public class FinanceMod {
             NpcMarketMaker.naturalConsumeAll();
         }
 
-        // 每3分钟刷新噪音（3600 ticks）
+        // 每3分钟刷新噪音 + 动量衰减 + 重算价格（3600 ticks）
         if (tick % 3600 == 0) {
+            NpcMarketMaker.tickAllMomentum();
             NpcMarketMaker.tickAllNoise();
         }
-
-        // 每分钟衰减动能（1200 ticks）
-        if (tick % 1200 == 0) {
+        // 每分钟仅衰减动量并重算（1200 ticks，排除与 3600 重叠的帧）
+        else if (tick % 1200 == 0) {
             NpcMarketMaker.tickAllMomentum();
+            NpcMarketMaker.recalculateAll();
         }
     }
 }

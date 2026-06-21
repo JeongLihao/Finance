@@ -17,33 +17,32 @@ public class SystemCompanyInitializer {
             return;
         }
 
-        Company ironMining = new Company(
+        Company ironCompany = new Company(
                 UUID.randomUUID(),
-                "铁矿集团",
-                CompanyType.MINING,
+                "铁锭原料",
+                CompanyType.RAW_MATERIALS,
                 INITIAL_CASH
         );
-        ironMining.addInventory("iron", INITIAL_STOCK);
-        ironMining.addInventory("coal", INITIAL_STOCK);
-        CompanyManager.registerDirect(ironMining);
+        ironCompany.addInventory("iron", INITIAL_STOCK);
+        CompanyManager.registerDirect(ironCompany);
 
-        Company coalEnergy = new Company(
+        Company stoneCompany = new Company(
                 UUID.randomUUID(),
-                "煤矿能源",
-                CompanyType.ENERGY,
+                "石材工坊",
+                CompanyType.BUILDING_BLOCKS,
                 INITIAL_CASH
         );
-        coalEnergy.addInventory("coal", INITIAL_STOCK);
-        CompanyManager.registerDirect(coalEnergy);
+        stoneCompany.addInventory("stone", INITIAL_STOCK);
+        CompanyManager.registerDirect(stoneCompany);
 
-        Company wheatAgri = new Company(
+        Company wheatCompany = new Company(
                 UUID.randomUUID(),
-                "麦田农业",
-                CompanyType.AGRICULTURE,
+                "麦田农庄",
+                CompanyType.FOOD,
                 INITIAL_CASH
         );
-        wheatAgri.addInventory("wheat", INITIAL_STOCK);
-        CompanyManager.registerDirect(wheatAgri);
+        wheatCompany.addInventory("wheat", INITIAL_STOCK);
+        CompanyManager.registerDirect(wheatCompany);
 
         EconomySavedData.markDirty();
     }

@@ -20,6 +20,7 @@ public class CommodityRegistry {
                 commodity.getId(),
                 commodity
         );
+        finance.event.EventManager.markCommodityIdsDirty();
     }
 
     /** 根据 ID 查找商品，不存在返回 null */
@@ -35,7 +36,11 @@ public class CommodityRegistry {
 
     /** 移除商品（管理员操作），返回是否成功 */
     public static boolean removeCommodity(String id) {
-        return COMMODITIES.remove(id) != null;
+        boolean removed = COMMODITIES.remove(id) != null;
+        if (removed) {
+            finance.event.EventManager.markCommodityIdsDirty();
+        }
+        return removed;
     }
 
     /** 检查商品是否已注册 */

@@ -98,11 +98,6 @@ public class FinanceGuiOpener {
                 buffer -> FinanceMenu.writeAll(buffer, marketData, orderRows, balance, frozenBalance, inventory, companyInfo, companyRows, stockRows, stockHoldingRows));
     }
 
-    /** 保留旧接口兼容 */
-    public static void openMarketOverview(ServerPlayer player) {
-        open(player);
-    }
-
     private static FinanceMenu.CompanyInfo toCompanyInfo(Company company) {
         return new FinanceMenu.CompanyInfo(
                 company.getName(), company.getType().getDisplayName(),

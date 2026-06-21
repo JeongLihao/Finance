@@ -280,33 +280,43 @@ public class NpcMarketMaker {
             String commodityId = mp.getCommodityId();
             long stock = CommodityInventoryManager.getCommodityAmount(NPC_UUID, commodityId);
             long target = MarketPrice.REFERENCE_STOCK;
+            long newStock = stock;
 
             if (stock < target) {
                 long gap = target - stock;
                 int restockQty = (int) Math.max(1, Math.round(gap * DAILY_RESTOCK_RATIO));
                 CommodityInventoryManager.addCommodity(NPC_UUID, commodityId, restockQty);
+                newStock = stock + restockQty;
             } else if (stock > target) {
                 long surplus = stock - target;
                 int consumeQty = (int) Math.max(1, Math.round(surplus * DAILY_DEMAND_RATIO));
                 consumeQty = (int) Math.min(consumeQty, stock);
                 CommodityInventoryManager.removeCommodity(NPC_UUID, commodityId, consumeQty);
+                newStock = stock - consumeQty;
             }
 
-            long newStock = CommodityInventoryManager.getCommodityAmount(NPC_UUID, commodityId);
             mp.recomputePrice(newStock);
         }
     }
 
+    /** 每分钟衰减动能（不重算价格，由调用方统一 recalculate） */
     public static void tickAllMomentum() {
         for (MarketPrice mp : MARKET_PRICES.values()) {
             mp.tickMomentum();
+        }
+    }
+
+    /** 每 3 分钟刷新噪音并重算价格 */
+    public static void tickAllNoise() {
+        for (MarketPrice mp : MARKET_PRICES.values()) {
+            mp.tickNoise();
             mp.recalculateFromCurrent();
         }
     }
 
-    public static void tickAllNoise() {
+    /** 动量衰减后统一重算价格（每分钟调用，避免与噪音重叠） */
+    public static void recalculateAll() {
         for (MarketPrice mp : MARKET_PRICES.values()) {
-            mp.tickNoise();
             mp.recalculateFromCurrent();
         }
     }
