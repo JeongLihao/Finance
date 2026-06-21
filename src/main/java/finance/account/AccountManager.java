@@ -26,9 +26,14 @@ public class AccountManager {
     // 账户查询
     // ================================================================
 
-    /** 获取或创建玩家账户（懒加载） */
+    /** 获取或创建玩家账户（懒加载），新账户自动获得 1000 初始资金 */
     public static Account getAccount(UUID playerId) {
-        return ACCOUNTS.computeIfAbsent(playerId, Account::new);
+        return ACCOUNTS.computeIfAbsent(playerId, id -> {
+            Account acc = new Account(id);
+            acc.deposit(1000);
+            EconomySavedData.markDirty();
+            return acc;
+        });
     }
 
     public static long getBalance(UUID playerId) {

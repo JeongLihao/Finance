@@ -57,5 +57,11 @@ public class FinancePacketHandler {
                 AdminActionPacket::encode,
                 AdminActionPacket::decode,
                 AdminActionPacket::handle);
+
+        CHANNEL.registerMessage(packetId++,
+                InventoryActionPacket.class,
+                InventoryActionPacket::encode,
+                InventoryActionPacket::decode,
+                InventoryActionPacket::handle);
     }
 }

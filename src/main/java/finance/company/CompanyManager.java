@@ -68,6 +68,18 @@ public class CompanyManager {
         EconomySavedData.markDirty();
     }
 
+    /** 移除单个公司（退市时调用） */
+    public static void removeCompany(UUID companyId) {
+        Company c = COMPANIES.remove(companyId);
+        if (c != null) {
+            if (c.getOwnerId() != null) {
+                OWNER_INDEX.remove(c.getOwnerId());
+            }
+            NAME_INDEX.remove(c.getName().toLowerCase());
+            EconomySavedData.markDirty();
+        }
+    }
+
     /** 清空所有公司（数据加载前调用） */
     public static void clearCompanies() {
         COMPANIES.clear();

@@ -268,6 +268,7 @@ public class AdminActionPacket {
     }
 
     private static void handleAdd(ServerPlayer player, AdminActionPacket packet) {
+        System.out.println("[Finance Debug] 服务端 handleAdd: id=" + packet.commodityId + " itemId=" + packet.itemId + " name=" + packet.displayName + " price=" + packet.basePrice + " cat=" + packet.category);
         String id = packet.commodityId.trim().toLowerCase();
         if (id.isEmpty() || id.length() > 32) {
             player.sendSystemMessage(Component.literal("商品 ID 长度需为 1-32 个字符。"));
@@ -315,13 +316,55 @@ public class AdminActionPacket {
             return;
         }
 
+        // 1. 检查依赖该商品的公司并强制退市
+        java.util.List<finance.company.Company> toDelist = new java.util.ArrayList<>();
+        for (finance.company.Company company : finance.company.CompanyManager.getCompanies()) {
+            if (company.getType().getCommodityIds().contains(id)) {
+                toDelist.add(company);
+            }
+        }
+
+        if (!toDelist.isEmpty()) {
+            // 获取在线玩家列表
+            net.minecraft.server.MinecraftServer server = player.getServer();
+            java.util.List<ServerPlayer> onlinePlayers = server.getPlayerList().getPlayers();
+            int playerCount = onlinePlayers.size();
+
+            for (finance.company.Company company : toDelist) {
+                long companyFunds = company.getCash();
+                long distAmount = (playerCount > 0) ? (companyFunds * 10 / 100) / playerCount : 0;
+
+                // 将资金分配给在线玩家
+                if (distAmount > 0 && playerCount > 0) {
+                    for (ServerPlayer p : onlinePlayers) {
+                        finance.account.AccountManager.deposit(p.getUUID(), distAmount);
+                    }
+                }
+
+                // 移除对应股票
+                finance.stock.StockMarketManager.removeStockByCompanyId(company.getCompanyId());
+
+                // 移除公司
+                finance.company.CompanyManager.removeCompany(company.getCompanyId());
+
+                // 全服广播
+                String msg = "§c[金融] 由于商品 " + id + " 被移除，公司「" + company.getName() + "」已强制退市。"
+                        + (distAmount > 0 ? "每位在线玩家获得补偿 §a" + distAmount + "§c 金币。" : "");
+                for (ServerPlayer p : onlinePlayers) {
+                    p.sendSystemMessage(Component.literal(msg));
+                }
+            }
+        }
+
+        // 2. 删除商品
         CommodityRegistry.removeCommodity(id);
         NpcMarketMaker.getAllMarketPrices().remove(id);
 
         EconomySavedData.markDirty();
         CommodityInventorySavedData.markDirty();
 
-        player.sendSystemMessage(Component.literal("已删除商品: " + id));
+        player.sendSystemMessage(Component.literal("已删除商品: " + id
+                + (toDelist.isEmpty() ? "" : "（同时强制退市 " + toDelist.size() + " 家公司）")));
 
         FinanceGuiOpener.open(player);
     }
