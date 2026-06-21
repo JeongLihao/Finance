@@ -27,7 +27,7 @@ public class FinanceCommand {
                                         .executes(context -> {
                                             ServerPlayer player =
                                                     context.getSource().getPlayerOrException();
-                                            FinanceGuiOpener.openMarketOverview(player);
+                                            FinanceGuiOpener.open(player);
                                             return 1;
                                         })
                         )

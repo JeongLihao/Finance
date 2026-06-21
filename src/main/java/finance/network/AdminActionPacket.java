@@ -115,8 +115,8 @@ public class AdminActionPacket {
             case ADD_FROM_HAND -> {
                 return AdminActionPacket.fromHand(buffer.readLong());
             }
+            default -> throw new IllegalStateException("未知 ActionType");
         }
-        return new AdminActionPacket("");
     }
 
     public static void handle(AdminActionPacket packet, Supplier<NetworkEvent.Context> ctx) {

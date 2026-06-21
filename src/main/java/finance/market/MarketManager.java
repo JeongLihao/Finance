@@ -1,7 +1,9 @@
 package finance.market;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Iterator;
 import finance.account.AccountManager;
 import finance.account.TransactionRecord;
@@ -26,7 +28,8 @@ import finance.util.MathUtil;
  * </ol>
  *
  * <h3>数据结构</h3>
- * ORDERS 是订单簿（当前所有未成交订单），TRADE_HISTORY 是成交历史（最多 500 条）。
+ * ORDERS 是订单簿（当前所有未成交订单），ORDERS_BY_COMMODITY 是按商品 ID 索引的二级索引，
+ * TRADE_HISTORY 是成交历史（最多 500 条）。
  *
  * <h3>已知限制</h3>
  * P2P 订单簿与国际市场是两套独立交易系统，同一商品在两处的价格可以不同，
@@ -36,6 +39,9 @@ public class MarketManager {
 
     /** 订单簿：所有未成交的活跃订单 */
     private static final List<Order> ORDERS = new ArrayList<>();
+
+    /** 商品索引：commodityId → 该商品的所有活跃订单，加速撮合 */
+    private static final Map<String, List<Order>> ORDERS_BY_COMMODITY = new HashMap<>();
 
     /** 成交历史：最多保留 500 条 */
     private static final List<Trade> TRADE_HISTORY = new ArrayList<>();
@@ -93,6 +99,9 @@ public class MarketManager {
         if (remaining > 0) {
             order.setQuantity(remaining);
             ORDERS.add(order);
+            ORDERS_BY_COMMODITY
+                    .computeIfAbsent(order.getCommodityId(), k -> new ArrayList<>())
+                    .add(order);
             EconomySavedData.markDirty();
         }
 
@@ -121,18 +130,19 @@ public class MarketManager {
 
         int remaining = newOrder.getQuantity();
 
-        Iterator<Order> iterator = ORDERS.iterator();
+        // 只遍历同商品的订单，而非全部订单
+        List<Order> commodityOrders = ORDERS_BY_COMMODITY.get(newOrder.getCommodityId());
+        if (commodityOrders == null || commodityOrders.isEmpty()) {
+            return remaining;
+        }
+
+        Iterator<Order> iterator = commodityOrders.iterator();
 
         while (iterator.hasNext() && remaining > 0) {
 
             Order existingOrder = iterator.next();
 
             // ---- 匹配检查 ----
-            if (!existingOrder.getCommodityId()
-                    .equals(newOrder.getCommodityId())) {
-                continue;  // 不同商品
-            }
-
             if (existingOrder.getType() == newOrder.getType()) {
                 continue;  // 同方向，不撮合
             }
@@ -257,6 +267,7 @@ public class MarketManager {
             // 已完全成交的订单从订单簿移除
             if (existingOrder.getQuantity() <= 0) {
                 iterator.remove();
+                ORDERS.remove(existingOrder);
             }
         }
 
@@ -287,6 +298,11 @@ public class MarketManager {
                 }
                 order = candidate;
                 iterator.remove();
+                // 同步从商品索引中移除
+                List<Order> commodityList = ORDERS_BY_COMMODITY.get(candidate.getCommodityId());
+                if (commodityList != null) {
+                    commodityList.remove(candidate);
+                }
                 break;
             }
         }
@@ -362,10 +378,14 @@ public class MarketManager {
     /** 直接加入订单簿（从磁盘恢复时使用，跳过资产冻结） */
     public static void addOrderDirect(Order order) {
         ORDERS.add(order);
+        ORDERS_BY_COMMODITY
+                .computeIfAbsent(order.getCommodityId(), k -> new ArrayList<>())
+                .add(order);
     }
 
     /** 清空订单簿（数据加载前调用） */
     public static void clearOrders() {
         ORDERS.clear();
+        ORDERS_BY_COMMODITY.clear();
     }
 }

@@ -4,13 +4,13 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 公司行业类型。
+ * 公司行业类型 —— 对应 MC 物品栏分类。
  */
 public enum CompanyType {
 
-    MINING("矿业",        List.of("iron", "coal"),       Map.of("iron", 100, "coal", 50), Map.of()),
-    AGRICULTURE("农业",    List.of("wheat"),              Map.of("wheat", 80),             Map.of()),
-    ENERGY("能源",         List.of("coal"),               Map.of("coal", 120),             Map.of());
+    RAW_MATERIALS("原材料",  List.of("iron"),               Map.of("iron", 100),             Map.of()),
+    BUILDING_BLOCKS("建筑方块", List.of("stone"),            Map.of("stone", 120),            Map.of()),
+    FOOD("食物",            List.of("wheat"),              Map.of("wheat", 80),             Map.of());
 
     private final String displayName;
     private final List<String> commodityIds;

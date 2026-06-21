@@ -38,6 +38,10 @@ public class EventManager {
 
     private static final List<MarketEvent> activeEvents = new ArrayList<>();
 
+    /** 缓存的商品 ID 列表，仅在商品注册变化时刷新 */
+    private static List<String> cachedCommodityIds;
+    private static boolean commodityIdsDirty = true;
+
     // ================================================================
     // Tick
     // ================================================================
@@ -77,8 +81,12 @@ public class EventManager {
         }
 
         // ---- 独立计时器触发（互不干扰，可在同一天同时触发） ----
-        List<String> commodityIds = CommodityRegistry.getAllCommodities()
-                .stream().map(c -> c.getId()).toList();
+        if (commodityIdsDirty) {
+            cachedCommodityIds = CommodityRegistry.getAllCommodities()
+                    .stream().map(c -> c.getId()).toList();
+            commodityIdsDirty = false;
+        }
+        List<String> commodityIds = cachedCommodityIds;
 
         if (!commodityIds.isEmpty()) {
             if (timerBlackSwan >= TIMER_BLACK_SWAN) {
@@ -156,8 +164,12 @@ public class EventManager {
 
     /** 测试命令：直接触发指定等级的事件 */
     public static void fireTestEvent(EventTier tier, MinecraftServer server) {
-        List<String> commodityIds = CommodityRegistry.getAllCommodities()
-                .stream().map(c -> c.getId()).toList();
+        if (commodityIdsDirty) {
+            cachedCommodityIds = CommodityRegistry.getAllCommodities()
+                    .stream().map(c -> c.getId()).toList();
+            commodityIdsDirty = false;
+        }
+        List<String> commodityIds = cachedCommodityIds;
         if (commodityIds.isEmpty()) return;
 
         fireEvent(tier, commodityIds, server);
@@ -165,6 +177,11 @@ public class EventManager {
     }
 
     public static List<MarketEvent> getActiveEvents() { return activeEvents; }
+
+    /** 标记商品 ID 缓存失效（商品注册/移除时调用） */
+    public static void markCommodityIdsDirty() {
+        commodityIdsDirty = true;
+    }
 
     /** 获取影响指定商品的活跃事件，无则返回 null */
     public static MarketEvent getActiveEvent(String commodityId) {

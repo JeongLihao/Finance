@@ -18,9 +18,9 @@ public class FormatUtil {
      */
     public static String formatPercent(double value) {
         if (value > 0) {
-            return "+" + String.format("%.0f", value) + "%";
+            return "+" + (int) value + "%";
         } else if (value < 0) {
-            return String.format("%.0f", value) + "%";
+            return (int) value + "%";
         }
         return "0%";
     }

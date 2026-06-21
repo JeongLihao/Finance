@@ -135,14 +135,17 @@ public class Company {
 
     /** 每日自动交易 —— 将可出售库存的一部分卖给国际市场变现 */
     public void autoTrade() {
-        for (Map.Entry<String, Integer> entry : new HashMap<>(inventory).entrySet()) {
-            String commodityId = entry.getKey();
-            int amount = entry.getValue();
-            if (amount <= 0) continue;
-
-            if (!type.getDailyProduction().containsKey(commodityId)) {
-                continue;
+        // 收集候选商品 ID，避免在遍历中修改 inventory
+        java.util.List<String> candidates = new java.util.ArrayList<>();
+        for (Map.Entry<String, Integer> entry : inventory.entrySet()) {
+            if (entry.getValue() > 0 && type.getDailyProduction().containsKey(entry.getKey())) {
+                candidates.add(entry.getKey());
             }
+        }
+
+        for (String commodityId : candidates) {
+            int amount = getInventoryAmount(commodityId);
+            if (amount <= 0) continue;
 
             MarketPrice mp = NpcMarketMaker.getMarketPrice(commodityId);
             if (mp == null) continue;
