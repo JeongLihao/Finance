@@ -19,7 +19,7 @@ public class FinanceMenu extends AbstractContainerMenu {
     public record MarketRow(String commodityId, long midPrice, long bidPrice, long askPrice,
                             double dayChange, int dayVolume, int marketStock) {}
 
-    public record OrderRow(java.util.UUID orderId, String commodityId, String type, long price, int quantity) {}
+    public record OrderRow(UUID orderId, String commodityId, String type, long price, int quantity) {}
 
     public record CompanyInfo(String name, String type, long cash, long inventoryValue,
                                long totalValue, Map<String, Integer> inventory, boolean playerOwned) {}
@@ -114,7 +114,7 @@ public class FinanceMenu extends AbstractContainerMenu {
         writeCompanyInfoList(buffer, allCompanies);
         writeStockRows(buffer, stocks);
         writeStockHoldingRows(buffer, stockHoldings);
-        writeStringIntMap(buffer, mcInventory != null ? mcInventory : new java.util.LinkedHashMap<>());
+        writeStringIntMap(buffer, mcInventory != null ? mcInventory : new LinkedHashMap<>());
     }
 
     private static void writeMarketData(FriendlyByteBuf buffer, List<MarketRow> list) {

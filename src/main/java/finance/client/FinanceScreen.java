@@ -94,12 +94,6 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
     private List<FinanceMenu.MarketRow> cachedMarketData;
     private FinanceMenu.MarketRow cachedSelectedRow;
     private String lastSelectedCommodity = "";
-    private String[] cachedMidPriceStr;
-    private String[] cachedBidPriceStr;
-    private String[] cachedAskPriceStr;
-    private String[] cachedDayChangeStr;
-    private String[] cachedDayVolumeStr;
-    private String[] cachedMarketStockStr;
     private boolean cacheDirty = true;
 
     private List<Commodity> cachedCommodities;
@@ -188,26 +182,8 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         updateInputVisibility();
     }
 
-    /** 刷新市场缓存 */
     private void refreshCache() {
         cachedMarketData = menu.getMarketData();
-        int size = cachedMarketData.size();
-        cachedMidPriceStr = new String[size];
-        cachedBidPriceStr = new String[size];
-        cachedAskPriceStr = new String[size];
-        cachedDayChangeStr = new String[size];
-        cachedDayVolumeStr = new String[size];
-        cachedMarketStockStr = new String[size];
-
-        for (int i = 0; i < size; i++) {
-            FinanceMenu.MarketRow row = cachedMarketData.get(i);
-            cachedMidPriceStr[i] = Long.toString(row.midPrice());
-            cachedBidPriceStr[i] = Long.toString(row.bidPrice());
-            cachedAskPriceStr[i] = Long.toString(row.askPrice());
-            cachedDayChangeStr[i] = FormatUtil.formatPercent(row.dayChange());
-            cachedDayVolumeStr[i] = Integer.toString(row.dayVolume());
-            cachedMarketStockStr[i] = Integer.toString(row.marketStock());
-        }
         cacheDirty = false;
         refreshSelectedRow();
     }
@@ -266,24 +242,8 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         renderBackground(graphics);
         super.render(graphics, mouseX, mouseY, partialTick);
-        if (currentTab == 0) {
-            intlQuantityBox.render(graphics, mouseX, mouseY, partialTick);
-        }
-        if (currentTab == 1) {
-            priceBox.render(graphics, mouseX, mouseY, partialTick);
-            quantityBox.render(graphics, mouseX, mouseY, partialTick);
-        }
-        if (currentTab == 4 && menu.getPlayerCompany() == null) {
-            companyNameBox.render(graphics, mouseX, mouseY, partialTick);
-        }
-        if (currentTab == 5) {
-            stockQuantityBox.render(graphics, mouseX, mouseY, partialTick);
-        }
-        if (currentTab == 6 && isAdmin && adminSubTab == 0) {
-            adminBasePriceBox.render(graphics, mouseX, mouseY, partialTick);
-            adminCommodityIdBox.render(graphics, mouseX, mouseY, partialTick);
-            adminItemIdBox.render(graphics, mouseX, mouseY, partialTick);
-            adminDisplayNameBox.render(graphics, mouseX, mouseY, partialTick);
+        for (EditBox box : getVisibleEditBoxes()) {
+            box.render(graphics, mouseX, mouseY, partialTick);
         }
         // 下拉菜单渲染在最上层
         if (dropdownOpen && (currentTab == 0 || currentTab == 1)) {
@@ -382,12 +342,12 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
             renderItemIcon(g, commodity, 14, y + 1);
 
             drawClippedString(g, commodityDisplayName(row.commodityId()), 28, y + 3, 40, selected ? COL_ACCENT : COL_TEXT);
-            drawClippedString(g, cachedMidPriceStr[i], 74, y + 3, 46, COL_TEXT);
-            drawClippedString(g, cachedBidPriceStr[i], 126, y + 3, 46, COL_GOOD);
-            drawClippedString(g, cachedAskPriceStr[i], 178, y + 3, 46, COL_WARN);
-            drawClippedString(g, cachedDayChangeStr[i], 230, y + 3, 46, changeColor(row.dayChange()));
-            drawClippedString(g, cachedDayVolumeStr[i], 282, y + 3, 38, COL_TEXT_DIM);
-            drawClippedString(g, cachedMarketStockStr[i], 326, y + 3, 42, COL_TEXT_DIM);
+            drawClippedString(g, Long.toString(row.midPrice()), 74, y + 3, 46, COL_TEXT);
+            drawClippedString(g, Long.toString(row.bidPrice()), 126, y + 3, 46, COL_GOOD);
+            drawClippedString(g, Long.toString(row.askPrice()), 178, y + 3, 46, COL_WARN);
+            drawClippedString(g, FormatUtil.formatPercent(row.dayChange()), 230, y + 3, 46, changeColor(row.dayChange()));
+            drawClippedString(g, Integer.toString(row.dayVolume()), 282, y + 3, 38, COL_TEXT_DIM);
+            drawClippedString(g, Integer.toString(row.marketStock()), 326, y + 3, 42, COL_TEXT_DIM);
         }
 
         // ---- 国际交易区域 ----
@@ -951,24 +911,8 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (currentTab == 0) {
-            intlQuantityBox.mouseClicked(mouseX, mouseY, button);
-        }
-        if (currentTab == 1) {
-            priceBox.mouseClicked(mouseX, mouseY, button);
-            quantityBox.mouseClicked(mouseX, mouseY, button);
-        }
-        if (currentTab == 4 && menu.getPlayerCompany() == null) {
-            companyNameBox.mouseClicked(mouseX, mouseY, button);
-        }
-        if (currentTab == 5) {
-            stockQuantityBox.mouseClicked(mouseX, mouseY, button);
-        }
-        if (currentTab == 6 && isAdmin && adminSubTab == 0) {
-            adminBasePriceBox.mouseClicked(mouseX, mouseY, button);
-            adminCommodityIdBox.mouseClicked(mouseX, mouseY, button);
-            adminItemIdBox.mouseClicked(mouseX, mouseY, button);
-            adminDisplayNameBox.mouseClicked(mouseX, mouseY, button);
+        for (EditBox box : getVisibleEditBoxes()) {
+            box.mouseClicked(mouseX, mouseY, button);
         }
 
         int mx = (int) mouseX - leftPos;
@@ -1024,48 +968,20 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        if (currentTab == 0 && intlQuantityBox.isFocused() && intlQuantityBox.keyPressed(keyCode, scanCode, modifiers)) {
-            return true;
-        }
-        if (currentTab == 1) {
-            if (priceBox.isFocused() && priceBox.keyPressed(keyCode, scanCode, modifiers)) return true;
-            if (quantityBox.isFocused() && quantityBox.keyPressed(keyCode, scanCode, modifiers)) return true;
-        }
-        if (currentTab == 4 && companyNameBox.isFocused() && companyNameBox.keyPressed(keyCode, scanCode, modifiers)) {
-            return true;
-        }
-        if (currentTab == 5 && stockQuantityBox.isFocused() && stockQuantityBox.keyPressed(keyCode, scanCode, modifiers)) {
-            return true;
-        }
-        if (currentTab == 6 && isAdmin && adminSubTab == 0) {
-            if (adminBasePriceBox.isFocused() && adminBasePriceBox.keyPressed(keyCode, scanCode, modifiers)) return true;
-            if (adminCommodityIdBox.isFocused() && adminCommodityIdBox.keyPressed(keyCode, scanCode, modifiers)) return true;
-            if (adminItemIdBox.isFocused() && adminItemIdBox.keyPressed(keyCode, scanCode, modifiers)) return true;
-            if (adminDisplayNameBox.isFocused() && adminDisplayNameBox.keyPressed(keyCode, scanCode, modifiers)) return true;
+        for (EditBox box : getVisibleEditBoxes()) {
+            if (box.isFocused() && box.keyPressed(keyCode, scanCode, modifiers)) {
+                return true;
+            }
         }
         return super.keyPressed(keyCode, scanCode, modifiers);
     }
 
     @Override
     public boolean charTyped(char codePoint, int modifiers) {
-        if (currentTab == 0 && intlQuantityBox.isFocused() && intlQuantityBox.charTyped(codePoint, modifiers)) {
-            return true;
-        }
-        if (currentTab == 1) {
-            if (priceBox.isFocused() && priceBox.charTyped(codePoint, modifiers)) return true;
-            if (quantityBox.isFocused() && quantityBox.charTyped(codePoint, modifiers)) return true;
-        }
-        if (currentTab == 4 && companyNameBox.isFocused() && companyNameBox.charTyped(codePoint, modifiers)) {
-            return true;
-        }
-        if (currentTab == 5 && stockQuantityBox.isFocused() && stockQuantityBox.charTyped(codePoint, modifiers)) {
-            return true;
-        }
-        if (currentTab == 6 && isAdmin && adminSubTab == 0) {
-            if (adminBasePriceBox.isFocused() && adminBasePriceBox.charTyped(codePoint, modifiers)) return true;
-            if (adminCommodityIdBox.isFocused() && adminCommodityIdBox.charTyped(codePoint, modifiers)) return true;
-            if (adminItemIdBox.isFocused() && adminItemIdBox.charTyped(codePoint, modifiers)) return true;
-            if (adminDisplayNameBox.isFocused() && adminDisplayNameBox.charTyped(codePoint, modifiers)) return true;
+        for (EditBox box : getVisibleEditBoxes()) {
+            if (box.isFocused() && box.charTyped(codePoint, modifiers)) {
+                return true;
+            }
         }
         return super.charTyped(codePoint, modifiers);
     }
@@ -1520,6 +1436,21 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         adminItemIdBox.setVisible(adminHand);
         adminDisplayNameBox.setVisible(adminHand);
         adminBasePriceBox.setVisible(adminHand);
+    }
+
+    private List<EditBox> getVisibleEditBoxes() {
+        List<EditBox> list = new ArrayList<>();
+        if (currentTab == 0) list.add(intlQuantityBox);
+        if (currentTab == 1) { list.add(priceBox); list.add(quantityBox); }
+        if (currentTab == 4 && menu.getPlayerCompany() == null) list.add(companyNameBox);
+        if (currentTab == 5) list.add(stockQuantityBox);
+        if (currentTab == 6 && isAdmin && adminSubTab == 0) {
+            list.add(adminBasePriceBox);
+            list.add(adminCommodityIdBox);
+            list.add(adminItemIdBox);
+            list.add(adminDisplayNameBox);
+        }
+        return list;
     }
 
     /** 渲染物品图标（12x12，居中在 13px 行高中） */

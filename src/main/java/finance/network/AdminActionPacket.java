@@ -1,23 +1,31 @@
 package finance.network;
 
+import finance.account.AccountManager;
 import finance.commodity.Commodity;
 import finance.commodity.CommodityCategory;
+import finance.commodity.CommodityInventoryManager;
 import finance.commodity.CommodityRegistry;
+import finance.company.Company;
+import finance.company.CompanyManager;
 import finance.market.MarketPrice;
 import finance.data.CommodityInventorySavedData;
 import finance.data.EconomySavedData;
 import finance.gui.FinanceGuiOpener;
 import finance.market.NpcMarketMaker;
+import finance.stock.StockMarketManager;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.network.NetworkEvent;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 import java.util.function.Supplier;
 
@@ -172,20 +180,7 @@ public class AdminActionPacket {
         Commodity commodity = new Commodity(commodityId, fullItemId, displayName, category, basePrice);
         CommodityRegistry.register(commodity);
 
-        // 注入初始库存和价格
-        MarketPrice mp = NpcMarketMaker.getMarketPrice(commodityId);
-        int currentStock = finance.commodity.CommodityInventoryManager.getCommodityAmount(
-                NpcMarketMaker.NPC_UUID, commodityId);
-        if (currentStock < MarketPrice.REFERENCE_STOCK) {
-            finance.commodity.CommodityInventoryManager.setCommodity(
-                    NpcMarketMaker.NPC_UUID, commodityId, (int) MarketPrice.REFERENCE_STOCK);
-        }
-        if (mp != null) {
-            long stockAfterSeed = finance.commodity.CommodityInventoryManager.getCommodityAmount(
-                    NpcMarketMaker.NPC_UUID, commodityId);
-            mp.recomputePrice(stockAfterSeed);
-            mp.resetDayStats();
-        }
+        seedInitialStock(commodityId);
 
         EconomySavedData.markDirty();
         CommodityInventorySavedData.markDirty();
@@ -287,19 +282,7 @@ public class AdminActionPacket {
                 packet.category, packet.basePrice);
         CommodityRegistry.register(commodity);
 
-        MarketPrice mp = NpcMarketMaker.getMarketPrice(id);
-        int currentStock = finance.commodity.CommodityInventoryManager.getCommodityAmount(
-                NpcMarketMaker.NPC_UUID, id);
-        if (currentStock < MarketPrice.REFERENCE_STOCK) {
-            finance.commodity.CommodityInventoryManager.setCommodity(
-                    NpcMarketMaker.NPC_UUID, id, (int) MarketPrice.REFERENCE_STOCK);
-        }
-        if (mp != null) {
-            long stockAfterSeed = finance.commodity.CommodityInventoryManager.getCommodityAmount(
-                    NpcMarketMaker.NPC_UUID, id);
-            mp.recomputePrice(stockAfterSeed);
-            mp.resetDayStats();
-        }
+        seedInitialStock(id);
 
         EconomySavedData.markDirty();
         CommodityInventorySavedData.markDirty();
@@ -317,35 +300,30 @@ public class AdminActionPacket {
         }
 
         // 1. 检查依赖该商品的公司并强制退市
-        java.util.List<finance.company.Company> toDelist = new java.util.ArrayList<>();
-        for (finance.company.Company company : finance.company.CompanyManager.getCompanies()) {
+        List<Company> toDelist = new ArrayList<>();
+        for (Company company : CompanyManager.getCompanies()) {
             if (company.getType().getCommodityIds().contains(id)) {
                 toDelist.add(company);
             }
         }
 
         if (!toDelist.isEmpty()) {
-            // 获取在线玩家列表
-            net.minecraft.server.MinecraftServer server = player.getServer();
-            java.util.List<ServerPlayer> onlinePlayers = server.getPlayerList().getPlayers();
+            MinecraftServer server = player.getServer();
+            List<ServerPlayer> onlinePlayers = server.getPlayerList().getPlayers();
             int playerCount = onlinePlayers.size();
 
-            for (finance.company.Company company : toDelist) {
+            for (Company company : toDelist) {
                 long companyFunds = company.getCash();
                 long distAmount = (playerCount > 0) ? (companyFunds * 10 / 100) / playerCount : 0;
 
-                // 将资金分配给在线玩家
                 if (distAmount > 0 && playerCount > 0) {
                     for (ServerPlayer p : onlinePlayers) {
-                        finance.account.AccountManager.deposit(p.getUUID(), distAmount);
+                        AccountManager.deposit(p.getUUID(), distAmount);
                     }
                 }
 
-                // 移除对应股票
-                finance.stock.StockMarketManager.removeStockByCompanyId(company.getCompanyId());
-
-                // 移除公司
-                finance.company.CompanyManager.removeCompany(company.getCompanyId());
+                StockMarketManager.removeStockByCompanyId(company.getCompanyId());
+                CompanyManager.removeCompany(company.getCompanyId());
 
                 // 全服广播
                 String msg = "§c[金融] 由于商品 " + id + " 被移除，公司「" + company.getName() + "」已强制退市。"
@@ -367,5 +345,17 @@ public class AdminActionPacket {
                 + (toDelist.isEmpty() ? "" : "（同时强制退市 " + toDelist.size() + " 家公司）")));
 
         FinanceGuiOpener.open(player);
+    }
+
+    private static void seedInitialStock(String commodityId) {
+        MarketPrice mp = NpcMarketMaker.getMarketPrice(commodityId);
+        int currentStock = CommodityInventoryManager.getCommodityAmount(NpcMarketMaker.NPC_UUID, commodityId);
+        if (currentStock < MarketPrice.REFERENCE_STOCK) {
+            CommodityInventoryManager.setCommodity(NpcMarketMaker.NPC_UUID, commodityId, (int) MarketPrice.REFERENCE_STOCK);
+        }
+        if (mp != null) {
+            mp.recomputePrice(CommodityInventoryManager.getCommodityAmount(NpcMarketMaker.NPC_UUID, commodityId));
+            mp.resetDayStats();
+        }
     }
 }
