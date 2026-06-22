@@ -8,7 +8,9 @@ import finance.market.MarketPrice;
 import finance.market.NpcMarketMaker;
 import finance.util.MathUtil;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -136,7 +138,7 @@ public class Company {
     /** 每日自动交易 —— 将可出售库存的一部分卖给国际市场变现 */
     public void autoTrade() {
         // 收集候选商品 ID，避免在遍历中修改 inventory
-        java.util.List<String> candidates = new java.util.ArrayList<>();
+        List<String> candidates = new ArrayList<>();
         for (Map.Entry<String, Integer> entry : inventory.entrySet()) {
             if (entry.getValue() > 0 && type.getDailyProduction().containsKey(entry.getKey())) {
                 candidates.add(entry.getKey());

@@ -8,6 +8,7 @@ import finance.data.EconomySavedData;
 import finance.util.MathUtil;
 
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -71,7 +72,7 @@ public class StockMarketManager {
 
     /** 根据公司 ID 移除对应股票，返回被移除的股票（可能为 null） */
     public static Stock removeStockByCompanyId(UUID companyId) {
-        java.util.Iterator<Map.Entry<String, Stock>> it = STOCKS.entrySet().iterator();
+        Iterator<Map.Entry<String, Stock>> it = STOCKS.entrySet().iterator();
         while (it.hasNext()) {
             Stock stock = it.next().getValue();
             if (stock.getCompanyId().equals(companyId)) {
@@ -87,7 +88,7 @@ public class StockMarketManager {
         STOCKS.clear();
     }
 
-    public static TradeResult buy(java.util.UUID playerId, String symbol, long quantity) {
+    public static TradeResult buy(UUID playerId, String symbol, long quantity) {
         Stock stock = getStock(symbol);
         if (stock == null) return TradeResult.fail("未知股票: " + symbol);
         if (quantity <= 0) return TradeResult.fail("数量必须大于 0。");
@@ -113,7 +114,7 @@ public class StockMarketManager {
         return TradeResult.ok("已买入 " + quantity + " 股 " + stock.getSymbol() + "，成交价: " + stock.getLastPrice());
     }
 
-    public static TradeResult sell(java.util.UUID playerId, String symbol, long quantity) {
+    public static TradeResult sell(UUID playerId, String symbol, long quantity) {
         Stock stock = getStock(symbol);
         if (stock == null) return TradeResult.fail("未知股票: " + symbol);
         if (quantity <= 0) return TradeResult.fail("数量必须大于 0。");
