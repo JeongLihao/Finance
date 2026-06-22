@@ -507,9 +507,9 @@ public class MarketCommand {
                                                         .executes(context -> {
                                                             ServerPlayer player = context.getSource().getPlayerOrException();
                                                             String commodity = StringArgumentType.getString(context, "commodity");
-                                                            MarketPrice mp = NpcMarketMaker.getMarketPrice(commodity);
+                                                            MarketPrice mp = NpcMarketMaker.getAllMarketPrices().get(commodity);
                                                             if (mp == null) {
-                                                                player.sendSystemMessage(Component.literal("未知商品: '" + commodity + "'。"));
+                                                                player.sendSystemMessage(Component.literal("该商品未接入国际市场: '" + commodity + "'。"));
                                                                 return 0;
                                                             }
                                                             List<MarketPrice.PriceSnapshot> snaps = mp.getSnapshots();
@@ -535,9 +535,6 @@ public class MarketCommand {
                         // /market international —— 国际市场交易
                         // ================================================
                         .then(registerInternationalMarketCommands("international"))
-
-                        // /market npc —— 旧命令兼容别名
-                        .then(registerInternationalMarketCommands("npc"))
 
                         // ================================================
                         // /market top —— 涨幅排行
@@ -690,13 +687,13 @@ public class MarketCommand {
                                                                     );
 
                                                             MarketPrice mp =
-                                                                    NpcMarketMaker.getMarketPrice(commodity);
+                                                                    NpcMarketMaker.getAllMarketPrices().get(commodity);
 
                                                             if (mp == null) {
 
                                                                 player.sendSystemMessage(
                                                                         Component.literal(
-                                                                                "未知商品: '"
+                                                                                "该商品未接入国际市场: '"
                                                                                         + commodity + "'。"
                                                                         )
                                                                 );
@@ -1084,9 +1081,9 @@ public class MarketCommand {
         ServerPlayer player = context.getSource().getPlayerOrException();
         String commodity = StringArgumentType.getString(context, "commodity");
         int quantity = IntegerArgumentType.getInteger(context, "quantity");
-        MarketPrice price = NpcMarketMaker.getMarketPrice(commodity);
+        MarketPrice price = NpcMarketMaker.getAllMarketPrices().get(commodity);
         if (price == null) {
-            player.sendSystemMessage(Component.literal("未知商品: '" + commodity + "'。"));
+            player.sendSystemMessage(Component.literal("该商品未接入国际市场: '" + commodity + "'。"));
             return null;
         }
         return new NpcTradeContext(player, commodity, quantity, price);

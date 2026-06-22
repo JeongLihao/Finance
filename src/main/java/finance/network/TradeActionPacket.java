@@ -133,9 +133,9 @@ public class TradeActionPacket {
             player.sendSystemMessage(Component.literal("数量必须大于 0。"));
             return false;
         }
-        MarketPrice mp = NpcMarketMaker.getMarketPrice(packet.commodityId);
+        MarketPrice mp = NpcMarketMaker.getAllMarketPrices().get(packet.commodityId);
         if (mp == null) {
-            player.sendSystemMessage(Component.literal("未知商品。"));
+            player.sendSystemMessage(Component.literal("该商品未接入国际市场，只能通过玩家挂单交易。"));
             return false;
         }
 
@@ -170,9 +170,9 @@ public class TradeActionPacket {
             player.sendSystemMessage(Component.literal("数量必须大于 0。"));
             return false;
         }
-        MarketPrice mp = NpcMarketMaker.getMarketPrice(packet.commodityId);
+        MarketPrice mp = NpcMarketMaker.getAllMarketPrices().get(packet.commodityId);
         if (mp == null) {
-            player.sendSystemMessage(Component.literal("未知商品。"));
+            player.sendSystemMessage(Component.literal("该商品未接入国际市场，只能通过玩家挂单交易。"));
             return false;
         }
 

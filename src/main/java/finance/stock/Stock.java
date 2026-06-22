@@ -65,4 +65,17 @@ public class Stock {
             dayVolume += quantity;
         }
     }
+
+    public boolean setLastPrice(long price) {
+        if (price <= 0 || price == lastPrice) {
+            return false;
+        }
+        lastPrice = price;
+        return true;
+    }
+
+    public void newDayReset() {
+        previousClose = lastPrice;
+        dayVolume = 0;
+    }
 }
