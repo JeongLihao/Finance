@@ -40,15 +40,13 @@ public class FinanceGuiOpener {
                     price.getDayChange(), price.getDayVolume(), stock));
         }
 
-        // 2. 玩家订单
+        // 2. 全市场订单（标记当前玩家自己的订单）
         List<FinanceMenu.OrderRow> orderRows = new ArrayList<>();
         List<Order> orders = MarketManager.getOrders();
         for (Order order : orders) {
-            if (order.getPlayerId().equals(playerId)) {
-                orderRows.add(new FinanceMenu.OrderRow(
-                        order.getOrderId(), order.getCommodityId(), order.getType().name(),
-                        order.getPrice(), order.getQuantity()));
-            }
+            orderRows.add(new FinanceMenu.OrderRow(
+                    order.getOrderId(), order.getCommodityId(), order.getType().name(),
+                    order.getPrice(), order.getQuantity(), order.getPlayerId().equals(playerId)));
         }
 
         // 3. 账户

@@ -5,6 +5,8 @@ import finance.company.Company;
 import finance.company.CompanyManager;
 import finance.company.CompanyType;
 import finance.data.EconomySavedData;
+import finance.market.MarketPrice;
+import finance.market.NpcMarketMaker;
 import finance.util.MathUtil;
 
 import java.util.Collection;
@@ -88,6 +90,35 @@ public class StockMarketManager {
         STOCKS.clear();
     }
 
+    public static void resetDayStats() {
+        for (Stock stock : STOCKS.values()) {
+            stock.newDayReset();
+        }
+        EconomySavedData.markDirty();
+    }
+
+    public static void updatePricesFromCompaniesAndMarket() {
+        boolean changed = false;
+        for (Stock stock : STOCKS.values()) {
+            Company company = CompanyManager.getCompany(stock.getCompanyId());
+            if (company == null || stock.getTotalShares() <= 0) {
+                continue;
+            }
+
+            long valuationPrice = Math.max(1, company.getEstimatedValue() / stock.getTotalShares());
+            double commodityChange = averageCommodityChange(company.getType());
+            double marketFactor = 1.0 + (commodityChange / 100.0) * 0.35;
+            marketFactor = Math.max(0.60, Math.min(1.60, marketFactor));
+
+            long targetPrice = Math.max(1, Math.round(valuationPrice * marketFactor));
+            long smoothedPrice = Math.max(1, Math.round(stock.getLastPrice() * 0.75 + targetPrice * 0.25));
+            changed |= stock.setLastPrice(smoothedPrice);
+        }
+        if (changed) {
+            EconomySavedData.markDirty();
+        }
+    }
+
     public static TradeResult buy(UUID playerId, String symbol, long quantity) {
         Stock stock = getStock(symbol);
         if (stock == null) return TradeResult.fail("未知股票: " + symbol);
@@ -163,6 +194,20 @@ public class StockMarketManager {
             case BUILDING_BLOCKS -> "石头";
             case FOOD -> "小麦";
         };
+    }
+
+    private static double averageCommodityChange(CompanyType type) {
+        double total = 0;
+        int count = 0;
+        for (String commodityId : type.getCommodityIds()) {
+            MarketPrice mp = NpcMarketMaker.getAllMarketPrices().get(commodityId);
+            if (mp == null) {
+                continue;
+            }
+            total += mp.getDayChange();
+            count++;
+        }
+        return count == 0 ? 0 : total / count;
     }
 
     public record TradeResult(boolean success, String message) {

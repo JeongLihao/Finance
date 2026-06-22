@@ -19,7 +19,7 @@ public class FinanceMenu extends AbstractContainerMenu {
     public record MarketRow(String commodityId, long midPrice, long bidPrice, long askPrice,
                             double dayChange, int dayVolume, int marketStock) {}
 
-    public record OrderRow(UUID orderId, String commodityId, String type, long price, int quantity) {}
+    public record OrderRow(UUID orderId, String commodityId, String type, long price, int quantity, boolean ownedByPlayer) {}
 
     public record CompanyInfo(String name, String type, long cash, long inventoryValue,
                                long totalValue, Map<String, Integer> inventory, boolean playerOwned) {}
@@ -149,6 +149,7 @@ public class FinanceMenu extends AbstractContainerMenu {
             buffer.writeUtf(r.type());
             buffer.writeLong(r.price());
             buffer.writeVarInt(r.quantity());
+            buffer.writeBoolean(r.ownedByPlayer());
         }
     }
 
@@ -158,7 +159,7 @@ public class FinanceMenu extends AbstractContainerMenu {
         for (int i = 0; i < size; i++) {
             list.add(new OrderRow(
                     buffer.readUUID(), buffer.readUtf(), buffer.readUtf(),
-                    buffer.readLong(), buffer.readVarInt()));
+                    buffer.readLong(), buffer.readVarInt(), buffer.readBoolean()));
         }
         return list;
     }

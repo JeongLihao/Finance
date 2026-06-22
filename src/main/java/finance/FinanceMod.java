@@ -131,6 +131,7 @@ public class FinanceMod {
 
         // 初始化系统公司股票
         StockMarketManager.seedSystemStocksIfNeeded();
+        StockMarketManager.updatePricesFromCompaniesAndMarket();
     }
 
     /** Tick 调度 —— 驱动事件压力、动量衰减和噪音刷新 */
@@ -147,20 +148,24 @@ public class FinanceMod {
         // 每个MC天发出一轮事件脉冲 + 公司经营（24000 ticks）
         if (tick % 24000 == 0) {
             NpcMarketMaker.resetAllDayStats();
+            StockMarketManager.resetDayStats();
             EventManager.onDayTick(server);
             CompanyManager.tickAll();
             NpcMarketMaker.naturalConsumeAll();
+            StockMarketManager.updatePricesFromCompaniesAndMarket();
         }
 
         // 每3分钟刷新噪音 + 动量衰减 + 重算价格（3600 ticks）
         if (tick % 3600 == 0) {
             NpcMarketMaker.tickAllMomentum();
             NpcMarketMaker.tickAllNoise();
+            StockMarketManager.updatePricesFromCompaniesAndMarket();
         }
         // 每分钟仅衰减动量并重算（1200 ticks，排除与 3600 重叠的帧）
         else if (tick % 1200 == 0) {
             NpcMarketMaker.tickAllMomentum();
             NpcMarketMaker.recalculateAll();
+            StockMarketManager.updatePricesFromCompaniesAndMarket();
         }
     }
 }

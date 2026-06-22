@@ -147,11 +147,6 @@ public class MarketManager {
                 continue;  // 同方向，不撮合
             }
 
-            if (existingOrder.getPlayerId()
-                    .equals(newOrder.getPlayerId())) {
-                continue;  // 禁止自成交
-            }
-
             // 价格匹配：买方出价必须 ≥ 卖方要价
             boolean priceMatch;
             if (newOrder.getType() == OrderType.BUY) {
@@ -335,6 +330,87 @@ public class MarketManager {
 
         EconomySavedData.markDirty();
         return true;
+    }
+
+    public static TakeOrderResult takeOrder(UUID orderId, UUID takerId) {
+        Order target = null;
+        for (Order order : ORDERS) {
+            if (order.getOrderId().equals(orderId)) {
+                target = order;
+                break;
+            }
+        }
+        if (target == null) {
+            return TakeOrderResult.fail("订单不存在或已成交。");
+        }
+
+        int qty = target.getQuantity();
+        if (qty <= 0) {
+            return TakeOrderResult.fail("订单数量无效。");
+        }
+
+        long total = MathUtil.multiplyExactOrNegative1(target.getPrice(), qty);
+        if (total <= 0) {
+            return TakeOrderResult.fail("订单金额过大。");
+        }
+
+        UUID buyer;
+        UUID seller;
+        if (target.getType() == OrderType.SELL) {
+            buyer = takerId;
+            seller = target.getPlayerId();
+            if (!AccountManager.withdraw(buyer, total)) {
+                return TakeOrderResult.fail("余额不足，需要: " + total);
+            }
+            AccountManager.deposit(seller, total);
+            CommodityInventoryManager.addCommodity(buyer, target.getCommodityId(), qty);
+        } else {
+            buyer = target.getPlayerId();
+            seller = takerId;
+            if (!CommodityInventoryManager.removeCommodity(seller, target.getCommodityId(), qty)) {
+                return TakeOrderResult.fail("库存不足，需要: " + qty);
+            }
+            if (!AccountManager.settleFrozenFunds(buyer, total, total)) {
+                CommodityInventoryManager.addCommodity(seller, target.getCommodityId(), qty);
+                return TakeOrderResult.fail("买单资金结算失败。");
+            }
+            AccountManager.deposit(seller, total);
+            CommodityInventoryManager.addCommodity(buyer, target.getCommodityId(), qty);
+        }
+
+        removeOrderDirect(target);
+        AccountManager.addTransactionRecord(
+                new TransactionRecord(buyer, seller, total, TransactionType.MARKET_TRADE)
+        );
+        addTradeToHistory(new Trade(buyer, seller, target.getCommodityId(), target.getPrice(), qty));
+        MarketPrice mp = NpcMarketMaker.getMarketPrice(target.getCommodityId());
+        if (mp != null) {
+            mp.recordTrade(target.getPrice(), qty);
+        }
+        EconomySavedData.markDirty();
+        String action = target.getType() == OrderType.SELL ? "买入" : "卖出";
+        return TakeOrderResult.ok("已" + action + " " + qty + "x " + target.getCommodityId() + "，单价: " + target.getPrice());
+    }
+
+    private static void removeOrderDirect(Order order) {
+        ORDERS.remove(order);
+        List<Order> commodityList = ORDERS_BY_COMMODITY.get(order.getCommodityId());
+        if (commodityList != null) {
+            commodityList.remove(order);
+            if (commodityList.isEmpty()) {
+                ORDERS_BY_COMMODITY.remove(order.getCommodityId());
+            }
+        }
+    }
+
+    public record TakeOrderResult(boolean success, String message) {
+        public static TakeOrderResult ok(String message) {
+            return new TakeOrderResult(true, message);
+        }
+
+        public static TakeOrderResult fail(String message) {
+            return new TakeOrderResult(false, message);
+        }
     }
 
     // ================================================================
