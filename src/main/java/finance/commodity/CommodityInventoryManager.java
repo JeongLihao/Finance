@@ -84,4 +84,21 @@ public class CommodityInventoryManager {
 
         return INVENTORIES;
     }
+
+    public static int removeCommodityFromAll(String commodityId) {
+        int affectedInventories = 0;
+        for (CommodityInventory inventory : INVENTORIES.values()) {
+            if (inventory.getAllCommodities().remove(commodityId) != null) {
+                affectedInventories++;
+            }
+        }
+        if (affectedInventories > 0) {
+            CommodityInventorySavedData.markDirty();
+        }
+        return affectedInventories;
+    }
+
+    public static void clearInventoriesDirect() {
+        INVENTORIES.clear();
+    }
 }
