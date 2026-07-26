@@ -1,5 +1,6 @@
 package finance.stock;
 
+import finance.account.AccountManager;
 import finance.data.EconomySavedData;
 
 import java.util.HashMap;
@@ -51,5 +52,39 @@ public class StockPortfolioManager {
 
     public static void putHoldingDirect(UUID playerId, String symbol, StockHolding holding) {
         getPortfolio(playerId).put(symbol, holding);
+    }
+
+    public static int liquidateHolding(String symbol, long price) {
+        String normalizedSymbol = StockMarketManager.normalizeSymbol(symbol);
+        int liquidated = 0;
+
+        for (Map.Entry<UUID, Map<String, StockHolding>> portfolioEntry : PORTFOLIOS.entrySet()) {
+            Map<String, StockHolding> portfolio = portfolioEntry.getValue();
+            StockHolding holding = portfolio.get(normalizedSymbol);
+            if (holding == null) {
+                continue;
+            }
+
+            long compensation = multiplyOrZero(price, holding.getQuantity());
+            if (compensation > 0) {
+                AccountManager.deposit(portfolioEntry.getKey(), compensation);
+            }
+            portfolio.remove(normalizedSymbol);
+            liquidated++;
+        }
+
+        if (liquidated > 0) {
+            PORTFOLIOS.entrySet().removeIf(entry -> entry.getValue().isEmpty());
+            EconomySavedData.markDirty();
+        }
+        return liquidated;
+    }
+
+    private static long multiplyOrZero(long price, long quantity) {
+        try {
+            return Math.multiplyExact(price, quantity);
+        } catch (ArithmeticException ex) {
+            return 0;
+        }
     }
 }

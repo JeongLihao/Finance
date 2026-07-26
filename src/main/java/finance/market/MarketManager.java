@@ -148,6 +148,10 @@ public class MarketManager {
             }
 
             // 价格匹配：买方出价必须 ≥ 卖方要价
+            if (existingOrder.getPlayerId().equals(newOrder.getPlayerId())) {
+                continue;
+            }
+
             boolean priceMatch;
             if (newOrder.getType() == OrderType.BUY) {
                 priceMatch = newOrder.getPrice()
@@ -344,6 +348,14 @@ public class MarketManager {
             return TakeOrderResult.fail("订单不存在或已成交。");
         }
 
+        if (target.getPlayerId().equals(takerId)) {
+            return TakeOrderResult.fail("不能吃下自己的订单。");
+        }
+
+        if (CommodityRegistry.getCommodity(target.getCommodityId()) == null) {
+            return TakeOrderResult.fail("商品已被移除，订单不可交易。");
+        }
+
         int qty = target.getQuantity();
         if (qty <= 0) {
             return TakeOrderResult.fail("订单数量无效。");
@@ -390,6 +402,46 @@ public class MarketManager {
         EconomySavedData.markDirty();
         String action = target.getType() == OrderType.SELL ? "买入" : "卖出";
         return TakeOrderResult.ok("已" + action + " " + qty + "x " + target.getCommodityId() + "，单价: " + target.getPrice());
+    }
+
+    public static int cancelOrdersForCommodity(String commodityId) {
+        int cancelled = 0;
+        Iterator<Order> iterator = ORDERS.iterator();
+        while (iterator.hasNext()) {
+            Order order = iterator.next();
+            if (!order.getCommodityId().equals(commodityId)) {
+                continue;
+            }
+
+            refundOrderAssets(order);
+            iterator.remove();
+            cancelled++;
+        }
+
+        List<Order> commodityList = ORDERS_BY_COMMODITY.remove(commodityId);
+        if (commodityList != null) {
+            commodityList.clear();
+        }
+
+        if (cancelled > 0) {
+            EconomySavedData.markDirty();
+        }
+        return cancelled;
+    }
+
+    private static void refundOrderAssets(Order order) {
+        if (order.getType() == OrderType.BUY) {
+            long totalCost = MathUtil.multiplyExactOrNegative1(order.getPrice(), order.getQuantity());
+            if (totalCost > 0) {
+                AccountManager.unfreezeFunds(order.getPlayerId(), totalCost);
+            }
+        } else if (order.getQuantity() > 0) {
+            CommodityInventoryManager.addCommodity(
+                    order.getPlayerId(),
+                    order.getCommodityId(),
+                    order.getQuantity()
+            );
+        }
     }
 
     private static void removeOrderDirect(Order order) {

@@ -363,6 +363,16 @@ public class EconomySavedData extends SavedData {
 
         EconomySavedData data = new EconomySavedData();
 
+        AccountManager.clearAccountsDirect();
+        AccountManager.clearTransactions();
+        MarketManager.clearTradeHistory();
+        MarketManager.clearOrders();
+        CompanyManager.clearCompaniesDirect();
+        NpcMarketMaker.clearMarketPrices();
+        EventManager.clearActiveEvents();
+        StockMarketManager.clearStocks();
+        StockPortfolioManager.clearPortfolios();
+
         // ---- 加载账户余额 ----
         ListTag accountsTag = tag.getList(
                 "Accounts",

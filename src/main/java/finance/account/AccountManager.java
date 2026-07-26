@@ -45,6 +45,10 @@ public class AccountManager {
         return ACCOUNTS;
     }
 
+    public static void clearAccountsDirect() {
+        ACCOUNTS.clear();
+    }
+
     // ================================================================
     // 基础资金操作
     // ================================================================

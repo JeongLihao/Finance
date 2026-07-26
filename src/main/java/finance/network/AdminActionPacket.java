@@ -11,8 +11,11 @@ import finance.market.MarketPrice;
 import finance.data.CommodityInventorySavedData;
 import finance.data.EconomySavedData;
 import finance.gui.FinanceGuiOpener;
+import finance.market.MarketManager;
 import finance.market.NpcMarketMaker;
+import finance.stock.Stock;
 import finance.stock.StockMarketManager;
+import finance.stock.StockPortfolioManager;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.resources.ResourceLocation;
@@ -263,7 +266,6 @@ public class AdminActionPacket {
     }
 
     private static void handleAdd(ServerPlayer player, AdminActionPacket packet) {
-        System.out.println("[Finance Debug] 服务端 handleAdd: id=" + packet.commodityId + " itemId=" + packet.itemId + " name=" + packet.displayName + " price=" + packet.basePrice + " cat=" + packet.category);
         String id = packet.commodityId.trim().toLowerCase();
         if (id.isEmpty() || id.length() > 32) {
             player.sendSystemMessage(Component.literal("商品 ID 长度需为 1-32 个字符。"));
@@ -300,6 +302,10 @@ public class AdminActionPacket {
         }
 
         // 1. 检查依赖该商品的公司并强制退市
+        int cancelledOrders = MarketManager.cancelOrdersForCommodity(id);
+        int clearedInventories = CommodityInventoryManager.removeCommodityFromAll(id);
+        int liquidatedHoldings = 0;
+
         List<Company> toDelist = new ArrayList<>();
         for (Company company : CompanyManager.getCompanies()) {
             if (company.getType().getCommodityIds().contains(id)) {
@@ -322,7 +328,13 @@ public class AdminActionPacket {
                     }
                 }
 
-                StockMarketManager.removeStockByCompanyId(company.getCompanyId());
+                Stock removedStock = StockMarketManager.removeStockByCompanyId(company.getCompanyId());
+                if (removedStock != null) {
+                    liquidatedHoldings += StockPortfolioManager.liquidateHolding(
+                            removedStock.getSymbol(),
+                            removedStock.getLastPrice()
+                    );
+                }
                 CompanyManager.removeCompany(company.getCompanyId());
 
                 // 全服广播

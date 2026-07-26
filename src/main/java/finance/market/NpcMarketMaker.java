@@ -9,6 +9,7 @@ import finance.account.TransactionType;
 import finance.commodity.CommodityInventoryManager;
 import finance.commodity.CommodityRegistry;
 import finance.commodity.Commodity;
+import finance.data.EconomySavedData;
 import finance.event.MarketEvent;
 import finance.util.MathUtil;
 
@@ -187,6 +188,7 @@ public class NpcMarketMaker {
         if (price != null) {
             price.onNpcTrade(newNpcStock, npcWasBuyer, quantity);
             price.recordTrade(tradePrice, quantity);
+            EconomySavedData.markDirty();
         }
     }
 
@@ -206,6 +208,7 @@ public class NpcMarketMaker {
 
         MarketPrice mp = new MarketPrice(commodityId, commodity.getBasePrice(), DEFAULT_SPREAD);
         MARKET_PRICES.put(commodityId, mp);
+        EconomySavedData.markDirty();
         return mp;
     }
 
@@ -220,6 +223,11 @@ public class NpcMarketMaker {
 
     public static void clearMarketPrices() {
         MARKET_PRICES.clear();
+        seeded = false;
+    }
+
+    public static void resetSeedState() {
+        seeded = false;
     }
 
     // ================================================================
@@ -236,10 +244,14 @@ public class NpcMarketMaker {
         }
         seeded = true;
 
-        // 注入初始资金
-        long npcBalance = AccountManager.getBalance(NPC_UUID);
-        if (npcBalance < INITIAL_NPC_BALANCE) {
-            AccountManager.deposit(NPC_UUID, INITIAL_NPC_BALANCE - npcBalance);
+        boolean freshMarket = MARKET_PRICES.isEmpty();
+
+        // 仅在全新市场注入初始资金，避免服务器重启反复补钱。
+        if (freshMarket) {
+            long npcBalance = AccountManager.getBalance(NPC_UUID);
+            if (npcBalance < INITIAL_NPC_BALANCE) {
+                AccountManager.deposit(NPC_UUID, INITIAL_NPC_BALANCE - npcBalance);
+            }
         }
 
         // 预创建价格 + 注入初始库存
@@ -260,14 +272,11 @@ public class NpcMarketMaker {
                 mp.recomputePrice(stockAfterSeed);
                 mp.resetDayStats();
             } else {
-                // 从磁盘恢复的已有商品：确保库存充足，保留已保存的统计与短期因子
-                if (actualStock < INITIAL_NPC_STOCK) {
-                    CommodityInventoryManager.setCommodity(NPC_UUID, id, INITIAL_NPC_STOCK);
-                }
-                long stockAfterSeed = CommodityInventoryManager.getCommodityAmount(NPC_UUID, id);
-                mp.recomputePrice(stockAfterSeed);
+                // 从磁盘恢复的已有商品只按实际库存重算价格，不在重启时补满库存。
+                mp.recomputePrice(actualStock);
             }
         }
+        EconomySavedData.markDirty();
     }
 
     // ================================================================
@@ -297,12 +306,16 @@ public class NpcMarketMaker {
 
             mp.recomputePrice(newStock);
         }
+        EconomySavedData.markDirty();
     }
 
     /** 每分钟衰减动能（不重算价格，由调用方统一 recalculate） */
     public static void tickAllMomentum() {
         for (MarketPrice mp : MARKET_PRICES.values()) {
             mp.tickMomentum();
+        }
+        if (!MARKET_PRICES.isEmpty()) {
+            EconomySavedData.markDirty();
         }
     }
 
@@ -312,6 +325,9 @@ public class NpcMarketMaker {
             mp.tickNoise();
             mp.recalculateFromCurrent();
         }
+        if (!MARKET_PRICES.isEmpty()) {
+            EconomySavedData.markDirty();
+        }
     }
 
     /** 动量衰减后统一重算价格（每分钟调用，避免与噪音重叠） */
@@ -319,12 +335,18 @@ public class NpcMarketMaker {
         for (MarketPrice mp : MARKET_PRICES.values()) {
             mp.recalculateFromCurrent();
         }
+        if (!MARKET_PRICES.isEmpty()) {
+            EconomySavedData.markDirty();
+        }
     }
 
     /** 每个 MC 天结束时重置所有商品的日内统计 */
     public static void resetAllDayStats() {
         for (MarketPrice mp : MARKET_PRICES.values()) {
             mp.newDayReset();
+        }
+        if (!MARKET_PRICES.isEmpty()) {
+            EconomySavedData.markDirty();
         }
     }
 
@@ -337,6 +359,7 @@ public class NpcMarketMaker {
         if (mp != null) {
             mp.applyEvent(event);
             mp.recalculateFromCurrent();
+            EconomySavedData.markDirty();
         }
     }
 
@@ -345,6 +368,9 @@ public class NpcMarketMaker {
             mp.applyEvent(event);
             mp.recalculateFromCurrent();
         }
+        if (!MARKET_PRICES.isEmpty()) {
+            EconomySavedData.markDirty();
+        }
     }
 
     public static void removeEvent(String commodityId, MarketEvent event) {
@@ -352,6 +378,7 @@ public class NpcMarketMaker {
         if (mp != null && mp.getActiveEvent() == event) {
             mp.removeEvent();
             mp.recalculateFromCurrent();
+            EconomySavedData.markDirty();
         }
     }
 
@@ -361,6 +388,9 @@ public class NpcMarketMaker {
                 mp.removeEvent();
                 mp.recalculateFromCurrent();
             }
+        }
+        if (!MARKET_PRICES.isEmpty()) {
+            EconomySavedData.markDirty();
         }
     }
 }

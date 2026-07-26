@@ -115,6 +115,8 @@ public class FinanceMod {
             ServerStartingEvent event
     ) {
 
+        NpcMarketMaker.resetSeedState();
+
         EconomySavedData.get(
                 event.getServer()
         );

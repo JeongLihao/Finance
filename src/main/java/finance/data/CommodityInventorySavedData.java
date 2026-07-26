@@ -89,6 +89,8 @@ public class CommodityInventorySavedData extends SavedData {
         CommodityInventorySavedData data =
                 new CommodityInventorySavedData();
 
+        CommodityInventoryManager.clearInventoriesDirect();
+
         ListTag playersTag =
                 tag.getList(
                         "Inventories",
