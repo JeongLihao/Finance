@@ -320,10 +320,18 @@ public class EconomySavedData extends SavedData {
             stockTag.putString("Name", stock.getName());
             stockTag.putUUID("CompanyUUID", stock.getCompanyId());
             stockTag.putLong("TotalShares", stock.getTotalShares());
-            stockTag.putLong("AvailableShares", stock.getAvailableShares());
+            stockTag.putLong("FloatShares", stock.getFloatShares());
+            stockTag.putLong("OwnerShares", stock.getOwnerShares());
+
+            // 新引擎字段
             stockTag.putLong("LastPrice", stock.getLastPrice());
+            stockTag.putLong("FairValue", stock.getFairValue());
+            stockTag.putDouble("TradeMomentum", stock.getTradeMomentum());
             stockTag.putLong("PreviousClose", stock.getPreviousClose());
             stockTag.putLong("DayVolume", stock.getDayVolume());
+            stockTag.putLong("DayHigh", stock.getDayHigh());
+            stockTag.putLong("DayLow", stock.getDayLow());
+
             stocksTag.add(stockTag);
         }
         tag.put("Stocks", stocksTag);
@@ -698,16 +706,37 @@ public class EconomySavedData extends SavedData {
             ListTag stocksTag = tag.getList("Stocks", Tag.TAG_COMPOUND);
             for (Tag rawTag : stocksTag) {
                 CompoundTag stockTag = (CompoundTag) rawTag;
-                StockMarketManager.putStockDirect(new Stock(
-                        stockTag.getString("Symbol"),
-                        stockTag.getString("Name"),
-                        stockTag.getUUID("CompanyUUID"),
-                        stockTag.getLong("TotalShares"),
-                        stockTag.getLong("AvailableShares"),
-                        stockTag.getLong("LastPrice"),
-                        stockTag.getLong("PreviousClose"),
-                        stockTag.getLong("DayVolume")
-                ));
+
+                String symbol = stockTag.getString("Symbol");
+                String name = stockTag.getString("Name");
+                UUID companyUuid = stockTag.getUUID("CompanyUUID");
+                long totalShares = stockTag.getLong("TotalShares");
+
+                // 新字段，旧存档缺失时用默认值
+                long floatShares = stockTag.contains("FloatShares")
+                        ? stockTag.getLong("FloatShares")
+                        : stockTag.getLong("AvailableShares"); // 向后兼容：用旧的 AvailableShares
+                long ownerShares = stockTag.contains("OwnerShares")
+                        ? stockTag.getLong("OwnerShares")
+                        : 0;
+
+                long currentPrice = stockTag.getLong("LastPrice");
+                long fairValue = stockTag.contains("FairValue")
+                        ? stockTag.getLong("FairValue")
+                        : currentPrice; // 旧存档：fairValue = currentPrice
+
+                Stock stock = new Stock(symbol, name, companyUuid, totalShares,
+                        floatShares, ownerShares, currentPrice, fairValue);
+
+                // 恢复定价引擎字段
+                if (stockTag.contains("TradeMomentum")) {
+                    stock.setTradeMomentum(stockTag.getDouble("TradeMomentum"));
+                }
+                if (stockTag.contains("PreviousClose")) {
+                    stock.setDayOpen(stockTag.getLong("PreviousClose"));
+                }
+
+                StockMarketManager.putStockDirect(stock);
             }
         }
 

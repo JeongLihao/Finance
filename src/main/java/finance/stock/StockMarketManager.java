@@ -37,15 +37,16 @@ public class StockMarketManager {
                 continue;
             }
             long price = Math.max(1, company.getEstimatedValue() / DEFAULT_TOTAL_SHARES);
+            // 用完整构造：symbol, name, companyId, totalShares, floatShares, ownerShares, currentPrice, fairValue
             STOCKS.put(symbol, new Stock(
                     symbol,
                     company.getName(),
                     company.getCompanyId(),
                     DEFAULT_TOTAL_SHARES,
-                    DEFAULT_TOTAL_SHARES,
-                    price,
-                    price,
-                    0
+                    DEFAULT_TOTAL_SHARES,    // floatShares = totalShares（初始全流通）
+                    0,                        // ownerShares = 0（系统不持有）
+                    price,                    // currentPrice
+                    price                     // fairValue（初始等于 currentPrice）
             ));
         }
         EconomySavedData.markDirty();
@@ -97,7 +98,12 @@ public class StockMarketManager {
         EconomySavedData.markDirty();
     }
 
-    public static void updatePricesFromCompaniesAndMarket() {
+    /**
+     * 每 MC 天调用 —— 基本面更新（新引擎）。
+     * 根据公司最新估值，重新计算每只股票的 fairValue，驱动价格均值回归。
+     * 替代旧的 updatePricesFromCompaniesAndMarket 覆盖式逻辑。
+     */
+    public static void updateFairValuesAndResetDay() {
         boolean changed = false;
         for (Stock stock : STOCKS.values()) {
             Company company = CompanyManager.getCompany(stock.getCompanyId());
@@ -105,17 +111,41 @@ public class StockMarketManager {
                 continue;
             }
 
-            long valuationPrice = Math.max(1, company.getEstimatedValue() / stock.getTotalShares());
-            double commodityChange = averageCommodityChange(company.getType());
-            double marketFactor = 1.0 + (commodityChange / 100.0) * 0.35;
-            marketFactor = Math.max(0.60, Math.min(1.60, marketFactor));
+            long companyValue = company.getEstimatedValue();
+            long dailyProfit = 0; // P3 时从 Company.getDailyProfit() 读取
 
-            long targetPrice = Math.max(1, Math.round(valuationPrice * marketFactor));
-            long smoothedPrice = Math.max(1, Math.round(stock.getLastPrice() * 0.75 + targetPrice * 0.25));
-            changed |= stock.setLastPrice(smoothedPrice);
+            stock.updateFairValueAndResetDay(companyValue, stock.getTotalShares(), dailyProfit);
+            changed = true;
         }
         if (changed) {
             EconomySavedData.markDirty();
+        }
+    }
+
+    /**
+     * 每分钟调用（FinanceMod.onServerTick 中）—— 动量衰减。
+     */
+    public static void tickMomentum() {
+        for (Stock stock : STOCKS.values()) {
+            stock.tickMomentum();
+        }
+    }
+
+    /**
+     * 每 3 分钟调用 —— 噪音游走。
+     */
+    public static void tickNoise() {
+        for (Stock stock : STOCKS.values()) {
+            stock.tickNoise();
+        }
+    }
+
+    /**
+     * 动量或噪音变化后立即重算价格。
+     */
+    public static void recalculateAllPrices() {
+        for (Stock stock : STOCKS.values()) {
+            stock.recalculateFromCurrent();
         }
     }
 
@@ -123,8 +153,8 @@ public class StockMarketManager {
         Stock stock = getStock(symbol);
         if (stock == null) return TradeResult.fail("未知股票: " + symbol);
         if (quantity <= 0) return TradeResult.fail("数量必须大于 0。");
-        if (stock.getAvailableShares() < quantity) {
-            return TradeResult.fail("流通股不足，可买: " + stock.getAvailableShares());
+        if (stock.getFloatShares() < quantity) {
+            return TradeResult.fail("流通股不足，可买: " + stock.getFloatShares());
         }
 
         if (quantity > Integer.MAX_VALUE) {
@@ -139,8 +169,11 @@ public class StockMarketManager {
             AccountManager.deposit(playerId, totalCost);
             return TradeResult.fail("流通股不足。");
         }
+
+        // 记录成交，通知定价引擎（推高价格）
+        stock.recordTrade(stock.getLastPrice(), quantity, true);
+
         StockPortfolioManager.addHolding(playerId, stock.getSymbol(), quantity, stock.getLastPrice());
-        stock.recordTrade(stock.getLastPrice(), quantity);
         EconomySavedData.markDirty();
         return TradeResult.ok("已买入 " + quantity + " 股 " + stock.getSymbol() + "，成交价: " + stock.getLastPrice());
     }
@@ -162,8 +195,11 @@ public class StockMarketManager {
         if (!StockPortfolioManager.removeHolding(playerId, stock.getSymbol(), quantity)) {
             return TradeResult.fail("持仓不足。");
         }
+
         stock.addAvailableShares(quantity);
-        stock.recordTrade(stock.getLastPrice(), quantity);
+        // 记录成交，通知定价引擎（压低价格）
+        stock.recordTrade(stock.getLastPrice(), quantity, false);
+
         AccountManager.deposit(playerId, proceeds);
         EconomySavedData.markDirty();
         return TradeResult.ok("已卖出 " + quantity + " 股 " + stock.getSymbol() + "，成交价: " + stock.getLastPrice());
@@ -196,19 +232,6 @@ public class StockMarketManager {
         };
     }
 
-    private static double averageCommodityChange(CompanyType type) {
-        double total = 0;
-        int count = 0;
-        for (String commodityId : type.getCommodityIds()) {
-            MarketPrice mp = NpcMarketMaker.getAllMarketPrices().get(commodityId);
-            if (mp == null) {
-                continue;
-            }
-            total += mp.getDayChange();
-            count++;
-        }
-        return count == 0 ? 0 : total / count;
-    }
 
     public record TradeResult(boolean success, String message) {
         public static TradeResult ok(String message) {
