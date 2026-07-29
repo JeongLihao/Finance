@@ -413,15 +413,7 @@ public class EconomySavedData extends SavedData {
 
         EconomySavedData data = new EconomySavedData();
 
-        AccountManager.clearAccountsDirect();
-        AccountManager.clearTransactions();
-        MarketManager.clearTradeHistory();
-        MarketManager.clearOrders();
-        CompanyManager.clearCompaniesDirect();
-        NpcMarketMaker.clearMarketPrices();
-        EventManager.clearActiveEvents();
-        StockMarketManager.clearStocks();
-        StockPortfolioManager.clearPortfolios();
+        resetRuntimeState();
 
         // ---- 加载账户余额 ----
         ListTag accountsTag = tag.getList(
@@ -862,6 +854,32 @@ public class EconomySavedData extends SavedData {
     // 实例管理
     // ================================================================
 
+    /**
+     * 清空所有绑定到具体世界的运行时经济状态。
+     *
+     * <p>本模组大量管理器仍是静态内存态。服务器在同一个 JVM 中切换世界时，
+     * 如果新世界没有现成 SavedData，Minecraft 会直接调用空构造器而不是 load()。
+     * 因此必须把“清空旧世界状态”提升为显式生命周期步骤。</p>
+     */
+    public static void resetRuntimeState() {
+        AccountManager.clearAccountsDirect();
+        AccountManager.clearTransactions();
+        MarketManager.clearTradeHistory();
+        MarketManager.clearOrders();
+        CompanyManager.clearCompaniesDirect();
+        NpcMarketMaker.clearMarketPrices();
+        EventManager.clearActiveEvents();
+        StockMarketManager.clearStocks();
+        StockMarketManager.clearStockOrders();
+        StockMarketManager.clearStockTradeHistory();
+        StockPortfolioManager.clearPortfolios();
+    }
+
+    private static EconomySavedData createFresh() {
+        resetRuntimeState();
+        return new EconomySavedData();
+    }
+
     /** 获取或创建 EconomySavedData 实例（服务器启动时调用） */
     public static EconomySavedData get(MinecraftServer server) {
 
@@ -870,7 +888,7 @@ public class EconomySavedData extends SavedData {
 
         INSTANCE = storage.computeIfAbsent(
                 EconomySavedData::load,
-                EconomySavedData::new,
+                EconomySavedData::createFresh,
                 DATA_NAME
         );
 
@@ -878,6 +896,11 @@ public class EconomySavedData extends SavedData {
     }
 
     private static EconomySavedData INSTANCE;
+
+    public static void unload() {
+        INSTANCE = null;
+        resetRuntimeState();
+    }
 
     /** 标记数据已修改，下次存档时写入磁盘 */
     public static void markDirty() {

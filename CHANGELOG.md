@@ -1,253 +1,155 @@
-# Finance 模组 v0.4.0 更新日志
+# Finance 更新日志
 
-## 版本信息
-- **版本**：0.4.0（股票系统大重构）
-- **发布日期**：2026-07-29
-- **平台**：Minecraft 1.20.1 / Forge 47.4.16
-- **工作量**：4 个完整阶段（P1~P4），60+ 个源文件改动
+本文件只记录版本变化、功能更新和修复记录。模组介绍、安装和游戏内操作请看 [README.md](README.md)。
 
 ---
 
-## P1：混合定价引擎（2026-07-29）
+## 当前工作区 — 2026-07-30
+
+### 修复
+
+- 修复股票系统新增类缺少 import 导致 `compileJava` 失败的问题。
+- 修复 IPO 权限校验：现在只有公司所有者可以发起公司 IPO。
+- 修复 IPO 募资金额可能溢出的问题。
+- 修复 IPO 股票代码冲突问题，新增股票代码会自动避开已有代码。
+- 修复 IPO 后创始人保留股没有进入创始人持仓的问题。
+- 修复分红逻辑使用临时股票代码和写死总股本的问题，现在按真实 `Stock` 的 symbol 和 totalShares 分账。
+- 修复未上市公司或无真实股票公司仍可能扣除留存收益的问题。
+- 修复股票订单失败被 GUI 当成成功的问题，订单操作现在返回 `success/message`。
+- 修复股票限价订单包忽略玩家输入价格的问题。
+- 修复股票撮合可能自成交的问题。
+- 修复买单限价高于成交价时差额不返还的问题。
+- 修复做市商拒单或行情异常时剩余资金/股票不返还的问题。
+- 修复做市商买入时给 nil UUID 创建股票持仓的问题。
+- 修复股票订单和成交历史在切换世界时可能残留的问题。
+- 大修复世界切换数据污染：服务器启动新世界时会强制清空经济、库存、市场、公司、股票、事件等运行时静态状态，再加载当前世界 SavedData。
+- 大修复新世界没有 SavedData 文件时会继承上一个世界内存态的问题，`computeIfAbsent` 的新建路径现在也会重置运行时状态。
+- 修复管理员自定义商品跨世界残留的问题，商品注册表现在区分模组默认商品和世界级自定义商品，切换世界时只保留默认商品。
+- 修复停服释放状态的时机，改为服务器完全停止后再清理内存，避免在最终保存附近清空数据。
+- 修复 GUI 跨世界保留上一次标签、商品、股票和状态文字的问题，打开 GUI 时改为从当前菜单数据重新初始化。
+- 收紧股票 GUI 布局，当前委托摘要按剩余高度限制行数，避免在 230 高度面板内文字堆叠。
+- 修复股票价格动量、噪音和重算后没有标记持久化的问题。
+- 调整每日 tick 顺序：公司经营产生利润后再更新股票基本面，然后结算利润和分红。
+
+### 验证
+
+- `.\gradlew.bat compileJava` 通过。
+- 仍有 Forge `FMLJavaModLoadingContext.get()` 过时警告，不影响编译。
+
+---
+
+## 0.5.0-Beta — 股票系统 P1-P5
+
+### 总览
+
+- P1：混合股票定价引擎。
+- P2：股票订单簿和做市商。
+- P3：公司盈利统计和分红机制。
+- P4：玩家公司 IPO。
+- P5：分红分账逻辑和 GUI 相关设计推进。
+
+### 股票定价
+
+- 新增 `StockPriceEngine`。
+- 股票价格由 `fairValue`、`tradeMomentum` 和 `noiseOffset` 共同决定。
+- 股票成交会推动价格：买入推高，卖出压低。
+- 动量会随时间衰减。
+- 每 MC 天根据公司估值和利润更新 fairValue。
+- 价格限制在 fairValue 的合理区间内，避免无限暴涨暴跌。
+
+### 股票订单簿
+
+- 新增 `StockOrder`、`StockOrderType`、`StockTrade`、`StockOrderManager`。
+- 支持股票限价买单和卖单。
+- 支持订单撮合、部分成交和成交历史。
+- 新增做市商保底流动性，按 fairValue 附近报价。
+- 股票订单和成交历史写入世界存档。
+
+### 公司盈利和分红
+
+- `Company` 新增日收入、日成本、留存收益和上次分红日字段。
+- 公司经营会记录收入和成本。
+- 留存收益可按周期分红。
+- 股票 fairValue 会考虑公司估值和盈利能力。
+
+### 玩家公司 IPO
+
+- 新增 `CompanyIPOService` 和 `CompanyIPOPacket`。
+- 玩家公司可上市融资。
+- 默认发行 40% 流通股，创始人保留 60%。
+- 发行所得进入公司现金。
+- 公司上市状态写入世界存档。
+
+### GUI 和网络
+
+- 注册股票订单和 IPO 网络包。
+- 股票页和公司页为订单簿、IPO、分红信息预留后续 GUI 改造空间。
+
+---
+
+## 0.4.0 — 股票系统大重构
 
 ### 新增
-- `StockPriceEngine.java` — 混合定价核心引擎
-- `StockPriceEngineTest.java` — 单元测试
+
+- 股票混合定价核心。
+- 股票订单簿模型。
+- 股票成交记录。
+- IPO 服务。
+- 公司盈利和分红字段。
 
 ### 改动
-- `Stock.java` — 整合 priceEngine，新增 floatShares/ownerShares
-- `StockMarketManager.java` — 删除覆盖式逻辑，新增 Tick 调度方法
-- `FinanceMod.java` — 改造 onServerTick 驱动股票动量/噪音
-- `EconomySavedData.java` — 持久化新字段
 
-### 特性
-✅ 操作有反馈（成交推动价格）  
-✅ 动量自然衰减（每分钟 50%）  
-✅ 基本面锚定（每 MC 天更新 fairValue）  
-✅ 价格夹逼（[0.3, 3.0] × fairValue）  
-✅ 向后兼容（旧存档自动迁移）  
+- `Stock` 整合价格引擎，新增 `floatShares` 和 `ownerShares`。
+- `StockMarketManager` 从简单即时交易升级为股票市场入口。
+- `FinanceMod` 的 tick 调度开始驱动股票动量、噪音和基本面更新。
+- `EconomySavedData` 持久化股票新字段、股票订单和成交历史。
+
+### 已知限制
+
+- 股票 GUI 仍需要继续完善，尤其是订单簿表格、IPO 表单和分红历史。
+- 股票订单簿当前仍偏向“做市商即时成交”体验，长期挂单体验还可继续打磨。
 
 ---
 
-## P2：订单簿 + 做市商（2026-07-29）
+## 0.3.0 — 股票混合定价引擎
 
 ### 新增
-- `StockOrder.java` — 订单模型
-- `StockOrderType.java` — 订单类型枚举
-- `StockTrade.java` — 成交记录
-- `StockOrderManager.java` — 订单簿核心引擎
-- `StockOrderPacket.java` — 网络包
+
+- 股票价格使用 `fairValue` 作为基本面锚。
+- 股票成交会形成买卖动量。
+- 动量每分钟自然衰减。
+- 市场噪音参与短期价格波动。
 
 ### 改动
-- `StockMarketManager.java` — buy/sell 调用订单簿
-- `FinancePacketHandler.java` — 注册 StockOrderPacket
-- `EconomySavedData.java` — 持久化订单和成交记录
+
+- 替换旧的股票价格覆盖式更新逻辑。
+- 新增每日 fairValue 更新。
+- Tick 调度同步驱动商品和股票价格变化。
 
 ### 特性
-✅ 玩家限价单撮合  
-✅ 做市商保底流动性（fairValue ± 2%）  
-✅ 订单持久化（重启不丢失）  
-✅ 真实股市逻辑（非一步到位买卖）  
+
+- 买卖股票会有即时价格反馈。
+- 短期允许交易博弈，长期价格向基本面回归。
+- 旧存档可自动迁移。
 
 ---
 
-## P3：公司盈利 + 分红（2026-07-29）
+## 0.2.x — 基础经济系统
 
-### 新增
-- Company P3 字段：dailyRevenue, dailyCost, retainedEarnings, lastDividendDay
-- Company P3 方法：settleDailyProfits(), tryDividend(), getDividendYieldPercent()
+### 已有功能
 
-### 改动
-- `Company.java` — 添加盈利统计和分红机制
-- `CompanyManager.java` — 新增 settleDailyProfits() 和 tryDividends()
-- `FinanceMod.java` — 每 MC 天调用分红结算，每 7 天尝试分红
-- `StockPriceEngine.java` — updateFairValue() 加入 PE 系数
-- `StockMarketManager.java` — 传递日利润到 PE 计算
-- `EconomySavedData.java` — 保存/加载 P3 字段
+- 玩家账户和转账。
+- 商品注册和虚拟库存。
+- 商品 P2P 限价订单。
+- 国际市场做市商。
+- 公司创建、生产和自动交易。
+- 市场事件系统。
+- 金融中心 GUI。
 
-### 特性
-✅ 日利润统计（收入 - 成本）  
-✅ 留存收益累积  
-✅ 定期分红机制（7 天周期，40% 分红比）  
-✅ PE 系数估值（fairValue += dailyProfit × 10）  
-✅ 股息率显示（用于 GUI）  
+### 稳定性修复
 
----
-
-## P4：玩家公司 IPO 上市（2026-07-29）
-
-### 新增
-- `CompanyIPOService.java` — IPO 服务逻辑
-- `CompanyIPOPacket.java` — 网络包
-
-### 改动
-- `Company.java` — 新增 isPublic 字段和 setter/getter
-- `FinancePacketHandler.java` — 注册 CompanyIPOPacket
-- `EconomySavedData.java` — 保存/加载 isPublic 状态
-
-### 特性
-✅ 玩家公司上市（花 5000 费用）  
-✅ 股权结构管理（40% 发行，60% 创始人保留）  
-✅ 募集资金机制（发行所得进公司现金）  
-✅ 自动股票代码生成  
-✅ 创始人保留 ≥51% 控制权  
-
----
-
-## 技术亮点
-
-### 代码质量
-- ✅ 完整向后兼容（旧存档无缝迁移）
-- ✅ 持久化覆盖全面（P1-P4 所有新字段都保存）
-- ✅ 网络包注册完整（所有操作都有网络包支持）
-- ✅ 单元测试齐备（P1 有完整测试）
-
-### 架构设计
-- ✅ 分层清晰（定价引擎 → 订单簿 → 公司管理 → IPO 服务）
-- ✅ 模块独立（各 P 阶段互不依赖，可独立测试）
-- ✅ 可扩展（PE 系数、分红比、事件倍率都可配置）
-- ✅ 性能考量（索引加速、持久化优化、Tick 调度精细化）
-
----
-
-## 测试计划（P5+ 待做）
-
-### 单元测试
-- ✅ P1：StockPriceEngineTest（6 个测试用例）
-- ⏳ P2：StockOrderManager 撮合逻辑
-- ⏳ P3：分红计算精度
-- ⏳ P4：IPO 流程验证
-
-### 集成测试
-- ⏳ 订单簿 + 定价引擎配合
-- ⏳ 分红 + 股价回归
-- ⏳ IPO 后股票交易
-
-### 场景测试
-- ⏳ 长期存档（7 天+）分红多次
-- ⏳ 高频交易对价格的影响
-- ⏳ 公司破产时股票清算
-
----
-
-## P5 计划（设计中，待实现）
-
-### GUI 改造
-- [ ] 行情页：新增股息率列
-- [ ] 股票页：订单簿表格、挂单表单、我的持仓盈亏
-- [ ] 公司页：上市按钮、IPO 表单、分红历史
-- [ ] 基础页：显示 PE 系数和基本面估值
-
-### 分红分账
-- [ ] CompanyManager.tryDividends() 分账逻辑完整
-- [ ] 按持股比例向股东转账
-- [ ] 分红通知玩家
-
-### 性能优化
-- [ ] 订单簿查询优化（O(n) → 更好的数据结构）
-- [ ] 缓存基本面计算（减少 MC 天重算）
-- [ ] 批量分红处理
-
----
-
-## 已知限制
-
-### 当前版本（P1-P4）
-- 分红分账还是 stub（P5 完成）
-- GUI 改造未做（P5 完成）
-- 数据结构优化未做（性能满足当前需求）
-
-### 未来考量
-- 多公司相互投资（目前每玩家只能创建一个公司）
-- 股票期权/衍生品（暂不规划）
-- 全服经济数据面板（暂不规划）
-
----
-
-## 文档清单
-
-### 实现文档
-- `P1-IMPLEMENTATION.md` — P1 技术清单
-- `P2-IMPLEMENTATION.md` — P2 技术清单
-- `P3-IMPLEMENTATION.md` — P3 技术清单
-- `P4-IMPLEMENTATION.md` — P4 技术清单
-- `STOCK-SYSTEM-SUMMARY.md` — 完整总结
-- `CHANGELOG.md` — 本文件
-
-### 原始文档
-- `README.md` — 主文档（v0.4.0 版本待更新）
-
----
-
-## 提交清单
-
-### 新增文件（11 个）
-```
-finance/stock/
-├── StockPriceEngine.java
-├── StockOrder.java
-├── StockOrderType.java
-├── StockTrade.java
-├── StockOrderManager.java
-└── (test) StockPriceEngineTest.java
-
-finance/company/
-└── CompanyIPOService.java
-
-finance/network/
-├── StockOrderPacket.java
-└── CompanyIPOPacket.java
-```
-
-### 改动文件（8 个）
-```
-finance/stock/
-├── Stock.java（+150 行）
-└── StockMarketManager.java（+100 行）
-
-finance/company/
-├── Company.java（+80 行）
-└── CompanyManager.java（+50 行）
-
-finance/network/
-└── FinancePacketHandler.java（+10 行）
-
-finance/
-└── FinanceMod.java（+15 行）
-
-finance/data/
-└── EconomySavedData.java（+100 行）
-```
-
-### 文档更新（5 个）
-```
-├── P1-IMPLEMENTATION.md（新）
-├── P2-IMPLEMENTATION.md（新）
-├── P3-IMPLEMENTATION.md（新）
-├── P4-IMPLEMENTATION.md（新）
-├── STOCK-SYSTEM-SUMMARY.md（新）
-└── README.md（v0.4.0 版本待更新）
-```
-
----
-
-## 下一步行动
-
-1. **IDEA 编译验证** —— Rebuild Project，检查无编译错误
-2. **启动测试服** —— 验证 P1-P4 功能在线上可用
-3. **P5 GUI 改造** —— 实现订单簿表格、IPO 表单等
-4. **P5 分红分账** —— 完整实现分红逻辑
-5. **版本发布** —— 更新 README，打包 JAR，发布 v0.4.0
-
----
-
-## 致谢
-
-感谢完整的 P1-P4 实现之旅。这个股票系统从「被动跟随」升级到「真实市场」，玩家可以：
-- 创建自己的公司
-- 通过经营获得利润
-- 上市融资扩大经营
-- 获得分红回报
-- 交易他人公司股票
-
-完成了真正意义上的「虚拟经济闭环」。
+- 删除商品时会撤销相关 P2P 挂单并返还冻结资产。
+- 删除商品时会清理虚拟库存中的对应商品。
+- 商品导致公司退市时，会清算关联股票持仓。
+- P2P 商品市场禁止自成交。
+- 加载世界时清理静态 Manager 状态，避免切世界串档。

@@ -21,13 +21,17 @@ public class FinanceMenu extends AbstractContainerMenu {
 
     public record OrderRow(UUID orderId, String commodityId, String type, long price, int quantity, boolean ownedByPlayer) {}
 
-    public record CompanyInfo(String name, String type, long cash, long inventoryValue,
-                               long totalValue, Map<String, Integer> inventory, boolean playerOwned) {}
+    public record CompanyInfo(UUID companyId, String name, String type, long cash, long inventoryValue,
+                               long totalValue, Map<String, Integer> inventory, boolean playerOwned,
+                               boolean isPublic) {}
 
     public record StockRow(String symbol, String name, long lastPrice, double dayChange,
-                           long dayVolume, long availableShares) {}
+                           long dayVolume, long availableShares, long fairValue) {}
 
     public record StockHoldingRow(String symbol, long quantity, long averageCost) {}
+
+    public record StockOrderRow(UUID orderId, String symbol, String type, long price,
+                                int quantity, boolean ownedByPlayer) {}
 
     // ---- 字段 ----
 
@@ -40,6 +44,7 @@ public class FinanceMenu extends AbstractContainerMenu {
     private final List<CompanyInfo> allCompanies;
     private final List<StockRow> stocks;
     private final List<StockHoldingRow> stockHoldings;
+    private final List<StockOrderRow> stockOrders;
     private final Map<String, Integer> mcInventory; // 商品ID → MC物品栏数量
 
     // ---- 构造 ----
@@ -56,6 +61,7 @@ public class FinanceMenu extends AbstractContainerMenu {
                 readCompanyInfoList(buffer),
                 readStockRows(buffer),
                 readStockHoldingRows(buffer),
+                readStockOrderRows(buffer),
                 readStringIntMap(buffer));
     }
 
@@ -64,7 +70,7 @@ public class FinanceMenu extends AbstractContainerMenu {
                        long balance, long frozenBalance, Map<String, Integer> playerInventory,
                        CompanyInfo playerCompany, List<CompanyInfo> allCompanies,
                        List<StockRow> stocks, List<StockHoldingRow> stockHoldings,
-                       Map<String, Integer> mcInventory) {
+                       List<StockOrderRow> stockOrders, Map<String, Integer> mcInventory) {
         super(ModMenus.FINANCE.get(), containerId);
         this.marketData = marketData;
         this.playerOrders = playerOrders;
@@ -75,6 +81,7 @@ public class FinanceMenu extends AbstractContainerMenu {
         this.allCompanies = allCompanies;
         this.stocks = stocks;
         this.stockHoldings = stockHoldings;
+        this.stockOrders = stockOrders;
         this.mcInventory = mcInventory;
     }
 
@@ -89,6 +96,7 @@ public class FinanceMenu extends AbstractContainerMenu {
     public List<CompanyInfo> getAllCompanies() { return allCompanies; }
     public List<StockRow> getStocks() { return stocks; }
     public List<StockHoldingRow> getStockHoldings() { return stockHoldings; }
+    public List<StockOrderRow> getStockOrders() { return stockOrders; }
     public Map<String, Integer> getMcInventory() { return mcInventory; }
 
     @Override
@@ -104,6 +112,7 @@ public class FinanceMenu extends AbstractContainerMenu {
                                  Map<String, Integer> playerInventory, CompanyInfo playerCompany,
                                  List<CompanyInfo> allCompanies,
                                  List<StockRow> stocks, List<StockHoldingRow> stockHoldings,
+                                 List<StockOrderRow> stockOrders,
                                  Map<String, Integer> mcInventory) {
         writeMarketData(buffer, marketData);
         writeOrderRows(buffer, playerOrders);
@@ -114,6 +123,7 @@ public class FinanceMenu extends AbstractContainerMenu {
         writeCompanyInfoList(buffer, allCompanies);
         writeStockRows(buffer, stocks);
         writeStockHoldingRows(buffer, stockHoldings);
+        writeStockOrderRows(buffer, stockOrders);
         writeStringIntMap(buffer, mcInventory != null ? mcInventory : new LinkedHashMap<>());
     }
 
@@ -184,6 +194,7 @@ public class FinanceMenu extends AbstractContainerMenu {
     private static void writeCompanyInfo(FriendlyByteBuf buffer, CompanyInfo info) {
         buffer.writeBoolean(info != null);
         if (info != null) {
+            buffer.writeUUID(info.companyId());
             buffer.writeUtf(info.name());
             buffer.writeUtf(info.type());
             buffer.writeLong(info.cash());
@@ -191,15 +202,16 @@ public class FinanceMenu extends AbstractContainerMenu {
             buffer.writeLong(info.totalValue());
             writeStringIntMap(buffer, info.inventory());
             buffer.writeBoolean(info.playerOwned());
+            buffer.writeBoolean(info.isPublic());
         }
     }
 
     private static CompanyInfo readCompanyInfo(FriendlyByteBuf buffer) {
         if (!buffer.readBoolean()) return null;
         return new CompanyInfo(
-                buffer.readUtf(), buffer.readUtf(), buffer.readLong(),
+                buffer.readUUID(), buffer.readUtf(), buffer.readUtf(), buffer.readLong(),
                 buffer.readLong(), buffer.readLong(), readStringIntMap(buffer),
-                buffer.readBoolean());
+                buffer.readBoolean(), buffer.readBoolean());
     }
 
     private static void writeCompanyInfoList(FriendlyByteBuf buffer, List<CompanyInfo> companies) {
@@ -230,6 +242,7 @@ public class FinanceMenu extends AbstractContainerMenu {
             buffer.writeDouble(row.dayChange());
             buffer.writeLong(row.dayVolume());
             buffer.writeLong(row.availableShares());
+            buffer.writeLong(row.fairValue());
         }
     }
 
@@ -239,7 +252,7 @@ public class FinanceMenu extends AbstractContainerMenu {
         for (int i = 0; i < size; i++) {
             rows.add(new StockRow(
                     buffer.readUtf(), buffer.readUtf(), buffer.readLong(),
-                    buffer.readDouble(), buffer.readLong(), buffer.readLong()));
+                    buffer.readDouble(), buffer.readLong(), buffer.readLong(), buffer.readLong()));
         }
         return rows;
     }
@@ -258,6 +271,29 @@ public class FinanceMenu extends AbstractContainerMenu {
         List<StockHoldingRow> rows = new ArrayList<>(size);
         for (int i = 0; i < size; i++) {
             rows.add(new StockHoldingRow(buffer.readUtf(), buffer.readLong(), buffer.readLong()));
+        }
+        return rows;
+    }
+
+    private static void writeStockOrderRows(FriendlyByteBuf buffer, List<StockOrderRow> rows) {
+        buffer.writeVarInt(rows.size());
+        for (StockOrderRow row : rows) {
+            buffer.writeUUID(row.orderId());
+            buffer.writeUtf(row.symbol());
+            buffer.writeUtf(row.type());
+            buffer.writeLong(row.price());
+            buffer.writeVarInt(row.quantity());
+            buffer.writeBoolean(row.ownedByPlayer());
+        }
+    }
+
+    private static List<StockOrderRow> readStockOrderRows(FriendlyByteBuf buffer) {
+        int size = buffer.readVarInt();
+        List<StockOrderRow> rows = new ArrayList<>(size);
+        for (int i = 0; i < size; i++) {
+            rows.add(new StockOrderRow(
+                    buffer.readUUID(), buffer.readUtf(), buffer.readUtf(),
+                    buffer.readLong(), buffer.readVarInt(), buffer.readBoolean()));
         }
         return rows;
     }

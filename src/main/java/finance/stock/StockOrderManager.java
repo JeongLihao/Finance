@@ -42,27 +42,27 @@ public class StockOrderManager {
     /**
      * 玩家挂买单 —— 冻结资金，尝试与卖单撮合，无对手盘时做市商成交。
      */
-    public static String placeBuyOrder(UUID playerId, String symbol, long price, int quantity) {
+    public static OrderResult placeBuyOrder(UUID playerId, String symbol, long price, int quantity) {
         if (playerId == null || symbol == null || symbol.isEmpty()) {
-            return "参数错误。";
+            return OrderResult.fail("参数错误。");
         }
         symbol = StockMarketManager.normalizeSymbol(symbol);
         if (quantity <= 0 || price <= 0) {
-            return "数量和价格必须为正。";
+            return OrderResult.fail("数量和价格必须为正。");
         }
 
         Stock stock = StockMarketManager.getStock(symbol);
         if (stock == null) {
-            return "未知股票: " + symbol;
+            return OrderResult.fail("未知股票: " + symbol);
         }
 
         // 冻结资金
         long totalCost = MathUtil.multiplyExactOrNegative1(price, quantity);
         if (totalCost <= 0) {
-            return "交易金额过大。";
+            return OrderResult.fail("交易金额过大。");
         }
         if (!AccountManager.withdraw(playerId, totalCost)) {
-            return "余额不足，需要: " + totalCost;
+            return OrderResult.fail("余额不足，需要: " + totalCost);
         }
 
         // 创建订单并尝试撮合
@@ -73,29 +73,29 @@ public class StockOrderManager {
     /**
      * 玩家挂卖单 —— 冻结股票，尝试与买单撮合，无对手盘时做市商成交。
      */
-    public static String placeSellOrder(UUID playerId, String symbol, long price, int quantity) {
+    public static OrderResult placeSellOrder(UUID playerId, String symbol, long price, int quantity) {
         if (playerId == null || symbol == null || symbol.isEmpty()) {
-            return "参数错误。";
+            return OrderResult.fail("参数错误。");
         }
         symbol = StockMarketManager.normalizeSymbol(symbol);
         if (quantity <= 0 || price <= 0) {
-            return "数量和价格必须为正。";
+            return OrderResult.fail("数量和价格必须为正。");
         }
 
         Stock stock = StockMarketManager.getStock(symbol);
         if (stock == null) {
-            return "未知股票: " + symbol;
+            return OrderResult.fail("未知股票: " + symbol);
         }
 
         // 检查玩家持股
         long holdings = StockPortfolioManager.getHolding(playerId, symbol).getQuantity();
         if (holdings < quantity) {
-            return "持仓不足，拥有: " + holdings;
+            return OrderResult.fail("持仓不足，拥有: " + holdings);
         }
 
         // 扣除股票（锁定）
         if (!StockPortfolioManager.removeHolding(playerId, symbol, quantity)) {
-            return "持仓不足。";
+            return OrderResult.fail("持仓不足。");
         }
 
         // 创建订单并尝试撮合
@@ -106,7 +106,7 @@ public class StockOrderManager {
     /**
      * 尝试撮合订单：优先与玩家对手盘撮合，无则做市商成交。
      */
-    private static String matchOrder(StockOrder order, Stock stock) {
+    private static OrderResult matchOrder(StockOrder order, Stock stock) {
         int remainingQty = order.getQuantity();
 
         // 尝试与现有订单撮合
@@ -164,16 +164,17 @@ public class StockOrderManager {
         }
 
         EconomySavedData.markDirty();
-        return "订单已全部成交。";
+        return OrderResult.ok("订单已全部成交。");
     }
 
     /**
      * 做市商成交 —— 保底流动性，按 fairValue ± spread 报价。
      */
-    private static String marketMakerTrade(StockOrder order, Stock stock) {
+    private static OrderResult marketMakerTrade(StockOrder order, Stock stock) {
         long fairValue = stock.getFairValue();
         if (fairValue <= 0) {
-            return "市场行情异常，请稍后重试。";
+            refundOrderAssets(order);
+            return OrderResult.fail("市场行情异常，请稍后重试。");
         }
 
         // 做市商报价
@@ -185,19 +186,15 @@ public class StockOrderManager {
             // 买单以 askPrice 成交
             tradePrice = askPrice;
             if (order.getPrice() < tradePrice) {
-                // 玩家出价不足
-                AccountManager.deposit(order.getPlayerId(),
-                    MathUtil.multiplyExactOrNegative1(order.getPrice(), order.getQuantity()));
-                return "你的出价 " + order.getPrice() + " 低于做市商报价 " + tradePrice + "，已退款。";
+                refundOrderAssets(order);
+                return OrderResult.fail("你的出价 " + order.getPrice() + " 低于做市商报价 " + tradePrice + "，已退款。");
             }
         } else {
             // 卖单以 bidPrice 成交
             tradePrice = bidPrice;
             if (order.getPrice() > tradePrice) {
-                // 玩家要价过高
-                StockPortfolioManager.addHolding(order.getPlayerId(), order.getSymbol(),
-                    order.getQuantity(), 0);
-                return "你的要价 " + order.getPrice() + " 高于做市商报价 " + tradePrice + "，已退回股票。";
+                refundOrderAssets(order);
+                return OrderResult.fail("你的要价 " + order.getPrice() + " 高于做市商报价 " + tradePrice + "，已退回股票。");
             }
         }
 
@@ -211,7 +208,7 @@ public class StockOrderManager {
         }
 
         EconomySavedData.markDirty();
-        return "订单已与做市商成交，成交价: " + tradePrice;
+        return OrderResult.ok("订单已与做市商成交，成交价: " + tradePrice);
     }
 
     /**
@@ -236,7 +233,9 @@ public class StockOrderManager {
         }
 
         // 更新持仓
-        StockPortfolioManager.addHolding(buyerId, symbol, tradeQty, tradePrice);
+        if (!buyerId.equals(MARKET_MAKER_UUID)) {
+            StockPortfolioManager.addHolding(buyerId, symbol, tradeQty, tradePrice);
+        }
         if (!sellerId.equals(MARKET_MAKER_UUID)) {
             // 玩家卖方的股票已在挂单时扣除，这里无需操作
         }
@@ -255,28 +254,38 @@ public class StockOrderManager {
      * 取消订单 —— 退还冻结资产。
      */
     public static boolean cancelOrder(UUID orderId, UUID playerId) {
-        for (StockOrder order : ORDERS) {
+        Iterator<StockOrder> iterator = ORDERS.iterator();
+        while (iterator.hasNext()) {
+            StockOrder order = iterator.next();
             if (order.getOrderId().equals(orderId) && order.getPlayerId().equals(playerId)) {
-                // 退还冻结资产
-                if (order.getType() == StockOrderType.BUY) {
-                    // 退款
-                    long refund = MathUtil.multiplyExactOrNegative1(order.getPrice(), order.getQuantity());
-                    if (refund > 0) {
-                        AccountManager.deposit(playerId, refund);
+                refundOrderAssets(order);
+                iterator.remove();
+                List<StockOrder> symbolOrders = ORDERS_BY_SYMBOL.get(order.getSymbol());
+                if (symbolOrders != null) {
+                    symbolOrders.remove(order);
+                    if (symbolOrders.isEmpty()) {
+                        ORDERS_BY_SYMBOL.remove(order.getSymbol());
                     }
-                } else {
-                    // 退还股票
-                    StockPortfolioManager.addHolding(playerId, order.getSymbol(),
-                        order.getQuantity(), 0);
                 }
-
-                ORDERS.remove(order);
-                ORDERS_BY_SYMBOL.getOrDefault(order.getSymbol(), new ArrayList<>()).remove(order);
                 EconomySavedData.markDirty();
                 return true;
             }
         }
         return false;
+    }
+
+    private static void refundOrderAssets(StockOrder order) {
+        if (order.getQuantity() <= 0) {
+            return;
+        }
+        if (order.getType() == StockOrderType.BUY) {
+            long refund = MathUtil.multiplyExactOrNegative1(order.getPrice(), order.getQuantity());
+            if (refund > 0) {
+                AccountManager.deposit(order.getPlayerId(), refund);
+            }
+        } else {
+            StockPortfolioManager.addHolding(order.getPlayerId(), order.getSymbol(), order.getQuantity(), 0);
+        }
     }
 
     // ================================================================
@@ -324,6 +333,16 @@ public class StockOrderManager {
         TRADE_HISTORY.add(trade);
         if (TRADE_HISTORY.size() > 500) {
             TRADE_HISTORY.subList(0, TRADE_HISTORY.size() - 500).clear();
+        }
+    }
+
+    public record OrderResult(boolean success, String message) {
+        public static OrderResult ok(String message) {
+            return new OrderResult(true, message);
+        }
+
+        public static OrderResult fail(String message) {
+            return new OrderResult(false, message);
         }
     }
 }

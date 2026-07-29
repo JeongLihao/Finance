@@ -82,6 +82,14 @@ public class CompanyManager {
     /** P3：周期性分红 —— 向股东分配利润（MC天数从服务器 tick count 推算） */
     public static void tryDividends(long currentMcDay) {
         for (Company c : COMPANIES.values()) {
+            Stock stock = StockMarketManager.getStockByCompanyId(c.getCompanyId());
+            if (!c.isPublic() || stock == null || stock.getTotalShares() <= 0) {
+                continue;
+            }
+            if (StockPortfolioManager.getHoldingsForCompany(stock.getSymbol()).isEmpty()) {
+                continue;
+            }
+
             long dividendAmount = c.tryDividend(currentMcDay);
             if (dividendAmount > 0) {
                 // P5：按持股比例分给所有股东

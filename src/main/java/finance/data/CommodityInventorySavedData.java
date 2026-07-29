@@ -89,7 +89,7 @@ public class CommodityInventorySavedData extends SavedData {
         CommodityInventorySavedData data =
                 new CommodityInventorySavedData();
 
-        CommodityInventoryManager.clearInventoriesDirect();
+        resetRuntimeState();
 
         ListTag playersTag =
                 tag.getList(
@@ -133,6 +133,15 @@ public class CommodityInventorySavedData extends SavedData {
     // 实例管理
     // ================================================================
 
+    public static void resetRuntimeState() {
+        CommodityInventoryManager.clearInventoriesDirect();
+    }
+
+    private static CommodityInventorySavedData createFresh() {
+        resetRuntimeState();
+        return new CommodityInventorySavedData();
+    }
+
     public static CommodityInventorySavedData get(
             MinecraftServer server
     ) {
@@ -144,11 +153,16 @@ public class CommodityInventorySavedData extends SavedData {
         INSTANCE =
                 storage.computeIfAbsent(
                         CommodityInventorySavedData::load,
-                        CommodityInventorySavedData::new,
+                        CommodityInventorySavedData::createFresh,
                         DATA_NAME
                 );
 
         return INSTANCE;
+    }
+
+    public static void unload() {
+        INSTANCE = null;
+        resetRuntimeState();
     }
 
     /** 标记数据已修改 */

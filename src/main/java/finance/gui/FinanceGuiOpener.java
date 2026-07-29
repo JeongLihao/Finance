@@ -12,6 +12,7 @@ import finance.market.Order;
 import finance.stock.Stock;
 import finance.stock.StockHolding;
 import finance.stock.StockMarketManager;
+import finance.stock.StockOrder;
 import finance.stock.StockPortfolioManager;
 import finance.commodity.Commodity;
 import finance.util.InventoryUtil;
@@ -80,7 +81,8 @@ public class FinanceGuiOpener {
                     stock.getLastPrice(),
                     stock.getDayChange(),
                     stock.getDayVolume(),
-                    stock.getAvailableShares()));
+                    stock.getAvailableShares(),
+                    stock.getFairValue()));
         }
 
         List<FinanceMenu.StockHoldingRow> stockHoldingRows = new ArrayList<>();
@@ -90,6 +92,17 @@ public class FinanceGuiOpener {
                     entry.getKey(),
                     entry.getValue().getQuantity(),
                     entry.getValue().getAverageCost()));
+        }
+
+        List<FinanceMenu.StockOrderRow> stockOrderRows = new ArrayList<>();
+        for (StockOrder order : StockMarketManager.getOrders()) {
+            stockOrderRows.add(new FinanceMenu.StockOrderRow(
+                    order.getOrderId(),
+                    order.getSymbol(),
+                    order.getType().name(),
+                    order.getPrice(),
+                    order.getQuantity(),
+                    order.getPlayerId().equals(playerId)));
         }
 
         // 6. MC 物品栏数据（商品ID → 对应物品在 MC 物品栏中的数量）
@@ -106,17 +119,19 @@ public class FinanceGuiOpener {
 
         // 打开菜单
         NetworkHooks.openScreen(player,
-                new FinanceProvider(marketData, orderRows, balance, frozenBalance, inventory, companyInfo, companyRows, stockRows, stockHoldingRows, mcInv),
-                buffer -> FinanceMenu.writeAll(buffer, marketData, orderRows, balance, frozenBalance, inventory, companyInfo, companyRows, stockRows, stockHoldingRows, mcInv));
+                new FinanceProvider(marketData, orderRows, balance, frozenBalance, inventory, companyInfo, companyRows, stockRows, stockHoldingRows, stockOrderRows, mcInv),
+                buffer -> FinanceMenu.writeAll(buffer, marketData, orderRows, balance, frozenBalance, inventory, companyInfo, companyRows, stockRows, stockHoldingRows, stockOrderRows, mcInv));
     }
 
     private static FinanceMenu.CompanyInfo toCompanyInfo(Company company) {
         return new FinanceMenu.CompanyInfo(
+                company.getCompanyId(),
                 company.getName(), company.getType().getDisplayName(),
                 company.getCash(), company.inventoryValue(),
                 company.getEstimatedValue(),
                 new LinkedHashMap<>(company.getInventory()),
-                company.isPlayerOwned());
+                company.isPlayerOwned(),
+                company.isPublic());
     }
 
     private record FinanceProvider(List<FinanceMenu.MarketRow> marketData,
@@ -127,6 +142,7 @@ public class FinanceGuiOpener {
                                     List<FinanceMenu.CompanyInfo> allCompanies,
                                     List<FinanceMenu.StockRow> stocks,
                                     List<FinanceMenu.StockHoldingRow> stockHoldings,
+                                    List<FinanceMenu.StockOrderRow> stockOrders,
                                     Map<String, Integer> mcInventory)
             implements net.minecraft.world.MenuProvider {
 
@@ -138,7 +154,7 @@ public class FinanceGuiOpener {
         @Override
         public FinanceMenu createMenu(int containerId, net.minecraft.world.entity.player.Inventory inv,
                                        net.minecraft.world.entity.player.Player player) {
-            return new FinanceMenu(containerId, marketData, orderRows, balance, frozenBalance, inventory, companyInfo, allCompanies, stocks, stockHoldings, mcInventory);
+            return new FinanceMenu(containerId, marketData, orderRows, balance, frozenBalance, inventory, companyInfo, allCompanies, stocks, stockHoldings, stockOrders, mcInventory);
         }
     }
 }

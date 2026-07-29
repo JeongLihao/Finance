@@ -4,6 +4,7 @@ import finance.account.AccountManager;
 import finance.data.EconomySavedData;
 import finance.stock.Stock;
 import finance.stock.StockMarketManager;
+import finance.stock.StockPortfolioManager;
 
 import java.util.UUID;
 
@@ -54,6 +55,15 @@ public class CompanyIPOService {
             return fail("发行数量过多（最多 100,000）。");
         }
 
+        long raisedCapital;
+        try {
+            raisedCapital = Math.multiplyExact(issuePrice, issueQuantity);
+        } catch (ArithmeticException ex) {
+            return fail("募资金额过大。");
+        }
+
+        String symbol = generateUniqueSymbol(company.getName());
+
         // 检查上市费用
         if (!AccountManager.withdraw(requesterId, IPO_FEE)) {
             return fail("上市费用不足，需要 " + IPO_FEE + "。");
@@ -65,7 +75,6 @@ public class CompanyIPOService {
         long ownerShares = totalShares - issueQuantity;
 
         // 创建股票
-        String symbol = generateSymbol(company.getName());
         Stock stock = new Stock(
                 symbol,
                 company.getName(),
@@ -78,14 +87,8 @@ public class CompanyIPOService {
         );
 
         // 募集资金进公司现金
-        long raisedCapital;
-        try {
-            raisedCapital = Math.multiplyExact(issuePrice, issueQuantity);
-        } catch (ArithmeticException ex) {
-            AccountManager.deposit(requesterId, IPO_FEE);
-            return fail("募资金额过大。");
-        }
         company.deposit(raisedCapital);
+        StockPortfolioManager.addHolding(requesterId, symbol, ownerShares, issuePrice);
 
         // 标记公司为已上市
         company.setPublic(true);
@@ -117,6 +120,18 @@ public class CompanyIPOService {
             sb.append((char) ('A' + (System.nanoTime() % 26)));
         }
         return sb.toString().substring(0, 4);
+    }
+
+    private static String generateUniqueSymbol(String companyName) {
+        String base = generateSymbol(companyName);
+        String symbol = base;
+        int suffix = 1;
+        while (StockMarketManager.getStock(symbol) != null) {
+            String suffixText = String.valueOf(suffix++);
+            int prefixLength = Math.max(1, 4 - suffixText.length());
+            symbol = base.substring(0, Math.min(prefixLength, base.length())) + suffixText;
+        }
+        return symbol;
     }
 
     private static IPOResult fail(String message) {
