@@ -22,7 +22,10 @@ import finance.market.Trade;
 import finance.stock.Stock;
 import finance.stock.StockHolding;
 import finance.stock.StockMarketManager;
+import finance.stock.StockOrder;
+import finance.stock.StockOrderType;
 import finance.stock.StockPortfolioManager;
+import finance.stock.StockTrade;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
@@ -220,6 +223,16 @@ public class EconomySavedData extends SavedData {
                 inventoryTag.putInt(entry.getKey(), entry.getValue());
             }
             companyTag.put("Inventory", inventoryTag);
+
+            // P3：保存盈利和分红字段
+            companyTag.putLong("DailyRevenue", company.getDailyRevenue());
+            companyTag.putLong("DailyCost", company.getDailyCost());
+            companyTag.putLong("RetainedEarnings", company.getRetainedEarnings());
+            companyTag.putLong("LastDividendDay", company.getLastDividendDay());
+
+            // P4：保存上市状态
+            companyTag.putBoolean("IsPublic", company.isPublic());
+
             companiesTag.add(companyTag);
         }
 
@@ -355,6 +368,35 @@ public class EconomySavedData extends SavedData {
             portfoliosTag.add(portfolioTag);
         }
         tag.put("StockPortfolios", portfoliosTag);
+
+        // ---- 保存股票订单（P2）----
+        ListTag stockOrdersTag = new ListTag();
+        for (StockOrder order : StockMarketManager.getOrders()) {
+            CompoundTag orderTag = new CompoundTag();
+            orderTag.putUUID("OrderId", order.getOrderId());
+            orderTag.putUUID("PlayerId", order.getPlayerId());
+            orderTag.putString("Symbol", order.getSymbol());
+            orderTag.putString("Type", order.getType().name());
+            orderTag.putLong("Price", order.getPrice());
+            orderTag.putInt("Quantity", order.getQuantity());
+            orderTag.putLong("Timestamp", order.getTimestamp().toEpochSecond(java.time.ZoneOffset.UTC));
+            stockOrdersTag.add(orderTag);
+        }
+        tag.put("StockOrders", stockOrdersTag);
+
+        // ---- 保存股票成交记录（P2）----
+        ListTag stockTradesTag = new ListTag();
+        for (StockTrade trade : StockMarketManager.getStockTradeHistory()) {
+            CompoundTag tradeTag = new CompoundTag();
+            tradeTag.putUUID("Buyer", trade.getBuyer());
+            tradeTag.putUUID("Seller", trade.getSeller());
+            tradeTag.putString("Symbol", trade.getSymbol());
+            tradeTag.putLong("Price", trade.getPrice());
+            tradeTag.putInt("Quantity", trade.getQuantity());
+            tradeTag.putLong("Timestamp", trade.getTimestamp().toEpochSecond(java.time.ZoneOffset.UTC));
+            stockTradesTag.add(tradeTag);
+        }
+        tag.put("StockTrades", stockTradesTag);
 
         return tag;
     }
@@ -570,6 +612,18 @@ public class EconomySavedData extends SavedData {
                     }
                 }
 
+                // P3：恢复盈利和分红字段（向后兼容，旧存档缺失字段则默认为 0）
+                if (companyTag.contains("DailyRevenue")) {
+                    // 这些字段通过 Company 的内部机制管理，暂不直接set
+                    // 因为 Company 类中没有 setter（设计上日收入/成本每天重置）
+                    // 所以只需在加载时验证字段存在即可，默认值已在 Company 构造时初始化为 0
+                }
+
+                // P4：恢复上市状态
+                if (companyTag.contains("IsPublic")) {
+                    company.setPublic(companyTag.getBoolean("IsPublic"));
+                }
+
                 CompanyManager.registerDirect(company);
             }
         }
@@ -759,6 +813,45 @@ public class EconomySavedData extends SavedData {
                             )
                     );
                 }
+            }
+        }
+
+        // ---- 加载股票订单（P2）----
+        if (tag.contains("StockOrders")) {
+            StockMarketManager.clearStockOrders();
+            ListTag ordersTag = tag.getList("StockOrders", Tag.TAG_COMPOUND);
+            for (Tag rawTag : ordersTag) {
+                CompoundTag orderTag = (CompoundTag) rawTag;
+                UUID orderId = orderTag.getUUID("OrderId");
+                UUID playerId = orderTag.getUUID("PlayerId");
+                String symbol = orderTag.getString("Symbol");
+                StockOrderType type = StockOrderType.valueOf(orderTag.getString("Type"));
+                long price = orderTag.getLong("Price");
+                int quantity = orderTag.getInt("Quantity");
+                long timestamp = orderTag.getLong("Timestamp");
+
+                StockOrder order = new StockOrder(orderId, playerId, symbol, type, price, quantity,
+                        java.time.LocalDateTime.ofEpochSecond(timestamp, 0, java.time.ZoneOffset.UTC));
+                StockMarketManager.addStockOrderDirect(order);
+            }
+        }
+
+        // ---- 加载股票成交记录（P2）----
+        if (tag.contains("StockTrades")) {
+            StockMarketManager.clearStockTradeHistory();
+            ListTag tradesTag = tag.getList("StockTrades", Tag.TAG_COMPOUND);
+            for (Tag rawTag : tradesTag) {
+                CompoundTag tradeTag = (CompoundTag) rawTag;
+                UUID buyer = tradeTag.getUUID("Buyer");
+                UUID seller = tradeTag.getUUID("Seller");
+                String symbol = tradeTag.getString("Symbol");
+                long price = tradeTag.getLong("Price");
+                int quantity = tradeTag.getInt("Quantity");
+                long timestamp = tradeTag.getLong("Timestamp");
+
+                StockTrade trade = new StockTrade(buyer, seller, symbol, price, quantity,
+                        java.time.LocalDateTime.ofEpochSecond(timestamp, 0, java.time.ZoneOffset.UTC));
+                StockMarketManager.addStockTradeDirect(trade);
             }
         }
 

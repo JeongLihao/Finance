@@ -17,7 +17,11 @@ public class StockHolding {
     public long getAverageCost() { return averageCost; }
 
     public void add(long addQuantity, long price) {
-        if (addQuantity <= 0 || price <= 0) return;
+        if (addQuantity <= 0) return;
+        if (price <= 0) {
+            quantity += addQuantity;
+            return;
+        }
         long totalCost = averageCost * quantity + price * addQuantity;
         quantity += addQuantity;
         averageCost = quantity == 0 ? 0 : totalCost / quantity;

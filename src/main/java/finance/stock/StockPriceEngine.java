@@ -126,15 +126,24 @@ public class StockPriceEngine {
      * 基本面更新（每 MC 天调用一次）。
      * 重新计算 fairValue，驱动价格回归。
      *
+     * <h3>P3 改进：加入 PE 系数</h3>
+     * <pre>
+     *   fairValue = (公司总估值 + 日利润 × PE系数) / totalShares
+     *   PE系数 = 8~15（平均盈利能力倍数）
+     * </pre>
+     *
      * @param companyTotalValue 公司总估值（现金 + 库存市值）
      * @param totalShares       总股本
-     * @param dailyProfit       最近日利润（未来用于 P3 分红/PE 计算）
+     * @param dailyProfit       最近日利润（P3 新增，用于 PE 计算）
      */
     public void updateFairValue(long companyTotalValue, long totalShares, long dailyProfit) {
         if (totalShares <= 0) return;
 
-        // 简化版：暂时只考虑估值 / totalShares（P3 时加 PE 系数）
-        long newFairValue = Math.max(1, companyTotalValue / totalShares);
+        // P3：加入 PE 系数
+        int PE_COEFFICIENT = 10; // 保守估计，平均盈利能力倍数
+        long profitCapitalization = dailyProfit > 0 ? dailyProfit * PE_COEFFICIENT : 0;
+
+        long newFairValue = Math.max(1, (companyTotalValue + profitCapitalization) / totalShares);
         this.fairValue = newFairValue;
 
         // 基本面更新后重算价格
