@@ -32,17 +32,17 @@ public class NpcMarketMaker {
     /** 国际市场系统账户 UUID（nil UUID，不会与真实玩家冲突） */
     public static final UUID NPC_UUID = new UUID(0L, 0L);
 
-    /** 初始注入资金：1000 万 */
-    private static final long INITIAL_NPC_BALANCE = 10_000_000L;
+    /** 国际市场日常交易池初始资金：央行加入后，市场本身不再承担无限流动性。 */
+    private static final long INITIAL_NPC_BALANCE = 2_000_000L;
 
-    /** 每种商品初始库存 */
-    private static final int INITIAL_NPC_STOCK = 100_000;
+    /** 每种商品日常流通库存。战略储备由中央银行持有。 */
+    private static final int INITIAL_NPC_STOCK = 60_000;
 
     /** 国际市场低于参考库存时的每日基础补货比例 */
-    private static final double DAILY_RESTOCK_RATIO = 0.06;
+    private static final double DAILY_RESTOCK_RATIO = 0.035;
 
     /** 国际市场高于参考库存时的每日外部需求比例 */
-    private static final double DAILY_DEMAND_RATIO = 0.025;
+    private static final double DAILY_DEMAND_RATIO = 0.035;
 
     /** 默认价差：5% */
     private static final double DEFAULT_SPREAD = 0.05;
