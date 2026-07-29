@@ -33,6 +33,15 @@ public class Company {
     /** 原料安全库存天数，避免公司把生产原料卖掉后又立刻买回 */
     private static final int RAW_MATERIAL_RESERVE_DAYS = 3;
 
+    /** 最近利润窗口，用于股票估值，避免只看单日利润造成暴涨暴跌 */
+    private static final int PROFIT_HISTORY_DAYS = 7;
+
+    /** 每日基础运营成本占理论产值的比例 */
+    private static final double OPERATING_COST_RATIO = 0.12;
+
+    /** 库存持有成本占库存市值的比例，价格下行时会惩罚积压库存 */
+    private static final double INVENTORY_CARRY_COST_RATIO = 0.01;
+
     // ---- P3：盈利与分红 ----
     /** 当日营收（产出销售收入） */
     private long dailyRevenue;
@@ -45,6 +54,9 @@ public class Company {
 
     /** 上次分红的 MC 天数（用于判断是否需要分红） */
     private long lastDividendDay;
+
+    /** 最近若干天净利润 */
+    private final List<Long> recentProfits = new ArrayList<>();
 
     /** 分红周期（每 N 个 MC 天分红一次） */
     private static final int DIVIDEND_CYCLE_DAYS = 7;
@@ -235,9 +247,16 @@ public class Company {
         return total;
     }
 
-    /** 公司估值 = 现金 + 库存市值 */
+    /** 公司估值 = 现金 + 库存市值（展示用原始资产值） */
     public long getEstimatedValue() {
         return cash + inventoryValue();
+    }
+
+    /** 股票基本面资产值：库存按行业景气折价，避免商品跌价时股票仍按满额资产估值。 */
+    public long getFundamentalAssetValue() {
+        double sentiment = getIndustrySentiment();
+        double inventoryDiscount = clamp(0.45 + sentiment * 0.45, 0.35, 1.05);
+        return Math.max(0, cash + Math.round(inventoryValue() * inventoryDiscount));
     }
 
     // ---- 资金 ----
@@ -261,8 +280,10 @@ public class Company {
      * 每 MC 天调用（在 produce 和 autoTrade 后）—— 计算日利润，累加到留存收益。
      */
     public void settleDailyProfits() {
+        dailyCost += calculateOperatingCost();
         long dailyProfit = dailyRevenue - dailyCost;
         retainedEarnings += dailyProfit;
+        addRecentProfit(dailyProfit);
         dailyRevenue = 0;
         dailyCost = 0;
     }
@@ -298,6 +319,48 @@ public class Company {
     public long getDailyCost() { return dailyCost; }
     public long getRetainedEarnings() { return retainedEarnings; }
     public long getLastDividendDay() { return lastDividendDay; }
+    public List<Long> getRecentProfits() { return new ArrayList<>(recentProfits); }
+    public long getSmoothedDailyProfit() {
+        if (recentProfits.isEmpty()) {
+            return dailyRevenue - dailyCost;
+        }
+        long total = 0;
+        for (long profit : recentProfits) {
+            total += profit;
+        }
+        return total / recentProfits.size();
+    }
+
+    /** 行业景气：公司核心商品当前价格 / 基准价，低于 1 表示行业承压。 */
+    public double getIndustrySentiment() {
+        double total = 0;
+        int count = 0;
+        for (String commodityId : type.getCommodityIds()) {
+            MarketPrice mp = NpcMarketMaker.getMarketPrice(commodityId);
+            if (mp == null || mp.getBasePrice() <= 0) {
+                continue;
+            }
+            total += (double) mp.getMidPrice() / mp.getBasePrice();
+            count++;
+        }
+        return count == 0 ? 1.0 : clamp(total / count, 0.35, 2.0);
+    }
+
+    public void restoreFinancials(long dailyRevenue, long dailyCost, long retainedEarnings,
+                                  long lastDividendDay, List<Long> recentProfits) {
+        this.dailyRevenue = dailyRevenue;
+        this.dailyCost = dailyCost;
+        this.retainedEarnings = retainedEarnings;
+        this.lastDividendDay = lastDividendDay;
+        this.recentProfits.clear();
+        if (recentProfits != null) {
+            for (Long profit : recentProfits) {
+                if (profit != null) {
+                    addRecentProfit(profit);
+                }
+            }
+        }
+    }
 
     /**
      * 获取股息率（每股分红 / 股价）—— 用于 GUI 显示。
@@ -306,7 +369,7 @@ public class Company {
      */
     public double getDividendYieldPercent() {
         if (cash + inventoryValue() <= 0) return 0;
-        long recentDailyProfit = dailyRevenue - dailyCost;
+        long recentDailyProfit = getSmoothedDailyProfit();
         long annualProfit = recentDailyProfit * 365; // 粗估
         long totalValue = getEstimatedValue();
         return totalValue > 0 ? (double) annualProfit / totalValue * 100 : 0;
@@ -316,4 +379,27 @@ public class Company {
 
     public boolean isPublic() { return isPublic; }
     public void setPublic(boolean pub) { this.isPublic = pub; }
+
+    private long calculateOperatingCost() {
+        long theoreticalProductionValue = 0;
+        for (Map.Entry<String, Integer> entry : type.getDailyProduction().entrySet()) {
+            MarketPrice mp = NpcMarketMaker.getMarketPrice(entry.getKey());
+            long price = mp != null ? mp.getMidPrice() : 1;
+            theoreticalProductionValue += Math.max(0, price * (long) entry.getValue());
+        }
+        long productionCost = Math.round(theoreticalProductionValue * OPERATING_COST_RATIO);
+        long inventoryCarryCost = Math.round(inventoryValue() * INVENTORY_CARRY_COST_RATIO);
+        return Math.max(1, productionCost + inventoryCarryCost);
+    }
+
+    private void addRecentProfit(long profit) {
+        recentProfits.add(profit);
+        while (recentProfits.size() > PROFIT_HISTORY_DAYS) {
+            recentProfits.remove(0);
+        }
+    }
+
+    private static double clamp(double value, double min, double max) {
+        return Math.max(min, Math.min(max, value));
+    }
 }

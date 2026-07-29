@@ -47,6 +47,9 @@ public class NpcMarketMaker {
     /** 默认价差：5% */
     private static final double DEFAULT_SPREAD = 0.05;
 
+    /** 单笔交易最多吃下参考库存的一部分，避免大手直接打穿国际市场。 */
+    private static final double MAX_TRADE_REFERENCE_RATIO = 0.08;
+
     /** 商品中间价映射 */
     private static final Map<String, MarketPrice> MARKET_PRICES = new HashMap<>();
 
@@ -73,14 +76,18 @@ public class NpcMarketMaker {
             return false;
         }
         long bidPrice = price.getBidPrice();
-        long totalPayment = MathUtil.multiplyExactOrNegative1(bidPrice, quantity);
+        int acceptedQuantity = Math.min(quantity, getMaxNpcBuyQuantity(commodityId, bidPrice));
+        if (acceptedQuantity <= 0) {
+            return false;
+        }
+        long totalPayment = MathUtil.multiplyExactOrNegative1(bidPrice, acceptedQuantity);
         if (totalPayment <= 0) {
             return false;
         }
 
         // 1. 检查玩家库存
         int playerStock = CommodityInventoryManager.getCommodityAmount(playerId, commodityId);
-        if (playerStock < quantity) {
+        if (playerStock < acceptedQuantity) {
             return false;
         }
 
@@ -90,8 +97,8 @@ public class NpcMarketMaker {
         }
 
         // 3. 商品：玩家 → 国际市场
-        CommodityInventoryManager.removeCommodity(playerId, commodityId, quantity);
-        CommodityInventoryManager.addCommodity(NPC_UUID, commodityId, quantity);
+        CommodityInventoryManager.removeCommodity(playerId, commodityId, acceptedQuantity);
+        CommodityInventoryManager.addCommodity(NPC_UUID, commodityId, acceptedQuantity);
 
         // 4. 资金：国际市场 → 玩家
         AccountManager.withdraw(NPC_UUID, totalPayment);
@@ -104,11 +111,11 @@ public class NpcMarketMaker {
 
         // 6. 记录成交（国际市场是买方，玩家是卖方）
         MarketManager.addTradeToHistory(
-                new Trade(NPC_UUID, playerId, commodityId, bidPrice, quantity)
+                new Trade(NPC_UUID, playerId, commodityId, bidPrice, acceptedQuantity)
         );
 
         // 7. 混合定价更新
-        recordNpcTrade(commodityId, true, quantity, bidPrice);
+        recordNpcTrade(commodityId, true, acceptedQuantity, bidPrice);
 
         return true;
     }
@@ -129,14 +136,18 @@ public class NpcMarketMaker {
             return false;
         }
         long askPrice = price.getAskPrice();
-        long totalCost = MathUtil.multiplyExactOrNegative1(askPrice, quantity);
+        int acceptedQuantity = Math.min(quantity, getMaxNpcSellQuantity(commodityId));
+        if (acceptedQuantity <= 0) {
+            return false;
+        }
+        long totalCost = MathUtil.multiplyExactOrNegative1(askPrice, acceptedQuantity);
         if (totalCost <= 0) {
             return false;
         }
 
         // 1. 检查国际市场库存
         int npcStock = CommodityInventoryManager.getCommodityAmount(NPC_UUID, commodityId);
-        if (npcStock < quantity) {
+        if (npcStock < acceptedQuantity) {
             return false;
         }
 
@@ -150,8 +161,8 @@ public class NpcMarketMaker {
         AccountManager.deposit(NPC_UUID, totalCost);
 
         // 4. 商品：国际市场 → 玩家
-        CommodityInventoryManager.removeCommodity(NPC_UUID, commodityId, quantity);
-        CommodityInventoryManager.addCommodity(playerId, commodityId, quantity);
+        CommodityInventoryManager.removeCommodity(NPC_UUID, commodityId, acceptedQuantity);
+        CommodityInventoryManager.addCommodity(playerId, commodityId, acceptedQuantity);
 
         // 5. 记录流水
         AccountManager.addTransactionRecord(
@@ -160,11 +171,11 @@ public class NpcMarketMaker {
 
         // 6. 记录成交（玩家是买方，国际市场是卖方）
         MarketManager.addTradeToHistory(
-                new Trade(playerId, NPC_UUID, commodityId, askPrice, quantity)
+                new Trade(playerId, NPC_UUID, commodityId, askPrice, acceptedQuantity)
         );
 
         // 7. 混合定价更新
-        recordNpcTrade(commodityId, false, quantity, askPrice);
+        recordNpcTrade(commodityId, false, acceptedQuantity, askPrice);
 
         return true;
     }
@@ -216,6 +227,10 @@ public class NpcMarketMaker {
         return MARKET_PRICES;
     }
 
+    public static long getInitialNpcBalance() {
+        return INITIAL_NPC_BALANCE;
+    }
+
     /** 直接写入价格映射（持久化加载时使用） */
     public static void putMarketPrice(String commodityId, MarketPrice mp) {
         MARKET_PRICES.put(commodityId, mp);
@@ -253,6 +268,7 @@ public class NpcMarketMaker {
                 AccountManager.deposit(NPC_UUID, INITIAL_NPC_BALANCE - npcBalance);
             }
         }
+        CentralBank.seedIfNeeded();
 
         // 预创建价格 + 注入初始库存
         for (Commodity commodity : CommodityRegistry.getAllCommodities()) {
@@ -307,6 +323,11 @@ public class NpcMarketMaker {
             mp.recomputePrice(newStock);
         }
         EconomySavedData.markDirty();
+    }
+
+    /** 失控时由中央银行介入，正常区间不出手。 */
+    public static void centralBankIntervention() {
+        CentralBank.dailyIntervention();
     }
 
     /** 每分钟衰减动能（不重算价格，由调用方统一 recalculate） */
@@ -392,5 +413,31 @@ public class NpcMarketMaker {
         if (!MARKET_PRICES.isEmpty()) {
             EconomySavedData.markDirty();
         }
+    }
+
+    private static int getMaxNpcBuyQuantity(String commodityId, long bidPrice) {
+        long cashCapacity = bidPrice <= 0 ? 0 : AccountManager.getBalance(NPC_UUID) / bidPrice;
+        long stock = CommodityInventoryManager.getCommodityAmount(NPC_UUID, commodityId);
+        long target = MarketPrice.REFERENCE_STOCK;
+        long stockCapacity = Math.max(1, Math.round(target * MAX_TRADE_REFERENCE_RATIO));
+        if (stock > target) {
+            stockCapacity = Math.max(1, Math.round(stockCapacity * 0.55));
+        }
+        return safeInt(Math.min(cashCapacity, stockCapacity));
+    }
+
+    private static int getMaxNpcSellQuantity(String commodityId) {
+        long stock = CommodityInventoryManager.getCommodityAmount(NPC_UUID, commodityId);
+        long target = MarketPrice.REFERENCE_STOCK;
+        long capacity = Math.max(1, Math.round(target * MAX_TRADE_REFERENCE_RATIO));
+        if (stock < target) {
+            capacity = Math.max(1, Math.round(capacity * 0.55));
+        }
+        return safeInt(Math.min(stock, capacity));
+    }
+
+    private static int safeInt(long value) {
+        if (value <= 0) return 0;
+        return value > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) value;
     }
 }

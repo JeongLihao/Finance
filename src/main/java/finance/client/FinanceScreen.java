@@ -26,14 +26,15 @@ import java.util.*;
  */
 public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
 
-    private static final int PANEL_WIDTH = 380;
-    private static final int PANEL_HEIGHT = 230;
-    private static final int ROW_HEIGHT = 15;
+    private static final int PANEL_WIDTH = 460;
+    private static final int PANEL_HEIGHT = 300;
+    private static final int ROW_HEIGHT = 18;
     private static final int TAB_X = 10;
     private static final int TAB_Y = 24;
     private static final int TAB_H = 16;
     private static final int CONTENT_Y = 46;
-    private static final int MARKET_TRADE_Y = 152;
+    private static final int MARKET_TRADE_Y = 224;
+    private static final int STOCK_TRADE_Y = 170;
 
     // ---- 色彩 ----
     private static final int COL_BG          = 0xFFE7E2D3;
@@ -165,13 +166,13 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         companyNameBox.setVisible(false);
         addWidget(companyNameBox);
 
-        stockPriceBox = new EditBox(font, leftPos + 54, topPos + 154, 64, 16, Component.literal("价格"));
+        stockPriceBox = new EditBox(font, leftPos + 54, topPos + STOCK_TRADE_Y + 18, 64, 16, Component.literal("价格"));
         stockPriceBox.setMaxLength(12);
         stockPriceBox.setValue("1");
         stockPriceBox.setVisible(false);
         addWidget(stockPriceBox);
 
-        stockQuantityBox = new EditBox(font, leftPos + 54, topPos + 174, 64, 16, Component.literal("股数"));
+        stockQuantityBox = new EditBox(font, leftPos + 54, topPos + STOCK_TRADE_Y + 38, 64, 16, Component.literal("股数"));
         stockQuantityBox.setMaxLength(8);
         stockQuantityBox.setValue("1");
         stockQuantityBox.setVisible(false);
@@ -369,8 +370,9 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         int headerY = CONTENT_Y;
         int size = cachedMarketData.size();
 
-        int visibleRows = Math.min(size, 7);
-        int tableBottom = 42 + visibleRows * ROW_HEIGHT;
+        int rowY = headerY + 16;
+        int visibleRows = Math.min(size, Math.max(1, (MARKET_TRADE_Y - rowY - 8) / ROW_HEIGHT));
+        int tableBottom = rowY + visibleRows * ROW_HEIGHT;
         g.fill(tableX, headerY - 2, tableX + tableW, tableBottom, 0xFFF1ECDD);
         g.fill(tableX, headerY - 2, tableX + tableW, headerY - 1, COL_PANEL_BORDER);
         g.fill(tableX, tableBottom, tableX + tableW, tableBottom + 1, COL_PANEL_BORDER);
@@ -390,7 +392,6 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
             return;
         }
 
-        int rowY = headerY + 14;
         for (int i = 0; i < visibleRows; i++) {
             FinanceMenu.MarketRow row = cachedMarketData.get(i);
             int y = rowY + i * ROW_HEIGHT;
@@ -404,15 +405,15 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
 
             // 物品图标
             Commodity commodity = CommodityRegistry.getCommodity(row.commodityId());
-            renderItemIcon(g, commodity, 14, y + 1);
+            renderItemIcon(g, commodity, 14, y + 4);
 
-            drawClippedString(g, commodityDisplayName(row.commodityId()), 28, y + 3, 40, selected ? COL_ACCENT : COL_TEXT);
-            drawClippedString(g, Long.toString(row.midPrice()), 74, y + 3, 46, COL_TEXT);
-            drawClippedString(g, Long.toString(row.bidPrice()), 126, y + 3, 46, COL_GOOD);
-            drawClippedString(g, Long.toString(row.askPrice()), 178, y + 3, 46, COL_WARN);
-            drawClippedString(g, FormatUtil.formatPercent(row.dayChange()), 230, y + 3, 46, changeColor(row.dayChange()));
-            drawClippedString(g, Integer.toString(row.dayVolume()), 282, y + 3, 38, COL_TEXT_DIM);
-            drawClippedString(g, Integer.toString(row.marketStock()), 326, y + 3, 42, COL_TEXT_DIM);
+            drawClippedString(g, commodityDisplayName(row.commodityId()), 30, y + 5, 40, selected ? COL_ACCENT : COL_TEXT);
+            drawClippedString(g, Long.toString(row.midPrice()), 74, y + 5, 46, COL_TEXT);
+            drawClippedString(g, Long.toString(row.bidPrice()), 126, y + 5, 46, COL_GOOD);
+            drawClippedString(g, Long.toString(row.askPrice()), 178, y + 5, 46, COL_WARN);
+            drawClippedString(g, FormatUtil.formatPercent(row.dayChange()), 230, y + 5, 46, changeColor(row.dayChange()));
+            drawClippedString(g, Integer.toString(row.dayVolume()), 282, y + 5, 38, COL_TEXT_DIM);
+            drawClippedString(g, Integer.toString(row.marketStock()), 326, y + 5, 80, COL_TEXT_DIM);
         }
 
         // ---- 国际交易区域 ----
@@ -808,8 +809,8 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
             return;
         }
 
-        int rowY = headerY + 14;
-        int maxRows = Math.min(stocks.size(), 5);
+        int rowY = headerY + 16;
+        int maxRows = Math.min(stocks.size(), Math.max(1, (STOCK_TRADE_Y - rowY - 10) / ROW_HEIGHT));
         for (int i = 0; i < maxRows; i++) {
             FinanceMenu.StockRow row = stocks.get(i);
             int y = rowY + i * ROW_HEIGHT;
@@ -817,16 +818,16 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
             g.fill(8, y, imageWidth - 8, y + ROW_HEIGHT,
                     selected ? COL_ROW_SELECT : (i % 2 == 0 ? COL_ROW_EVEN : COL_ROW_ODD));
             if (selected) g.fill(8, y, 10, y + ROW_HEIGHT, COL_ACCENT);
-            drawClippedString(g, displayStockSymbol(row), 12, y + 3, 46, selected ? COL_ACCENT : COL_TEXT);
-            drawClippedString(g, row.name(), 62, y + 3, 82, COL_TEXT);
-            drawClippedString(g, Long.toString(row.lastPrice()), 150, y + 3, 40, COL_TEXT);
-            drawClippedString(g, Long.toString(row.fairValue()), 196, y + 3, 38, COL_TEXT_DIM);
-            drawClippedString(g, FormatUtil.formatPercent(row.dayChange()), 240, y + 3, 46, changeColor(row.dayChange()));
-            drawClippedString(g, Long.toString(row.dayVolume()), 292, y + 3, 36, COL_TEXT_DIM);
-            drawClippedString(g, Long.toString(row.availableShares()), 334, y + 3, 38, COL_TEXT_DIM);
+            drawClippedString(g, displayStockSymbol(row), 12, y + 5, 46, selected ? COL_ACCENT : COL_TEXT);
+            drawClippedString(g, row.name(), 62, y + 5, 82, COL_TEXT);
+            drawClippedString(g, Long.toString(row.lastPrice()), 150, y + 5, 40, COL_TEXT);
+            drawClippedString(g, Long.toString(row.fairValue()), 196, y + 5, 38, COL_TEXT_DIM);
+            drawClippedString(g, FormatUtil.formatPercent(row.dayChange()), 240, y + 5, 46, changeColor(row.dayChange()));
+            drawClippedString(g, Long.toString(row.dayVolume()), 292, y + 5, 36, COL_TEXT_DIM);
+            drawClippedString(g, Long.toString(row.availableShares()), 334, y + 5, 80, COL_TEXT_DIM);
         }
 
-        int tradeY = 134;
+        int tradeY = STOCK_TRADE_Y;
         drawSimpleSeparator(g, 8, tradeY - 6, imageWidth - 16);
         drawSectionTitle(g, "限价委托", 10, tradeY);
         FinanceMenu.StockRow selected = findSelectedStock();
@@ -1211,8 +1212,8 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
 
     private boolean handleMarketClick(int mx, int my) {
         int headerY = CONTENT_Y;
-        int rowY = headerY + 14;
-        int maxRows = Math.min(cachedMarketData.size(), 7);
+        int rowY = headerY + 16;
+        int maxRows = Math.min(cachedMarketData.size(), Math.max(1, (MARKET_TRADE_Y - rowY - 8) / ROW_HEIGHT));
         for (int i = 0; i < maxRows; i++) {
             int y = rowY + i * ROW_HEIGHT;
             if (my >= y && my < y + ROW_HEIGHT && mx >= 8 && mx < imageWidth - 8) {
@@ -1470,8 +1471,8 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
     // ---- 标签 5 点击: 股票 ----
 
     private boolean handleStockClick(int mx, int my) {
-        int rowY = CONTENT_Y + 14;
-        int maxRows = Math.min(menu.getStocks().size(), 5);
+        int rowY = CONTENT_Y + 16;
+        int maxRows = Math.min(menu.getStocks().size(), Math.max(1, (STOCK_TRADE_Y - rowY - 10) / ROW_HEIGHT));
         for (int i = 0; i < maxRows; i++) {
             int y = rowY + i * ROW_HEIGHT;
             if (my >= y && my < y + ROW_HEIGHT && mx >= 8 && mx < imageWidth - 8) {
@@ -1485,7 +1486,7 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
             }
         }
 
-        int tradeY = 134;
+        int tradeY = STOCK_TRADE_Y;
         if (my >= tradeY + 36 && my < tradeY + 50) {
             int qty = parseInt(stockQuantityBox.getValue());
             if (mx >= 124 && mx < 144) {
@@ -1772,14 +1773,18 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         return Math.max(1, (imageHeight - (CONTENT_Y + 22 + 26) - 4) / ROW_HEIGHT);
     }
 
-    /** 渲染物品图标（12x12，居中在 13px 行高中） */
+    /** 渲染物品图标（约 10x10，避免默认 16x16 压住表格文字） */
     private void renderItemIcon(GuiGraphics g, Commodity commodity, int x, int y) {
         if (commodity == null) return;
         String itemId = commodity.getItemId();
         if (itemId == null) return;
         Item item = BuiltInRegistries.ITEM.get(ResourceLocation.tryParse(itemId));
         if (item == null) return;
-        g.renderItem(new ItemStack(item), x, y);
+        g.pose().pushPose();
+        g.pose().translate(x, y, 0);
+        g.pose().scale(0.625F, 0.625F, 1.0F);
+        g.renderItem(new ItemStack(item), 0, 0);
+        g.pose().popPose();
     }
 
     private FinanceMenu.StockRow findSelectedStock() {
@@ -1844,8 +1849,6 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
 
     private void drawSectionTitle(GuiGraphics g, String label, int x, int y) {
         g.drawString(font, label, x, y, COL_TEXT, false);
-        int textEnd = x + font.width(label) + 4;
-        g.fill(textEnd, y + 5, Math.min(textEnd + 40, imageWidth - 10), y + 6, COL_PANEL_BORDER);
     }
 
     private void drawHeader(GuiGraphics g, String label, int x, int y) {

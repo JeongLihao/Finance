@@ -120,10 +120,11 @@ public class StockMarketManager {
                 continue;
             }
 
-            long companyValue = company.getEstimatedValue();
-            long dailyProfit = Math.max(0, company.getDailyRevenue() - company.getDailyCost()); // P3：传日利润
+            long companyValue = company.getFundamentalAssetValue();
+            long smoothedDailyProfit = company.getSmoothedDailyProfit();
+            double industrySentiment = company.getIndustrySentiment();
 
-            stock.updateFairValueAndResetDay(companyValue, stock.getTotalShares(), dailyProfit);
+            stock.updateFairValueAndResetDay(companyValue, stock.getTotalShares(), smoothedDailyProfit, industrySentiment);
             changed = true;
         }
         if (changed) {

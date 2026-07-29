@@ -149,8 +149,9 @@ public class Stock {
     /**
      * 每 MC 天调用 —— 基本面更新 + 日统计重置。
      */
-    public void updateFairValueAndResetDay(long companyTotalValue, long totalShares, long dailyProfit) {
-        priceEngine.updateFairValue(companyTotalValue, totalShares, dailyProfit);
+    public void updateFairValueAndResetDay(long companyAssetValue, long totalShares,
+                                           long smoothedDailyProfit, double industrySentiment) {
+        priceEngine.updateFairValue(companyAssetValue, totalShares, smoothedDailyProfit, industrySentiment);
         priceEngine.newDayReset();
     }
 
