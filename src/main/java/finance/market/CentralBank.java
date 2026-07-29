@@ -2,6 +2,7 @@ package finance.market;
 
 import finance.account.AccountManager;
 import finance.commodity.CommodityInventoryManager;
+import finance.commodity.CommodityRegistry;
 import finance.data.EconomySavedData;
 import finance.util.MathUtil;
 
@@ -19,8 +20,11 @@ public final class CentralBank {
     /** 中央银行账户 UUID，区别于国际市场 nil UUID。 */
     public static final UUID UUID = new UUID(0L, 1L);
 
-    /** 基础准备金。测试版先用大额但有限资金，避免无限印钞的观感。 */
-    private static final long BASE_RESERVE_CASH = 100_000_000L;
+    /** 基础准备金。央行承担战略兜底，而普通国际市场只承担日常交易。 */
+    private static final long BASE_RESERVE_CASH = 50_000_000L;
+
+    /** 每种商品战略储备目标。 */
+    private static final int STRATEGIC_RESERVE_STOCK = 240_000;
 
     /** 国际市场现金下限，低于此值说明市场端货币不足。 */
     private static final double MARKET_CASH_FLOOR_RATIO = 0.25;
@@ -41,6 +45,13 @@ public final class CentralBank {
         long current = AccountManager.getBalance(UUID);
         if (current < BASE_RESERVE_CASH) {
             AccountManager.deposit(UUID, BASE_RESERVE_CASH - current);
+        }
+        for (var commodity : CommodityRegistry.getAllCommodities()) {
+            String commodityId = commodity.getId();
+            int currentStock = CommodityInventoryManager.getCommodityAmount(UUID, commodityId);
+            if (currentStock < STRATEGIC_RESERVE_STOCK) {
+                CommodityInventoryManager.setCommodity(UUID, commodityId, STRATEGIC_RESERVE_STOCK);
+            }
         }
     }
 

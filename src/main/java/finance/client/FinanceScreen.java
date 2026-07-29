@@ -26,15 +26,15 @@ import java.util.*;
  */
 public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
 
-    private static final int PANEL_WIDTH = 460;
-    private static final int PANEL_HEIGHT = 300;
-    private static final int ROW_HEIGHT = 18;
+    private static final int PANEL_WIDTH = 400;
+    private static final int PANEL_HEIGHT = 250;
+    private static final int ROW_HEIGHT = 16;
     private static final int TAB_X = 10;
     private static final int TAB_Y = 24;
     private static final int TAB_H = 16;
     private static final int CONTENT_Y = 46;
-    private static final int MARKET_TRADE_Y = 224;
-    private static final int STOCK_TRADE_Y = 170;
+    private static final int MARKET_TRADE_Y = 166;
+    private static final int STOCK_TRADE_Y = 146;
 
     // ---- 色彩 ----
     private static final int COL_BG          = 0xFFE7E2D3;
@@ -713,8 +713,9 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
                     company.isPublic() ? COL_GOOD : COL_WARN);
             g.drawString(font, "现金", 12, cardY + 46, COL_TEXT_DIM, false);
             drawClippedString(g, Long.toString(company.cash()), 58, cardY + 46, 100, COL_GOOD);
-            g.drawString(font, "估值", 176, cardY + 46, COL_TEXT_DIM, false);
-            drawClippedString(g, Long.toString(company.totalValue()), 222, cardY + 46, 120, COL_WARN);
+            g.drawString(font, "公开估值", 176, cardY + 46, COL_TEXT_DIM, false);
+            drawClippedString(g, company.isPublic() ? Long.toString(company.totalValue()) : "未披露",
+                    240, cardY + 46, 120, company.isPublic() ? COL_WARN : COL_TEXT_DIM);
             if (!company.isPublic()) {
                 g.drawString(font, "发行价", 12, cardY + 74, COL_TEXT_DIM, false);
                 g.drawString(font, "发行数", 126, cardY + 74, COL_TEXT_DIM, false);
@@ -760,7 +761,7 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         drawHeader(g, "行业", 136, startY + 18);
         drawHeader(g, "归属", 198, startY + 18);
         drawHeader(g, "状态", 246, startY + 18);
-        drawHeader(g, "估值", 292, startY + 18);
+        drawHeader(g, "公开估值", 292, startY + 18);
 
         if (companies.isEmpty()) {
             g.drawString(font, "暂无公司", 14, startY + 34, COL_TEXT_DIM, false);
@@ -780,7 +781,8 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
                     row.playerOwned() ? COL_GOOD : COL_TEXT_DIM);
             drawClippedString(g, row.isPublic() ? "上市" : "未上市", 246, y + 3, 42,
                     row.isPublic() ? COL_GOOD : COL_WARN);
-            drawClippedString(g, Long.toString(row.totalValue()), 292, y + 3, 78, COL_WARN);
+            drawClippedString(g, row.isPublic() ? Long.toString(row.totalValue()) : "—",
+                    292, y + 3, 78, row.isPublic() ? COL_WARN : COL_TEXT_DIM);
             y += ROW_HEIGHT;
         }
         if (companies.size() > maxRows) {

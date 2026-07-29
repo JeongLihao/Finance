@@ -124,11 +124,13 @@ public class FinanceGuiOpener {
     }
 
     private static FinanceMenu.CompanyInfo toCompanyInfo(Company company) {
+        boolean publicFinancials = company.isPublic();
         return new FinanceMenu.CompanyInfo(
                 company.getCompanyId(),
                 company.getName(), company.getType().getDisplayName(),
-                company.getCash(), company.inventoryValue(),
-                company.getEstimatedValue(),
+                company.getCash(),
+                publicFinancials ? company.inventoryValue() : 0,
+                publicFinancials ? company.getEstimatedValue() : 0,
                 new LinkedHashMap<>(company.getInventory()),
                 company.isPlayerOwned(),
                 company.isPublic());

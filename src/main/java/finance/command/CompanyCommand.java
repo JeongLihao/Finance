@@ -98,9 +98,13 @@ public class CompanyCommand {
         player.sendSystemMessage(Component.literal("行业: " + c.getType().getDisplayName()));
         player.sendSystemMessage(Component.literal(
                 c.isPlayerOwned() ? "归属: 玩家公司" : "归属: 系统公司"));
+        player.sendSystemMessage(Component.literal("状态: " + (c.isPublic() ? "已上市" : "未上市")));
         player.sendSystemMessage(Component.literal("现金: " + c.getCash()));
 
-        if (!c.getInventory().isEmpty()) {
+        boolean isOwner = c.getOwnerId() != null && c.getOwnerId().equals(player.getUUID());
+        boolean canSeeInventory = c.isPublic() || isOwner;
+
+        if (canSeeInventory && !c.getInventory().isEmpty()) {
             player.sendSystemMessage(Component.literal("--- 库存 ---"));
             for (Map.Entry<String, Integer> entry : c.getInventory().entrySet()) {
                 player.sendSystemMessage(Component.literal(
@@ -108,9 +112,13 @@ public class CompanyCommand {
             }
         }
 
-        long invValue = c.inventoryValue();
-        player.sendSystemMessage(Component.literal("库存市值: " + invValue));
-        player.sendSystemMessage(Component.literal("公司估值: " + c.getEstimatedValue()));
+        if (c.isPublic()) {
+            long invValue = c.inventoryValue();
+            player.sendSystemMessage(Component.literal("库存市值: " + invValue));
+            player.sendSystemMessage(Component.literal("公开估值: " + c.getEstimatedValue()));
+        } else {
+            player.sendSystemMessage(Component.literal("公开估值: 未披露"));
+        }
         player.sendSystemMessage(Component.literal("===================="));
     }
 
