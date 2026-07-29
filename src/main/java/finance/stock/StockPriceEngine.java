@@ -8,7 +8,7 @@ import java.util.concurrent.ThreadLocalRandom;
  *
  * <h3>定价公式</h3>
  * <pre>
- *   fairValue = (公司总估值 + 盈利能力 × PE系数) / totalShares  ← 基本面锚（每 MC 天更新）
+ *   fairValue = (资产价值 + 平滑利润 × 景气PE) × 风险折价 / totalShares  ← 基本面锚（每 MC 天更新）
  *   基准 = 现价向 fairValue 缓慢回归
  *   盘口推动 = 成交量 / floatShares × IMPACT_SCALE（买入 +，卖出 -）
  *   最终价 = 基准 × (1 + tradeMomentum) + noiseOffset，夹逼在 fairValue 的 [0.3, 3.0] 倍
@@ -19,10 +19,10 @@ public class StockPriceEngine {
     // ---- 参数 ----
 
     /** 价格向 fairValue 回归的速度（每 tick） */
-    private static final double MEAN_REVERT_FACTOR = 0.05;
+    private static final double MEAN_REVERT_FACTOR = 0.08;
 
     /** 动量缩放：成交量占流通股 1% 时产生的动量百分比 */
-    private static final double MOMENTUM_SCALE = 30;
+    private static final double MOMENTUM_SCALE = 18;
 
     /** 每分钟动量衰减率（乘 0.5 即减半） */
     private static final double MOMENTUM_DECAY = 0.5;
@@ -31,11 +31,11 @@ public class StockPriceEngine {
     private static final double MOMENTUM_MIN = 0.001;
 
     /** 噪音偏移最大幅度（相对于 fairValue 的百分比） */
-    private static final double MAX_NOISE_RATIO = 0.15;
+    private static final double MAX_NOISE_RATIO = 0.06;
 
     /** 价格夹逼范围：fairValue × [MIN, MAX] */
-    private static final double MIN_PRICE_RATIO = 0.3;
-    private static final double MAX_PRICE_RATIO = 3.0;
+    private static final double MIN_PRICE_RATIO = 0.45;
+    private static final double MAX_PRICE_RATIO = 1.85;
 
     // ---- 字段 ----
 
@@ -128,22 +128,29 @@ public class StockPriceEngine {
      *
      * <h3>P3 改进：加入 PE 系数</h3>
      * <pre>
-     *   fairValue = (公司总估值 + 日利润 × PE系数) / totalShares
-     *   PE系数 = 8~15（平均盈利能力倍数）
+     *   assetValue = 现金 + 折价库存
+     *   profitValue = 7日平滑利润 × 景气 PE
+     *   riskDiscount = 行业景气差时下调估值
+     *   fairValue = (assetValue + profitValue) × riskDiscount / totalShares
      * </pre>
      *
-     * @param companyTotalValue 公司总估值（现金 + 库存市值）
+     * @param companyAssetValue 股票基本面资产值（现金 + 折价库存）
      * @param totalShares       总股本
-     * @param dailyProfit       最近日利润（P3 新增，用于 PE 计算）
+     * @param smoothedDailyProfit 最近 7 日平滑利润
+     * @param industrySentiment 行业景气（核心商品价格 / 基准价）
      */
-    public void updateFairValue(long companyTotalValue, long totalShares, long dailyProfit) {
+    public void updateFairValue(long companyAssetValue, long totalShares,
+                                long smoothedDailyProfit, double industrySentiment) {
         if (totalShares <= 0) return;
 
-        // P3：加入 PE 系数
-        int PE_COEFFICIENT = 10; // 保守估计，平均盈利能力倍数
-        long profitCapitalization = dailyProfit > 0 ? dailyProfit * PE_COEFFICIENT : 0;
+        double sentiment = clamp(industrySentiment, 0.35, 2.0);
+        double pe = clamp(6.0 + sentiment * 4.0, 5.0, 14.0);
+        double riskDiscount = clamp(0.55 + sentiment * 0.35, 0.45, 1.15);
 
-        long newFairValue = Math.max(1, (companyTotalValue + profitCapitalization) / totalShares);
+        long profitCapitalization = Math.round(smoothedDailyProfit * pe);
+        long grossValue = Math.max(0, companyAssetValue + profitCapitalization);
+        long adjustedValue = Math.round(grossValue * riskDiscount);
+        long newFairValue = Math.max(1, adjustedValue / totalShares);
         this.fairValue = newFairValue;
 
         // 基本面更新后重算价格
@@ -262,5 +269,9 @@ public class StockPriceEngine {
 
     public void setDayOpen(long dayOpen) {
         this.dayOpen = dayOpen;
+    }
+
+    private static double clamp(double value, double min, double max) {
+        return Math.max(min, Math.min(max, value));
     }
 }

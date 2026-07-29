@@ -14,8 +14,9 @@ import finance.event.MarketEvent;
  *   finalPrice = fundamentalPrice × (1 + tradeMomentum) + noiseOffset (+ eventImpact via fundamentalPrice multiplier)
  * </pre>
  * <ul>
- *   <li>fundamentalPrice = basePrice × REFERENCE_STOCK / npcStock（库存驱动，主导 ~70%）</li>
- *   <li>tradeMomentum（成交动能，单笔交易的短期冲击，随时间衰减 ~20%）</li>
+ *   <li>fundamentalPrice = basePrice × supplyFactor（库存驱动，但平滑夹逼）</li>
+ *   <li>tradeMomentum（成交动能，单笔交易的短期冲击，随时间衰减）</li>
+ *   <li>trendMomentum（供需锚持续偏离时形成的缓慢趋势）</li>
  *   <li>noiseOffset（市场噪音 ±1~3%，模拟运输成本/信息误差 ~10%）</li>
  *   <li>eventImpact（主题事件倍率，偶发）</li>
  * </ul>
@@ -30,11 +31,11 @@ public class MarketPrice {
 
     // ---- 价格波动参数 ----
 
-    /** 价格下限比例（最低跌到基准价的 10%） */
-    private static final double MIN_PRICE_RATIO = 0.1;
+    /** 价格下限比例（最低跌到基准价的 35%） */
+    private static final double MIN_PRICE_RATIO = 0.35;
 
-    /** 价格上限比例（最高涨到基准价的 10 倍） */
-    private static final double MAX_PRICE_RATIO = 10.0;
+    /** 价格上限比例（最高涨到基准价的 260%） */
+    private static final double MAX_PRICE_RATIO = 2.6;
 
     /** 国际市场参考库存量（库存 = 此值时价格 = basePrice） */
     public static final long REFERENCE_STOCK = 100_000;
@@ -42,17 +43,26 @@ public class MarketPrice {
     /** 每种商品最多保留的快照数量 */
     static final int MAX_SNAPSHOTS = 200;
 
-    /** 价格灵敏度：stock 偏离 REFERENCE 1% 时，fundamental 变动 SENSITIVITY% */
-    private static final double SENSITIVITY = 5.0;
+    /** 供需弹性：库存翻倍/腰斩时，价格不会线性暴涨暴跌 */
+    private static final double SUPPLY_ELASTICITY = 0.35;
 
     /** 动量缩放：一笔相当于 REFERENCE 1% 的交易产生 MOMENTUM_SCALE% 的动量溢价 */
-    private static final double MOMENTUM_SCALE = 50;
+    private static final double MOMENTUM_SCALE = 18;
 
     /** 每分钟动量衰减率（乘 0.5 即减半） */
     private static final double MOMENTUM_DECAY = 0.5;
 
-    /** 噪音偏移最大幅度（相对于 basePrice 20%） */
-    private static final double MAX_NOISE_RATIO = 0.2;
+    /** 噪音偏移最大幅度（相对于 basePrice 6%） */
+    private static final double MAX_NOISE_RATIO = 0.06;
+
+    /** 价格向目标价靠拢的比例，避免单日/单次重算跳变过大 */
+    private static final double PRICE_SMOOTHING = 0.35;
+
+    /** 趋势动量衰减率 */
+    private static final double TREND_DECAY = 0.85;
+
+    /** 趋势动量最大幅度 */
+    private static final double MAX_TREND = 0.25;
 
     /** 动量衰减到低于此阈值则归零 */
     private static final double MOMENTUM_MIN = 0.001;
@@ -73,6 +83,9 @@ public class MarketPrice {
 
     /** 累计成交动量（会随时间衰减） */
     private double tradeMomentum;
+
+    /** 供需目标价长期高/低于现价时形成的趋势动量 */
+    private double trendMomentum;
 
     /** 当前噪音偏移（整价偏移，如 -1/0/+1） */
     private int noiseOffset;
@@ -202,6 +215,7 @@ public class MarketPrice {
     }
 
     public double getTradeMomentum() { return tradeMomentum; }
+    public double getTrendMomentum() { return trendMomentum; }
     public int getNoiseOffset() { return noiseOffset; }
 
     public boolean hasActiveEvent() {
@@ -220,9 +234,11 @@ public class MarketPrice {
     private void recalculate(long npcStock) {
         this.lastNpcStock = npcStock;
 
-        // 1. 库存基准价
-        double deviation = (double)(REFERENCE_STOCK - npcStock) / REFERENCE_STOCK;
-        double fundamental = basePrice * (1.0 + deviation * SENSITIVITY);
+        // 1. 供需基准价：库存越高越便宜，但使用幂函数平滑，避免公司日常卖货造成单边崩盘。
+        double safeStock = Math.max(1.0, npcStock);
+        double supplyFactor = Math.pow((double) REFERENCE_STOCK / safeStock, SUPPLY_ELASTICITY);
+        supplyFactor = clamp(supplyFactor, MIN_PRICE_RATIO, MAX_PRICE_RATIO);
+        double fundamental = basePrice * supplyFactor;
 
         // 2. 事件倍率：确保对低价商品也有可见效果（至少 ±1）
         if (activeEvent != null) {
@@ -233,13 +249,19 @@ public class MarketPrice {
             }
         }
 
-        // 3. 动能 × 基准价 + 噪音整价偏移
-        long price = Math.round(fundamental * (1.0 + tradeMomentum)) + noiseOffset;
+        // 3. 趋势：目标价持续高/低于现价时缓慢形成，而不是一次交易立刻打满。
+        double trendSignal = (fundamental - midPrice) / Math.max(1.0, basePrice);
+        trendMomentum = clamp(trendMomentum * TREND_DECAY + trendSignal * (1.0 - TREND_DECAY),
+                -MAX_TREND, MAX_TREND);
 
-        // 4. 限制波动范围
+        // 4. 动能 + 趋势 + 噪音。交易动能是短期冲击，趋势是慢变量。
+        double targetPrice = fundamental * (1.0 + tradeMomentum + trendMomentum * 0.35) + noiseOffset;
+        long smoothedPrice = Math.round(midPrice + (targetPrice - midPrice) * PRICE_SMOOTHING);
+
+        // 5. 限制波动范围
         long floor = Math.max(1, Math.round(basePrice * MIN_PRICE_RATIO));
         long ceiling = Math.round(basePrice * MAX_PRICE_RATIO);
-        midPrice = Math.max(floor, Math.min(ceiling, price));
+        midPrice = Math.max(floor, Math.min(ceiling, smoothedPrice));
     }
 
     /**
@@ -299,6 +321,10 @@ public class MarketPrice {
         this.tradeMomentum = tradeMomentum;
     }
 
+    public void setTrendMomentum(double trendMomentum) {
+        this.trendMomentum = clamp(trendMomentum, -MAX_TREND, MAX_TREND);
+    }
+
     public void setNoiseOffset(int noiseOffset) {
         int maxNoise = Math.max(1, (int) Math.round(basePrice * MAX_NOISE_RATIO));
         if (noiseOffset > maxNoise) {
@@ -325,6 +351,7 @@ public class MarketPrice {
         dayOpen = midPrice;
         snapshots.clear();
         tradeMomentum = 0;
+        trendMomentum = 0;
         noiseOffset = 0;
     }
 
@@ -358,6 +385,10 @@ public class MarketPrice {
     /** 设置最近一次计算的国际市场库存（持久化恢复后使用，使 recalculateFromCurrent 可用） */
     public void setLastNpcStock(long stock) {
         this.lastNpcStock = stock;
+    }
+
+    private static double clamp(double value, double min, double max) {
+        return Math.max(min, Math.min(max, value));
     }
 
     /**

@@ -229,6 +229,13 @@ public class EconomySavedData extends SavedData {
             companyTag.putLong("DailyCost", company.getDailyCost());
             companyTag.putLong("RetainedEarnings", company.getRetainedEarnings());
             companyTag.putLong("LastDividendDay", company.getLastDividendDay());
+            ListTag recentProfitsTag = new ListTag();
+            for (Long profit : company.getRecentProfits()) {
+                CompoundTag profitTag = new CompoundTag();
+                profitTag.putLong("Profit", profit);
+                recentProfitsTag.add(profitTag);
+            }
+            companyTag.put("RecentProfits", recentProfitsTag);
 
             // P4：保存上市状态
             companyTag.putBoolean("IsPublic", company.isPublic());
@@ -258,6 +265,7 @@ public class EconomySavedData extends SavedData {
 
             // 动量与噪音
             priceTag.putDouble("TradeMomentum", mp.getTradeMomentum());
+            priceTag.putDouble("TrendMomentum", mp.getTrendMomentum());
             priceTag.putInt("NoiseOffset", mp.getNoiseOffset());
 
             pricesTag.add(priceTag);
@@ -292,6 +300,9 @@ public class EconomySavedData extends SavedData {
         // ---- 保存商品定义（管理员添加的自定义商品） ----
         ListTag commoditiesTag = new ListTag();
         for (Commodity commodity : CommodityRegistry.getAllCommodities()) {
+            if (CommodityRegistry.isDefaultCommodity(commodity.getId())) {
+                continue;
+            }
             CompoundTag cTag = new CompoundTag();
             cTag.putString("Id", commodity.getId());
             cTag.putString("DisplayName", commodity.getDisplayName());
@@ -604,12 +615,19 @@ public class EconomySavedData extends SavedData {
                     }
                 }
 
-                // P3：恢复盈利和分红字段（向后兼容，旧存档缺失字段则默认为 0）
-                if (companyTag.contains("DailyRevenue")) {
-                    // 这些字段通过 Company 的内部机制管理，暂不直接set
-                    // 因为 Company 类中没有 setter（设计上日收入/成本每天重置）
-                    // 所以只需在加载时验证字段存在即可，默认值已在 Company 构造时初始化为 0
+                List<Long> recentProfits = new java.util.ArrayList<>();
+                if (companyTag.contains("RecentProfits")) {
+                    ListTag recentProfitsTag = companyTag.getList("RecentProfits", Tag.TAG_COMPOUND);
+                    for (Tag profitRaw : recentProfitsTag) {
+                        recentProfits.add(((CompoundTag) profitRaw).getLong("Profit"));
+                    }
                 }
+                company.restoreFinancials(
+                        companyTag.getLong("DailyRevenue"),
+                        companyTag.getLong("DailyCost"),
+                        companyTag.getLong("RetainedEarnings"),
+                        companyTag.getLong("LastDividendDay"),
+                        recentProfits);
 
                 // P4：恢复上市状态
                 if (companyTag.contains("IsPublic")) {
@@ -681,6 +699,9 @@ public class EconomySavedData extends SavedData {
                 // 恢复动量与噪音（向后兼容：旧存档无此字段则保持默认 0）
                 if (priceTag.contains("TradeMomentum")) {
                     mp.setTradeMomentum(priceTag.getDouble("TradeMomentum"));
+                }
+                if (priceTag.contains("TrendMomentum")) {
+                    mp.setTrendMomentum(priceTag.getDouble("TrendMomentum"));
                 }
                 if (priceTag.contains("NoiseOffset")) {
                     mp.setNoiseOffset(priceTag.getInt("NoiseOffset"));
