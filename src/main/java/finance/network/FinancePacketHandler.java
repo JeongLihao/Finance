@@ -69,5 +69,17 @@ public class FinancePacketHandler {
                 InventoryActionPacket::encode,
                 InventoryActionPacket::decode,
                 InventoryActionPacket::handle);
+
+        CHANNEL.registerMessage(packetId++,
+                StockOrderPacket.class,
+                StockOrderPacket::encode,
+                StockOrderPacket::decode,
+                StockOrderPacket::handle);
+
+        CHANNEL.registerMessage(packetId++,
+                CompanyIPOPacket.class,
+                CompanyIPOPacket::encode,
+                CompanyIPOPacket::decode,
+                CompanyIPOPacket::handle);
     }
 }

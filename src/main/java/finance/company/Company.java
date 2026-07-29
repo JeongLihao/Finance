@@ -33,6 +33,26 @@ public class Company {
     /** 原料安全库存天数，避免公司把生产原料卖掉后又立刻买回 */
     private static final int RAW_MATERIAL_RESERVE_DAYS = 3;
 
+    // ---- P3：盈利与分红 ----
+    /** 当日营收（产出销售收入） */
+    private long dailyRevenue;
+
+    /** 当日成本（原料购买支出） */
+    private long dailyCost;
+
+    /** 留存收益（未分配利润） */
+    private long retainedEarnings;
+
+    /** 上次分红的 MC 天数（用于判断是否需要分红） */
+    private long lastDividendDay;
+
+    /** 分红周期（每 N 个 MC 天分红一次） */
+    private static final int DIVIDEND_CYCLE_DAYS = 7;
+
+    // ---- P4：IPO ----
+    /** 是否已上市 */
+    private boolean isPublic;
+
     public Company(UUID companyId, String name, CompanyType type, long cash) {
         this(companyId, name, type, cash, null);
     }
@@ -43,6 +63,7 @@ public class Company {
         this.type = type;
         this.cash = cash;
         this.ownerId = ownerId;
+        this.isPublic = false; // 默认未上市
     }
 
     public UUID getCompanyId() { return companyId; }
@@ -128,6 +149,9 @@ public class Company {
         withdraw(totalCost);
         AccountManager.deposit(NpcMarketMaker.NPC_UUID, totalCost);
 
+        // P3：记录成本
+        dailyCost += totalCost;
+
         AccountManager.addTransactionRecord(
                 new TransactionRecord(companyId, NpcMarketMaker.NPC_UUID,
                         totalCost, TransactionType.NPC_SELL));
@@ -184,6 +208,9 @@ public class Company {
                 AccountManager.withdraw(NpcMarketMaker.NPC_UUID, totalCost);
                 deposit(totalCost);
 
+                // P3：记录收益
+                dailyRevenue += totalCost;
+
                 AccountManager.addTransactionRecord(
                         new TransactionRecord(NpcMarketMaker.NPC_UUID, companyId,
                                 totalCost, TransactionType.NPC_BUY));
@@ -227,4 +254,66 @@ public class Company {
         return type.getDailyConsumption()
                 .getOrDefault(commodityId, 0) * RAW_MATERIAL_RESERVE_DAYS;
     }
+
+    // ---- P3：盈利与分红 ----
+
+    /**
+     * 每 MC 天调用（在 produce 和 autoTrade 后）—— 计算日利润，累加到留存收益。
+     */
+    public void settleDailyProfits() {
+        long dailyProfit = dailyRevenue - dailyCost;
+        retainedEarnings += dailyProfit;
+        dailyRevenue = 0;
+        dailyCost = 0;
+    }
+
+    /**
+     * 尝试分红（CompanyManager 应每 DIVIDEND_CYCLE_DAYS 调用一次）。
+     * 返回本次分红的总金额。
+     */
+    public long tryDividend(long currentMcDay) {
+        if (lastDividendDay == 0) {
+            lastDividendDay = currentMcDay;
+            return 0; // 首次不分红
+        }
+
+        if (currentMcDay - lastDividendDay < DIVIDEND_CYCLE_DAYS) {
+            return 0; // 未到分红日期
+        }
+
+        if (retainedEarnings <= 0) {
+            lastDividendDay = currentMcDay;
+            return 0; // 无利润可分
+        }
+
+        // 分红比例：40% 分给股东，60% 保留再投资
+        long dividendAmount = Math.round(retainedEarnings * 0.4);
+        retainedEarnings -= dividendAmount;
+        lastDividendDay = currentMcDay;
+
+        return dividendAmount;
+    }
+
+    public long getDailyRevenue() { return dailyRevenue; }
+    public long getDailyCost() { return dailyCost; }
+    public long getRetainedEarnings() { return retainedEarnings; }
+    public long getLastDividendDay() { return lastDividendDay; }
+
+    /**
+     * 获取股息率（每股分红 / 股价）—— 用于 GUI 显示。
+     * 假设总股本 10000，则股息 = dailyProfit / 10000 / 股价 * 365天。
+     * 简化：按最近日利润年化。
+     */
+    public double getDividendYieldPercent() {
+        if (cash + inventoryValue() <= 0) return 0;
+        long recentDailyProfit = dailyRevenue - dailyCost;
+        long annualProfit = recentDailyProfit * 365; // 粗估
+        long totalValue = getEstimatedValue();
+        return totalValue > 0 ? (double) annualProfit / totalValue * 100 : 0;
+    }
+
+    // ---- P4：IPO ----
+
+    public boolean isPublic() { return isPublic; }
+    public void setPublic(boolean pub) { this.isPublic = pub; }
 }

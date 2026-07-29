@@ -1,0 +1,11 @@
+0.5.0-Beta
+Minecraft 1.20.1 / Forge 47.4.16
+
+P1-P5 Stock System Complete Implementation
+- P1: Hybrid Pricing Engine ✓
+- P2: Order Book + Market Maker ✓
+- P3: Company Profitability + Dividends ✓
+- P4: Player Company IPO ✓
+- P5: Dividend Distribution ✓
+
+GUI Implementation: In Progress (P5)

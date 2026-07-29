@@ -70,7 +70,16 @@ public class StockMarketManager {
     }
 
     public static void putStockDirect(Stock stock) {
-        STOCKS.put(stock.getSymbol(), stock);
+        STOCKS.put(normalizeSymbol(stock.getSymbol()), stock);
+    }
+
+    public static Stock getStockByCompanyId(UUID companyId) {
+        for (Stock stock : STOCKS.values()) {
+            if (stock.getCompanyId().equals(companyId)) {
+                return stock;
+            }
+        }
+        return null;
     }
 
     /** 根据公司 ID 移除对应股票，返回被移除的股票（可能为 null） */
@@ -101,7 +110,7 @@ public class StockMarketManager {
     /**
      * 每 MC 天调用 —— 基本面更新（新引擎）。
      * 根据公司最新估值，重新计算每只股票的 fairValue，驱动价格均值回归。
-     * 替代旧的 updatePricesFromCompaniesAndMarket 覆盖式逻辑。
+     * P3：传递日利润到 PE 系数计算。
      */
     public static void updateFairValuesAndResetDay() {
         boolean changed = false;
@@ -112,7 +121,7 @@ public class StockMarketManager {
             }
 
             long companyValue = company.getEstimatedValue();
-            long dailyProfit = 0; // P3 时从 Company.getDailyProfit() 读取
+            long dailyProfit = Math.max(0, company.getDailyRevenue() - company.getDailyCost()); // P3：传日利润
 
             stock.updateFairValueAndResetDay(companyValue, stock.getTotalShares(), dailyProfit);
             changed = true;
@@ -153,56 +162,28 @@ public class StockMarketManager {
         Stock stock = getStock(symbol);
         if (stock == null) return TradeResult.fail("未知股票: " + symbol);
         if (quantity <= 0) return TradeResult.fail("数量必须大于 0。");
-        if (stock.getFloatShares() < quantity) {
-            return TradeResult.fail("流通股不足，可买: " + stock.getFloatShares());
-        }
-
         if (quantity > Integer.MAX_VALUE) {
-            return TradeResult.fail("交易金额过大。");
-        }
-        long totalCost = MathUtil.multiplyExactOrNegative1(stock.getLastPrice(), (int) quantity);
-        if (totalCost <= 0) return TradeResult.fail("交易金额过大。");
-        if (!AccountManager.withdraw(playerId, totalCost)) {
-            return TradeResult.fail("余额不足，需要: " + totalCost);
-        }
-        if (!stock.removeAvailableShares(quantity)) {
-            AccountManager.deposit(playerId, totalCost);
-            return TradeResult.fail("流通股不足。");
+            return TradeResult.fail("数量过大。");
         }
 
-        // 记录成交，通知定价引擎（推高价格）
-        stock.recordTrade(stock.getLastPrice(), quantity, true);
-
-        StockPortfolioManager.addHolding(playerId, stock.getSymbol(), quantity, stock.getLastPrice());
-        EconomySavedData.markDirty();
-        return TradeResult.ok("已买入 " + quantity + " 股 " + stock.getSymbol() + "，成交价: " + stock.getLastPrice());
+        // 按当前价一步到位成交（做市商 fallback）
+        long price = stock.getLastPrice();
+        String result = StockOrderManager.placeBuyOrder(playerId, symbol, price, (int) quantity);
+        return TradeResult.ok(result);
     }
 
     public static TradeResult sell(UUID playerId, String symbol, long quantity) {
         Stock stock = getStock(symbol);
         if (stock == null) return TradeResult.fail("未知股票: " + symbol);
         if (quantity <= 0) return TradeResult.fail("数量必须大于 0。");
-        StockHolding holding = StockPortfolioManager.getHolding(playerId, stock.getSymbol());
-        if (holding.getQuantity() < quantity) {
-            return TradeResult.fail("持仓不足，拥有: " + holding.getQuantity());
-        }
-
         if (quantity > Integer.MAX_VALUE) {
-            return TradeResult.fail("交易金额过大。");
-        }
-        long proceeds = MathUtil.multiplyExactOrNegative1(stock.getLastPrice(), (int) quantity);
-        if (proceeds <= 0) return TradeResult.fail("交易金额过大。");
-        if (!StockPortfolioManager.removeHolding(playerId, stock.getSymbol(), quantity)) {
-            return TradeResult.fail("持仓不足。");
+            return TradeResult.fail("数量过大。");
         }
 
-        stock.addAvailableShares(quantity);
-        // 记录成交，通知定价引擎（压低价格）
-        stock.recordTrade(stock.getLastPrice(), quantity, false);
-
-        AccountManager.deposit(playerId, proceeds);
-        EconomySavedData.markDirty();
-        return TradeResult.ok("已卖出 " + quantity + " 股 " + stock.getSymbol() + "，成交价: " + stock.getLastPrice());
+        // 按当前价一步到位成交（做市商 fallback）
+        long price = stock.getLastPrice();
+        String result = StockOrderManager.placeSellOrder(playerId, symbol, price, (int) quantity);
+        return TradeResult.ok(result);
     }
 
     public static String normalizeSymbol(String symbol) {
@@ -232,6 +213,43 @@ public class StockMarketManager {
         };
     }
 
+
+    // ================================================================
+    // 股票订单簿（P2）
+    // ================================================================
+
+    public static Collection<StockOrder> getOrders() {
+        return StockOrderManager.getOrders();
+    }
+
+    public static Collection<StockOrder> getOrdersBySymbol(String symbol) {
+        return StockOrderManager.getOrdersBySymbol(symbol);
+    }
+
+    public static Collection<StockTrade> getStockTradeHistory() {
+        return StockOrderManager.getTradeHistory();
+    }
+
+    public static boolean cancelStockOrder(UUID orderId, UUID playerId) {
+        return StockOrderManager.cancelOrder(orderId, playerId);
+    }
+
+    public static void clearStockOrders() {
+        StockOrderManager.clearOrders();
+    }
+
+    public static void clearStockTradeHistory() {
+        StockOrderManager.clearTradeHistory();
+    }
+
+    public static void addStockOrderDirect(StockOrder order) {
+        StockOrderManager.addOrderDirect(order);
+    }
+
+    public static void addStockTradeDirect(StockTrade trade) {
+        // 用于持久化恢复，直接添加到历史记录
+        StockOrderManager.addTradeDirectly(trade);
+    }
 
     public record TradeResult(boolean success, String message) {
         public static TradeResult ok(String message) {

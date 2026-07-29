@@ -1,6 +1,9 @@
 package finance.company;
 
 import finance.data.EconomySavedData;
+import finance.stock.Stock;
+import finance.stock.StockMarketManager;
+import finance.stock.StockPortfolioManager;
 
 import java.util.Collection;
 import java.util.HashMap;
@@ -66,6 +69,59 @@ public class CompanyManager {
             c.autoTrade();
         }
         EconomySavedData.markDirty();
+    }
+
+    /** P3：每日分红结算 —— 计算日利润并累加到留存收益 */
+    public static void settleDailyProfits() {
+        for (Company c : COMPANIES.values()) {
+            c.settleDailyProfits();
+        }
+        EconomySavedData.markDirty();
+    }
+
+    /** P3：周期性分红 —— 向股东分配利润（MC天数从服务器 tick count 推算） */
+    public static void tryDividends(long currentMcDay) {
+        for (Company c : COMPANIES.values()) {
+            long dividendAmount = c.tryDividend(currentMcDay);
+            if (dividendAmount > 0) {
+                // P5：按持股比例分给所有股东
+                distributeDividend(c, dividendAmount);
+            }
+        }
+        EconomySavedData.markDirty();
+    }
+
+    /**
+     * P5：分红分账逻辑 —— 按持股比例向所有股东转账现金。
+     */
+    private static void distributeDividend(Company company, long totalDividend) {
+        Stock stock = StockMarketManager.getStockByCompanyId(company.getCompanyId());
+        if (stock == null || stock.getTotalShares() <= 0) {
+            return;
+        }
+
+        String symbol = stock.getSymbol();
+        long totalShares = stock.getTotalShares();
+
+        // 获取所有持有该公司股票的玩家
+        java.util.Map<java.util.UUID, Long> holdings = StockPortfolioManager.getHoldingsForCompany(symbol);
+
+        if (holdings.isEmpty()) {
+            return; // 无股东，无处分红
+        }
+
+        // 按比例分配
+        for (java.util.Map.Entry<java.util.UUID, Long> entry : holdings.entrySet()) {
+            java.util.UUID playerId = entry.getKey();
+            long shareholding = entry.getValue();
+
+            long payout = Math.round((double) totalDividend * shareholding / totalShares);
+            if (payout > 0) {
+                finance.account.AccountManager.deposit(playerId, payout);
+                // 可选：广播分红通知
+                // Bukkit.broadcastMessage(player.getName() + " 获得 " + symbol + " 的分红：" + payout);
+            }
+        }
     }
 
     /** 移除单个公司（退市时调用） */

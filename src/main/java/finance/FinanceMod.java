@@ -147,13 +147,20 @@ public class FinanceMod {
         int tick = server.getTickCount();
         if (tick <= 0) return;
 
-        // 每个MC天：基本面更新 + 日统计重置 + 事件脉冲 + 公司经营（24000 ticks）
+        // 每个MC天：基本面更新 + 日统计重置 + 事件脉冲 + 公司经营 + P3分红结算（24000 ticks）
         if (tick % 24000 == 0) {
             NpcMarketMaker.resetAllDayStats();
             StockMarketManager.updateFairValuesAndResetDay();
             EventManager.onDayTick(server);
             CompanyManager.tickAll();
+            CompanyManager.settleDailyProfits(); // P3：分红结算
             NpcMarketMaker.naturalConsumeAll();
+
+            // P3：每 7 天尝试分红（推算 MC 天数）
+            int mcDay = tick / 24000;
+            if (mcDay % 7 == 0) {
+                CompanyManager.tryDividends(mcDay);
+            }
         }
 
         // 每3分钟：刷新噪音 + 动量衰减 + 重算价格（3600 ticks）
