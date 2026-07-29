@@ -28,7 +28,7 @@ public class StockOrder {
     public StockOrder(UUID playerId, String symbol, StockOrderType type, long price, int quantity) {
         this.orderId = UUID.randomUUID();
         this.playerId = playerId;
-        this.symbol = symbol;
+        this.symbol = StockMarketManager.normalizeSymbol(symbol);
         this.type = type;
         this.price = price;
         this.quantity = quantity;
@@ -40,7 +40,7 @@ public class StockOrder {
                       long price, int quantity, LocalDateTime timestamp) {
         this.orderId = orderId;
         this.playerId = playerId;
-        this.symbol = symbol;
+        this.symbol = StockMarketManager.normalizeSymbol(symbol);
         this.type = type;
         this.price = price;
         this.quantity = quantity;

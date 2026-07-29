@@ -71,10 +71,10 @@ public class StockOrderPacket {
 
             switch (packet.actionType) {
                 case PLACE_BUY:
-                    result = StockMarketManager.buy(player.getUUID(), packet.symbol, packet.quantity);
+                    result = StockMarketManager.placeLimitBuy(player.getUUID(), packet.symbol, packet.price, packet.quantity);
                     break;
                 case PLACE_SELL:
-                    result = StockMarketManager.sell(player.getUUID(), packet.symbol, packet.quantity);
+                    result = StockMarketManager.placeLimitSell(player.getUUID(), packet.symbol, packet.price, packet.quantity);
                     break;
                 case CANCEL:
                     boolean success = StockMarketManager.cancelStockOrder(packet.orderId, player.getUUID());

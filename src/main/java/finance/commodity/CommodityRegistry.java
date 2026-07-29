@@ -13,6 +13,9 @@ public class CommodityRegistry {
     private static final Map<String, Commodity> COMMODITIES =
             new HashMap<>();
 
+    private static final Map<String, Commodity> DEFAULT_COMMODITIES =
+            new HashMap<>();
+
     /** 注册商品（模组初始化时调用） */
     public static void register(Commodity commodity) {
 
@@ -20,6 +23,22 @@ public class CommodityRegistry {
                 commodity.getId(),
                 commodity
         );
+        finance.event.EventManager.markCommodityIdsDirty();
+    }
+
+    /** 注册模组默认商品。默认商品会在切换世界时保留，自定义商品会随世界存档重新加载。 */
+    public static void registerDefault(Commodity commodity) {
+        DEFAULT_COMMODITIES.put(
+                commodity.getId(),
+                commodity
+        );
+        register(commodity);
+    }
+
+    /** 清空世界级自定义商品，只恢复模组默认商品。 */
+    public static void resetToDefaults() {
+        COMMODITIES.clear();
+        COMMODITIES.putAll(DEFAULT_COMMODITIES);
         finance.event.EventManager.markCommodityIdsDirty();
     }
 
@@ -36,6 +55,9 @@ public class CommodityRegistry {
 
     /** 移除商品（管理员操作），返回是否成功 */
     public static boolean removeCommodity(String id) {
+        if (DEFAULT_COMMODITIES.containsKey(id)) {
+            return false;
+        }
         boolean removed = COMMODITIES.remove(id) != null;
         if (removed) {
             finance.event.EventManager.markCommodityIdsDirty();
@@ -46,5 +68,9 @@ public class CommodityRegistry {
     /** 检查商品是否已注册 */
     public static boolean isRegistered(String id) {
         return COMMODITIES.containsKey(id);
+    }
+
+    public static boolean isDefaultCommodity(String id) {
+        return DEFAULT_COMMODITIES.containsKey(id);
     }
 }

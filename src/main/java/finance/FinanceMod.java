@@ -18,6 +18,7 @@ import finance.command.CompanyCommand;
 import finance.company.CompanyManager;
 import finance.company.SystemCompanyInitializer;
 import net.minecraftforge.event.server.ServerStartingEvent;
+import net.minecraftforge.event.server.ServerStoppedEvent;
 import finance.data.EconomySavedData;
 import finance.data.CommodityInventorySavedData;
 import finance.market.NpcMarketMaker;
@@ -57,7 +58,7 @@ public class FinanceMod {
         FinancePacketHandler.register();
 
         // ---- 注册默认商品 ----
-        CommodityRegistry.register(
+        CommodityRegistry.registerDefault(
                 new Commodity(
                         "iron",
                         "minecraft:iron_ingot",
@@ -67,7 +68,7 @@ public class FinanceMod {
                 )
         );
 
-        CommodityRegistry.register(
+        CommodityRegistry.registerDefault(
                 new Commodity(
                         "wheat",
                         "minecraft:wheat",
@@ -77,7 +78,7 @@ public class FinanceMod {
                 )
         );
 
-        CommodityRegistry.register(
+        CommodityRegistry.registerDefault(
                 new Commodity(
                         "stone",
                         "minecraft:stone",
@@ -115,7 +116,9 @@ public class FinanceMod {
             ServerStartingEvent event
     ) {
 
-        NpcMarketMaker.resetSeedState();
+        CommodityRegistry.resetToDefaults();
+        EconomySavedData.resetRuntimeState();
+        CommodityInventorySavedData.resetRuntimeState();
 
         EconomySavedData.get(
                 event.getServer()
@@ -136,6 +139,14 @@ public class FinanceMod {
         StockMarketManager.updateFairValuesAndResetDay();
     }
 
+    /** 服务器关闭/切换世界时释放所有世界级静态状态，避免下一个世界继承旧内存。 */
+    @SubscribeEvent
+    public void onServerStopped(ServerStoppedEvent event) {
+        EconomySavedData.unload();
+        CommodityInventorySavedData.unload();
+        CommodityRegistry.resetToDefaults();
+    }
+
     /** Tick 调度 —— 驱动事件压力、动量衰减、噪音刷新和股价重算 */
     @SubscribeEvent
     public void onServerTick(ServerTickEvent event) {
@@ -150,11 +161,11 @@ public class FinanceMod {
         // 每个MC天：基本面更新 + 日统计重置 + 事件脉冲 + 公司经营 + P3分红结算（24000 ticks）
         if (tick % 24000 == 0) {
             NpcMarketMaker.resetAllDayStats();
-            StockMarketManager.updateFairValuesAndResetDay();
             EventManager.onDayTick(server);
             CompanyManager.tickAll();
-            CompanyManager.settleDailyProfits(); // P3：分红结算
             NpcMarketMaker.naturalConsumeAll();
+            StockMarketManager.updateFairValuesAndResetDay();
+            CompanyManager.settleDailyProfits(); // P3：分红结算
 
             // P3：每 7 天尝试分红（推算 MC 天数）
             int mcDay = tick / 24000;

@@ -138,6 +138,9 @@ public class StockMarketManager {
         for (Stock stock : STOCKS.values()) {
             stock.tickMomentum();
         }
+        if (!STOCKS.isEmpty()) {
+            EconomySavedData.markDirty();
+        }
     }
 
     /**
@@ -147,6 +150,9 @@ public class StockMarketManager {
         for (Stock stock : STOCKS.values()) {
             stock.tickNoise();
         }
+        if (!STOCKS.isEmpty()) {
+            EconomySavedData.markDirty();
+        }
     }
 
     /**
@@ -155,6 +161,9 @@ public class StockMarketManager {
     public static void recalculateAllPrices() {
         for (Stock stock : STOCKS.values()) {
             stock.recalculateFromCurrent();
+        }
+        if (!STOCKS.isEmpty()) {
+            EconomySavedData.markDirty();
         }
     }
 
@@ -168,8 +177,18 @@ public class StockMarketManager {
 
         // 按当前价一步到位成交（做市商 fallback）
         long price = stock.getLastPrice();
-        String result = StockOrderManager.placeBuyOrder(playerId, symbol, price, (int) quantity);
-        return TradeResult.ok(result);
+        StockOrderManager.OrderResult result = StockOrderManager.placeBuyOrder(playerId, symbol, price, (int) quantity);
+        return new TradeResult(result.success(), result.message());
+    }
+
+    public static TradeResult placeLimitBuy(UUID playerId, String symbol, long price, long quantity) {
+        if (quantity <= 0) return TradeResult.fail("数量必须大于 0。");
+        if (price <= 0) return TradeResult.fail("价格必须大于 0。");
+        if (quantity > Integer.MAX_VALUE) {
+            return TradeResult.fail("数量过大。");
+        }
+        StockOrderManager.OrderResult result = StockOrderManager.placeBuyOrder(playerId, symbol, price, (int) quantity);
+        return new TradeResult(result.success(), result.message());
     }
 
     public static TradeResult sell(UUID playerId, String symbol, long quantity) {
@@ -182,8 +201,18 @@ public class StockMarketManager {
 
         // 按当前价一步到位成交（做市商 fallback）
         long price = stock.getLastPrice();
-        String result = StockOrderManager.placeSellOrder(playerId, symbol, price, (int) quantity);
-        return TradeResult.ok(result);
+        StockOrderManager.OrderResult result = StockOrderManager.placeSellOrder(playerId, symbol, price, (int) quantity);
+        return new TradeResult(result.success(), result.message());
+    }
+
+    public static TradeResult placeLimitSell(UUID playerId, String symbol, long price, long quantity) {
+        if (quantity <= 0) return TradeResult.fail("数量必须大于 0。");
+        if (price <= 0) return TradeResult.fail("价格必须大于 0。");
+        if (quantity > Integer.MAX_VALUE) {
+            return TradeResult.fail("数量过大。");
+        }
+        StockOrderManager.OrderResult result = StockOrderManager.placeSellOrder(playerId, symbol, price, (int) quantity);
+        return new TradeResult(result.success(), result.message());
     }
 
     public static String normalizeSymbol(String symbol) {
