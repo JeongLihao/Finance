@@ -109,8 +109,9 @@ public class StockOrderManager {
     private static OrderResult matchOrder(StockOrder order, Stock stock) {
         int remainingQty = order.getQuantity();
 
-        // 尝试与现有订单撮合
+        // 尝试与现有订单撮合：价格优先，同价时间优先。
         List<StockOrder> oppositeOrders = ORDERS_BY_SYMBOL.getOrDefault(order.getSymbol(), new ArrayList<>());
+        sortOrderBook(oppositeOrders);
         Iterator<StockOrder> iterator = oppositeOrders.iterator();
 
         while (iterator.hasNext() && remainingQty > 0) {
@@ -143,9 +144,14 @@ public class StockOrderManager {
             UUID buyerId = order.getType() == StockOrderType.BUY ? order.getPlayerId() : opposite.getPlayerId();
             UUID sellerId = order.getType() == StockOrderType.BUY ? opposite.getPlayerId() : order.getPlayerId();
 
-            // 执行成交
-            executeTrade(buyerId, sellerId, order.getSymbol(),
-                    tradePrice, tradeQty, stock, buyerLimitPrice, order.getType() == StockOrderType.BUY);
+            // 执行成交。失败时不推进订单状态，避免账户/持仓和订单数量半成功。
+            if (!executeTrade(buyerId, sellerId, order.getSymbol(),
+                    tradePrice, tradeQty, stock, buyerLimitPrice, order.getType() == StockOrderType.BUY)) {
+                order.setQuantity(remainingQty);
+                addOrderDirect(order);
+                EconomySavedData.markDirty();
+                return OrderResult.ok("部分撮合遇到结算异常，剩余订单已挂入订单簿。");
+            }
 
             remainingQty -= tradeQty;
             opposite.reduceQuantity(tradeQty);
@@ -157,10 +163,20 @@ public class StockOrderManager {
             }
         }
 
-        // 还有剩余数量，尝试做市商成交
+        // 还有剩余数量，尝试做市商成交；做市商不接则挂回订单簿。
         if (remainingQty > 0) {
             order.setQuantity(remainingQty);
-            return marketMakerTrade(order, stock);
+            OrderResult marketMakerResult = marketMakerTrade(order, stock);
+            if (marketMakerResult.success()) {
+                return marketMakerResult;
+            }
+            if (marketMakerResult.terminal()) {
+                EconomySavedData.markDirty();
+                return marketMakerResult;
+            }
+            addOrderDirect(order);
+            EconomySavedData.markDirty();
+            return OrderResult.ok("订单已挂入订单簿，剩余数量: " + order.getQuantity());
         }
 
         EconomySavedData.markDirty();
@@ -174,7 +190,7 @@ public class StockOrderManager {
         long fairValue = stock.getFairValue();
         if (fairValue <= 0) {
             refundOrderAssets(order);
-            return OrderResult.fail("市场行情异常，请稍后重试。");
+            return OrderResult.terminalFail("市场行情异常，请稍后重试。");
         }
 
         // 做市商报价
@@ -186,25 +202,27 @@ public class StockOrderManager {
             // 买单以 askPrice 成交
             tradePrice = askPrice;
             if (order.getPrice() < tradePrice) {
-                refundOrderAssets(order);
-                return OrderResult.fail("你的出价 " + order.getPrice() + " 低于做市商报价 " + tradePrice + "，已退款。");
+                return OrderResult.fail("做市商报价未满足。");
             }
         } else {
             // 卖单以 bidPrice 成交
             tradePrice = bidPrice;
             if (order.getPrice() > tradePrice) {
-                refundOrderAssets(order);
-                return OrderResult.fail("你的要价 " + order.getPrice() + " 高于做市商报价 " + tradePrice + "，已退回股票。");
+                return OrderResult.fail("做市商报价未满足。");
             }
         }
 
         // 执行成交
         if (order.getType() == StockOrderType.BUY) {
-            executeTrade(order.getPlayerId(), MARKET_MAKER_UUID, order.getSymbol(),
-                    tradePrice, order.getQuantity(), stock, order.getPrice(), true);
+            if (!executeTrade(order.getPlayerId(), MARKET_MAKER_UUID, order.getSymbol(),
+                    tradePrice, order.getQuantity(), stock, order.getPrice(), true)) {
+                return OrderResult.fail("做市商成交结算失败。");
+            }
         } else {
-            executeTrade(MARKET_MAKER_UUID, order.getPlayerId(), order.getSymbol(),
-                    tradePrice, order.getQuantity(), stock, tradePrice, false);
+            if (!executeTrade(MARKET_MAKER_UUID, order.getPlayerId(), order.getSymbol(),
+                    tradePrice, order.getQuantity(), stock, tradePrice, false)) {
+                return OrderResult.fail("做市商成交结算失败。");
+            }
         }
 
         EconomySavedData.markDirty();
@@ -214,15 +232,15 @@ public class StockOrderManager {
     /**
      * 执行成交 —— 更新账户、持仓、价格、交易记录。
      */
-    private static void executeTrade(UUID buyerId, UUID sellerId, String symbol,
+    private static boolean executeTrade(UUID buyerId, UUID sellerId, String symbol,
                                       long tradePrice, int tradeQty, Stock stock,
                                       long buyerLimitPrice, boolean buyInitiated) {
 
         // 计算成交金额
         long totalValue = MathUtil.multiplyExactOrNegative1(tradePrice, tradeQty);
-        if (totalValue <= 0) return;
+        if (totalValue <= 0) return false;
         long reservedValue = MathUtil.multiplyExactOrNegative1(buyerLimitPrice, tradeQty);
-        if (reservedValue <= 0 || reservedValue < totalValue) return;
+        if (reservedValue <= 0 || reservedValue < totalValue) return false;
 
         // 更新账户：卖方收钱，买方已在挂单时冻结
         if (!buyerId.equals(MARKET_MAKER_UUID) && reservedValue > totalValue) {
@@ -248,6 +266,7 @@ public class StockOrderManager {
         addTradeToHistory(trade);
 
         EconomySavedData.markDirty();
+        return true;
     }
 
     /**
@@ -311,6 +330,7 @@ public class StockOrderManager {
     public static void addOrderDirect(StockOrder order) {
         ORDERS.add(order);
         ORDERS_BY_SYMBOL.computeIfAbsent(order.getSymbol(), k -> new ArrayList<>()).add(order);
+        sortOrderBook(ORDERS_BY_SYMBOL.get(order.getSymbol()));
     }
 
     public static void clearOrders() {
@@ -336,13 +356,32 @@ public class StockOrderManager {
         }
     }
 
-    public record OrderResult(boolean success, String message) {
+    private static void sortOrderBook(List<StockOrder> orders) {
+        orders.sort((a, b) -> {
+            if (a.getType() != b.getType()) {
+                return a.getType().compareTo(b.getType());
+            }
+            int priceCompare = a.getType() == StockOrderType.BUY
+                    ? Long.compare(b.getPrice(), a.getPrice())
+                    : Long.compare(a.getPrice(), b.getPrice());
+            if (priceCompare != 0) {
+                return priceCompare;
+            }
+            return a.getTimestamp().compareTo(b.getTimestamp());
+        });
+    }
+
+    public record OrderResult(boolean success, String message, boolean terminal) {
         public static OrderResult ok(String message) {
-            return new OrderResult(true, message);
+            return new OrderResult(true, message, false);
         }
 
         public static OrderResult fail(String message) {
-            return new OrderResult(false, message);
+            return new OrderResult(false, message, false);
+        }
+
+        public static OrderResult terminalFail(String message) {
+            return new OrderResult(false, message, true);
         }
     }
 }

@@ -4,6 +4,7 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import finance.commodity.Commodity;
 import finance.commodity.CommodityCategory;
 import finance.commodity.CommodityRegistry;
+import finance.company.CompanyManagementAction;
 import finance.company.CompanyType;
 import finance.company.CompanyStrategy;
 import finance.gui.FinanceMenu;
@@ -1440,17 +1441,17 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
             }
             if (my >= cardY + 82 && my < cardY + 95) {
                 if (mx >= 96 && mx < 132) {
-                    FinancePacketHandler.CHANNEL.sendToServer(new CompanyManagePacket(CompanyManagePacket.Action.UPGRADE_PRODUCTION));
+                    FinancePacketHandler.CHANNEL.sendToServer(new CompanyManagePacket(CompanyManagementAction.UPGRADE_PRODUCTION));
                     setStatus("已提交生产线升级");
                     return true;
                 }
                 if (mx >= 216 && mx < 252) {
-                    FinancePacketHandler.CHANNEL.sendToServer(new CompanyManagePacket(CompanyManagePacket.Action.UPGRADE_STORAGE));
+                    FinancePacketHandler.CHANNEL.sendToServer(new CompanyManagePacket(CompanyManagementAction.UPGRADE_STORAGE));
                     setStatus("已提交仓储升级");
                     return true;
                 }
                 if (mx >= 336 && mx < 372) {
-                    FinancePacketHandler.CHANNEL.sendToServer(new CompanyManagePacket(CompanyManagePacket.Action.UPGRADE_MANAGEMENT));
+                    FinancePacketHandler.CHANNEL.sendToServer(new CompanyManagePacket(CompanyManagementAction.UPGRADE_MANAGEMENT));
                     setStatus("已提交管理升级");
                     return true;
                 }
@@ -1459,13 +1460,13 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
                 long amount = Math.max(1, parseLong(companyAmountBox.getValue()));
                 if (mx >= 150 && mx < 198) {
                     FinancePacketHandler.CHANNEL.sendToServer(
-                            CompanyManagePacket.amount(CompanyManagePacket.Action.INVEST, amount));
+                            CompanyManagePacket.amount(CompanyManagementAction.INVEST, amount));
                     setStatus("已提交公司注资");
                     return true;
                 }
                 if (mx >= 206 && mx < 254) {
                     FinancePacketHandler.CHANNEL.sendToServer(
-                            CompanyManagePacket.amount(CompanyManagePacket.Action.WITHDRAW, amount));
+                            CompanyManagePacket.amount(CompanyManagementAction.WITHDRAW, amount));
                     setStatus("已提交公司提取");
                     return true;
                 }

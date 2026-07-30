@@ -1,11 +1,9 @@
-0.5.0-Beta
+v0.4.1
 Minecraft 1.20.1 / Forge 47.4.16
 
-P1-P5 Stock System Complete Implementation
-- P1: Hybrid Pricing Engine ✓
-- P2: Order Book + Market Maker ✓
-- P3: Company Profitability + Dividends ✓
-- P4: Player Company IPO ✓
-- P5: Dividend Distribution ✓
-
-GUI Implementation: In Progress (P5)
+Current development snapshot
+- GUI layout and cross-world state fixes
+- Stock order book and settlement fixes
+- Commodity-company-stock price chain redesign
+- Central bank market stabilization
+- JUnit test baseline
