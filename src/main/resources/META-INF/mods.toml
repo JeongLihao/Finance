@@ -20,7 +20,7 @@ license="${mod_license}"
 # The modid of the mod
 modId="finance" #mandatory
 # The version number of the mod
-version="0.1" #mandatory
+version="${mod_version}" #mandatory
 # A display name for the mod
 displayName="Finance" #mandatory
 # A URL to query for updates for this mod. See the JSON update specification https://docs.minecraftforge.net/en/latest/misc/updatechecker/

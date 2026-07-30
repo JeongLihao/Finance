@@ -55,6 +55,7 @@ import net.minecraft.world.level.storage.DimensionDataStorage;
 public class EconomySavedData extends SavedData {
 
     public static final String DATA_NAME = "finance_data";
+    private static final int DATA_VERSION = 2;
 
     // ================================================================
     // 保存
@@ -62,6 +63,7 @@ public class EconomySavedData extends SavedData {
 
     @Override
     public CompoundTag save(CompoundTag tag) {
+        tag.putInt("DataVersion", DATA_VERSION);
 
         // ---- 保存账户余额 ----
         ListTag accountsTag = new ListTag();
@@ -441,7 +443,10 @@ public class EconomySavedData extends SavedData {
 
             CompoundTag accountTag = (CompoundTag) rawTag;
 
-            UUID playerUUID = accountTag.getUUID("PlayerUUID");
+            UUID playerUUID = readUuidOrNull(accountTag, "PlayerUUID");
+            if (playerUUID == null) {
+                continue;
+            }
             long balance = accountTag.getLong("Balance");
 
             Account account = AccountManager.getAccount(playerUUID);
@@ -476,11 +481,16 @@ public class EconomySavedData extends SavedData {
 
                 CompoundTag txTag = (CompoundTag) rawTag;
 
-                UUID from = txTag.getUUID("From");
-                UUID to = txTag.getUUID("To");
+                UUID from = readUuidOrNull(txTag, "From");
+                UUID to = readUuidOrNull(txTag, "To");
+                if (from == null || to == null) {
+                    continue;
+                }
                 long amount = txTag.getLong("Amount");
-                TransactionType type = TransactionType.valueOf(
-                        txTag.getString("Type"));
+                TransactionType type = safeEnum(TransactionType.class, txTag.getString("Type"), null);
+                if (type == null) {
+                    continue;
+                }
 
                 long epochSeconds = txTag.getLong("Timestamp");
 
@@ -512,8 +522,11 @@ public class EconomySavedData extends SavedData {
 
                 CompoundTag tradeTag = (CompoundTag) rawTag;
 
-                UUID buyer = tradeTag.getUUID("Buyer");
-                UUID seller = tradeTag.getUUID("Seller");
+                UUID buyer = readUuidOrNull(tradeTag, "Buyer");
+                UUID seller = readUuidOrNull(tradeTag, "Seller");
+                if (buyer == null || seller == null) {
+                    continue;
+                }
                 String commodityId =
                         tradeTag.getString("CommodityId");
                 long price = tradeTag.getLong("Price");
@@ -551,19 +564,23 @@ public class EconomySavedData extends SavedData {
                 CompoundTag orderTag =
                         (CompoundTag) rawTag;
 
-                UUID orderId = orderTag.contains("OrderId")
-                        ? orderTag.getUUID("OrderId")
-                        : UUID.randomUUID();
+                UUID orderId = readUuidOrNull(orderTag, "OrderId");
+                if (orderId == null) {
+                    orderId = UUID.randomUUID();
+                }
 
-                UUID playerUUID =
-                        orderTag.getUUID("PlayerUUID");
+                UUID playerUUID = readUuidOrNull(orderTag, "PlayerUUID");
+                if (playerUUID == null) {
+                    continue;
+                }
 
                 String commodityId =
                         orderTag.getString("CommodityId");
 
-                OrderType type = OrderType.valueOf(
-                        orderTag.getString("Type")
-                );
+                OrderType type = safeEnum(OrderType.class, orderTag.getString("Type"), null);
+                if (type == null) {
+                    continue;
+                }
 
                 long price = orderTag.getLong("Price");
                 int quantity = orderTag.getInt("Quantity");
@@ -603,13 +620,17 @@ public class EconomySavedData extends SavedData {
             for (Tag rawTag : companiesTag) {
                 CompoundTag companyTag = (CompoundTag) rawTag;
 
-                UUID companyUUID = companyTag.getUUID("CompanyUUID");
+                UUID companyUUID = readUuidOrNull(companyTag, "CompanyUUID");
+                if (companyUUID == null) {
+                    continue;
+                }
                 String name = companyTag.getString("Name");
-                CompanyType type = CompanyType.valueOf(companyTag.getString("Type"));
+                CompanyType type = safeEnum(CompanyType.class, companyTag.getString("Type"), null);
+                if (type == null) {
+                    continue;
+                }
                 long cash = companyTag.getLong("Cash");
-                UUID ownerUUID = companyTag.contains("OwnerUUID")
-                        ? companyTag.getUUID("OwnerUUID")
-                        : null;
+                UUID ownerUUID = readUuidOrNull(companyTag, "OwnerUUID");
 
                 Company company = new Company(companyUUID, name, type, cash, ownerUUID);
 
@@ -635,7 +656,9 @@ public class EconomySavedData extends SavedData {
                         recentProfits);
                 company.restoreManagement(
                         companyTag.contains("Strategy")
-                                ? finance.company.CompanyStrategy.valueOf(companyTag.getString("Strategy"))
+                                ? safeEnum(finance.company.CompanyStrategy.class,
+                                companyTag.getString("Strategy"),
+                                finance.company.CompanyStrategy.STABLE)
                                 : finance.company.CompanyStrategy.STABLE,
                         companyTag.getInt("ProductionLevel"),
                         companyTag.getInt("StorageLevel"),
@@ -660,7 +683,10 @@ public class EconomySavedData extends SavedData {
                 if (CommodityRegistry.isRegistered(id)) continue;
 
                 String displayName = cTag.getString("DisplayName");
-                CommodityCategory category = CommodityCategory.valueOf(cTag.getString("Category"));
+                CommodityCategory category = safeEnum(
+                        CommodityCategory.class,
+                        cTag.getString("Category"),
+                        CommodityCategory.MISCELLANEOUS);
                 long basePrice = cTag.getLong("BasePrice");
                 String itemId = cTag.contains("ItemId") ? cTag.getString("ItemId") : null;
 
@@ -761,7 +787,7 @@ public class EconomySavedData extends SavedData {
                 CompoundTag evTag = (CompoundTag) rawTag;
                 String name = evTag.getString("Name");
                 String description = evTag.getString("Description");
-                EventTier tier = EventTier.valueOf(evTag.getString("Tier"));
+                EventTier tier = safeEnum(EventTier.class, evTag.getString("Tier"), EventTier.MINOR);
                 String commodityId = evTag.contains("CommodityId")
                         ? evTag.getString("CommodityId") : null;
                 double multiplier = evTag.getDouble("PriceMultiplier");
@@ -789,7 +815,10 @@ public class EconomySavedData extends SavedData {
 
                 String symbol = stockTag.getString("Symbol");
                 String name = stockTag.getString("Name");
-                UUID companyUuid = stockTag.getUUID("CompanyUUID");
+                UUID companyUuid = readUuidOrNull(stockTag, "CompanyUUID");
+                if (companyUuid == null) {
+                    continue;
+                }
                 long totalShares = stockTag.getLong("TotalShares");
 
                 // 新字段，旧存档缺失时用默认值
@@ -830,7 +859,10 @@ public class EconomySavedData extends SavedData {
             ListTag portfoliosTag = tag.getList("StockPortfolios", Tag.TAG_COMPOUND);
             for (Tag rawTag : portfoliosTag) {
                 CompoundTag portfolioTag = (CompoundTag) rawTag;
-                UUID playerUUID = portfolioTag.getUUID("PlayerUUID");
+                UUID playerUUID = readUuidOrNull(portfolioTag, "PlayerUUID");
+                if (playerUUID == null) {
+                    continue;
+                }
                 ListTag holdingsTag = portfolioTag.getList("Holdings", Tag.TAG_COMPOUND);
                 for (Tag holdingRaw : holdingsTag) {
                     CompoundTag holdingTag = (CompoundTag) holdingRaw;
@@ -852,10 +884,16 @@ public class EconomySavedData extends SavedData {
             ListTag ordersTag = tag.getList("StockOrders", Tag.TAG_COMPOUND);
             for (Tag rawTag : ordersTag) {
                 CompoundTag orderTag = (CompoundTag) rawTag;
-                UUID orderId = orderTag.getUUID("OrderId");
-                UUID playerId = orderTag.getUUID("PlayerId");
+                UUID orderId = readUuidOrNull(orderTag, "OrderId");
+                UUID playerId = readUuidOrNull(orderTag, "PlayerId");
+                if (orderId == null || playerId == null) {
+                    continue;
+                }
                 String symbol = orderTag.getString("Symbol");
-                StockOrderType type = StockOrderType.valueOf(orderTag.getString("Type"));
+                StockOrderType type = safeEnum(StockOrderType.class, orderTag.getString("Type"), null);
+                if (type == null) {
+                    continue;
+                }
                 long price = orderTag.getLong("Price");
                 int quantity = orderTag.getInt("Quantity");
                 long timestamp = orderTag.getLong("Timestamp");
@@ -872,8 +910,11 @@ public class EconomySavedData extends SavedData {
             ListTag tradesTag = tag.getList("StockTrades", Tag.TAG_COMPOUND);
             for (Tag rawTag : tradesTag) {
                 CompoundTag tradeTag = (CompoundTag) rawTag;
-                UUID buyer = tradeTag.getUUID("Buyer");
-                UUID seller = tradeTag.getUUID("Seller");
+                UUID buyer = readUuidOrNull(tradeTag, "Buyer");
+                UUID seller = readUuidOrNull(tradeTag, "Seller");
+                if (buyer == null || seller == null) {
+                    continue;
+                }
                 String symbol = tradeTag.getString("Symbol");
                 long price = tradeTag.getLong("Price");
                 int quantity = tradeTag.getInt("Quantity");
@@ -916,6 +957,25 @@ public class EconomySavedData extends SavedData {
     private static EconomySavedData createFresh() {
         resetRuntimeState();
         return new EconomySavedData();
+    }
+
+    private static UUID readUuidOrNull(CompoundTag tag, String key) {
+        try {
+            return tag.hasUUID(key) ? tag.getUUID(key) : null;
+        } catch (IllegalArgumentException ignored) {
+            return null;
+        }
+    }
+
+    private static <E extends Enum<E>> E safeEnum(Class<E> enumClass, String value, E fallback) {
+        if (value == null || value.isBlank()) {
+            return fallback;
+        }
+        try {
+            return Enum.valueOf(enumClass, value);
+        } catch (IllegalArgumentException ignored) {
+            return fallback;
+        }
     }
 
     /** 获取或创建 EconomySavedData 实例（服务器启动时调用） */
