@@ -29,6 +29,7 @@ public class Company {
 
     /** 库存保留比例 —— 每天卖出 50%，保留 50% */
     private static final double SELL_RATIO = 0.5;
+    private static final int MAX_UPGRADE_LEVEL = 5;
 
     /** 原料安全库存天数，避免公司把生产原料卖掉后又立刻买回 */
     private static final int RAW_MATERIAL_RESERVE_DAYS = 3;
@@ -64,6 +65,12 @@ public class Company {
     // ---- P4：IPO ----
     /** 是否已上市 */
     private boolean isPublic;
+
+    private CompanyStrategy strategy = CompanyStrategy.STABLE;
+    private int productionLevel = 0;
+    private int storageLevel = 0;
+    private int managementLevel = 0;
+    private double autoSellRatio = SELL_RATIO;
 
     public Company(UUID companyId, String name, CompanyType type, long cash) {
         this(companyId, name, type, cash, null);
@@ -112,7 +119,8 @@ public class Company {
             return;
         }
         for (Map.Entry<String, Integer> entry : type.getDailyProduction().entrySet()) {
-            addInventory(entry.getKey(), entry.getValue());
+            int produced = (int) Math.max(1, Math.round(entry.getValue() * getProductionMultiplier()));
+            addInventory(entry.getKey(), produced);
         }
     }
 
@@ -190,8 +198,9 @@ public class Company {
 
             long bidPrice = mp.getBidPrice();
 
-            // 卖出库存的 SELL_RATIO，至少卖 1 个
-            int sellQty = Math.max(1, (int)(amount * SELL_RATIO));
+            // 卖出库存的自动比例，受经营策略调整。
+            double effectiveSellRatio = clamp(autoSellRatio * strategy.getSellRatioMultiplier(), 0.05, 0.95);
+            int sellQty = Math.max(1, (int)(amount * effectiveSellRatio));
             int reserve = getReserveAmount(commodityId);
             if (amount <= reserve) {
                 continue;
@@ -380,6 +389,57 @@ public class Company {
     public boolean isPublic() { return isPublic; }
     public void setPublic(boolean pub) { this.isPublic = pub; }
 
+    public CompanyStrategy getStrategy() { return strategy; }
+    public int getProductionLevel() { return productionLevel; }
+    public int getStorageLevel() { return storageLevel; }
+    public int getManagementLevel() { return managementLevel; }
+    public double getAutoSellRatio() { return autoSellRatio; }
+
+    public void setStrategy(CompanyStrategy strategy) {
+        this.strategy = strategy != null ? strategy : CompanyStrategy.STABLE;
+    }
+
+    public void setAutoSellRatio(double ratio) {
+        this.autoSellRatio = clamp(ratio, 0.05, 0.95);
+    }
+
+    public boolean upgradeProduction() {
+        if (productionLevel >= MAX_UPGRADE_LEVEL) return false;
+        productionLevel++;
+        return true;
+    }
+
+    public boolean upgradeStorage() {
+        if (storageLevel >= MAX_UPGRADE_LEVEL) return false;
+        storageLevel++;
+        return true;
+    }
+
+    public boolean upgradeManagement() {
+        if (managementLevel >= MAX_UPGRADE_LEVEL) return false;
+        managementLevel++;
+        return true;
+    }
+
+    public long getUpgradeCost(String upgradeType) {
+        int nextLevel = switch (upgradeType) {
+            case "PRODUCTION" -> productionLevel + 1;
+            case "STORAGE" -> storageLevel + 1;
+            case "MANAGEMENT" -> managementLevel + 1;
+            default -> 1;
+        };
+        return 2_500L * nextLevel * nextLevel;
+    }
+
+    public void restoreManagement(CompanyStrategy strategy, int productionLevel, int storageLevel,
+                                  int managementLevel, double autoSellRatio) {
+        setStrategy(strategy);
+        this.productionLevel = Math.max(0, Math.min(MAX_UPGRADE_LEVEL, productionLevel));
+        this.storageLevel = Math.max(0, Math.min(MAX_UPGRADE_LEVEL, storageLevel));
+        this.managementLevel = Math.max(0, Math.min(MAX_UPGRADE_LEVEL, managementLevel));
+        setAutoSellRatio(autoSellRatio);
+    }
+
     private long calculateOperatingCost() {
         long theoreticalProductionValue = 0;
         for (Map.Entry<String, Integer> entry : type.getDailyProduction().entrySet()) {
@@ -387,9 +447,15 @@ public class Company {
             long price = mp != null ? mp.getMidPrice() : 1;
             theoreticalProductionValue += Math.max(0, price * (long) entry.getValue());
         }
-        long productionCost = Math.round(theoreticalProductionValue * OPERATING_COST_RATIO);
-        long inventoryCarryCost = Math.round(inventoryValue() * INVENTORY_CARRY_COST_RATIO);
+        long productionCost = Math.round(theoreticalProductionValue * OPERATING_COST_RATIO
+                * strategy.getOperatingCostMultiplier() * (1.0 - managementLevel * 0.06));
+        long inventoryCarryCost = Math.round(inventoryValue() * INVENTORY_CARRY_COST_RATIO
+                * (1.0 - storageLevel * 0.08));
         return Math.max(1, productionCost + inventoryCarryCost);
+    }
+
+    private double getProductionMultiplier() {
+        return strategy.getProductionMultiplier() * (1.0 + productionLevel * 0.12);
     }
 
     private void addRecentProfit(long profit) {

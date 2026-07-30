@@ -26,7 +26,7 @@ public class StockMarketManager {
 
     public static void seedSystemStocksIfNeeded() {
         for (Company company : CompanyManager.getCompanies()) {
-            if (company.isPlayerOwned()) {
+            if (!company.isPublic()) {
                 continue;
             }
             if (hasStockForCompany(company)) {
@@ -66,7 +66,23 @@ public class StockMarketManager {
     }
 
     public static Stock getStock(String symbol) {
-        return STOCKS.get(normalizeSymbol(symbol));
+        Stock stock = STOCKS.get(normalizeSymbol(symbol));
+        if (stock == null) {
+            return null;
+        }
+        Company company = CompanyManager.getCompany(stock.getCompanyId());
+        return company != null && company.isPublic() ? stock : null;
+    }
+
+    public static Collection<Stock> getListedStocks() {
+        java.util.List<Stock> listed = new java.util.ArrayList<>();
+        for (Stock stock : STOCKS.values()) {
+            Company company = CompanyManager.getCompany(stock.getCompanyId());
+            if (company != null && company.isPublic()) {
+                listed.add(stock);
+            }
+        }
+        return listed;
     }
 
     public static void putStockDirect(Stock stock) {

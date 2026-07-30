@@ -81,5 +81,11 @@ public class FinancePacketHandler {
                 CompanyIPOPacket::encode,
                 CompanyIPOPacket::decode,
                 CompanyIPOPacket::handle);
+
+        CHANNEL.registerMessage(packetId++,
+                CompanyManagePacket.class,
+                CompanyManagePacket::encode,
+                CompanyManagePacket::decode,
+                CompanyManagePacket::handle);
     }
 }

@@ -23,7 +23,8 @@ public class FinanceMenu extends AbstractContainerMenu {
 
     public record CompanyInfo(UUID companyId, String name, String type, long cash, long inventoryValue,
                                long totalValue, Map<String, Integer> inventory, boolean playerOwned,
-                               boolean isPublic) {}
+                               boolean isPublic, String strategy, int productionLevel,
+                               int storageLevel, int managementLevel, double autoSellRatio) {}
 
     public record StockRow(String symbol, String name, long lastPrice, double dayChange,
                            long dayVolume, long availableShares, long fairValue) {}
@@ -203,6 +204,11 @@ public class FinanceMenu extends AbstractContainerMenu {
             writeStringIntMap(buffer, info.inventory());
             buffer.writeBoolean(info.playerOwned());
             buffer.writeBoolean(info.isPublic());
+            buffer.writeUtf(info.strategy());
+            buffer.writeVarInt(info.productionLevel());
+            buffer.writeVarInt(info.storageLevel());
+            buffer.writeVarInt(info.managementLevel());
+            buffer.writeDouble(info.autoSellRatio());
         }
     }
 
@@ -211,7 +217,8 @@ public class FinanceMenu extends AbstractContainerMenu {
         return new CompanyInfo(
                 buffer.readUUID(), buffer.readUtf(), buffer.readUtf(), buffer.readLong(),
                 buffer.readLong(), buffer.readLong(), readStringIntMap(buffer),
-                buffer.readBoolean(), buffer.readBoolean());
+                buffer.readBoolean(), buffer.readBoolean(), buffer.readUtf(),
+                buffer.readVarInt(), buffer.readVarInt(), buffer.readVarInt(), buffer.readDouble());
     }
 
     private static void writeCompanyInfoList(FriendlyByteBuf buffer, List<CompanyInfo> companies) {
