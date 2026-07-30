@@ -229,6 +229,11 @@ public class EconomySavedData extends SavedData {
             companyTag.putLong("DailyCost", company.getDailyCost());
             companyTag.putLong("RetainedEarnings", company.getRetainedEarnings());
             companyTag.putLong("LastDividendDay", company.getLastDividendDay());
+            companyTag.putString("Strategy", company.getStrategy().name());
+            companyTag.putInt("ProductionLevel", company.getProductionLevel());
+            companyTag.putInt("StorageLevel", company.getStorageLevel());
+            companyTag.putInt("ManagementLevel", company.getManagementLevel());
+            companyTag.putDouble("AutoSellRatio", company.getAutoSellRatio());
             ListTag recentProfitsTag = new ListTag();
             for (Long profit : company.getRecentProfits()) {
                 CompoundTag profitTag = new CompoundTag();
@@ -628,6 +633,14 @@ public class EconomySavedData extends SavedData {
                         companyTag.getLong("RetainedEarnings"),
                         companyTag.getLong("LastDividendDay"),
                         recentProfits);
+                company.restoreManagement(
+                        companyTag.contains("Strategy")
+                                ? finance.company.CompanyStrategy.valueOf(companyTag.getString("Strategy"))
+                                : finance.company.CompanyStrategy.STABLE,
+                        companyTag.getInt("ProductionLevel"),
+                        companyTag.getInt("StorageLevel"),
+                        companyTag.getInt("ManagementLevel"),
+                        companyTag.contains("AutoSellRatio") ? companyTag.getDouble("AutoSellRatio") : 0.5);
 
                 // P4：恢复上市状态
                 if (companyTag.contains("IsPublic")) {
@@ -794,6 +807,10 @@ public class EconomySavedData extends SavedData {
 
                 Stock stock = new Stock(symbol, name, companyUuid, totalShares,
                         floatShares, ownerShares, currentPrice, fairValue);
+                Company company = CompanyManager.getCompany(companyUuid);
+                if (company == null || !company.isPublic()) {
+                    continue;
+                }
 
                 // 恢复定价引擎字段
                 if (stockTag.contains("TradeMomentum")) {

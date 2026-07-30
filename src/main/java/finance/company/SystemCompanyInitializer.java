@@ -23,6 +23,7 @@ public class SystemCompanyInitializer {
                 CompanyType.RAW_MATERIALS,
                 INITIAL_CASH
         );
+        ironCompany.setPublic(true);
         ironCompany.addInventory("iron", INITIAL_STOCK);
         CompanyManager.registerDirect(ironCompany);
 
@@ -32,6 +33,7 @@ public class SystemCompanyInitializer {
                 CompanyType.BUILDING_BLOCKS,
                 INITIAL_CASH
         );
+        stoneCompany.setPublic(true);
         stoneCompany.addInventory("stone", INITIAL_STOCK);
         CompanyManager.registerDirect(stoneCompany);
 
@@ -41,6 +43,7 @@ public class SystemCompanyInitializer {
                 CompanyType.FOOD,
                 INITIAL_CASH
         );
+        wheatCompany.setPublic(true);
         wheatCompany.addInventory("wheat", INITIAL_STOCK);
         CompanyManager.registerDirect(wheatCompany);
 

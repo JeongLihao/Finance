@@ -61,9 +61,6 @@ public class FinanceGuiOpener {
 
         // 5. 公司
         List<FinanceMenu.CompanyInfo> companyRows = new ArrayList<>();
-        for (Company company : CompanyManager.getCompanies()) {
-            companyRows.add(toCompanyInfo(company));
-        }
 
         final FinanceMenu.CompanyInfo companyInfo;
         Company company = CompanyManager.getCompanyByOwner(playerId);
@@ -74,7 +71,7 @@ public class FinanceGuiOpener {
         }
 
         List<FinanceMenu.StockRow> stockRows = new ArrayList<>();
-        for (Stock stock : StockMarketManager.getStocks()) {
+        for (Stock stock : StockMarketManager.getListedStocks()) {
             stockRows.add(new FinanceMenu.StockRow(
                     stock.getSymbol(),
                     stock.getName(),
@@ -133,7 +130,12 @@ public class FinanceGuiOpener {
                 publicFinancials ? company.getEstimatedValue() : 0,
                 new LinkedHashMap<>(company.getInventory()),
                 company.isPlayerOwned(),
-                company.isPublic());
+                company.isPublic(),
+                company.getStrategy().getDisplayName(),
+                company.getProductionLevel(),
+                company.getStorageLevel(),
+                company.getManagementLevel(),
+                company.getAutoSellRatio());
     }
 
     private record FinanceProvider(List<FinanceMenu.MarketRow> marketData,
