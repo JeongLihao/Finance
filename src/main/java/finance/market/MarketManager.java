@@ -57,6 +57,12 @@ public class MarketManager {
      */
     public static boolean placeOrder(Order order) {
 
+        if (order == null || order.getPlayerId() == null || order.getType() == null
+                || order.getCommodityId() == null || order.getCommodityId().isBlank()
+                || order.getPrice() <= 0 || order.getQuantity() <= 0) {
+            return false;
+        }
+
         if (CommodityRegistry.getCommodity(order.getCommodityId()) == null) {
             return false;
         }
@@ -238,7 +244,21 @@ public class MarketManager {
                             buyer,
                             seller,
                             paymentAmount,
-                            TransactionType.MARKET_TRADE
+                            TransactionType.MARKET_TRADE,
+                            buyer,
+                            newOrder.getCommodityId(),
+                            tradeQty
+                    )
+            );
+            AccountManager.addTransactionRecord(
+                    new TransactionRecord(
+                            buyer,
+                            seller,
+                            paymentAmount,
+                            TransactionType.MARKET_TRADE,
+                            seller,
+                            newOrder.getCommodityId(),
+                            tradeQty
                     )
             );
 
@@ -311,17 +331,16 @@ public class MarketManager {
         }
 
         // 退还冻结资产
+        long refundAmount = MathUtil.multiplyExactOrNegative1(order.getPrice(), order.getQuantity());
         if (order.getType() == OrderType.BUY) {
 
-            long totalCost = MathUtil.multiplyExactOrNegative1(order.getPrice(), order.getQuantity());
-
-            if (totalCost <= 0) {
+            if (refundAmount <= 0) {
                 return false;
             }
 
             AccountManager.unfreezeFunds(
                     order.getPlayerId(),
-                    totalCost
+                    refundAmount
             );
 
         } else {
@@ -332,6 +351,17 @@ public class MarketManager {
             );
         }
 
+        AccountManager.addTransactionRecord(
+                new TransactionRecord(
+                        order.getPlayerId(),
+                        order.getPlayerId(),
+                        Math.max(0, refundAmount),
+                        TransactionType.ORDER_CANCEL,
+                        order.getPlayerId(),
+                        order.getCommodityId(),
+                        order.getQuantity()
+                )
+        );
         EconomySavedData.markDirty();
         return true;
     }
@@ -392,7 +422,12 @@ public class MarketManager {
 
         removeOrderDirect(target);
         AccountManager.addTransactionRecord(
-                new TransactionRecord(buyer, seller, total, TransactionType.MARKET_TRADE)
+                new TransactionRecord(buyer, seller, total, TransactionType.MARKET_TRADE,
+                        buyer, target.getCommodityId(), qty)
+        );
+        AccountManager.addTransactionRecord(
+                new TransactionRecord(buyer, seller, total, TransactionType.MARKET_TRADE,
+                        seller, target.getCommodityId(), qty)
         );
         addTradeToHistory(new Trade(buyer, seller, target.getCommodityId(), target.getPrice(), qty));
         MarketPrice mp = NpcMarketMaker.getMarketPrice(target.getCommodityId());

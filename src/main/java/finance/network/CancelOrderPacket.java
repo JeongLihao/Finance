@@ -1,9 +1,7 @@
 package finance.network;
 
-import finance.gui.FinanceGuiOpener;
 import finance.market.MarketManager;
 import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.network.NetworkEvent;
 
@@ -35,10 +33,9 @@ public class CancelOrderPacket {
             if (player == null) return;
 
             if (MarketManager.cancelOrder(packet.orderId, player.getUUID())) {
-                player.sendSystemMessage(Component.literal("订单已取消。"));
-                FinanceGuiOpener.open(player);
+                GuiFeedbackPacket.send(player, "订单已取消。");
             } else {
-                player.sendSystemMessage(Component.literal("取消失败，请检查是否是你的订单。"));
+                GuiFeedbackPacket.send(player, "取消失败，请检查是否是你的订单。");
             }
         });
         ctx.get().setPacketHandled(true);

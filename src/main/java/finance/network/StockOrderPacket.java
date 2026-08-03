@@ -1,9 +1,7 @@
 package finance.network;
 
-import finance.gui.FinanceGuiOpener;
 import finance.stock.StockMarketManager;
 import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.network.NetworkEvent;
 
@@ -47,7 +45,7 @@ public class StockOrderPacket {
         if (packet.actionType == ActionType.CANCEL) {
             buffer.writeUUID(packet.orderId);
         } else {
-            buffer.writeUtf(packet.symbol, 16);
+            buffer.writeUtf(packet.symbol, NetworkValidation.MAX_SYMBOL_LENGTH);
             buffer.writeLong(packet.price);
             buffer.writeLong(packet.quantity);
         }
@@ -58,7 +56,7 @@ public class StockOrderPacket {
         if (actionType == ActionType.CANCEL) {
             return new StockOrderPacket(actionType, buffer.readUUID());
         } else {
-            return new StockOrderPacket(actionType, buffer.readUtf(16), buffer.readLong(), buffer.readLong());
+            return new StockOrderPacket(actionType, buffer.readUtf(NetworkValidation.MAX_SYMBOL_LENGTH), buffer.readLong(), buffer.readLong());
         }
     }
 
@@ -66,15 +64,20 @@ public class StockOrderPacket {
         ctx.get().enqueueWork(() -> {
             ServerPlayer player = ctx.get().getSender();
             if (player == null) return;
+            if (packet.actionType == null || !isValidRequest(packet)) {
+                GuiFeedbackPacket.send(player, "股票订单请求参数无效。");
+                return;
+            }
 
             StockMarketManager.TradeResult result = null;
+            String symbol = NetworkValidation.normalizeSymbol(packet.symbol);
 
             switch (packet.actionType) {
                 case PLACE_BUY:
-                    result = StockMarketManager.placeLimitBuy(player.getUUID(), packet.symbol, packet.price, packet.quantity);
+                    result = StockMarketManager.placeLimitBuy(player.getUUID(), symbol, packet.price, packet.quantity);
                     break;
                 case PLACE_SELL:
-                    result = StockMarketManager.placeLimitSell(player.getUUID(), packet.symbol, packet.price, packet.quantity);
+                    result = StockMarketManager.placeLimitSell(player.getUUID(), symbol, packet.price, packet.quantity);
                     break;
                 case CANCEL:
                     boolean success = StockMarketManager.cancelStockOrder(packet.orderId, player.getUUID());
@@ -84,12 +87,18 @@ public class StockOrderPacket {
             }
 
             if (result != null) {
-                player.sendSystemMessage(Component.literal(result.message()));
-                if (result.success()) {
-                    FinanceGuiOpener.open(player);
-                }
+                GuiFeedbackPacket.send(player, result.message());
             }
         });
         ctx.get().setPacketHandled(true);
+    }
+
+    private static boolean isValidRequest(StockOrderPacket packet) {
+        return switch (packet.actionType) {
+            case PLACE_BUY, PLACE_SELL -> NetworkValidation.isValidSymbol(packet.symbol)
+                    && NetworkValidation.isPositive(packet.price)
+                    && NetworkValidation.isPositive(packet.quantity);
+            case CANCEL -> packet.orderId != null;
+        };
     }
 }

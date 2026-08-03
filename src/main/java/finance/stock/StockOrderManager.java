@@ -264,6 +264,32 @@ public class StockOrderManager {
         // 记录成交
         StockTrade trade = new StockTrade(buyerId, sellerId, symbol, tradePrice, tradeQty);
         addTradeToHistory(trade);
+        if (!buyerId.equals(MARKET_MAKER_UUID)) {
+            AccountManager.addTransactionRecord(
+                    new TransactionRecord(
+                            buyerId,
+                            sellerId,
+                            totalValue,
+                            TransactionType.STOCK_BUY,
+                            buyerId,
+                            symbol,
+                            tradeQty
+                    )
+            );
+        }
+        if (!sellerId.equals(MARKET_MAKER_UUID)) {
+            AccountManager.addTransactionRecord(
+                    new TransactionRecord(
+                            buyerId,
+                            sellerId,
+                            totalValue,
+                            TransactionType.STOCK_SELL,
+                            sellerId,
+                            symbol,
+                            tradeQty
+                    )
+            );
+        }
 
         EconomySavedData.markDirty();
         return true;
@@ -277,6 +303,7 @@ public class StockOrderManager {
         while (iterator.hasNext()) {
             StockOrder order = iterator.next();
             if (order.getOrderId().equals(orderId) && order.getPlayerId().equals(playerId)) {
+                long amount = MathUtil.multiplyExactOrNegative1(order.getPrice(), order.getQuantity());
                 refundOrderAssets(order);
                 iterator.remove();
                 List<StockOrder> symbolOrders = ORDERS_BY_SYMBOL.get(order.getSymbol());
@@ -286,11 +313,42 @@ public class StockOrderManager {
                         ORDERS_BY_SYMBOL.remove(order.getSymbol());
                     }
                 }
+                AccountManager.addTransactionRecord(
+                        new TransactionRecord(
+                                playerId,
+                                playerId,
+                                Math.max(0, amount),
+                                TransactionType.STOCK_ORDER_CANCEL,
+                                playerId,
+                                order.getSymbol(),
+                                order.getQuantity()
+                        )
+                );
                 EconomySavedData.markDirty();
                 return true;
             }
         }
         return false;
+    }
+
+    public static int cancelOrdersForSymbol(String symbol) {
+        String normalized = StockMarketManager.normalizeSymbol(symbol);
+        int cancelled = 0;
+        Iterator<StockOrder> iterator = ORDERS.iterator();
+        while (iterator.hasNext()) {
+            StockOrder order = iterator.next();
+            if (!normalized.equals(order.getSymbol())) {
+                continue;
+            }
+            refundOrderAssets(order);
+            iterator.remove();
+            cancelled++;
+        }
+        ORDERS_BY_SYMBOL.remove(normalized);
+        if (cancelled > 0) {
+            EconomySavedData.markDirty();
+        }
+        return cancelled;
     }
 
     private static void refundOrderAssets(StockOrder order) {

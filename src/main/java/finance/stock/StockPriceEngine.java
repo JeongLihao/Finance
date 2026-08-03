@@ -1,5 +1,8 @@
 package finance.stock;
 
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
@@ -37,6 +40,9 @@ public class StockPriceEngine {
     private static final double MIN_PRICE_RATIO = 0.45;
     private static final double MAX_PRICE_RATIO = 1.85;
 
+    /** 每只股票最多保留的价格快照数量。 */
+    static final int MAX_SNAPSHOTS = 200;
+
     // ---- 字段 ----
 
     private final String symbol;
@@ -56,6 +62,9 @@ public class StockPriceEngine {
     private long dayLow;
     private long dayVolume;
     private long dayOpen;
+
+    // ---- 价格历史 ----
+    private final List<PriceSnapshot> snapshots = new ArrayList<>();
 
     // ================================================================
     // 构造
@@ -116,6 +125,10 @@ public class StockPriceEngine {
     public double getDayChange() {
         if (dayOpen == 0) return 0;
         return (double) (currentPrice - dayOpen) / dayOpen * 100;
+    }
+
+    public List<PriceSnapshot> getSnapshots() {
+        return snapshots;
     }
 
     // ================================================================
@@ -186,6 +199,7 @@ public class StockPriceEngine {
 
         // 立即重算价格
         recalculate();
+        recordSnapshot(tradeVolume);
     }
 
     /**
@@ -216,6 +230,23 @@ public class StockPriceEngine {
         recalculate();
     }
 
+    public void recordSnapshot(long volume) {
+        snapshots.add(new PriceSnapshot(LocalDateTime.now(), currentPrice, volume));
+        trimSnapshots();
+    }
+
+    public void addSnapshotDirect(PriceSnapshot snapshot) {
+        if (snapshot == null) {
+            return;
+        }
+        snapshots.add(snapshot);
+        trimSnapshots();
+    }
+
+    public void clearSnapshots() {
+        snapshots.clear();
+    }
+
     /**
      * 核心定价计算。
      */
@@ -244,6 +275,7 @@ public class StockPriceEngine {
         dayHigh = currentPrice;
         dayLow = currentPrice;
         dayVolume = 0;
+        recordSnapshot(0);
     }
 
     // ================================================================
@@ -273,5 +305,35 @@ public class StockPriceEngine {
 
     private static double clamp(double value, double min, double max) {
         return Math.max(min, Math.min(max, value));
+    }
+
+    private void trimSnapshots() {
+        if (snapshots.size() > MAX_SNAPSHOTS) {
+            snapshots.subList(0, snapshots.size() - MAX_SNAPSHOTS).clear();
+        }
+    }
+
+    public static class PriceSnapshot {
+        private final LocalDateTime timestamp;
+        private final long price;
+        private final long volume;
+
+        public PriceSnapshot(LocalDateTime timestamp, long price, long volume) {
+            this.timestamp = timestamp;
+            this.price = price;
+            this.volume = volume;
+        }
+
+        public LocalDateTime getTimestamp() {
+            return timestamp;
+        }
+
+        public long getPrice() {
+            return price;
+        }
+
+        public long getVolume() {
+            return volume;
+        }
     }
 }

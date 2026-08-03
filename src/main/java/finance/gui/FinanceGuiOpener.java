@@ -2,14 +2,25 @@ package finance.gui;
 
 import finance.account.Account;
 import finance.account.AccountManager;
+import finance.account.AssetSnapshotManager;
+import finance.account.TransactionRecord;
+import finance.alert.PriceAlert;
+import finance.alert.PriceAlertManager;
 import finance.company.Company;
+import finance.company.CompanyFinancingManager;
+import finance.company.CompanyFinancingProject;
+import finance.company.CompanyFinancialReport;
 import finance.company.CompanyManager;
+import finance.company.CompanyProposal;
+import finance.company.CompanyProposalManager;
 import finance.commodity.CommodityInventoryManager;
 import finance.market.MarketManager;
 import finance.market.MarketPrice;
 import finance.market.NpcMarketMaker;
 import finance.market.Order;
 import finance.stock.Stock;
+import finance.stock.ConditionalStockOrder;
+import finance.stock.ConditionalStockOrderManager;
 import finance.stock.StockHolding;
 import finance.stock.StockMarketManager;
 import finance.stock.StockOrder;
@@ -38,7 +49,8 @@ public class FinanceGuiOpener {
             marketData.add(new FinanceMenu.MarketRow(
                     price.getCommodityId(), price.getMidPrice(),
                     price.getBidPrice(), price.getAskPrice(),
-                    price.getDayChange(), price.getDayVolume(), stock));
+                    price.getDayChange(), price.getDayVolume(), stock,
+                    price.getDayHigh(), price.getDayLow(), commodityHistory(price)));
         }
 
         // 2. 全市场订单（标记当前玩家自己的订单）
@@ -72,6 +84,8 @@ public class FinanceGuiOpener {
 
         List<FinanceMenu.StockRow> stockRows = new ArrayList<>();
         for (Stock stock : StockMarketManager.getListedStocks()) {
+            Company stockCompany = CompanyManager.getCompany(stock.getCompanyId());
+            DividendSummary dividendSummary = dividendSummary(stockCompany, stock);
             stockRows.add(new FinanceMenu.StockRow(
                     stock.getSymbol(),
                     stock.getName(),
@@ -79,7 +93,13 @@ public class FinanceGuiOpener {
                     stock.getDayChange(),
                     stock.getDayVolume(),
                     stock.getAvailableShares(),
-                    stock.getFairValue()));
+                    stock.getFairValue(),
+                    stock.getDayHigh(),
+                    stock.getDayLow(),
+                    stockHistory(stock),
+                    dividendSummary.expectedPerShare(),
+                    dividendSummary.lastPerShare(),
+                    dividendSummary.lastTotal()));
         }
 
         List<FinanceMenu.StockHoldingRow> stockHoldingRows = new ArrayList<>();
@@ -102,6 +122,85 @@ public class FinanceGuiOpener {
                     order.getPlayerId().equals(playerId)));
         }
 
+        AssetBundle assetBundle = buildAssetBundle(player, account, inventory);
+        List<FinanceMenu.PriceAlertRow> priceAlertRows = new ArrayList<>();
+        for (PriceAlert alert : PriceAlertManager.getAlertsForPlayer(playerId)) {
+            priceAlertRows.add(new FinanceMenu.PriceAlertRow(
+                    alert.getAlertId(),
+                    alert.getType().name(),
+                    alert.getTargetId(),
+                    alert.getDirection().name(),
+                    alert.getTargetPrice()));
+        }
+        List<FinanceMenu.ConditionalStockOrderRow> conditionalStockOrderRows = new ArrayList<>();
+        for (ConditionalStockOrder order : ConditionalStockOrderManager.getOrdersForPlayer(playerId)) {
+            conditionalStockOrderRows.add(new FinanceMenu.ConditionalStockOrderRow(
+                    order.getOrderId(),
+                    order.getSymbol(),
+                    order.getType().name(),
+                    order.getTriggerPrice(),
+                    order.getQuantity()));
+        }
+        List<FinanceMenu.CompanyFinancingRow> companyFinancingRows = new ArrayList<>();
+        for (CompanyFinancingProject project : CompanyFinancingManager.getProjects()) {
+            Company financingCompany = CompanyManager.getCompany(project.getCompanyId());
+            if (financingCompany == null || !financingCompany.isPublic()) {
+                continue;
+            }
+            companyFinancingRows.add(new FinanceMenu.CompanyFinancingRow(
+                    project.getProjectId(),
+                    project.getCompanyId(),
+                    financingCompany.getName(),
+                    project.getSymbol(),
+                    project.getIssueQuantity(),
+                    project.getIssuePrice(),
+                    project.getFundingTarget(),
+                    project.getRaisedAmount(),
+                    project.getSubscribedShares(),
+                    project.getSubscriptions().getOrDefault(playerId, 0L),
+                    project.getDeadlineMcDay()));
+        }
+        List<FinanceMenu.CompanyProposalRow> companyProposalRows = new ArrayList<>();
+        for (CompanyProposal proposal : CompanyProposalManager.getProposals()) {
+            companyProposalRows.add(new FinanceMenu.CompanyProposalRow(
+                    proposal.getProposalId(),
+                    proposal.getCompanyId(),
+                    proposal.getType().name(),
+                    proposal.getTitle(),
+                    proposal.getTextValue(),
+                    proposal.getValue1(),
+                    proposal.getValue2(),
+                    proposal.getValue3(),
+                    proposal.getStartMcDay(),
+                    proposal.getEndMcDay(),
+                    proposal.getPassRatio(),
+                    proposal.getYesVotes(),
+                    proposal.getNoVotes(),
+                    proposal.getVotes().containsKey(playerId),
+                    proposal.getStatus().name(),
+                    proposal.getResultSummary()));
+        }
+
+        List<FinanceMenu.TransactionRow> transactionRows = new ArrayList<>();
+        List<TransactionRecord> transactions = AccountManager.getTransactions();
+        int added = 0;
+        boolean admin = player.hasPermissions(2);
+        for (int i = transactions.size() - 1; i >= 0 && added < 100; i--) {
+            TransactionRecord record = transactions.get(i);
+            UUID recordPlayer = record.getPlayerId();
+            if (!admin && (recordPlayer == null || !recordPlayer.equals(playerId))) {
+                continue;
+            }
+            transactionRows.add(new FinanceMenu.TransactionRow(
+                    record.getTimestamp().toEpochSecond(java.time.ZoneOffset.UTC),
+                    recordPlayer != null ? recordPlayer : new UUID(0L, 0L),
+                    record.getType().name(),
+                    record.getAmount(),
+                    record.getQuantity(),
+                    record.getObjectName()));
+            added++;
+        }
+
         // 6. MC 物品栏数据（商品ID → 对应物品在 MC 物品栏中的数量）
         Map<String, Integer> mcInv = new LinkedHashMap<>();
         for (Commodity commodity : finance.commodity.CommodityRegistry.getAllCommodities()) {
@@ -116,12 +215,13 @@ public class FinanceGuiOpener {
 
         // 打开菜单
         NetworkHooks.openScreen(player,
-                new FinanceProvider(marketData, orderRows, balance, frozenBalance, inventory, companyInfo, companyRows, stockRows, stockHoldingRows, stockOrderRows, mcInv),
-                buffer -> FinanceMenu.writeAll(buffer, marketData, orderRows, balance, frozenBalance, inventory, companyInfo, companyRows, stockRows, stockHoldingRows, stockOrderRows, mcInv));
+                new FinanceProvider(marketData, orderRows, balance, frozenBalance, inventory, companyInfo, companyRows, stockRows, stockHoldingRows, stockOrderRows, transactionRows, assetBundle.summary(), assetBundle.rows(), priceAlertRows, conditionalStockOrderRows, companyFinancingRows, companyProposalRows, CompanyManager.getDividendRatio(), CompanyManager.getDividendCycleDays(), mcInv),
+                buffer -> FinanceMenu.writeAll(buffer, marketData, orderRows, balance, frozenBalance, inventory, companyInfo, companyRows, stockRows, stockHoldingRows, stockOrderRows, transactionRows, assetBundle.summary(), assetBundle.rows(), priceAlertRows, conditionalStockOrderRows, companyFinancingRows, companyProposalRows, CompanyManager.getDividendRatio(), CompanyManager.getDividendCycleDays(), mcInv));
     }
 
     private static FinanceMenu.CompanyInfo toCompanyInfo(Company company) {
         boolean publicFinancials = company.isPublic();
+        CompanyFinancialReport report = company.getLatestFinancialReport();
         return new FinanceMenu.CompanyInfo(
                 company.getCompanyId(),
                 company.getName(), company.getType().getDisplayName(),
@@ -135,7 +235,128 @@ public class FinanceGuiOpener {
                 company.getProductionLevel(),
                 company.getStorageLevel(),
                 company.getManagementLevel(),
-                company.getAutoSellRatio());
+                company.getAutoSellRatio(),
+                report != null ? report.revenue() : 0,
+                report != null ? report.expenses() : 0,
+                report != null ? report.netProfit() : 0,
+                report != null ? report.assets() : 0,
+                report != null ? report.liabilities() : 0,
+                report != null ? report.cashBalance() : company.getCash(),
+                report != null ? report.profitChange() : 0,
+                report != null ? report.assetChange() : 0,
+                report != null ? report.summary() : "暂无财报。",
+                company.isBankruptcyRisk(),
+                company.getBankruptcyRiskStartDay());
+    }
+
+    private static List<Long> commodityHistory(MarketPrice price) {
+        List<Long> history = new ArrayList<>();
+        List<MarketPrice.PriceSnapshot> snapshots = price.getSnapshots();
+        int start = Math.max(0, snapshots.size() - 24);
+        for (int i = start; i < snapshots.size(); i++) {
+            history.add(snapshots.get(i).getPrice());
+        }
+        if (history.isEmpty()) {
+            history.add(price.getMidPrice());
+        }
+        return history;
+    }
+
+    private static List<Long> stockHistory(Stock stock) {
+        List<Long> history = new ArrayList<>();
+        List<finance.stock.StockPriceEngine.PriceSnapshot> snapshots = stock.getSnapshots();
+        int start = Math.max(0, snapshots.size() - 24);
+        for (int i = start; i < snapshots.size(); i++) {
+            history.add(snapshots.get(i).getPrice());
+        }
+        if (history.isEmpty()) {
+            history.add(stock.getLastPrice());
+        }
+        return history;
+    }
+
+    private static DividendSummary dividendSummary(Company company, Stock stock) {
+        if (company == null || stock == null || stock.getTotalShares() <= 0) {
+            return new DividendSummary(0, 0, 0);
+        }
+        long expectedTotal = Math.min(company.getCash(),
+                Math.round(company.getDistributableProfit() * CompanyManager.getDividendRatio()));
+        long expectedPerShare = expectedTotal > 0 ? expectedTotal / stock.getTotalShares() : 0;
+        List<Company.DividendRecord> history = company.getDividendHistory();
+        if (history.isEmpty()) {
+            return new DividendSummary(expectedPerShare, 0, 0);
+        }
+        Company.DividendRecord last = history.get(history.size() - 1);
+        return new DividendSummary(expectedPerShare, last.perShare(), last.totalAmount());
+    }
+
+    private record DividendSummary(long expectedPerShare, long lastPerShare, long lastTotal) {
+    }
+
+    private static AssetBundle buildAssetBundle(ServerPlayer player, Account account, Map<String, Integer> inventory) {
+        List<FinanceMenu.AssetRow> rows = new ArrayList<>();
+        long cash = account.getBalance();
+        long frozenCash = account.getFrozenBalance();
+        long commodityValue = 0;
+        long stockValue = 0;
+
+        rows.add(new FinanceMenu.AssetRow("现金", "可用现金", 1, cash, 0, cash, 1, 0));
+        if (frozenCash > 0) {
+            rows.add(new FinanceMenu.AssetRow("现金", "冻结资金", 1, frozenCash, 0, frozenCash, 1, 0));
+        }
+
+        for (Map.Entry<String, Integer> entry : inventory.entrySet()) {
+            MarketPrice price = NpcMarketMaker.getMarketPrice(entry.getKey());
+            Commodity commodity = finance.commodity.CommodityRegistry.getCommodity(entry.getKey());
+            if (price == null || entry.getValue() <= 0) {
+                continue;
+            }
+            long value = safeMultiply(price.getMidPrice(), entry.getValue());
+            commodityValue += value;
+            String name = commodity != null ? commodity.getDisplayName() : entry.getKey();
+            rows.add(new FinanceMenu.AssetRow("商品", name, entry.getValue(), value, 0,
+                    value, price.getMidPrice(), 0));
+        }
+
+        for (Map.Entry<String, StockHolding> entry :
+                StockPortfolioManager.getPortfolio(player.getUUID()).entrySet()) {
+            Stock stock = StockMarketManager.getStock(entry.getKey());
+            StockHolding holding = entry.getValue();
+            if (stock == null || holding.getQuantity() <= 0) {
+                continue;
+            }
+            long value = safeMultiply(stock.getLastPrice(), holding.getQuantity());
+            long cost = safeMultiply(holding.getAverageCost(), holding.getQuantity());
+            long profit = value - cost;
+            stockValue += value;
+            rows.add(new FinanceMenu.AssetRow("股票", stock.getSymbol(), holding.getQuantity(),
+                    value, 0, cost, stock.getLastPrice(), profit));
+        }
+
+        long totalAsset = cash + frozenCash + commodityValue + stockValue;
+        long mcDay = player.getServer() != null ? player.getServer().getTickCount() / 24000L : 0;
+        long todayProfit = AssetSnapshotManager.getTodayProfit(player.getUUID(), totalAsset, mcDay);
+        List<FinanceMenu.AssetRow> withPercent = new ArrayList<>();
+        for (FinanceMenu.AssetRow row : rows) {
+            double percent = totalAsset > 0 ? (double) row.value() / totalAsset * 100 : 0;
+            withPercent.add(new FinanceMenu.AssetRow(row.category(), row.name(), row.quantity(),
+                    row.value(), percent, row.cost(), row.currentPrice(), row.floatingProfit()));
+        }
+
+        return new AssetBundle(
+                new FinanceMenu.AssetSummary(cash, frozenCash, commodityValue, stockValue, totalAsset, todayProfit),
+                withPercent);
+    }
+
+    private static long safeMultiply(long a, long b) {
+        try {
+            return Math.multiplyExact(a, b);
+        } catch (ArithmeticException ex) {
+            return Long.MAX_VALUE;
+        }
+    }
+
+    private record AssetBundle(FinanceMenu.AssetSummary summary, List<FinanceMenu.AssetRow> rows) {
     }
 
     private record FinanceProvider(List<FinanceMenu.MarketRow> marketData,
@@ -147,6 +368,15 @@ public class FinanceGuiOpener {
                                     List<FinanceMenu.StockRow> stocks,
                                     List<FinanceMenu.StockHoldingRow> stockHoldings,
                                     List<FinanceMenu.StockOrderRow> stockOrders,
+                                    List<FinanceMenu.TransactionRow> transactions,
+                                    FinanceMenu.AssetSummary assetSummary,
+                                    List<FinanceMenu.AssetRow> assetRows,
+                                    List<FinanceMenu.PriceAlertRow> priceAlerts,
+                                    List<FinanceMenu.ConditionalStockOrderRow> conditionalStockOrders,
+                                    List<FinanceMenu.CompanyFinancingRow> companyFinancingRows,
+                                    List<FinanceMenu.CompanyProposalRow> companyProposalRows,
+                                    double dividendRatio,
+                                    int dividendCycleDays,
                                     Map<String, Integer> mcInventory)
             implements net.minecraft.world.MenuProvider {
 
@@ -158,7 +388,7 @@ public class FinanceGuiOpener {
         @Override
         public FinanceMenu createMenu(int containerId, net.minecraft.world.entity.player.Inventory inv,
                                        net.minecraft.world.entity.player.Player player) {
-            return new FinanceMenu(containerId, marketData, orderRows, balance, frozenBalance, inventory, companyInfo, allCompanies, stocks, stockHoldings, stockOrders, mcInventory);
+            return new FinanceMenu(containerId, marketData, orderRows, balance, frozenBalance, inventory, companyInfo, allCompanies, stocks, stockHoldings, stockOrders, transactions, assetSummary, assetRows, priceAlerts, conditionalStockOrders, companyFinancingRows, companyProposalRows, dividendRatio, dividendCycleDays, mcInventory);
         }
     }
 }

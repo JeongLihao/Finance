@@ -1,6 +1,8 @@
 package finance.company;
 
 import finance.account.AccountManager;
+import finance.account.TransactionRecord;
+import finance.account.TransactionType;
 
 import java.util.UUID;
 
@@ -48,6 +50,17 @@ public class CompanyCreationService {
         );
         seedInitialInventory(company);
         CompanyManager.register(company);
+        AccountManager.addTransactionRecord(
+                new TransactionRecord(
+                        ownerId,
+                        company.getCompanyId(),
+                        CREATE_COMPANY_COST,
+                        TransactionType.COMPANY_CREATE,
+                        ownerId,
+                        company.getName(),
+                        1
+                )
+        );
 
         return new Result(true,
                 "公司已创建: " + company.getName()

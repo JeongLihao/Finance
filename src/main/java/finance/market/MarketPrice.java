@@ -302,9 +302,16 @@ public class MarketPrice {
 
         // 记录快照
         snapshots.add(new PriceSnapshot(LocalDateTime.now(), midPrice, quantity));
-        if (snapshots.size() > MAX_SNAPSHOTS) {
-            snapshots.subList(0, snapshots.size() - MAX_SNAPSHOTS).clear();
-        }
+        trimSnapshots();
+    }
+
+    public void recordPeriodicSnapshot() {
+        snapshots.add(new PriceSnapshot(LocalDateTime.now(), midPrice, 0));
+        trimSnapshots();
+    }
+
+    public void clearSnapshots() {
+        snapshots.clear();
     }
 
     // ---- setter ----
@@ -377,9 +384,7 @@ public class MarketPrice {
     /** 从磁盘恢复快照（持久化加载时使用） */
     public void addSnapshotDirect(PriceSnapshot snap) {
         snapshots.add(snap);
-        if (snapshots.size() > MAX_SNAPSHOTS) {
-            snapshots.subList(0, snapshots.size() - MAX_SNAPSHOTS).clear();
-        }
+        trimSnapshots();
     }
 
     /** 设置最近一次计算的国际市场库存（持久化恢复后使用，使 recalculateFromCurrent 可用） */
@@ -389,6 +394,12 @@ public class MarketPrice {
 
     private static double clamp(double value, double min, double max) {
         return Math.max(min, Math.min(max, value));
+    }
+
+    private void trimSnapshots() {
+        if (snapshots.size() > MAX_SNAPSHOTS) {
+            snapshots.subList(0, snapshots.size() - MAX_SNAPSHOTS).clear();
+        }
     }
 
     /**

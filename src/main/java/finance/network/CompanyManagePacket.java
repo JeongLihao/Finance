@@ -6,9 +6,7 @@ import finance.company.CompanyManagementService;
 import finance.company.CompanyManager;
 import finance.company.CompanyStrategy;
 import finance.data.EconomySavedData;
-import finance.gui.FinanceGuiOpener;
 import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.network.NetworkEvent;
 
@@ -79,8 +77,7 @@ public class CompanyManagePacket {
                 EconomySavedData.markDirty();
             }
 
-            player.sendSystemMessage(Component.literal(result.message()));
-            FinanceGuiOpener.open(player);
+            GuiFeedbackPacket.send(player, result.message());
         });
         ctx.get().setPacketHandled(true);
     }

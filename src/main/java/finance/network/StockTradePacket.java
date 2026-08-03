@@ -1,9 +1,7 @@
 package finance.network;
 
-import finance.gui.FinanceGuiOpener;
 import finance.stock.StockMarketManager;
 import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.network.NetworkEvent;
 
@@ -30,14 +28,14 @@ public class StockTradePacket {
 
     public static void encode(StockTradePacket packet, FriendlyByteBuf buffer) {
         buffer.writeEnum(packet.actionType);
-        buffer.writeUtf(packet.symbol, 16);
+        buffer.writeUtf(packet.symbol, NetworkValidation.MAX_SYMBOL_LENGTH);
         buffer.writeVarInt(packet.quantity);
     }
 
     public static StockTradePacket decode(FriendlyByteBuf buffer) {
         return new StockTradePacket(
                 buffer.readEnum(ActionType.class),
-                buffer.readUtf(16),
+                buffer.readUtf(NetworkValidation.MAX_SYMBOL_LENGTH),
                 buffer.readVarInt());
     }
 
@@ -45,15 +43,19 @@ public class StockTradePacket {
         ctx.get().enqueueWork(() -> {
             ServerPlayer player = ctx.get().getSender();
             if (player == null) return;
+            if (packet.actionType == null
+                    || !NetworkValidation.isValidSymbol(packet.symbol)
+                    || !NetworkValidation.isPositive(packet.quantity)) {
+                GuiFeedbackPacket.send(player, "股票交易请求参数无效。");
+                return;
+            }
+            String symbol = NetworkValidation.normalizeSymbol(packet.symbol);
 
             StockMarketManager.TradeResult result = switch (packet.actionType) {
-                case BUY -> StockMarketManager.buy(player.getUUID(), packet.symbol, packet.quantity);
-                case SELL -> StockMarketManager.sell(player.getUUID(), packet.symbol, packet.quantity);
+                case BUY -> StockMarketManager.buy(player.getUUID(), symbol, packet.quantity);
+                case SELL -> StockMarketManager.sell(player.getUUID(), symbol, packet.quantity);
             };
-            player.sendSystemMessage(Component.literal(result.message()));
-            if (result.success()) {
-                FinanceGuiOpener.open(player);
-            }
+            GuiFeedbackPacket.send(player, result.message());
         });
         ctx.get().setPacketHandled(true);
     }

@@ -10,7 +10,6 @@ import finance.company.CompanyManager;
 import finance.market.MarketPrice;
 import finance.data.CommodityInventorySavedData;
 import finance.data.EconomySavedData;
-import finance.gui.FinanceGuiOpener;
 import finance.market.MarketManager;
 import finance.market.NpcMarketMaker;
 import finance.stock.Stock;
@@ -40,7 +39,12 @@ public class AdminActionPacket {
     public enum ActionType {
         ADD_COMMODITY,
         REMOVE_COMMODITY,
-        ADD_FROM_HAND
+        ADD_FROM_HAND,
+        CLEAR_COMMODITY_PRICE_HISTORY,
+        CLEAR_STOCK_PRICE_HISTORY,
+        CLEAR_ALL_PRICE_HISTORY,
+        SET_DIVIDEND_RATIO,
+        SET_DIVIDEND_CYCLE
     }
 
     private final ActionType actionType;
@@ -49,6 +53,19 @@ public class AdminActionPacket {
     private final String displayName;
     private final long basePrice;
     private final CommodityCategory category;
+
+    private AdminActionPacket(ActionType actionType) {
+        this(actionType, 0);
+    }
+
+    private AdminActionPacket(ActionType actionType, long value) {
+        this.actionType = actionType;
+        this.commodityId = "";
+        this.itemId = null;
+        this.displayName = null;
+        this.basePrice = value;
+        this.category = null;
+    }
 
     /** 添加商品（手动填写） */
     public AdminActionPacket(String commodityId, String itemId, String displayName,
@@ -86,23 +103,48 @@ public class AdminActionPacket {
         return new AdminActionPacket(basePrice);
     }
 
+    public static AdminActionPacket clearCommodityPriceHistory() {
+        return new AdminActionPacket(ActionType.CLEAR_COMMODITY_PRICE_HISTORY);
+    }
+
+    public static AdminActionPacket clearStockPriceHistory() {
+        return new AdminActionPacket(ActionType.CLEAR_STOCK_PRICE_HISTORY);
+    }
+
+    public static AdminActionPacket clearAllPriceHistory() {
+        return new AdminActionPacket(ActionType.CLEAR_ALL_PRICE_HISTORY);
+    }
+
+    public static AdminActionPacket setDividendRatio(double ratio) {
+        return new AdminActionPacket(ActionType.SET_DIVIDEND_RATIO, Math.round(ratio * 10_000));
+    }
+
+    public static AdminActionPacket setDividendCycle(int days) {
+        return new AdminActionPacket(ActionType.SET_DIVIDEND_CYCLE, days);
+    }
+
     public static void encode(AdminActionPacket packet, FriendlyByteBuf buffer) {
         buffer.writeEnum(packet.actionType);
         switch (packet.actionType) {
             case ADD_COMMODITY -> {
-                buffer.writeUtf(packet.commodityId);
+                buffer.writeUtf(packet.commodityId, NetworkValidation.MAX_COMMODITY_ID_LENGTH);
                 buffer.writeBoolean(packet.itemId != null);
                 if (packet.itemId != null) {
-                    buffer.writeUtf(packet.itemId);
+                    buffer.writeUtf(packet.itemId, NetworkValidation.MAX_ITEM_ID_LENGTH);
                 }
-                buffer.writeUtf(packet.displayName);
+                buffer.writeUtf(packet.displayName, NetworkValidation.MAX_DISPLAY_NAME_LENGTH);
                 buffer.writeLong(packet.basePrice);
                 buffer.writeEnum(packet.category);
             }
             case REMOVE_COMMODITY -> {
-                buffer.writeUtf(packet.commodityId);
+                buffer.writeUtf(packet.commodityId, NetworkValidation.MAX_COMMODITY_ID_LENGTH);
             }
             case ADD_FROM_HAND -> {
+                buffer.writeLong(packet.basePrice);
+            }
+            case CLEAR_COMMODITY_PRICE_HISTORY, CLEAR_STOCK_PRICE_HISTORY, CLEAR_ALL_PRICE_HISTORY -> {
+            }
+            case SET_DIVIDEND_RATIO, SET_DIVIDEND_CYCLE -> {
                 buffer.writeLong(packet.basePrice);
             }
         }
@@ -112,19 +154,34 @@ public class AdminActionPacket {
         ActionType type = buffer.readEnum(ActionType.class);
         switch (type) {
             case ADD_COMMODITY -> {
-                String commodityId = buffer.readUtf();
+                String commodityId = buffer.readUtf(NetworkValidation.MAX_COMMODITY_ID_LENGTH);
                 boolean hasItemId = buffer.readBoolean();
-                String itemId = hasItemId ? buffer.readUtf() : null;
-                String displayName = buffer.readUtf();
+                String itemId = hasItemId ? buffer.readUtf(NetworkValidation.MAX_ITEM_ID_LENGTH) : null;
+                String displayName = buffer.readUtf(NetworkValidation.MAX_DISPLAY_NAME_LENGTH);
                 long basePrice = buffer.readLong();
                 CommodityCategory category = buffer.readEnum(CommodityCategory.class);
                 return new AdminActionPacket(commodityId, itemId, displayName, basePrice, category);
             }
             case REMOVE_COMMODITY -> {
-                return new AdminActionPacket(buffer.readUtf());
+                return new AdminActionPacket(buffer.readUtf(NetworkValidation.MAX_COMMODITY_ID_LENGTH));
             }
             case ADD_FROM_HAND -> {
                 return AdminActionPacket.fromHand(buffer.readLong());
+            }
+            case CLEAR_COMMODITY_PRICE_HISTORY -> {
+                return AdminActionPacket.clearCommodityPriceHistory();
+            }
+            case CLEAR_STOCK_PRICE_HISTORY -> {
+                return AdminActionPacket.clearStockPriceHistory();
+            }
+            case CLEAR_ALL_PRICE_HISTORY -> {
+                return AdminActionPacket.clearAllPriceHistory();
+            }
+            case SET_DIVIDEND_RATIO -> {
+                return new AdminActionPacket(ActionType.SET_DIVIDEND_RATIO, buffer.readLong());
+            }
+            case SET_DIVIDEND_CYCLE -> {
+                return new AdminActionPacket(ActionType.SET_DIVIDEND_CYCLE, buffer.readLong());
             }
             default -> throw new IllegalStateException("未知 ActionType");
         }
@@ -136,7 +193,11 @@ public class AdminActionPacket {
             if (player == null) return;
 
             if (!player.hasPermissions(2)) {
-                player.sendSystemMessage(Component.literal("权限不足，需要管理员权限。"));
+                GuiFeedbackPacket.send(player, "权限不足，需要管理员权限。");
+                return;
+            }
+            if (!isValidRequest(packet)) {
+                GuiFeedbackPacket.send(player, "管理员请求参数无效。");
                 return;
             }
 
@@ -144,6 +205,11 @@ public class AdminActionPacket {
                 case ADD_COMMODITY -> handleAdd(player, packet);
                 case REMOVE_COMMODITY -> handleRemove(player, packet);
                 case ADD_FROM_HAND -> handleAddFromHand(player, packet.basePrice);
+                case CLEAR_COMMODITY_PRICE_HISTORY -> handleClearCommodityPriceHistory(player);
+                case CLEAR_STOCK_PRICE_HISTORY -> handleClearStockPriceHistory(player);
+                case CLEAR_ALL_PRICE_HISTORY -> handleClearAllPriceHistory(player);
+                case SET_DIVIDEND_RATIO -> handleSetDividendRatio(player, packet.basePrice);
+                case SET_DIVIDEND_CYCLE -> handleSetDividendCycle(player, packet.basePrice);
             }
         });
         ctx.get().setPacketHandled(true);
@@ -153,11 +219,11 @@ public class AdminActionPacket {
     private static void handleAddFromHand(ServerPlayer player, long basePrice) {
         ItemStack held = player.getMainHandItem();
         if (held.isEmpty()) {
-            player.sendSystemMessage(Component.literal("请先手持一个物品。"));
+            GuiFeedbackPacket.send(player, "请先手持一个物品。");
             return;
         }
         if (basePrice <= 0) {
-            player.sendSystemMessage(Component.literal("基础价格必须大于 0。"));
+            GuiFeedbackPacket.send(player, "基础价格必须大于 0。");
             return;
         }
 
@@ -169,7 +235,7 @@ public class AdminActionPacket {
         // 生成商品 ID：从物品名中提取
         String commodityId = generateCommodityId(fullItemId);
         if (CommodityRegistry.isRegistered(commodityId)) {
-            player.sendSystemMessage(Component.literal("商品已存在: " + commodityId + "（对应物品: " + fullItemId + "）"));
+            GuiFeedbackPacket.send(player, "商品已存在: " + commodityId + "（对应物品: " + fullItemId + "）");
             return;
         }
 
@@ -188,10 +254,9 @@ public class AdminActionPacket {
         EconomySavedData.markDirty();
         CommodityInventorySavedData.markDirty();
 
-        player.sendSystemMessage(Component.literal(
-                "已从手中添加: " + commodityId + " (" + displayName + ") 物品: " + fullItemId + " 分类: " + category.getDisplayName()));
+        GuiFeedbackPacket.send(player,
+                "已从手中添加: " + commodityId + " (" + displayName + ") 物品: " + fullItemId + " 分类: " + category.getDisplayName());
 
-        FinanceGuiOpener.open(player);
     }
 
     /** 从物品注册名生成简短的商品 ID */
@@ -266,21 +331,15 @@ public class AdminActionPacket {
     }
 
     private static void handleAdd(ServerPlayer player, AdminActionPacket packet) {
-        String id = packet.commodityId.trim().toLowerCase();
-        if (id.isEmpty() || id.length() > 32) {
-            player.sendSystemMessage(Component.literal("商品 ID 长度需为 1-32 个字符。"));
-            return;
-        }
+        String id = NetworkValidation.normalizeCommodityId(packet.commodityId);
         if (CommodityRegistry.isRegistered(id)) {
-            player.sendSystemMessage(Component.literal("商品已存在: " + id));
-            return;
-        }
-        if (packet.basePrice <= 0) {
-            player.sendSystemMessage(Component.literal("基础价格必须大于 0。"));
+            GuiFeedbackPacket.send(player, "商品已存在: " + id);
             return;
         }
 
-        Commodity commodity = new Commodity(id, packet.itemId, packet.displayName,
+        Commodity commodity = new Commodity(id,
+                packet.itemId == null ? null : packet.itemId.trim(),
+                packet.displayName.trim(),
                 packet.category, packet.basePrice);
         CommodityRegistry.register(commodity);
 
@@ -289,15 +348,14 @@ public class AdminActionPacket {
         EconomySavedData.markDirty();
         CommodityInventorySavedData.markDirty();
 
-        player.sendSystemMessage(Component.literal("已添加商品: " + id + " (" + packet.displayName + ")"));
+        GuiFeedbackPacket.send(player, "已添加商品: " + id + " (" + packet.displayName + ")");
 
-        FinanceGuiOpener.open(player);
     }
 
     private static void handleRemove(ServerPlayer player, AdminActionPacket packet) {
-        String id = packet.commodityId.trim().toLowerCase();
+        String id = NetworkValidation.normalizeCommodityId(packet.commodityId);
         if (!CommodityRegistry.isRegistered(id)) {
-            player.sendSystemMessage(Component.literal("商品不存在: " + id));
+            GuiFeedbackPacket.send(player, "商品不存在: " + id);
             return;
         }
 
@@ -353,10 +411,9 @@ public class AdminActionPacket {
         EconomySavedData.markDirty();
         CommodityInventorySavedData.markDirty();
 
-        player.sendSystemMessage(Component.literal("已删除商品: " + id
-                + (toDelist.isEmpty() ? "" : "（同时强制退市 " + toDelist.size() + " 家公司）")));
+        GuiFeedbackPacket.send(player, "已删除商品: " + id
+                + (toDelist.isEmpty() ? "" : "（同时强制退市 " + toDelist.size() + " 家公司）"));
 
-        FinanceGuiOpener.open(player);
     }
 
     private static void seedInitialStock(String commodityId) {
@@ -369,5 +426,50 @@ public class AdminActionPacket {
             mp.recomputePrice(CommodityInventoryManager.getCommodityAmount(NpcMarketMaker.NPC_UUID, commodityId));
             mp.resetDayStats();
         }
+    }
+
+    private static void handleClearCommodityPriceHistory(ServerPlayer player) {
+        int cleared = NpcMarketMaker.clearPriceHistory();
+        GuiFeedbackPacket.send(player, "已清理商品价格历史 " + cleared + " 条。");
+    }
+
+    private static void handleClearStockPriceHistory(ServerPlayer player) {
+        int cleared = StockMarketManager.clearPriceHistory();
+        GuiFeedbackPacket.send(player, "已清理股票价格历史 " + cleared + " 条。");
+    }
+
+    private static void handleClearAllPriceHistory(ServerPlayer player) {
+        int commodity = NpcMarketMaker.clearPriceHistory();
+        int stock = StockMarketManager.clearPriceHistory();
+        GuiFeedbackPacket.send(player, "已清理价格历史：商品 " + commodity + " 条，股票 " + stock + " 条。");
+    }
+
+    private static void handleSetDividendRatio(ServerPlayer player, long basisPoints) {
+        double ratio = basisPoints / 10_000.0;
+        CompanyManager.setDividendPolicy(ratio, CompanyManager.getDividendCycleDays());
+        GuiFeedbackPacket.send(player, "分红比例已设置为 " + Math.round(CompanyManager.getDividendRatio() * 100) + "%。");
+    }
+
+    private static void handleSetDividendCycle(ServerPlayer player, long days) {
+        CompanyManager.setDividendPolicy(CompanyManager.getDividendRatio(), (int) days);
+        GuiFeedbackPacket.send(player, "分红周期已设置为 " + CompanyManager.getDividendCycleDays() + " 天。");
+    }
+
+    private static boolean isValidRequest(AdminActionPacket packet) {
+        if (packet.actionType == null) {
+            return false;
+        }
+        return switch (packet.actionType) {
+            case ADD_COMMODITY -> NetworkValidation.isValidCommodityId(packet.commodityId)
+                    && NetworkValidation.isValidItemId(packet.itemId)
+                    && NetworkValidation.isValidDisplayName(packet.displayName)
+                    && NetworkValidation.isPositive(packet.basePrice)
+                    && packet.category != null;
+            case REMOVE_COMMODITY -> NetworkValidation.isValidCommodityId(packet.commodityId);
+            case ADD_FROM_HAND -> NetworkValidation.isPositive(packet.basePrice);
+            case CLEAR_COMMODITY_PRICE_HISTORY, CLEAR_STOCK_PRICE_HISTORY, CLEAR_ALL_PRICE_HISTORY -> true;
+            case SET_DIVIDEND_RATIO -> packet.basePrice >= 0 && packet.basePrice <= 10_000;
+            case SET_DIVIDEND_CYCLE -> packet.basePrice >= 1 && packet.basePrice <= 365;
+        };
     }
 }
