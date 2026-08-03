@@ -63,6 +63,12 @@ public class Company {
     /** 最近分红历史 */
     private final List<DividendRecord> dividendHistory = new ArrayList<>();
 
+    /** 公司级分红比例；为负数时使用管理员全局默认策略。 */
+    private double dividendRatio = -1.0;
+
+    /** 公司级分红周期；为 0 或负数时使用管理员全局默认策略。 */
+    private int dividendCycleDays = -1;
+
     /** 最近若干天净利润 */
     private final List<Long> recentProfits = new ArrayList<>();
 
@@ -379,6 +385,22 @@ public class Company {
     public long getRetainedEarnings() { return retainedEarnings; }
     public long getDistributableProfit() { return distributableProfit; }
     public long getLastDividendDay() { return lastDividendDay; }
+    public double getDividendRatio() { return dividendRatio; }
+    public int getDividendCycleDays() { return dividendCycleDays; }
+    public double effectiveDividendRatio(double globalDefault) {
+        return dividendRatio >= 0 ? clamp(dividendRatio, 0.0, 1.0) : clamp(globalDefault, 0.0, 1.0);
+    }
+    public int effectiveDividendCycleDays(int globalDefault) {
+        return dividendCycleDays > 0 ? Math.min(365, dividendCycleDays) : Math.max(1, globalDefault);
+    }
+    public void setDividendPolicy(double ratio, int cycleDays) {
+        this.dividendRatio = clamp(ratio, 0.0, 1.0);
+        this.dividendCycleDays = Math.max(1, Math.min(365, cycleDays));
+    }
+    public void restoreDividendPolicy(double ratio, int cycleDays) {
+        this.dividendRatio = ratio >= 0 ? clamp(ratio, 0.0, 1.0) : -1.0;
+        this.dividendCycleDays = cycleDays > 0 ? Math.min(365, cycleDays) : -1;
+    }
     public List<Long> getRecentProfits() { return new ArrayList<>(recentProfits); }
     public List<DividendRecord> getDividendHistory() { return new ArrayList<>(dividendHistory); }
     public List<CompanyFinancialReport> getFinancialReports() { return new ArrayList<>(financialReports); }

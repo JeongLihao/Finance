@@ -3,20 +3,19 @@ package finance.company;
 import finance.account.AccountManager;
 import finance.account.TransactionRecord;
 import finance.account.TransactionType;
+import finance.config.FinanceConfig;
 import finance.data.EconomySavedData;
 import finance.stock.ConditionalStockOrderManager;
 import finance.stock.Stock;
 import finance.stock.StockMarketManager;
 import finance.stock.StockPortfolioManager;
+import finance.util.ProportionalAllocator;
 
 import java.util.ArrayList;
 import java.util.Map;
 import java.util.UUID;
 
 public final class CompanyBankruptcyManager {
-
-    private static final int RISK_DAYS_BEFORE_BANKRUPTCY = 3;
-    private static final double CASH_RISK_MULTIPLIER = 1.0;
 
     private CompanyBankruptcyManager() {
     }
@@ -27,7 +26,8 @@ public final class CompanyBankruptcyManager {
                 company.setBankruptcyRisk(false, -1);
                 continue;
             }
-            long safetyLine = Math.max(1, Math.round(company.estimateDailyOperatingCost() * CASH_RISK_MULTIPLIER));
+            long safetyLine = Math.max(1, Math.round(company.estimateDailyOperatingCost()
+                    * FinanceConfig.bankruptcyCashRiskMultiplier()));
             boolean risky = company.getCash() < safetyLine;
             if (!risky) {
                 if (company.isBankruptcyRisk()) {
@@ -41,7 +41,7 @@ public final class CompanyBankruptcyManager {
                         "进入风险状态，现金 " + company.getCash() + " / 安全线 " + safetyLine);
                 continue;
             }
-            if (currentMcDay - company.getBankruptcyRiskStartDay() >= RISK_DAYS_BEFORE_BANKRUPTCY) {
+            if (currentMcDay - company.getBankruptcyRiskStartDay() >= FinanceConfig.bankruptcyRiskDays()) {
                 bankrupt(company, currentMcDay);
             }
         }
@@ -67,19 +67,20 @@ public final class CompanyBankruptcyManager {
             Map<UUID, Long> holdings = StockPortfolioManager.getHoldingsForCompany(symbol);
             long totalHeld = holdings.values().stream().mapToLong(Long::longValue).sum();
             if (liquidationValue > 0 && totalHeld > 0) {
-                for (Map.Entry<UUID, Long> entry : holdings.entrySet()) {
-                    long payout = Math.round((double) liquidationValue * entry.getValue() / totalHeld);
+                for (ProportionalAllocator.Allocation share
+                        : ProportionalAllocator.allocate(liquidationValue, holdings, totalHeld)) {
+                    long payout = share.amount();
                     if (payout > 0) {
-                        AccountManager.deposit(entry.getKey(), payout);
+                        AccountManager.deposit(share.id(), payout);
                         paid += payout;
                         AccountManager.addTransactionRecord(new TransactionRecord(
                                 company.getCompanyId(),
-                                entry.getKey(),
+                                share.id(),
                                 payout,
                                 TransactionType.COMPANY_LIQUIDATION,
-                                entry.getKey(),
+                                share.id(),
                                 company.getName() + "/" + symbol,
-                                entry.getValue()));
+                                share.weight()));
                     }
                 }
             }

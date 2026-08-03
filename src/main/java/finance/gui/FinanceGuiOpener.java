@@ -14,6 +14,8 @@ import finance.company.CompanyManager;
 import finance.company.CompanyProposal;
 import finance.company.CompanyProposalManager;
 import finance.commodity.CommodityInventoryManager;
+import finance.cycle.EconomyCycleService;
+import finance.market.CentralBank;
 import finance.market.MarketManager;
 import finance.market.MarketPrice;
 import finance.market.NpcMarketMaker;
@@ -213,10 +215,12 @@ public class FinanceGuiOpener {
             }
         }
 
+        FinanceMenu.EconomyDashboardRow dashboard = buildDashboard();
+
         // 打开菜单
         NetworkHooks.openScreen(player,
-                new FinanceProvider(marketData, orderRows, balance, frozenBalance, inventory, companyInfo, companyRows, stockRows, stockHoldingRows, stockOrderRows, transactionRows, assetBundle.summary(), assetBundle.rows(), priceAlertRows, conditionalStockOrderRows, companyFinancingRows, companyProposalRows, CompanyManager.getDividendRatio(), CompanyManager.getDividendCycleDays(), mcInv),
-                buffer -> FinanceMenu.writeAll(buffer, marketData, orderRows, balance, frozenBalance, inventory, companyInfo, companyRows, stockRows, stockHoldingRows, stockOrderRows, transactionRows, assetBundle.summary(), assetBundle.rows(), priceAlertRows, conditionalStockOrderRows, companyFinancingRows, companyProposalRows, CompanyManager.getDividendRatio(), CompanyManager.getDividendCycleDays(), mcInv));
+                new FinanceProvider(marketData, orderRows, balance, frozenBalance, inventory, companyInfo, companyRows, stockRows, stockHoldingRows, stockOrderRows, transactionRows, assetBundle.summary(), assetBundle.rows(), priceAlertRows, conditionalStockOrderRows, companyFinancingRows, companyProposalRows, dashboard, CompanyManager.getDividendRatio(), CompanyManager.getDividendCycleDays(), mcInv),
+                buffer -> FinanceMenu.writeAll(buffer, marketData, orderRows, balance, frozenBalance, inventory, companyInfo, companyRows, stockRows, stockHoldingRows, stockOrderRows, transactionRows, assetBundle.summary(), assetBundle.rows(), priceAlertRows, conditionalStockOrderRows, companyFinancingRows, companyProposalRows, dashboard, CompanyManager.getDividendRatio(), CompanyManager.getDividendCycleDays(), mcInv));
     }
 
     private static FinanceMenu.CompanyInfo toCompanyInfo(Company company) {
@@ -334,7 +338,7 @@ public class FinanceGuiOpener {
         }
 
         long totalAsset = cash + frozenCash + commodityValue + stockValue;
-        long mcDay = player.getServer() != null ? player.getServer().getTickCount() / 24000L : 0;
+        long mcDay = EconomyCycleService.currentMcDay(player.getServer());
         long todayProfit = AssetSnapshotManager.getTodayProfit(player.getUUID(), totalAsset, mcDay);
         List<FinanceMenu.AssetRow> withPercent = new ArrayList<>();
         for (FinanceMenu.AssetRow row : rows) {
@@ -359,6 +363,52 @@ public class FinanceGuiOpener {
     private record AssetBundle(FinanceMenu.AssetSummary summary, List<FinanceMenu.AssetRow> rows) {
     }
 
+    private static FinanceMenu.EconomyDashboardRow buildDashboard() {
+        long totalMoney = 0;
+        for (Account account : AccountManager.getAccounts().values()) {
+            totalMoney = saturatedAdd(totalMoney, account.getBalance());
+            totalMoney = saturatedAdd(totalMoney, account.getFrozenBalance());
+        }
+        long commodityVolume = MarketManager.getTradeHistory().stream()
+                .mapToLong(trade -> Math.max(0, trade.getQuantity()))
+                .sum();
+        long stockVolume = StockMarketManager.getStockTradeHistory().stream()
+                .mapToLong(trade -> Math.max(0, trade.getQuantity()))
+                .sum();
+        double priceIndexTotal = 0.0;
+        int priceIndexCount = 0;
+        for (MarketPrice price : NpcMarketMaker.getAllMarketPrices().values()) {
+            if (price.getBasePrice() > 0) {
+                priceIndexTotal += (double) price.getMidPrice() / price.getBasePrice();
+                priceIndexCount++;
+            }
+        }
+        double priceIndex = priceIndexCount == 0 ? 100.0 : priceIndexTotal / priceIndexCount * 100.0;
+        int riskCompanies = 0;
+        for (Company company : CompanyManager.getCompanies()) {
+            if (company.isBankruptcyRisk()) {
+                riskCompanies++;
+            }
+        }
+        return new FinanceMenu.EconomyDashboardRow(
+                totalMoney,
+                commodityVolume,
+                stockVolume,
+                priceIndex,
+                riskCompanies,
+                CentralBank.getLastInterventionSummary());
+    }
+
+    private static long saturatedAdd(long a, long b) {
+        if (b > 0 && a > Long.MAX_VALUE - b) {
+            return Long.MAX_VALUE;
+        }
+        if (b < 0 && a < Long.MIN_VALUE - b) {
+            return Long.MIN_VALUE;
+        }
+        return a + b;
+    }
+
     private record FinanceProvider(List<FinanceMenu.MarketRow> marketData,
                                     List<FinanceMenu.OrderRow> orderRows,
                                     long balance, long frozenBalance,
@@ -375,6 +425,7 @@ public class FinanceGuiOpener {
                                     List<FinanceMenu.ConditionalStockOrderRow> conditionalStockOrders,
                                     List<FinanceMenu.CompanyFinancingRow> companyFinancingRows,
                                     List<FinanceMenu.CompanyProposalRow> companyProposalRows,
+                                    FinanceMenu.EconomyDashboardRow dashboard,
                                     double dividendRatio,
                                     int dividendCycleDays,
                                     Map<String, Integer> mcInventory)
@@ -388,7 +439,7 @@ public class FinanceGuiOpener {
         @Override
         public FinanceMenu createMenu(int containerId, net.minecraft.world.entity.player.Inventory inv,
                                        net.minecraft.world.entity.player.Player player) {
-            return new FinanceMenu(containerId, marketData, orderRows, balance, frozenBalance, inventory, companyInfo, allCompanies, stocks, stockHoldings, stockOrders, transactions, assetSummary, assetRows, priceAlerts, conditionalStockOrders, companyFinancingRows, companyProposalRows, dividendRatio, dividendCycleDays, mcInventory);
+            return new FinanceMenu(containerId, marketData, orderRows, balance, frozenBalance, inventory, companyInfo, allCompanies, stocks, stockHoldings, stockOrders, transactions, assetSummary, assetRows, priceAlerts, conditionalStockOrders, companyFinancingRows, companyProposalRows, dashboard, dividendRatio, dividendCycleDays, mcInventory);
         }
     }
 }

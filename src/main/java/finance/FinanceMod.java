@@ -15,24 +15,21 @@ import finance.command.CommodityCommand;
 import finance.command.InventoryCommand;
 import finance.command.CompaniesCommand;
 import finance.command.CompanyCommand;
-import finance.alert.PriceAlertManager;
-import finance.company.CompanyManager;
-import finance.company.CompanyBankruptcyManager;
-import finance.company.CompanyFinancingManager;
-import finance.company.CompanyProposalManager;
 import finance.company.SystemCompanyInitializer;
+import finance.config.FinanceConfig;
+import finance.cycle.EconomyCycleService;
 import net.minecraftforge.event.server.ServerStartingEvent;
 import net.minecraftforge.event.server.ServerStoppedEvent;
 import finance.data.EconomySavedData;
 import finance.data.CommodityInventorySavedData;
 import finance.market.NpcMarketMaker;
-import finance.event.EventManager;
 import finance.network.FinancePacketHandler;
 import finance.registry.ModMenus;
-import finance.stock.ConditionalStockOrderManager;
 import finance.stock.StockMarketManager;
 import net.minecraftforge.event.TickEvent.Phase;
 import net.minecraftforge.event.TickEvent.ServerTickEvent;
+import net.minecraftforge.fml.ModLoadingContext;
+import net.minecraftforge.fml.config.ModConfig;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 
 /**
@@ -59,6 +56,7 @@ public class FinanceMod {
     public FinanceMod(){
         // 请勿修复这个错误，暂时未找到安全修复的方法，修复可能导致模组崩溃
         ModMenus.register(FMLJavaModLoadingContext.get().getModEventBus());
+        ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, FinanceConfig.COMMON_SPEC);
         MinecraftForge.EVENT_BUS.register(this);
         FinancePacketHandler.register();
 
@@ -160,50 +158,6 @@ public class FinanceMod {
         net.minecraft.server.MinecraftServer server = event.getServer();
         if (server == null) return;
 
-        int tick = server.getTickCount();
-        if (tick <= 0) return;
-
-        // 每个MC天：商品外部供需 → 公司经营 → 利润结算 → 股票基本面 → 分红
-        if (tick % 24000 == 0) {
-            NpcMarketMaker.resetAllDayStats();
-            EventManager.onDayTick(server);
-            NpcMarketMaker.naturalConsumeAll();
-            NpcMarketMaker.centralBankIntervention();
-            CompanyManager.tickAll();
-            int mcDay = tick / 24000;
-            CompanyManager.settleDailyProfits(mcDay); // P3：分红结算 + 财报生成
-            StockMarketManager.updateFairValuesAndResetDay();
-
-            // 每天检查一次，实际是否分红由管理员配置的周期决定
-            CompanyManager.tryDividends(mcDay);
-            CompanyFinancingManager.tick(mcDay);
-            CompanyProposalManager.tick(mcDay);
-            CompanyBankruptcyManager.tick(mcDay);
-        }
-
-        // 每3分钟：刷新噪音 + 动量衰减 + 重算价格（3600 ticks）
-        if (tick % 3600 == 0) {
-            NpcMarketMaker.tickAllMomentum();
-            NpcMarketMaker.tickAllNoise();
-            NpcMarketMaker.recalculateAll();
-
-            // 股票也做同样的衰减和刷新
-            StockMarketManager.tickMomentum();
-            StockMarketManager.tickNoise();
-            StockMarketManager.recalculateAllPrices();
-            ConditionalStockOrderManager.checkOrders(server);
-            PriceAlertManager.checkAlerts(server);
-        }
-        // 每分钟：仅衰减动量并重算（1200 ticks，排除与 3600 重叠的帧）
-        else if (tick % 1200 == 0) {
-            NpcMarketMaker.tickAllMomentum();
-            NpcMarketMaker.recalculateAll();
-
-            // 股票也衰减动量并重算
-            StockMarketManager.tickMomentum();
-            StockMarketManager.recalculateAllPrices();
-            ConditionalStockOrderManager.checkOrders(server);
-            PriceAlertManager.checkAlerts(server);
-        }
+        EconomyCycleService.tick(server);
     }
 }

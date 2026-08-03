@@ -2,6 +2,7 @@ package finance.network;
 
 import finance.company.CompanyProposalManager;
 import finance.company.CompanyProposalType;
+import finance.cycle.EconomyCycleService;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.network.NetworkEvent;
@@ -85,7 +86,7 @@ public class CompanyProposalPacket {
             if (player == null || packet.action == null || packet.id == null) {
                 return;
             }
-            long mcDay = player.getServer() != null ? player.getServer().getTickCount() / 24000L : 0;
+            long mcDay = EconomyCycleService.currentMcDay(player.getServer());
             CompanyProposalManager.Result result;
             if (packet.action == Action.CREATE) {
                 if (packet.type == null || packet.durationDays <= 0 || packet.passPercent <= 0 || packet.passPercent > 100) {

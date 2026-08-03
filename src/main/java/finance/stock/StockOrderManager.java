@@ -3,6 +3,7 @@ package finance.stock;
 import finance.account.AccountManager;
 import finance.account.TransactionRecord;
 import finance.account.TransactionType;
+import finance.config.FinanceConfig;
 import finance.data.EconomySavedData;
 import finance.util.MathUtil;
 
@@ -31,8 +32,6 @@ public class StockOrderManager {
     /** 成交记录（保留最近 500 条） */
     private static final List<StockTrade> TRADE_HISTORY = new ArrayList<>();
 
-    /** 做市商参数 */
-    private static final double MARKET_MAKER_SPREAD = 0.02; // ±2%
     private static final UUID MARKET_MAKER_UUID = new UUID(0, 0); // nil UUID
 
     // ================================================================
@@ -194,8 +193,9 @@ public class StockOrderManager {
         }
 
         // 做市商报价
-        long bidPrice = Math.max(1, Math.round(fairValue * (1 - MARKET_MAKER_SPREAD)));
-        long askPrice = Math.round(fairValue * (1 + MARKET_MAKER_SPREAD));
+        double spread = FinanceConfig.stockMarketMakerSpread();
+        long bidPrice = Math.max(1, Math.round(fairValue * (1 - spread)));
+        long askPrice = Math.round(fairValue * (1 + spread));
 
         long tradePrice;
         if (order.getType() == StockOrderType.BUY) {

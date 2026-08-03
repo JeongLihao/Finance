@@ -71,7 +71,7 @@ import net.minecraft.world.level.storage.DimensionDataStorage;
 public class EconomySavedData extends SavedData {
 
     public static final String DATA_NAME = "finance_data";
-    private static final int DATA_VERSION = 12;
+    private static final int DATA_VERSION = 13;
 
     // ================================================================
     // 保存
@@ -188,6 +188,8 @@ public class EconomySavedData extends SavedData {
             proposalTag.putLong("StartMcDay", proposal.getStartMcDay());
             proposalTag.putLong("EndMcDay", proposal.getEndMcDay());
             proposalTag.putDouble("PassRatio", proposal.getPassRatio());
+            proposalTag.putDouble("MinParticipationRatio", proposal.getMinParticipationRatio());
+            proposalTag.putLong("VotingSharesSnapshot", proposal.getVotingSharesSnapshot());
             proposalTag.putLong("CreatedAt", proposal.getCreatedAt().toEpochSecond(ZoneOffset.UTC));
             proposalTag.putString("Status", proposal.getStatus().name());
             proposalTag.putString("ResultSummary", proposal.getResultSummary());
@@ -348,6 +350,8 @@ public class EconomySavedData extends SavedData {
             companyTag.putLong("RetainedEarnings", company.getRetainedEarnings());
             companyTag.putLong("DistributableProfit", company.getDistributableProfit());
             companyTag.putLong("LastDividendDay", company.getLastDividendDay());
+            companyTag.putDouble("CompanyDividendRatio", company.getDividendRatio());
+            companyTag.putInt("CompanyDividendCycleDays", company.getDividendCycleDays());
             companyTag.putString("Strategy", company.getStrategy().name());
             companyTag.putInt("ProductionLevel", company.getProductionLevel());
             companyTag.putInt("StorageLevel", company.getStorageLevel());
@@ -757,6 +761,12 @@ public class EconomySavedData extends SavedData {
                         proposalTag.getLong("StartMcDay"),
                         proposalTag.getLong("EndMcDay"),
                         proposalTag.getDouble("PassRatio"),
+                        proposalTag.contains("MinParticipationRatio")
+                                ? proposalTag.getDouble("MinParticipationRatio")
+                                : 0.0,
+                        proposalTag.contains("VotingSharesSnapshot")
+                                ? proposalTag.getLong("VotingSharesSnapshot")
+                                : 0,
                         LocalDateTime.ofEpochSecond(proposalTag.getLong("CreatedAt"), 0, ZoneOffset.UTC),
                         status,
                         proposalTag.getString("ResultSummary"));
@@ -980,6 +990,13 @@ public class EconomySavedData extends SavedData {
                         companyTag.getLong("LastDividendDay"),
                         recentProfits,
                         dividendHistory);
+                company.restoreDividendPolicy(
+                        companyTag.contains("CompanyDividendRatio")
+                                ? companyTag.getDouble("CompanyDividendRatio")
+                                : -1.0,
+                        companyTag.contains("CompanyDividendCycleDays")
+                                ? companyTag.getInt("CompanyDividendCycleDays")
+                                : -1);
                 if (companyTag.contains("FinancialReports")) {
                     ListTag reportsTag = companyTag.getList("FinancialReports", Tag.TAG_COMPOUND);
                     for (Tag reportRaw : reportsTag) {

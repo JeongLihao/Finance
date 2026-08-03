@@ -69,6 +69,10 @@ public class FinanceMenu extends AbstractContainerMenu {
                                      long yesVotes, long noVotes, boolean playerVoted,
                                      String status, String resultSummary) {}
 
+    public record EconomyDashboardRow(long totalMoney, long dailyCommodityVolume,
+                                      long dailyStockVolume, double priceIndex,
+                                      int bankruptcyRiskCompanies, String centralBankSummary) {}
+
     // ---- 字段 ----
 
     private final List<MarketRow> marketData;
@@ -88,6 +92,7 @@ public class FinanceMenu extends AbstractContainerMenu {
     private final List<ConditionalStockOrderRow> conditionalStockOrders;
     private final List<CompanyFinancingRow> companyFinancingRows;
     private final List<CompanyProposalRow> companyProposalRows;
+    private final EconomyDashboardRow dashboard;
     private final double dividendRatio;
     private final int dividendCycleDays;
     private final Map<String, Integer> mcInventory; // 商品ID → MC物品栏数量
@@ -114,6 +119,7 @@ public class FinanceMenu extends AbstractContainerMenu {
                 readConditionalStockOrderRows(buffer),
                 readCompanyFinancingRows(buffer),
                 readCompanyProposalRows(buffer),
+                readDashboard(buffer),
                 buffer.readDouble(),
                 buffer.readVarInt(),
                 readStringIntMap(buffer));
@@ -130,6 +136,7 @@ public class FinanceMenu extends AbstractContainerMenu {
                        List<ConditionalStockOrderRow> conditionalStockOrders,
                        List<CompanyFinancingRow> companyFinancingRows,
                        List<CompanyProposalRow> companyProposalRows,
+                       EconomyDashboardRow dashboard,
                        double dividendRatio, int dividendCycleDays,
                        Map<String, Integer> mcInventory) {
         super(ModMenus.FINANCE.get(), containerId);
@@ -150,6 +157,7 @@ public class FinanceMenu extends AbstractContainerMenu {
         this.conditionalStockOrders = conditionalStockOrders;
         this.companyFinancingRows = companyFinancingRows;
         this.companyProposalRows = companyProposalRows;
+        this.dashboard = dashboard;
         this.dividendRatio = dividendRatio;
         this.dividendCycleDays = dividendCycleDays;
         this.mcInventory = mcInventory;
@@ -174,6 +182,7 @@ public class FinanceMenu extends AbstractContainerMenu {
     public List<ConditionalStockOrderRow> getConditionalStockOrders() { return conditionalStockOrders; }
     public List<CompanyFinancingRow> getCompanyFinancingRows() { return companyFinancingRows; }
     public List<CompanyProposalRow> getCompanyProposalRows() { return companyProposalRows; }
+    public EconomyDashboardRow getDashboard() { return dashboard; }
     public double getDividendRatio() { return dividendRatio; }
     public int getDividendCycleDays() { return dividendCycleDays; }
     public Map<String, Integer> getMcInventory() { return mcInventory; }
@@ -197,6 +206,7 @@ public class FinanceMenu extends AbstractContainerMenu {
                                  List<ConditionalStockOrderRow> conditionalStockOrders,
                                  List<CompanyFinancingRow> companyFinancingRows,
                                  List<CompanyProposalRow> companyProposalRows,
+                                 EconomyDashboardRow dashboard,
                                  double dividendRatio, int dividendCycleDays,
                                  Map<String, Integer> mcInventory) {
         writeMarketData(buffer, marketData);
@@ -216,6 +226,7 @@ public class FinanceMenu extends AbstractContainerMenu {
         writeConditionalStockOrderRows(buffer, conditionalStockOrders);
         writeCompanyFinancingRows(buffer, companyFinancingRows);
         writeCompanyProposalRows(buffer, companyProposalRows);
+        writeDashboard(buffer, dashboard);
         buffer.writeDouble(dividendRatio);
         buffer.writeVarInt(dividendCycleDays);
         writeStringIntMap(buffer, mcInventory != null ? mcInventory : new LinkedHashMap<>());
@@ -657,6 +668,27 @@ public class FinanceMenu extends AbstractContainerMenu {
                     buffer.readUtf(96)));
         }
         return rows;
+    }
+
+    private static void writeDashboard(FriendlyByteBuf buffer, EconomyDashboardRow row) {
+        EconomyDashboardRow safe = row != null ? row
+                : new EconomyDashboardRow(0, 0, 0, 0.0, 0, "");
+        buffer.writeLong(safe.totalMoney());
+        buffer.writeLong(safe.dailyCommodityVolume());
+        buffer.writeLong(safe.dailyStockVolume());
+        buffer.writeDouble(safe.priceIndex());
+        buffer.writeVarInt(safe.bankruptcyRiskCompanies());
+        buffer.writeUtf(limitString(safe.centralBankSummary(), 128), 128);
+    }
+
+    private static EconomyDashboardRow readDashboard(FriendlyByteBuf buffer) {
+        return new EconomyDashboardRow(
+                buffer.readLong(),
+                buffer.readLong(),
+                buffer.readLong(),
+                buffer.readDouble(),
+                buffer.readVarInt(),
+                buffer.readUtf(128));
     }
 
     private static String limitString(String text, int maxLength) {

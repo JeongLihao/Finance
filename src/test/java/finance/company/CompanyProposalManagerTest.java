@@ -29,7 +29,7 @@ class CompanyProposalManagerTest {
         company.setPublic(true);
         CompanyManager.registerDirect(company);
         StockMarketManager.putStockDirect(new Stock("VOTE", "Vote Inc", COMPANY_ID,
-                1_000, 1_000, 0, 10, 10));
+                100, 100, 0, 10, 10));
         StockPortfolioManager.addHolding(HOLDER_A, "VOTE", 70, 10);
         StockPortfolioManager.addHolding(HOLDER_B, "VOTE", 30, 10);
     }
@@ -78,5 +78,21 @@ class CompanyProposalManagerTest {
         assertEquals(CompanyProposalStatus.PASSED, proposal.getStatus());
         assertEquals(1, CompanyFinancingManager.getProjects().size());
         assertEquals(100, CompanyFinancingManager.getProjects().get(0).getIssueQuantity());
+    }
+
+    @Test
+    void proposalFailsWhenParticipationIsBelowSnapshotThreshold() {
+        StockPortfolioManager.clearPortfolios();
+        StockPortfolioManager.addHolding(HOLDER_A, "VOTE", 10, 10);
+        CompanyProposalManager.createProposal(
+                OWNER_ID, COMPANY_ID, CompanyProposalType.FUND_USAGE, "低参与测试",
+                100, 0, 0, 1, 3, 0.50);
+        CompanyProposal proposal = CompanyProposalManager.getProposalsForCompany(COMPANY_ID).get(0);
+
+        assertTrue(CompanyProposalManager.vote(HOLDER_A, proposal.getProposalId(), true, 1).success());
+        CompanyProposalManager.tick(3);
+
+        assertEquals(CompanyProposalStatus.FAILED, proposal.getStatus());
+        assertTrue(proposal.getResultSummary().contains("参与率不足"));
     }
 }

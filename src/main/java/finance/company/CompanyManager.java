@@ -4,9 +4,11 @@ import finance.data.EconomySavedData;
 import finance.account.AccountManager;
 import finance.account.TransactionRecord;
 import finance.account.TransactionType;
+import finance.config.FinanceConfig;
 import finance.stock.Stock;
 import finance.stock.StockMarketManager;
 import finance.stock.StockPortfolioManager;
+import finance.util.ProportionalAllocator;
 
 import java.util.Collection;
 import java.util.HashMap;
@@ -25,8 +27,8 @@ public class CompanyManager {
     private static final Map<UUID, Company> COMPANIES = new HashMap<>();
     private static final Map<UUID, Company> OWNER_INDEX = new HashMap<>();
     private static final Map<String, Company> NAME_INDEX = new HashMap<>();
-    private static double dividendRatio = 0.40;
-    private static int dividendCycleDays = 7;
+    private static double dividendRatio = FinanceConfig.defaultDividendRatio();
+    private static int dividendCycleDays = FinanceConfig.defaultDividendCycleDays();
 
     public static void register(Company company) {
         COMPANIES.put(company.getCompanyId(), company);
@@ -117,7 +119,9 @@ public class CompanyManager {
                 continue;
             }
 
-            long dividendAmount = c.prepareDividend(currentMcDay, dividendRatio, dividendCycleDays);
+            long dividendAmount = c.prepareDividend(currentMcDay,
+                    c.effectiveDividendRatio(dividendRatio),
+                    c.effectiveDividendCycleDays(dividendCycleDays));
             if (dividendAmount > 0) {
                 // P5：按持股比例分给所有股东
                 distributeDividend(c, dividendAmount, currentMcDay);
@@ -145,13 +149,13 @@ public class CompanyManager {
             return; // 无股东，无处分红
         }
 
-        // 按比例分配
+        // 按比例精确分配，使用 BigInteger 计算“整除 + 最大余数补发”，避免溢出和超发。
         long actuallyPaid = 0;
-        for (java.util.Map.Entry<java.util.UUID, Long> entry : holdings.entrySet()) {
-            java.util.UUID playerId = entry.getKey();
-            long shareholding = entry.getValue();
-
-            long payout = Math.round((double) totalDividend * shareholding / totalShares);
+        for (ProportionalAllocator.Allocation share
+                : ProportionalAllocator.allocate(totalDividend, holdings, totalShares)) {
+            UUID playerId = share.id();
+            long shareholding = share.weight();
+            long payout = share.amount();
             if (payout > 0 && company.withdraw(payout)) {
                 AccountManager.deposit(playerId, payout);
                 AccountManager.addTransactionRecord(
@@ -172,6 +176,9 @@ public class CompanyManager {
             long perShare = totalShares > 0 ? actuallyPaid / totalShares : 0;
             company.addDividendRecord(currentMcDay, actuallyPaid, perShare);
         }
+        if (actuallyPaid < totalDividend) {
+            company.addDistributableProfit(totalDividend - actuallyPaid);
+        }
     }
 
     public static double getDividendRatio() {
@@ -189,8 +196,8 @@ public class CompanyManager {
     }
 
     public static void resetDividendPolicyDirect() {
-        dividendRatio = 0.40;
-        dividendCycleDays = 7;
+        dividendRatio = FinanceConfig.defaultDividendRatio();
+        dividendCycleDays = FinanceConfig.defaultDividendCycleDays();
     }
 
     /** 移除单个公司（退市时调用） */

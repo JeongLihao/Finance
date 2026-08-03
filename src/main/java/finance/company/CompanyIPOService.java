@@ -3,6 +3,7 @@ package finance.company;
 import finance.account.AccountManager;
 import finance.account.TransactionRecord;
 import finance.account.TransactionType;
+import finance.config.FinanceConfig;
 import finance.data.EconomySavedData;
 import finance.stock.Stock;
 import finance.stock.StockMarketManager;
@@ -15,7 +16,7 @@ import java.util.UUID;
  */
 public class CompanyIPOService {
 
-    /** 上市费用 */
+    /** 上市费用默认值；实际费用从服务器配置读取。 */
     public static final long IPO_FEE = 5_000L;
 
     /** 默认发行比例 —— 创始人保留 60%，发行 40% */
@@ -67,8 +68,9 @@ public class CompanyIPOService {
         String symbol = generateUniqueSymbol(company.getName());
 
         // 检查上市费用
-        if (!AccountManager.withdraw(requesterId, IPO_FEE)) {
-            return fail("上市费用不足，需要 " + IPO_FEE + "。");
+        long ipoFee = FinanceConfig.ipoFee();
+        if (!AccountManager.withdraw(requesterId, ipoFee)) {
+            return fail("上市费用不足，需要 " + ipoFee + "。");
         }
 
         // 计算创始人持股和总股本

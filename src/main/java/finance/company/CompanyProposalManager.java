@@ -3,6 +3,7 @@ package finance.company;
 import finance.account.AccountManager;
 import finance.account.TransactionRecord;
 import finance.account.TransactionType;
+import finance.config.FinanceConfig;
 import finance.data.EconomySavedData;
 import finance.stock.Stock;
 import finance.stock.StockMarketManager;
@@ -47,8 +48,17 @@ public final class CompanyProposalManager {
         if (!validation.success()) {
             return validation;
         }
+        Stock stock = StockMarketManager.getStockByCompanyId(companyId);
+        long currentHoldings = stock != null
+                ? StockPortfolioManager.getHoldingsForCompany(stock.getSymbol())
+                        .values().stream().mapToLong(Long::longValue).sum()
+                : 0;
+        long votingSharesSnapshot = stock != null
+                ? Math.max(1, Math.max(stock.getFloatShares(), currentHoldings))
+                : 0;
         CompanyProposal proposal = new CompanyProposal(companyId, creatorId, type,
-                titleFor(type), textValue, value1, value2, value3, startMcDay, endMcDay, passRatio);
+                titleFor(type), textValue, value1, value2, value3, startMcDay, endMcDay,
+                passRatio, FinanceConfig.minProposalParticipationRatio(), votingSharesSnapshot);
         PROPOSALS.add(proposal);
         addRecord(creatorId, company, TransactionType.COMPANY_PROPOSAL_CREATE, 0, 0, proposal.getTitle());
         EconomySavedData.markDirty();
@@ -99,10 +109,17 @@ public final class CompanyProposalManager {
         long yes = proposal.getYesVotes();
         long no = proposal.getNoVotes();
         long total = yes + no;
-        boolean passed = total > 0 && (double) yes / total >= proposal.getPassRatio();
+        long votingSnapshot = resolveVotingSnapshot(proposal);
+        double participation = votingSnapshot > 0 ? (double) total / votingSnapshot : 0.0;
+        boolean enoughParticipation = votingSnapshot > 0
+                && participation >= proposal.getMinParticipationRatio();
+        boolean passed = enoughParticipation && total > 0 && (double) yes / total >= proposal.getPassRatio();
         Company company = CompanyManager.getCompany(proposal.getCompanyId());
         if (!passed || company == null) {
-            proposal.finish(CompanyProposalStatus.FAILED, "未通过：" + yes + "/" + total);
+            String reason = !enoughParticipation
+                    ? "参与率不足：" + total + "/" + votingSnapshot
+                    : "未通过：" + yes + "/" + total;
+            proposal.finish(CompanyProposalStatus.FAILED, reason);
             if (company != null) {
                 addRecord(company.getOwnerId(), company, TransactionType.COMPANY_PROPOSAL_RESULT, 0, yes,
                         proposal.getTitle() + " 未通过");
@@ -119,8 +136,10 @@ public final class CompanyProposalManager {
     private static Result executeProposal(CompanyProposal proposal, Company company, long currentMcDay) {
         return switch (proposal.getType()) {
             case DIVIDEND -> {
-                CompanyManager.setDividendPolicy(proposal.getValue1() / 100.0, CompanyManager.getDividendCycleDays());
-                yield Result.ok("已通过，分红比例调整为 " + proposal.getValue1() + "%");
+                company.setDividendPolicy(proposal.getValue1() / 100.0,
+                        company.effectiveDividendCycleDays(CompanyManager.getDividendCycleDays()));
+                EconomySavedData.markDirty();
+                yield Result.ok("已通过，本公司分红比例调整为 " + proposal.getValue1() + "%");
             }
             case SHARE_ISSUE -> {
                 CompanyFinancingManager.Result result = CompanyFinancingManager.startProject(
@@ -148,6 +167,19 @@ public final class CompanyProposalManager {
             case FUND_USAGE -> textValue != null && !textValue.isBlank() && textValue.length() <= 64
                     ? Result.ok("") : Result.fail("资金用途不能为空且最多 64 字符。");
         };
+    }
+
+    private static long resolveVotingSnapshot(CompanyProposal proposal) {
+        if (proposal.getVotingSharesSnapshot() > 0) {
+            return proposal.getVotingSharesSnapshot();
+        }
+        Stock stock = StockMarketManager.getStockByCompanyId(proposal.getCompanyId());
+        if (stock == null) {
+            return 0;
+        }
+        long currentHoldings = StockPortfolioManager.getHoldingsForCompany(stock.getSymbol())
+                .values().stream().mapToLong(Long::longValue).sum();
+        return Math.max(1, Math.max(stock.getFloatShares(), currentHoldings));
     }
 
     public static CompanyProposal getProposal(UUID proposalId) {

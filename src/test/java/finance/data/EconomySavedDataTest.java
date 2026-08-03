@@ -98,7 +98,7 @@ class EconomySavedDataTest {
     void saveWritesCurrentDataVersion() {
         CompoundTag saved = new EconomySavedData().save(new CompoundTag());
 
-        assertEquals(12, saved.getInt("DataVersion"));
+        assertEquals(13, saved.getInt("DataVersion"));
     }
 
     @Test
