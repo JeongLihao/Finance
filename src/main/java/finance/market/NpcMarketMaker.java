@@ -106,7 +106,8 @@ public class NpcMarketMaker {
 
         // 5. 记录流水
         AccountManager.addTransactionRecord(
-                new TransactionRecord(NPC_UUID, playerId, totalPayment, TransactionType.NPC_BUY)
+                new TransactionRecord(NPC_UUID, playerId, totalPayment, TransactionType.COMMODITY_SELL,
+                        playerId, commodityId, acceptedQuantity)
         );
 
         // 6. 记录成交（国际市场是买方，玩家是卖方）
@@ -166,7 +167,8 @@ public class NpcMarketMaker {
 
         // 5. 记录流水
         AccountManager.addTransactionRecord(
-                new TransactionRecord(playerId, NPC_UUID, totalCost, TransactionType.NPC_SELL)
+                new TransactionRecord(playerId, NPC_UUID, totalCost, TransactionType.COMMODITY_BUY,
+                        playerId, commodityId, acceptedQuantity)
         );
 
         // 6. 记录成交（玩家是买方，国际市场是卖方）
@@ -355,10 +357,23 @@ public class NpcMarketMaker {
     public static void recalculateAll() {
         for (MarketPrice mp : MARKET_PRICES.values()) {
             mp.recalculateFromCurrent();
+            mp.recordPeriodicSnapshot();
         }
         if (!MARKET_PRICES.isEmpty()) {
             EconomySavedData.markDirty();
         }
+    }
+
+    public static int clearPriceHistory() {
+        int cleared = 0;
+        for (MarketPrice mp : MARKET_PRICES.values()) {
+            cleared += mp.getSnapshots().size();
+            mp.clearSnapshots();
+        }
+        if (cleared > 0) {
+            EconomySavedData.markDirty();
+        }
+        return cleared;
     }
 
     /** 每个 MC 天结束时重置所有商品的日内统计 */

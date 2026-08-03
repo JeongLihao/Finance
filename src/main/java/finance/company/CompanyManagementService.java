@@ -1,6 +1,8 @@
 package finance.company;
 
 import finance.account.AccountManager;
+import finance.account.TransactionRecord;
+import finance.account.TransactionType;
 
 import java.util.UUID;
 
@@ -32,8 +34,8 @@ public final class CompanyManagementService {
         }
 
         return switch (action) {
-            case SET_STRATEGY -> setStrategy(company, strategy);
-            case SET_SELL_RATIO -> setSellRatio(company, ratio);
+            case SET_STRATEGY -> setStrategy(playerId, company, strategy);
+            case SET_SELL_RATIO -> setSellRatio(playerId, company, ratio);
             case UPGRADE_PRODUCTION -> upgrade(playerId, company, "PRODUCTION");
             case UPGRADE_STORAGE -> upgrade(playerId, company, "STORAGE");
             case UPGRADE_MANAGEMENT -> upgrade(playerId, company, "MANAGEMENT");
@@ -42,17 +44,19 @@ public final class CompanyManagementService {
         };
     }
 
-    private static Result setStrategy(Company company, CompanyStrategy strategy) {
+    private static Result setStrategy(UUID playerId, Company company, CompanyStrategy strategy) {
         CompanyStrategy safeStrategy = strategy != null ? strategy : CompanyStrategy.STABLE;
         company.setStrategy(safeStrategy);
+        recordCompanyAction(playerId, company, 0, 0);
         return new Result(true, "经营策略已调整为 " + safeStrategy.getDisplayName());
     }
 
-    private static Result setSellRatio(Company company, double ratio) {
+    private static Result setSellRatio(UUID playerId, Company company, double ratio) {
         if (!Double.isFinite(ratio)) {
             return new Result(false, "自动出售比例无效。");
         }
         company.setAutoSellRatio(ratio);
+        recordCompanyAction(playerId, company, 0, Math.round(company.getAutoSellRatio() * 100));
         return new Result(true, "自动出售比例已调整。");
     }
 
@@ -78,6 +82,7 @@ public final class CompanyManagementService {
         }
 
         company.deposit(cost);
+        recordCompanyAction(playerId, company, cost, 1);
         return new Result(true, "公司升级成功，投入资金 " + cost);
     }
 
@@ -90,6 +95,7 @@ public final class CompanyManagementService {
         }
 
         company.deposit(amount);
+        recordCompanyAction(playerId, company, amount, 0);
         return new Result(true, "已向公司注资 " + amount);
     }
 
@@ -102,6 +108,21 @@ public final class CompanyManagementService {
         }
 
         AccountManager.deposit(playerId, amount);
+        recordCompanyAction(playerId, company, amount, 0);
         return new Result(true, "已从公司提取 " + amount);
+    }
+
+    private static void recordCompanyAction(UUID playerId, Company company, long amount, long quantity) {
+        AccountManager.addTransactionRecord(
+                new TransactionRecord(
+                        playerId,
+                        company.getCompanyId(),
+                        amount,
+                        TransactionType.COMPANY_ACTION,
+                        playerId,
+                        company.getName(),
+                        quantity
+                )
+        );
     }
 }

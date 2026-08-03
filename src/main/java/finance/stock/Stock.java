@@ -1,5 +1,6 @@
 package finance.stock;
 
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -11,7 +12,7 @@ public class Stock {
     private final String symbol;
     private final String name;
     private final UUID companyId;
-    private final long totalShares;
+    private long totalShares;
 
     /** 流通股（IPO 时决定，默认等于 totalShares） */
     private long floatShares;
@@ -81,6 +82,7 @@ public class Stock {
 
     public long getDayHigh() { return priceEngine.getDayHigh(); }
     public long getDayLow() { return priceEngine.getDayLow(); }
+    public List<StockPriceEngine.PriceSnapshot> getSnapshots() { return priceEngine.getSnapshots(); }
 
     // ---- 交易相关（旧 API 兼容） ----
 
@@ -99,6 +101,15 @@ public class Stock {
             }
             availableShares = floatShares;
         }
+    }
+
+    public void increaseShares(long quantity) {
+        if (quantity <= 0) {
+            return;
+        }
+        totalShares += quantity;
+        floatShares += quantity;
+        availableShares = floatShares;
     }
 
     /**
@@ -146,6 +157,10 @@ public class Stock {
         priceEngine.recalculateFromCurrent();
     }
 
+    public void recordPriceSnapshot(long volume) {
+        priceEngine.recordSnapshot(volume);
+    }
+
     /**
      * 每 MC 天调用 —— 基本面更新 + 日统计重置。
      */
@@ -171,5 +186,21 @@ public class Stock {
 
     public void setDayOpen(long dayOpen) {
         priceEngine.setDayOpen(dayOpen);
+    }
+
+    public void setNoiseOffset(int offset) {
+        priceEngine.setNoiseOffset(offset);
+    }
+
+    public int getNoiseOffset() {
+        return priceEngine.getNoiseOffset();
+    }
+
+    public void addSnapshotDirect(StockPriceEngine.PriceSnapshot snapshot) {
+        priceEngine.addSnapshotDirect(snapshot);
+    }
+
+    public void clearSnapshots() {
+        priceEngine.clearSnapshots();
     }
 }

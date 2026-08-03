@@ -13,6 +13,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.time.LocalDateTime;
 
 /**
  * 公司实体 —— 拥有现金、库存和实时市场估值。
@@ -21,7 +22,7 @@ import java.util.UUID;
 public class Company {
 
     private final UUID companyId;
-    private final String name;
+    private String name;
     private final CompanyType type;
     private final UUID ownerId;
     private long cash;
@@ -53,14 +54,20 @@ public class Company {
     /** 留存收益（未分配利润） */
     private long retainedEarnings;
 
+    /** 可分配利润：真正允许进入分红池的利润。 */
+    private long distributableProfit;
+
     /** 上次分红的 MC 天数（用于判断是否需要分红） */
     private long lastDividendDay;
+
+    /** 最近分红历史 */
+    private final List<DividendRecord> dividendHistory = new ArrayList<>();
 
     /** 最近若干天净利润 */
     private final List<Long> recentProfits = new ArrayList<>();
 
-    /** 分红周期（每 N 个 MC 天分红一次） */
-    private static final int DIVIDEND_CYCLE_DAYS = 7;
+    /** 最近周期财报 */
+    private final List<CompanyFinancialReport> financialReports = new ArrayList<>();
 
     // ---- P4：IPO ----
     /** 是否已上市 */
@@ -71,6 +78,8 @@ public class Company {
     private int storageLevel = 0;
     private int managementLevel = 0;
     private double autoSellRatio = SELL_RATIO;
+    private boolean bankruptcyRisk;
+    private long bankruptcyRiskStartDay = -1;
 
     public Company(UUID companyId, String name, CompanyType type, long cash) {
         this(companyId, name, type, cash, null);
@@ -91,6 +100,17 @@ public class Company {
     public UUID getOwnerId() { return ownerId; }
     public boolean isPlayerOwned() { return ownerId != null; }
     public long getCash() { return cash; }
+    public void setName(String name) {
+        if (name != null && !name.isBlank()) {
+            this.name = name.trim();
+        }
+    }
+    public boolean isBankruptcyRisk() { return bankruptcyRisk; }
+    public long getBankruptcyRiskStartDay() { return bankruptcyRiskStartDay; }
+    public void setBankruptcyRisk(boolean risk, long startDay) {
+        this.bankruptcyRisk = risk;
+        this.bankruptcyRiskStartDay = risk ? startDay : -1;
+    }
 
     // ---- 库存 ----
 
@@ -289,10 +309,20 @@ public class Company {
      * 每 MC 天调用（在 produce 和 autoTrade 后）—— 计算日利润，累加到留存收益。
      */
     public void settleDailyProfits() {
+        settleDailyProfits(-1);
+    }
+
+    public void settleDailyProfits(long mcDay) {
         dailyCost += calculateOperatingCost();
         long dailyProfit = dailyRevenue - dailyCost;
+        long revenue = dailyRevenue;
+        long expenses = dailyCost;
         retainedEarnings += dailyProfit;
+        if (dailyProfit > 0) {
+            distributableProfit += dailyProfit;
+        }
         addRecentProfit(dailyProfit);
+        generateFinancialReport(mcDay, revenue, expenses, dailyProfit);
         dailyRevenue = 0;
         dailyCost = 0;
     }
@@ -301,35 +331,69 @@ public class Company {
      * 尝试分红（CompanyManager 应每 DIVIDEND_CYCLE_DAYS 调用一次）。
      * 返回本次分红的总金额。
      */
-    public long tryDividend(long currentMcDay) {
+    public long prepareDividend(long currentMcDay, double dividendRatio, int dividendCycleDays) {
         if (lastDividendDay == 0) {
             lastDividendDay = currentMcDay;
             return 0; // 首次不分红
         }
 
-        if (currentMcDay - lastDividendDay < DIVIDEND_CYCLE_DAYS) {
+        if (currentMcDay - lastDividendDay < dividendCycleDays) {
             return 0; // 未到分红日期
         }
 
-        if (retainedEarnings <= 0) {
+        if (distributableProfit <= 0 || cash <= 0) {
             lastDividendDay = currentMcDay;
             return 0; // 无利润可分
         }
 
-        // 分红比例：40% 分给股东，60% 保留再投资
-        long dividendAmount = Math.round(retainedEarnings * 0.4);
-        retainedEarnings -= dividendAmount;
+        long dividendAmount = Math.round(distributableProfit * clamp(dividendRatio, 0.0, 1.0));
+        dividendAmount = Math.min(dividendAmount, cash);
+        if (dividendAmount <= 0) {
+            lastDividendDay = currentMcDay;
+            return 0;
+        }
+
+        distributableProfit -= dividendAmount;
+        retainedEarnings = Math.max(0, retainedEarnings - dividendAmount);
         lastDividendDay = currentMcDay;
 
         return dividendAmount;
     }
 
+    public void addDistributableProfit(long amount) {
+        if (amount > 0) {
+            distributableProfit += amount;
+            retainedEarnings += amount;
+        }
+    }
+
+    public void addDividendRecord(long mcDay, long totalAmount, long perShare) {
+        dividendHistory.add(new DividendRecord(mcDay, totalAmount, perShare));
+        while (dividendHistory.size() > 20) {
+            dividendHistory.remove(0);
+        }
+    }
+
     public long getDailyRevenue() { return dailyRevenue; }
     public long getDailyCost() { return dailyCost; }
     public long getRetainedEarnings() { return retainedEarnings; }
+    public long getDistributableProfit() { return distributableProfit; }
     public long getLastDividendDay() { return lastDividendDay; }
     public List<Long> getRecentProfits() { return new ArrayList<>(recentProfits); }
+    public List<DividendRecord> getDividendHistory() { return new ArrayList<>(dividendHistory); }
+    public List<CompanyFinancialReport> getFinancialReports() { return new ArrayList<>(financialReports); }
+    public CompanyFinancialReport getLatestFinancialReport() {
+        return financialReports.isEmpty() ? null : financialReports.get(financialReports.size() - 1);
+    }
     public long getSmoothedDailyProfit() {
+        if (!financialReports.isEmpty()) {
+            int start = Math.max(0, financialReports.size() - PROFIT_HISTORY_DAYS);
+            long total = 0;
+            for (int i = start; i < financialReports.size(); i++) {
+                total += financialReports.get(i).netProfit();
+            }
+            return total / (financialReports.size() - start);
+        }
         if (recentProfits.isEmpty()) {
             return dailyRevenue - dailyCost;
         }
@@ -357,9 +421,17 @@ public class Company {
 
     public void restoreFinancials(long dailyRevenue, long dailyCost, long retainedEarnings,
                                   long lastDividendDay, List<Long> recentProfits) {
+        restoreFinancials(dailyRevenue, dailyCost, retainedEarnings, retainedEarnings,
+                lastDividendDay, recentProfits, List.of());
+    }
+
+    public void restoreFinancials(long dailyRevenue, long dailyCost, long retainedEarnings,
+                                  long distributableProfit, long lastDividendDay,
+                                  List<Long> recentProfits, List<DividendRecord> dividendHistory) {
         this.dailyRevenue = dailyRevenue;
         this.dailyCost = dailyCost;
         this.retainedEarnings = retainedEarnings;
+        this.distributableProfit = Math.max(0, distributableProfit);
         this.lastDividendDay = lastDividendDay;
         this.recentProfits.clear();
         if (recentProfits != null) {
@@ -369,6 +441,34 @@ public class Company {
                 }
             }
         }
+        this.dividendHistory.clear();
+        if (dividendHistory != null) {
+            for (DividendRecord record : dividendHistory) {
+                if (record != null) {
+                    addDividendRecord(record.mcDay(), record.totalAmount(), record.perShare());
+                }
+            }
+        }
+    }
+
+    public void addFinancialReportDirect(CompanyFinancialReport report) {
+        if (report != null) {
+            financialReports.add(report);
+            while (financialReports.size() > 20) {
+                financialReports.remove(0);
+            }
+        }
+    }
+
+    public long getReportBasedAssetValue() {
+        CompanyFinancialReport latest = getLatestFinancialReport();
+        if (latest == null) {
+            return getFundamentalAssetValue();
+        }
+        double sentiment = getIndustrySentiment();
+        double inventoryDiscount = clamp(0.45 + sentiment * 0.45, 0.35, 1.05);
+        long netAssets = Math.max(0, latest.assets() - latest.liabilities());
+        return Math.max(0, Math.round(netAssets * inventoryDiscount));
     }
 
     /**
@@ -454,6 +554,10 @@ public class Company {
         return Math.max(1, productionCost + inventoryCarryCost);
     }
 
+    public long estimateDailyOperatingCost() {
+        return calculateOperatingCost();
+    }
+
     private double getProductionMultiplier() {
         return strategy.getProductionMultiplier() * (1.0 + productionLevel * 0.12);
     }
@@ -465,7 +569,36 @@ public class Company {
         }
     }
 
+    private void generateFinancialReport(long mcDay, long revenue, long expenses, long netProfit) {
+        long assets = Math.max(0, cash + inventoryValue());
+        long liabilities = 0;
+        CompanyFinancialReport previous = getLatestFinancialReport();
+        long assetChange = previous != null ? assets - previous.assets() : 0;
+        long profitChange = previous != null ? netProfit - previous.netProfit() : 0;
+        addFinancialReportDirect(new CompanyFinancialReport(
+                mcDay,
+                revenue,
+                expenses,
+                netProfit,
+                assets,
+                liabilities,
+                cash,
+                assetChange,
+                profitChange,
+                buildFinancialSummary(netProfit, assetChange),
+                LocalDateTime.now()));
+    }
+
+    private String buildFinancialSummary(long netProfit, long assetChange) {
+        String profitText = netProfit >= 0 ? "盈利" + netProfit : "亏损" + Math.abs(netProfit);
+        String assetText = assetChange >= 0 ? "资产增加" + assetChange : "资产减少" + Math.abs(assetChange);
+        return profitText + "，" + assetText + "，现金余额" + cash;
+    }
+
     private static double clamp(double value, double min, double max) {
         return Math.max(min, Math.min(max, value));
+    }
+
+    public record DividendRecord(long mcDay, long totalAmount, long perShare) {
     }
 }

@@ -87,5 +87,35 @@ public class FinancePacketHandler {
                 CompanyManagePacket::encode,
                 CompanyManagePacket::decode,
                 CompanyManagePacket::handle);
+
+        CHANNEL.registerMessage(packetId++,
+                GuiFeedbackPacket.class,
+                GuiFeedbackPacket::encode,
+                GuiFeedbackPacket::decode,
+                GuiFeedbackPacket::handle);
+
+        CHANNEL.registerMessage(packetId++,
+                PriceAlertPacket.class,
+                PriceAlertPacket::encode,
+                PriceAlertPacket::decode,
+                PriceAlertPacket::handle);
+
+        CHANNEL.registerMessage(packetId++,
+                ConditionalStockOrderPacket.class,
+                ConditionalStockOrderPacket::encode,
+                ConditionalStockOrderPacket::decode,
+                ConditionalStockOrderPacket::handle);
+
+        CHANNEL.registerMessage(packetId++,
+                CompanyFinancingPacket.class,
+                CompanyFinancingPacket::encode,
+                CompanyFinancingPacket::decode,
+                CompanyFinancingPacket::handle);
+
+        CHANNEL.registerMessage(packetId++,
+                CompanyProposalPacket.class,
+                CompanyProposalPacket::encode,
+                CompanyProposalPacket::decode,
+                CompanyProposalPacket::handle);
     }
 }

@@ -136,7 +136,7 @@ public class StockMarketManager {
                 continue;
             }
 
-            long companyValue = company.getFundamentalAssetValue();
+            long companyValue = company.getReportBasedAssetValue();
             long smoothedDailyProfit = company.getSmoothedDailyProfit();
             double industrySentiment = company.getIndustrySentiment();
 
@@ -178,10 +178,23 @@ public class StockMarketManager {
     public static void recalculateAllPrices() {
         for (Stock stock : STOCKS.values()) {
             stock.recalculateFromCurrent();
+            stock.recordPriceSnapshot(0);
         }
         if (!STOCKS.isEmpty()) {
             EconomySavedData.markDirty();
         }
+    }
+
+    public static int clearPriceHistory() {
+        int cleared = 0;
+        for (Stock stock : STOCKS.values()) {
+            cleared += stock.getSnapshots().size();
+            stock.clearSnapshots();
+        }
+        if (cleared > 0) {
+            EconomySavedData.markDirty();
+        }
+        return cleared;
     }
 
     public static TradeResult buy(UUID playerId, String symbol, long quantity) {
@@ -282,6 +295,10 @@ public class StockMarketManager {
 
     public static void clearStockOrders() {
         StockOrderManager.clearOrders();
+    }
+
+    public static int cancelStockOrdersForSymbol(String symbol) {
+        return StockOrderManager.cancelOrdersForSymbol(symbol);
     }
 
     public static void clearStockTradeHistory() {

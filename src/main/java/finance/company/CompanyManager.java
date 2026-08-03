@@ -1,6 +1,9 @@
 package finance.company;
 
 import finance.data.EconomySavedData;
+import finance.account.AccountManager;
+import finance.account.TransactionRecord;
+import finance.account.TransactionType;
 import finance.stock.Stock;
 import finance.stock.StockMarketManager;
 import finance.stock.StockPortfolioManager;
@@ -22,6 +25,8 @@ public class CompanyManager {
     private static final Map<UUID, Company> COMPANIES = new HashMap<>();
     private static final Map<UUID, Company> OWNER_INDEX = new HashMap<>();
     private static final Map<String, Company> NAME_INDEX = new HashMap<>();
+    private static double dividendRatio = 0.40;
+    private static int dividendCycleDays = 7;
 
     public static void register(Company company) {
         COMPANIES.put(company.getCompanyId(), company);
@@ -62,6 +67,24 @@ public class CompanyManager {
         return NAME_INDEX.containsKey(name.toLowerCase());
     }
 
+    public static boolean renameCompany(UUID companyId, String newName) {
+        Company company = COMPANIES.get(companyId);
+        if (company == null || newName == null || newName.isBlank()) {
+            return false;
+        }
+        String cleaned = newName.trim();
+        String key = cleaned.toLowerCase();
+        Company existing = NAME_INDEX.get(key);
+        if (existing != null && !existing.getCompanyId().equals(companyId)) {
+            return false;
+        }
+        NAME_INDEX.remove(company.getName().toLowerCase());
+        company.setName(cleaned);
+        NAME_INDEX.put(key, company);
+        EconomySavedData.markDirty();
+        return true;
+    }
+
     /** 每日经营 tick —— 所有公司生产 + 自动交易（由 FinanceMod 每天调用一次） */
     public static void tickAll() {
         for (Company c : COMPANIES.values()) {
@@ -73,8 +96,12 @@ public class CompanyManager {
 
     /** P3：每日分红结算 —— 计算日利润并累加到留存收益 */
     public static void settleDailyProfits() {
+        settleDailyProfits(-1);
+    }
+
+    public static void settleDailyProfits(long mcDay) {
         for (Company c : COMPANIES.values()) {
-            c.settleDailyProfits();
+            c.settleDailyProfits(mcDay);
         }
         EconomySavedData.markDirty();
     }
@@ -90,10 +117,10 @@ public class CompanyManager {
                 continue;
             }
 
-            long dividendAmount = c.tryDividend(currentMcDay);
+            long dividendAmount = c.prepareDividend(currentMcDay, dividendRatio, dividendCycleDays);
             if (dividendAmount > 0) {
                 // P5：按持股比例分给所有股东
-                distributeDividend(c, dividendAmount);
+                distributeDividend(c, dividendAmount, currentMcDay);
             }
         }
         EconomySavedData.markDirty();
@@ -102,7 +129,7 @@ public class CompanyManager {
     /**
      * P5：分红分账逻辑 —— 按持股比例向所有股东转账现金。
      */
-    private static void distributeDividend(Company company, long totalDividend) {
+    private static void distributeDividend(Company company, long totalDividend, long currentMcDay) {
         Stock stock = StockMarketManager.getStockByCompanyId(company.getCompanyId());
         if (stock == null || stock.getTotalShares() <= 0) {
             return;
@@ -119,17 +146,51 @@ public class CompanyManager {
         }
 
         // 按比例分配
+        long actuallyPaid = 0;
         for (java.util.Map.Entry<java.util.UUID, Long> entry : holdings.entrySet()) {
             java.util.UUID playerId = entry.getKey();
             long shareholding = entry.getValue();
 
             long payout = Math.round((double) totalDividend * shareholding / totalShares);
-            if (payout > 0) {
-                finance.account.AccountManager.deposit(playerId, payout);
-                // 可选：广播分红通知
-                // Bukkit.broadcastMessage(player.getName() + " 获得 " + symbol + " 的分红：" + payout);
+            if (payout > 0 && company.withdraw(payout)) {
+                AccountManager.deposit(playerId, payout);
+                AccountManager.addTransactionRecord(
+                        new TransactionRecord(
+                                company.getCompanyId(),
+                                playerId,
+                                payout,
+                                TransactionType.DIVIDEND,
+                                playerId,
+                                company.getName() + "/" + symbol,
+                                shareholding
+                        )
+                );
+                actuallyPaid += payout;
             }
         }
+        if (actuallyPaid > 0) {
+            long perShare = totalShares > 0 ? actuallyPaid / totalShares : 0;
+            company.addDividendRecord(currentMcDay, actuallyPaid, perShare);
+        }
+    }
+
+    public static double getDividendRatio() {
+        return dividendRatio;
+    }
+
+    public static int getDividendCycleDays() {
+        return dividendCycleDays;
+    }
+
+    public static void setDividendPolicy(double ratio, int cycleDays) {
+        dividendRatio = Math.max(0.0, Math.min(1.0, ratio));
+        dividendCycleDays = Math.max(1, Math.min(365, cycleDays));
+        EconomySavedData.markDirty();
+    }
+
+    public static void resetDividendPolicyDirect() {
+        dividendRatio = 0.40;
+        dividendCycleDays = 7;
     }
 
     /** 移除单个公司（退市时调用） */

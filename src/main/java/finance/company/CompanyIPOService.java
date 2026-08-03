@@ -1,6 +1,8 @@
 package finance.company;
 
 import finance.account.AccountManager;
+import finance.account.TransactionRecord;
+import finance.account.TransactionType;
 import finance.data.EconomySavedData;
 import finance.stock.Stock;
 import finance.stock.StockMarketManager;
@@ -95,6 +97,17 @@ public class CompanyIPOService {
 
         // 注册股票
         StockMarketManager.putStockDirect(stock);
+        AccountManager.addTransactionRecord(
+                new TransactionRecord(
+                        requesterId,
+                        companyId,
+                        raisedCapital,
+                        TransactionType.COMPANY_IPO,
+                        requesterId,
+                        company.getName() + "/" + symbol,
+                        issueQuantity
+                )
+        );
 
         EconomySavedData.markDirty();
 

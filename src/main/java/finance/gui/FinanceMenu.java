@@ -17,22 +17,57 @@ public class FinanceMenu extends AbstractContainerMenu {
     // ---- 数据记录 ----
 
     public record MarketRow(String commodityId, long midPrice, long bidPrice, long askPrice,
-                            double dayChange, int dayVolume, int marketStock) {}
+                            double dayChange, int dayVolume, int marketStock,
+                            long dayHigh, long dayLow, List<Long> priceHistory) {}
 
     public record OrderRow(UUID orderId, String commodityId, String type, long price, int quantity, boolean ownedByPlayer) {}
 
     public record CompanyInfo(UUID companyId, String name, String type, long cash, long inventoryValue,
                                long totalValue, Map<String, Integer> inventory, boolean playerOwned,
                                boolean isPublic, String strategy, int productionLevel,
-                               int storageLevel, int managementLevel, double autoSellRatio) {}
+                               int storageLevel, int managementLevel, double autoSellRatio,
+                               long reportRevenue, long reportExpenses, long reportNetProfit,
+                               long reportAssets, long reportLiabilities, long reportCash,
+                               long reportProfitChange, long reportAssetChange, String reportSummary,
+                               boolean bankruptcyRisk, long bankruptcyRiskStartDay) {}
 
     public record StockRow(String symbol, String name, long lastPrice, double dayChange,
-                           long dayVolume, long availableShares, long fairValue) {}
+                           long dayVolume, long availableShares, long fairValue,
+                           long dayHigh, long dayLow, List<Long> priceHistory,
+                           long expectedDividendPerShare, long lastDividendPerShare,
+                           long lastDividendTotal) {}
 
     public record StockHoldingRow(String symbol, long quantity, long averageCost) {}
 
     public record StockOrderRow(UUID orderId, String symbol, String type, long price,
                                 int quantity, boolean ownedByPlayer) {}
+
+    public record TransactionRow(long timestamp, UUID playerId, String type,
+                                 long amount, long quantity, String objectName) {}
+
+    public record AssetSummary(long cash, long frozenCash, long commodityValue,
+                               long stockValue, long totalAsset, long todayProfit) {}
+
+    public record AssetRow(String category, String name, long quantity, long value,
+                           double percent, long cost, long currentPrice, long floatingProfit) {}
+
+    public record PriceAlertRow(UUID alertId, String type, String targetId,
+                                String direction, long targetPrice) {}
+
+    public record ConditionalStockOrderRow(UUID orderId, String symbol, String type,
+                                           long triggerPrice, long quantity) {}
+
+    public record CompanyFinancingRow(UUID projectId, UUID companyId, String companyName,
+                                      String symbol, long issueQuantity, long issuePrice,
+                                      long fundingTarget, long raisedAmount,
+                                      long subscribedShares, long playerSubscribedShares,
+                                      long deadlineMcDay) {}
+
+    public record CompanyProposalRow(UUID proposalId, UUID companyId, String type, String title,
+                                     String textValue, long value1, long value2, long value3,
+                                     long startMcDay, long endMcDay, double passRatio,
+                                     long yesVotes, long noVotes, boolean playerVoted,
+                                     String status, String resultSummary) {}
 
     // ---- 字段 ----
 
@@ -46,6 +81,15 @@ public class FinanceMenu extends AbstractContainerMenu {
     private final List<StockRow> stocks;
     private final List<StockHoldingRow> stockHoldings;
     private final List<StockOrderRow> stockOrders;
+    private final List<TransactionRow> transactions;
+    private final AssetSummary assetSummary;
+    private final List<AssetRow> assetRows;
+    private final List<PriceAlertRow> priceAlerts;
+    private final List<ConditionalStockOrderRow> conditionalStockOrders;
+    private final List<CompanyFinancingRow> companyFinancingRows;
+    private final List<CompanyProposalRow> companyProposalRows;
+    private final double dividendRatio;
+    private final int dividendCycleDays;
     private final Map<String, Integer> mcInventory; // 商品ID → MC物品栏数量
 
     // ---- 构造 ----
@@ -63,6 +107,15 @@ public class FinanceMenu extends AbstractContainerMenu {
                 readStockRows(buffer),
                 readStockHoldingRows(buffer),
                 readStockOrderRows(buffer),
+                readTransactionRows(buffer),
+                readAssetSummary(buffer),
+                readAssetRows(buffer),
+                readPriceAlertRows(buffer),
+                readConditionalStockOrderRows(buffer),
+                readCompanyFinancingRows(buffer),
+                readCompanyProposalRows(buffer),
+                buffer.readDouble(),
+                buffer.readVarInt(),
                 readStringIntMap(buffer));
     }
 
@@ -71,7 +124,14 @@ public class FinanceMenu extends AbstractContainerMenu {
                        long balance, long frozenBalance, Map<String, Integer> playerInventory,
                        CompanyInfo playerCompany, List<CompanyInfo> allCompanies,
                        List<StockRow> stocks, List<StockHoldingRow> stockHoldings,
-                       List<StockOrderRow> stockOrders, Map<String, Integer> mcInventory) {
+                       List<StockOrderRow> stockOrders, List<TransactionRow> transactions,
+                       AssetSummary assetSummary, List<AssetRow> assetRows,
+                       List<PriceAlertRow> priceAlerts,
+                       List<ConditionalStockOrderRow> conditionalStockOrders,
+                       List<CompanyFinancingRow> companyFinancingRows,
+                       List<CompanyProposalRow> companyProposalRows,
+                       double dividendRatio, int dividendCycleDays,
+                       Map<String, Integer> mcInventory) {
         super(ModMenus.FINANCE.get(), containerId);
         this.marketData = marketData;
         this.playerOrders = playerOrders;
@@ -83,6 +143,15 @@ public class FinanceMenu extends AbstractContainerMenu {
         this.stocks = stocks;
         this.stockHoldings = stockHoldings;
         this.stockOrders = stockOrders;
+        this.transactions = transactions;
+        this.assetSummary = assetSummary;
+        this.assetRows = assetRows;
+        this.priceAlerts = priceAlerts;
+        this.conditionalStockOrders = conditionalStockOrders;
+        this.companyFinancingRows = companyFinancingRows;
+        this.companyProposalRows = companyProposalRows;
+        this.dividendRatio = dividendRatio;
+        this.dividendCycleDays = dividendCycleDays;
         this.mcInventory = mcInventory;
     }
 
@@ -98,6 +167,15 @@ public class FinanceMenu extends AbstractContainerMenu {
     public List<StockRow> getStocks() { return stocks; }
     public List<StockHoldingRow> getStockHoldings() { return stockHoldings; }
     public List<StockOrderRow> getStockOrders() { return stockOrders; }
+    public List<TransactionRow> getTransactions() { return transactions; }
+    public AssetSummary getAssetSummary() { return assetSummary; }
+    public List<AssetRow> getAssetRows() { return assetRows; }
+    public List<PriceAlertRow> getPriceAlerts() { return priceAlerts; }
+    public List<ConditionalStockOrderRow> getConditionalStockOrders() { return conditionalStockOrders; }
+    public List<CompanyFinancingRow> getCompanyFinancingRows() { return companyFinancingRows; }
+    public List<CompanyProposalRow> getCompanyProposalRows() { return companyProposalRows; }
+    public double getDividendRatio() { return dividendRatio; }
+    public int getDividendCycleDays() { return dividendCycleDays; }
     public Map<String, Integer> getMcInventory() { return mcInventory; }
 
     @Override
@@ -113,7 +191,13 @@ public class FinanceMenu extends AbstractContainerMenu {
                                  Map<String, Integer> playerInventory, CompanyInfo playerCompany,
                                  List<CompanyInfo> allCompanies,
                                  List<StockRow> stocks, List<StockHoldingRow> stockHoldings,
-                                 List<StockOrderRow> stockOrders,
+                                 List<StockOrderRow> stockOrders, List<TransactionRow> transactions,
+                                 AssetSummary assetSummary, List<AssetRow> assetRows,
+                                 List<PriceAlertRow> priceAlerts,
+                                 List<ConditionalStockOrderRow> conditionalStockOrders,
+                                 List<CompanyFinancingRow> companyFinancingRows,
+                                 List<CompanyProposalRow> companyProposalRows,
+                                 double dividendRatio, int dividendCycleDays,
                                  Map<String, Integer> mcInventory) {
         writeMarketData(buffer, marketData);
         writeOrderRows(buffer, playerOrders);
@@ -125,6 +209,15 @@ public class FinanceMenu extends AbstractContainerMenu {
         writeStockRows(buffer, stocks);
         writeStockHoldingRows(buffer, stockHoldings);
         writeStockOrderRows(buffer, stockOrders);
+        writeTransactionRows(buffer, transactions);
+        writeAssetSummary(buffer, assetSummary);
+        writeAssetRows(buffer, assetRows);
+        writePriceAlertRows(buffer, priceAlerts);
+        writeConditionalStockOrderRows(buffer, conditionalStockOrders);
+        writeCompanyFinancingRows(buffer, companyFinancingRows);
+        writeCompanyProposalRows(buffer, companyProposalRows);
+        buffer.writeDouble(dividendRatio);
+        buffer.writeVarInt(dividendCycleDays);
         writeStringIntMap(buffer, mcInventory != null ? mcInventory : new LinkedHashMap<>());
     }
 
@@ -138,6 +231,9 @@ public class FinanceMenu extends AbstractContainerMenu {
             buffer.writeDouble(r.dayChange());
             buffer.writeVarInt(r.dayVolume());
             buffer.writeVarInt(r.marketStock());
+            buffer.writeLong(r.dayHigh());
+            buffer.writeLong(r.dayLow());
+            writeLongList(buffer, r.priceHistory());
         }
     }
 
@@ -147,7 +243,8 @@ public class FinanceMenu extends AbstractContainerMenu {
         for (int i = 0; i < size; i++) {
             list.add(new MarketRow(
                     buffer.readUtf(), buffer.readLong(), buffer.readLong(),
-                    buffer.readLong(), buffer.readDouble(), buffer.readVarInt(), buffer.readVarInt()));
+                    buffer.readLong(), buffer.readDouble(), buffer.readVarInt(), buffer.readVarInt(),
+                    buffer.readLong(), buffer.readLong(), readLongList(buffer)));
         }
         return list;
     }
@@ -209,6 +306,17 @@ public class FinanceMenu extends AbstractContainerMenu {
             buffer.writeVarInt(info.storageLevel());
             buffer.writeVarInt(info.managementLevel());
             buffer.writeDouble(info.autoSellRatio());
+            buffer.writeLong(info.reportRevenue());
+            buffer.writeLong(info.reportExpenses());
+            buffer.writeLong(info.reportNetProfit());
+            buffer.writeLong(info.reportAssets());
+            buffer.writeLong(info.reportLiabilities());
+            buffer.writeLong(info.reportCash());
+            buffer.writeLong(info.reportProfitChange());
+            buffer.writeLong(info.reportAssetChange());
+            buffer.writeUtf(limitString(info.reportSummary(), 128), 128);
+            buffer.writeBoolean(info.bankruptcyRisk());
+            buffer.writeLong(info.bankruptcyRiskStartDay());
         }
     }
 
@@ -218,7 +326,11 @@ public class FinanceMenu extends AbstractContainerMenu {
                 buffer.readUUID(), buffer.readUtf(), buffer.readUtf(), buffer.readLong(),
                 buffer.readLong(), buffer.readLong(), readStringIntMap(buffer),
                 buffer.readBoolean(), buffer.readBoolean(), buffer.readUtf(),
-                buffer.readVarInt(), buffer.readVarInt(), buffer.readVarInt(), buffer.readDouble());
+                buffer.readVarInt(), buffer.readVarInt(), buffer.readVarInt(), buffer.readDouble(),
+                buffer.readLong(), buffer.readLong(), buffer.readLong(),
+                buffer.readLong(), buffer.readLong(), buffer.readLong(),
+                buffer.readLong(), buffer.readLong(), buffer.readUtf(128),
+                buffer.readBoolean(), buffer.readLong());
     }
 
     private static void writeCompanyInfoList(FriendlyByteBuf buffer, List<CompanyInfo> companies) {
@@ -250,6 +362,12 @@ public class FinanceMenu extends AbstractContainerMenu {
             buffer.writeLong(row.dayVolume());
             buffer.writeLong(row.availableShares());
             buffer.writeLong(row.fairValue());
+            buffer.writeLong(row.dayHigh());
+            buffer.writeLong(row.dayLow());
+            writeLongList(buffer, row.priceHistory());
+            buffer.writeLong(row.expectedDividendPerShare());
+            buffer.writeLong(row.lastDividendPerShare());
+            buffer.writeLong(row.lastDividendTotal());
         }
     }
 
@@ -259,9 +377,28 @@ public class FinanceMenu extends AbstractContainerMenu {
         for (int i = 0; i < size; i++) {
             rows.add(new StockRow(
                     buffer.readUtf(), buffer.readUtf(), buffer.readLong(),
-                    buffer.readDouble(), buffer.readLong(), buffer.readLong(), buffer.readLong()));
+                    buffer.readDouble(), buffer.readLong(), buffer.readLong(), buffer.readLong(),
+                    buffer.readLong(), buffer.readLong(), readLongList(buffer),
+                    buffer.readLong(), buffer.readLong(), buffer.readLong()));
         }
         return rows;
+    }
+
+    private static void writeLongList(FriendlyByteBuf buffer, List<Long> values) {
+        List<Long> safe = values != null ? values : List.of();
+        buffer.writeVarInt(safe.size());
+        for (Long value : safe) {
+            buffer.writeLong(value != null ? value : 0L);
+        }
+    }
+
+    private static List<Long> readLongList(FriendlyByteBuf buffer) {
+        int size = buffer.readVarInt();
+        List<Long> values = new ArrayList<>(size);
+        for (int i = 0; i < size; i++) {
+            values.add(buffer.readLong());
+        }
+        return values;
     }
 
     private static void writeStockHoldingRows(FriendlyByteBuf buffer, List<StockHoldingRow> rows) {
@@ -303,5 +440,227 @@ public class FinanceMenu extends AbstractContainerMenu {
                     buffer.readLong(), buffer.readVarInt(), buffer.readBoolean()));
         }
         return rows;
+    }
+
+    private static void writeTransactionRows(FriendlyByteBuf buffer, List<TransactionRow> rows) {
+        buffer.writeVarInt(rows.size());
+        for (TransactionRow row : rows) {
+            buffer.writeLong(row.timestamp());
+            buffer.writeUUID(row.playerId());
+            buffer.writeUtf(limitString(row.type(), 32), 32);
+            buffer.writeLong(row.amount());
+            buffer.writeLong(row.quantity());
+            buffer.writeUtf(limitString(row.objectName(), 96), 96);
+        }
+    }
+
+    private static List<TransactionRow> readTransactionRows(FriendlyByteBuf buffer) {
+        int size = buffer.readVarInt();
+        List<TransactionRow> rows = new ArrayList<>(size);
+        for (int i = 0; i < size; i++) {
+            rows.add(new TransactionRow(
+                    buffer.readLong(),
+                    buffer.readUUID(),
+                    buffer.readUtf(32),
+                    buffer.readLong(),
+                    buffer.readLong(),
+                    buffer.readUtf(96)));
+        }
+        return rows;
+    }
+
+    private static void writeAssetSummary(FriendlyByteBuf buffer, AssetSummary summary) {
+        AssetSummary safe = summary != null ? summary : new AssetSummary(0, 0, 0, 0, 0, 0);
+        buffer.writeLong(safe.cash());
+        buffer.writeLong(safe.frozenCash());
+        buffer.writeLong(safe.commodityValue());
+        buffer.writeLong(safe.stockValue());
+        buffer.writeLong(safe.totalAsset());
+        buffer.writeLong(safe.todayProfit());
+    }
+
+    private static AssetSummary readAssetSummary(FriendlyByteBuf buffer) {
+        return new AssetSummary(
+                buffer.readLong(),
+                buffer.readLong(),
+                buffer.readLong(),
+                buffer.readLong(),
+                buffer.readLong(),
+                buffer.readLong());
+    }
+
+    private static void writeAssetRows(FriendlyByteBuf buffer, List<AssetRow> rows) {
+        List<AssetRow> safe = rows != null ? rows : List.of();
+        buffer.writeVarInt(safe.size());
+        for (AssetRow row : safe) {
+            buffer.writeUtf(limitString(row.category(), 16), 16);
+            buffer.writeUtf(limitString(row.name(), 64), 64);
+            buffer.writeLong(row.quantity());
+            buffer.writeLong(row.value());
+            buffer.writeDouble(row.percent());
+            buffer.writeLong(row.cost());
+            buffer.writeLong(row.currentPrice());
+            buffer.writeLong(row.floatingProfit());
+        }
+    }
+
+    private static List<AssetRow> readAssetRows(FriendlyByteBuf buffer) {
+        int size = buffer.readVarInt();
+        List<AssetRow> rows = new ArrayList<>(size);
+        for (int i = 0; i < size; i++) {
+            rows.add(new AssetRow(
+                    buffer.readUtf(16),
+                    buffer.readUtf(64),
+                    buffer.readLong(),
+                    buffer.readLong(),
+                    buffer.readDouble(),
+                    buffer.readLong(),
+                    buffer.readLong(),
+                    buffer.readLong()));
+        }
+        return rows;
+    }
+
+    private static void writePriceAlertRows(FriendlyByteBuf buffer, List<PriceAlertRow> rows) {
+        List<PriceAlertRow> safe = rows != null ? rows : List.of();
+        buffer.writeVarInt(safe.size());
+        for (PriceAlertRow row : safe) {
+            buffer.writeUUID(row.alertId());
+            buffer.writeUtf(limitString(row.type(), 16), 16);
+            buffer.writeUtf(limitString(row.targetId(), 64), 64);
+            buffer.writeUtf(limitString(row.direction(), 16), 16);
+            buffer.writeLong(row.targetPrice());
+        }
+    }
+
+    private static List<PriceAlertRow> readPriceAlertRows(FriendlyByteBuf buffer) {
+        int size = buffer.readVarInt();
+        List<PriceAlertRow> rows = new ArrayList<>(size);
+        for (int i = 0; i < size; i++) {
+            rows.add(new PriceAlertRow(
+                    buffer.readUUID(),
+                    buffer.readUtf(16),
+                    buffer.readUtf(64),
+                    buffer.readUtf(16),
+                    buffer.readLong()));
+        }
+        return rows;
+    }
+
+    private static void writeConditionalStockOrderRows(FriendlyByteBuf buffer, List<ConditionalStockOrderRow> rows) {
+        List<ConditionalStockOrderRow> safe = rows != null ? rows : List.of();
+        buffer.writeVarInt(safe.size());
+        for (ConditionalStockOrderRow row : safe) {
+            buffer.writeUUID(row.orderId());
+            buffer.writeUtf(limitString(row.symbol(), 16), 16);
+            buffer.writeUtf(limitString(row.type(), 16), 16);
+            buffer.writeLong(row.triggerPrice());
+            buffer.writeLong(row.quantity());
+        }
+    }
+
+    private static List<ConditionalStockOrderRow> readConditionalStockOrderRows(FriendlyByteBuf buffer) {
+        int size = buffer.readVarInt();
+        List<ConditionalStockOrderRow> rows = new ArrayList<>(size);
+        for (int i = 0; i < size; i++) {
+            rows.add(new ConditionalStockOrderRow(
+                    buffer.readUUID(),
+                    buffer.readUtf(16),
+                    buffer.readUtf(16),
+                    buffer.readLong(),
+                    buffer.readLong()));
+        }
+        return rows;
+    }
+
+    private static void writeCompanyFinancingRows(FriendlyByteBuf buffer, List<CompanyFinancingRow> rows) {
+        List<CompanyFinancingRow> safe = rows != null ? rows : List.of();
+        buffer.writeVarInt(safe.size());
+        for (CompanyFinancingRow row : safe) {
+            buffer.writeUUID(row.projectId());
+            buffer.writeUUID(row.companyId());
+            buffer.writeUtf(limitString(row.companyName(), 64), 64);
+            buffer.writeUtf(limitString(row.symbol(), 16), 16);
+            buffer.writeLong(row.issueQuantity());
+            buffer.writeLong(row.issuePrice());
+            buffer.writeLong(row.fundingTarget());
+            buffer.writeLong(row.raisedAmount());
+            buffer.writeLong(row.subscribedShares());
+            buffer.writeLong(row.playerSubscribedShares());
+            buffer.writeLong(row.deadlineMcDay());
+        }
+    }
+
+    private static List<CompanyFinancingRow> readCompanyFinancingRows(FriendlyByteBuf buffer) {
+        int size = buffer.readVarInt();
+        List<CompanyFinancingRow> rows = new ArrayList<>(size);
+        for (int i = 0; i < size; i++) {
+            rows.add(new CompanyFinancingRow(
+                    buffer.readUUID(),
+                    buffer.readUUID(),
+                    buffer.readUtf(64),
+                    buffer.readUtf(16),
+                    buffer.readLong(),
+                    buffer.readLong(),
+                    buffer.readLong(),
+                    buffer.readLong(),
+                    buffer.readLong(),
+                    buffer.readLong(),
+                    buffer.readLong()));
+        }
+        return rows;
+    }
+
+    private static void writeCompanyProposalRows(FriendlyByteBuf buffer, List<CompanyProposalRow> rows) {
+        List<CompanyProposalRow> safe = rows != null ? rows : List.of();
+        buffer.writeVarInt(safe.size());
+        for (CompanyProposalRow row : safe) {
+            buffer.writeUUID(row.proposalId());
+            buffer.writeUUID(row.companyId());
+            buffer.writeUtf(limitString(row.type(), 24), 24);
+            buffer.writeUtf(limitString(row.title(), 32), 32);
+            buffer.writeUtf(limitString(row.textValue(), 64), 64);
+            buffer.writeLong(row.value1());
+            buffer.writeLong(row.value2());
+            buffer.writeLong(row.value3());
+            buffer.writeLong(row.startMcDay());
+            buffer.writeLong(row.endMcDay());
+            buffer.writeDouble(row.passRatio());
+            buffer.writeLong(row.yesVotes());
+            buffer.writeLong(row.noVotes());
+            buffer.writeBoolean(row.playerVoted());
+            buffer.writeUtf(limitString(row.status(), 16), 16);
+            buffer.writeUtf(limitString(row.resultSummary(), 96), 96);
+        }
+    }
+
+    private static List<CompanyProposalRow> readCompanyProposalRows(FriendlyByteBuf buffer) {
+        int size = buffer.readVarInt();
+        List<CompanyProposalRow> rows = new ArrayList<>(size);
+        for (int i = 0; i < size; i++) {
+            rows.add(new CompanyProposalRow(
+                    buffer.readUUID(),
+                    buffer.readUUID(),
+                    buffer.readUtf(24),
+                    buffer.readUtf(32),
+                    buffer.readUtf(64),
+                    buffer.readLong(),
+                    buffer.readLong(),
+                    buffer.readLong(),
+                    buffer.readLong(),
+                    buffer.readLong(),
+                    buffer.readDouble(),
+                    buffer.readLong(),
+                    buffer.readLong(),
+                    buffer.readBoolean(),
+                    buffer.readUtf(16),
+                    buffer.readUtf(96)));
+        }
+        return rows;
+    }
+
+    private static String limitString(String text, int maxLength) {
+        String safe = text == null ? "" : text;
+        return safe.length() > maxLength ? safe.substring(0, maxLength) : safe;
     }
 }

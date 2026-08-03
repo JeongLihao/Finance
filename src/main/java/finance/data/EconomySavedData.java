@@ -2,12 +2,24 @@ package finance.data;
 
 import finance.account.Account;
 import finance.account.AccountManager;
+import finance.account.AssetSnapshotManager;
 import finance.account.TransactionRecord;
+import finance.alert.PriceAlert;
+import finance.alert.PriceAlertDirection;
+import finance.alert.PriceAlertManager;
+import finance.alert.PriceAlertType;
 import finance.commodity.Commodity;
 import finance.commodity.CommodityCategory;
 import finance.commodity.CommodityRegistry;
 import finance.company.Company;
+import finance.company.CompanyFinancingManager;
+import finance.company.CompanyFinancingProject;
+import finance.company.CompanyFinancialReport;
 import finance.company.CompanyManager;
+import finance.company.CompanyProposal;
+import finance.company.CompanyProposalManager;
+import finance.company.CompanyProposalStatus;
+import finance.company.CompanyProposalType;
 import finance.company.CompanyType;
 import finance.event.EventManager;
 import finance.event.EventTier;
@@ -20,11 +32,15 @@ import finance.market.OrderType;
 import finance.account.TransactionType;
 import finance.market.Trade;
 import finance.stock.Stock;
+import finance.stock.ConditionalStockOrder;
+import finance.stock.ConditionalStockOrderManager;
+import finance.stock.ConditionalStockOrderType;
 import finance.stock.StockHolding;
 import finance.stock.StockMarketManager;
 import finance.stock.StockOrder;
 import finance.stock.StockOrderType;
 import finance.stock.StockPortfolioManager;
+import finance.stock.StockPriceEngine;
 import finance.stock.StockTrade;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
@@ -55,7 +71,7 @@ import net.minecraft.world.level.storage.DimensionDataStorage;
 public class EconomySavedData extends SavedData {
 
     public static final String DATA_NAME = "finance_data";
-    private static final int DATA_VERSION = 2;
+    private static final int DATA_VERSION = 12;
 
     // ================================================================
     // 保存
@@ -64,6 +80,8 @@ public class EconomySavedData extends SavedData {
     @Override
     public CompoundTag save(CompoundTag tag) {
         tag.putInt("DataVersion", DATA_VERSION);
+        tag.putDouble("DividendRatio", CompanyManager.getDividendRatio());
+        tag.putInt("DividendCycleDays", CompanyManager.getDividendCycleDays());
 
         // ---- 保存账户余额 ----
         ListTag accountsTag = new ListTag();
@@ -93,6 +111,99 @@ public class EconomySavedData extends SavedData {
 
         tag.put("Accounts", accountsTag);
 
+        ListTag assetSnapshotsTag = new ListTag();
+        for (Map.Entry<UUID, AssetSnapshotManager.AssetSnapshot> entry :
+                AssetSnapshotManager.getSnapshots().entrySet()) {
+            CompoundTag snapshotTag = new CompoundTag();
+            snapshotTag.putUUID("PlayerUUID", entry.getKey());
+            snapshotTag.putLong("McDay", entry.getValue().mcDay());
+            snapshotTag.putLong("TotalAsset", entry.getValue().totalAsset());
+            assetSnapshotsTag.add(snapshotTag);
+        }
+        tag.put("AssetSnapshots", assetSnapshotsTag);
+
+        ListTag alertsTag = new ListTag();
+        for (PriceAlert alert : PriceAlertManager.getAlerts()) {
+            CompoundTag alertTag = new CompoundTag();
+            alertTag.putUUID("AlertId", alert.getAlertId());
+            alertTag.putUUID("PlayerUUID", alert.getPlayerId());
+            alertTag.putString("Type", alert.getType().name());
+            alertTag.putString("TargetId", alert.getTargetId());
+            alertTag.putString("Direction", alert.getDirection().name());
+            alertTag.putLong("TargetPrice", alert.getTargetPrice());
+            alertTag.putLong("CreatedAt", alert.getCreatedAt().toEpochSecond(ZoneOffset.UTC));
+            alertsTag.add(alertTag);
+        }
+        tag.put("PriceAlerts", alertsTag);
+
+        ListTag conditionalStockOrdersTag = new ListTag();
+        for (ConditionalStockOrder order : ConditionalStockOrderManager.getOrders()) {
+            CompoundTag orderTag = new CompoundTag();
+            orderTag.putUUID("OrderId", order.getOrderId());
+            orderTag.putUUID("PlayerUUID", order.getPlayerId());
+            orderTag.putString("Symbol", order.getSymbol());
+            orderTag.putString("Type", order.getType().name());
+            orderTag.putLong("TriggerPrice", order.getTriggerPrice());
+            orderTag.putLong("Quantity", order.getQuantity());
+            orderTag.putLong("CreatedAt", order.getCreatedAt().toEpochSecond(ZoneOffset.UTC));
+            conditionalStockOrdersTag.add(orderTag);
+        }
+        tag.put("ConditionalStockOrders", conditionalStockOrdersTag);
+
+        ListTag financingProjectsTag = new ListTag();
+        for (CompanyFinancingProject project : CompanyFinancingManager.getProjects()) {
+            CompoundTag projectTag = new CompoundTag();
+            projectTag.putUUID("ProjectId", project.getProjectId());
+            projectTag.putUUID("CompanyUUID", project.getCompanyId());
+            projectTag.putString("Symbol", project.getSymbol());
+            projectTag.putLong("IssueQuantity", project.getIssueQuantity());
+            projectTag.putLong("IssuePrice", project.getIssuePrice());
+            projectTag.putLong("FundingTarget", project.getFundingTarget());
+            projectTag.putLong("DeadlineMcDay", project.getDeadlineMcDay());
+            projectTag.putLong("CreatedAt", project.getCreatedAt().toEpochSecond(ZoneOffset.UTC));
+            ListTag subscriptionsTag = new ListTag();
+            for (Map.Entry<UUID, Long> entry : project.getSubscriptions().entrySet()) {
+                CompoundTag subscriptionTag = new CompoundTag();
+                subscriptionTag.putUUID("PlayerUUID", entry.getKey());
+                subscriptionTag.putLong("Quantity", entry.getValue());
+                subscriptionsTag.add(subscriptionTag);
+            }
+            projectTag.put("Subscriptions", subscriptionsTag);
+            financingProjectsTag.add(projectTag);
+        }
+        tag.put("CompanyFinancingProjects", financingProjectsTag);
+
+        ListTag proposalsTag = new ListTag();
+        for (CompanyProposal proposal : CompanyProposalManager.getProposals()) {
+            CompoundTag proposalTag = new CompoundTag();
+            proposalTag.putUUID("ProposalId", proposal.getProposalId());
+            proposalTag.putUUID("CompanyUUID", proposal.getCompanyId());
+            proposalTag.putUUID("CreatorUUID", proposal.getCreatorId());
+            proposalTag.putString("Type", proposal.getType().name());
+            proposalTag.putString("Title", proposal.getTitle());
+            proposalTag.putString("TextValue", proposal.getTextValue());
+            proposalTag.putLong("Value1", proposal.getValue1());
+            proposalTag.putLong("Value2", proposal.getValue2());
+            proposalTag.putLong("Value3", proposal.getValue3());
+            proposalTag.putLong("StartMcDay", proposal.getStartMcDay());
+            proposalTag.putLong("EndMcDay", proposal.getEndMcDay());
+            proposalTag.putDouble("PassRatio", proposal.getPassRatio());
+            proposalTag.putLong("CreatedAt", proposal.getCreatedAt().toEpochSecond(ZoneOffset.UTC));
+            proposalTag.putString("Status", proposal.getStatus().name());
+            proposalTag.putString("ResultSummary", proposal.getResultSummary());
+            ListTag votesTag = new ListTag();
+            for (Map.Entry<UUID, CompanyProposal.VoteRecord> entry : proposal.getVotes().entrySet()) {
+                CompoundTag voteTag = new CompoundTag();
+                voteTag.putUUID("PlayerUUID", entry.getKey());
+                voteTag.putBoolean("Support", entry.getValue().support());
+                voteTag.putLong("Power", entry.getValue().power());
+                votesTag.add(voteTag);
+            }
+            proposalTag.put("Votes", votesTag);
+            proposalsTag.add(proposalTag);
+        }
+        tag.put("CompanyProposals", proposalsTag);
+
         // ---- 保存交易记录（仅最近 500 条） ----
         ListTag transactionsTag = new ListTag();
 
@@ -114,6 +225,11 @@ public class EconomySavedData extends SavedData {
             txTag.putUUID("To", record.getTo());
             txTag.putLong("Amount", record.getAmount());
             txTag.putString("Type", record.getType().name());
+            if (record.getPlayerId() != null) {
+                txTag.putUUID("PlayerUUID", record.getPlayerId());
+            }
+            txTag.putString("ObjectName", record.getObjectName());
+            txTag.putLong("Quantity", record.getQuantity());
 
             txTag.putLong(
                     "Timestamp",
@@ -230,12 +346,15 @@ public class EconomySavedData extends SavedData {
             companyTag.putLong("DailyRevenue", company.getDailyRevenue());
             companyTag.putLong("DailyCost", company.getDailyCost());
             companyTag.putLong("RetainedEarnings", company.getRetainedEarnings());
+            companyTag.putLong("DistributableProfit", company.getDistributableProfit());
             companyTag.putLong("LastDividendDay", company.getLastDividendDay());
             companyTag.putString("Strategy", company.getStrategy().name());
             companyTag.putInt("ProductionLevel", company.getProductionLevel());
             companyTag.putInt("StorageLevel", company.getStorageLevel());
             companyTag.putInt("ManagementLevel", company.getManagementLevel());
             companyTag.putDouble("AutoSellRatio", company.getAutoSellRatio());
+            companyTag.putBoolean("BankruptcyRisk", company.isBankruptcyRisk());
+            companyTag.putLong("BankruptcyRiskStartDay", company.getBankruptcyRiskStartDay());
             ListTag recentProfitsTag = new ListTag();
             for (Long profit : company.getRecentProfits()) {
                 CompoundTag profitTag = new CompoundTag();
@@ -243,6 +362,32 @@ public class EconomySavedData extends SavedData {
                 recentProfitsTag.add(profitTag);
             }
             companyTag.put("RecentProfits", recentProfitsTag);
+            ListTag dividendHistoryTag = new ListTag();
+            for (Company.DividendRecord record : company.getDividendHistory()) {
+                CompoundTag recordTag = new CompoundTag();
+                recordTag.putLong("McDay", record.mcDay());
+                recordTag.putLong("TotalAmount", record.totalAmount());
+                recordTag.putLong("PerShare", record.perShare());
+                dividendHistoryTag.add(recordTag);
+            }
+            companyTag.put("DividendHistory", dividendHistoryTag);
+            ListTag financialReportsTag = new ListTag();
+            for (CompanyFinancialReport report : company.getFinancialReports()) {
+                CompoundTag reportTag = new CompoundTag();
+                reportTag.putLong("McDay", report.mcDay());
+                reportTag.putLong("Revenue", report.revenue());
+                reportTag.putLong("Expenses", report.expenses());
+                reportTag.putLong("NetProfit", report.netProfit());
+                reportTag.putLong("Assets", report.assets());
+                reportTag.putLong("Liabilities", report.liabilities());
+                reportTag.putLong("CashBalance", report.cashBalance());
+                reportTag.putLong("AssetChange", report.assetChange());
+                reportTag.putLong("ProfitChange", report.profitChange());
+                reportTag.putString("Summary", report.summary());
+                reportTag.putLong("CreatedAt", report.createdAt().toEpochSecond(ZoneOffset.UTC));
+                financialReportsTag.add(reportTag);
+            }
+            companyTag.put("FinancialReports", financialReportsTag);
 
             // P4：保存上市状态
             companyTag.putBoolean("IsPublic", company.isPublic());
@@ -358,6 +503,7 @@ public class EconomySavedData extends SavedData {
             stockTag.putLong("LastPrice", stock.getLastPrice());
             stockTag.putLong("FairValue", stock.getFairValue());
             stockTag.putDouble("TradeMomentum", stock.getTradeMomentum());
+            stockTag.putInt("NoiseOffset", stock.getNoiseOffset());
             stockTag.putLong("PreviousClose", stock.getPreviousClose());
             stockTag.putLong("DayVolume", stock.getDayVolume());
             stockTag.putLong("DayHigh", stock.getDayHigh());
@@ -366,6 +512,24 @@ public class EconomySavedData extends SavedData {
             stocksTag.add(stockTag);
         }
         tag.put("Stocks", stocksTag);
+
+        // ---- 保存股票价格快照 ----
+        ListTag stockSnapshotsTag = new ListTag();
+        for (Stock stock : StockMarketManager.getStocks()) {
+            CompoundTag stockSnapTag = new CompoundTag();
+            stockSnapTag.putString("Symbol", stock.getSymbol());
+            ListTag snapsList = new ListTag();
+            for (StockPriceEngine.PriceSnapshot snap : stock.getSnapshots()) {
+                CompoundTag snapTag = new CompoundTag();
+                snapTag.putLong("Timestamp", snap.getTimestamp().toEpochSecond(ZoneOffset.UTC));
+                snapTag.putLong("Price", snap.getPrice());
+                snapTag.putLong("Volume", snap.getVolume());
+                snapsList.add(snapTag);
+            }
+            stockSnapTag.put("Snapshots", snapsList);
+            stockSnapshotsTag.add(stockSnapTag);
+        }
+        tag.put("StockPriceSnapshots", stockSnapshotsTag);
 
         // ---- 保存股票持仓 ----
         ListTag portfoliosTag = new ListTag();
@@ -432,6 +596,9 @@ public class EconomySavedData extends SavedData {
         EconomySavedData data = new EconomySavedData();
 
         resetRuntimeState();
+        CompanyManager.setDividendPolicy(
+                tag.contains("DividendRatio") ? tag.getDouble("DividendRatio") : CompanyManager.getDividendRatio(),
+                tag.contains("DividendCycleDays") ? tag.getInt("DividendCycleDays") : CompanyManager.getDividendCycleDays());
 
         // ---- 加载账户余额 ----
         ListTag accountsTag = tag.getList(
@@ -467,6 +634,144 @@ public class EconomySavedData extends SavedData {
             }
         }
 
+        // ---- 加载玩家今日资产基准 ----
+        if (tag.contains("AssetSnapshots")) {
+            ListTag assetSnapshotsTag = tag.getList("AssetSnapshots", Tag.TAG_COMPOUND);
+            for (Tag rawTag : assetSnapshotsTag) {
+                CompoundTag snapshotTag = (CompoundTag) rawTag;
+                UUID playerUUID = readUuidOrNull(snapshotTag, "PlayerUUID");
+                if (playerUUID == null) {
+                    continue;
+                }
+                AssetSnapshotManager.putSnapshotDirect(playerUUID,
+                        new AssetSnapshotManager.AssetSnapshot(
+                                snapshotTag.getLong("McDay"),
+                                snapshotTag.getLong("TotalAsset")));
+            }
+        }
+
+        // ---- 加载价格提醒 ----
+        if (tag.contains("PriceAlerts")) {
+            ListTag alertsTag = tag.getList("PriceAlerts", Tag.TAG_COMPOUND);
+            for (Tag rawTag : alertsTag) {
+                CompoundTag alertTag = (CompoundTag) rawTag;
+                UUID alertId = readUuidOrNull(alertTag, "AlertId");
+                UUID playerUUID = readUuidOrNull(alertTag, "PlayerUUID");
+                PriceAlertType type = safeEnum(PriceAlertType.class, alertTag.getString("Type"), null);
+                PriceAlertDirection direction = safeEnum(PriceAlertDirection.class, alertTag.getString("Direction"), null);
+                if (alertId == null || playerUUID == null || type == null || direction == null) {
+                    continue;
+                }
+                PriceAlertManager.addAlertDirect(new PriceAlert(
+                        alertId,
+                        playerUUID,
+                        type,
+                        alertTag.getString("TargetId"),
+                        direction,
+                        alertTag.getLong("TargetPrice"),
+                        LocalDateTime.ofEpochSecond(alertTag.getLong("CreatedAt"), 0, ZoneOffset.UTC)));
+            }
+        }
+
+        // ---- 加载股票条件委托 ----
+        if (tag.contains("ConditionalStockOrders")) {
+            ListTag conditionalOrdersTag = tag.getList("ConditionalStockOrders", Tag.TAG_COMPOUND);
+            for (Tag rawTag : conditionalOrdersTag) {
+                CompoundTag orderTag = (CompoundTag) rawTag;
+                UUID orderId = readUuidOrNull(orderTag, "OrderId");
+                UUID playerUUID = readUuidOrNull(orderTag, "PlayerUUID");
+                ConditionalStockOrderType type = safeEnum(
+                        ConditionalStockOrderType.class,
+                        orderTag.getString("Type"),
+                        null);
+                if (orderId == null || playerUUID == null || type == null) {
+                    continue;
+                }
+                ConditionalStockOrderManager.addOrderDirect(new ConditionalStockOrder(
+                        orderId,
+                        playerUUID,
+                        orderTag.getString("Symbol"),
+                        type,
+                        orderTag.getLong("TriggerPrice"),
+                        orderTag.getLong("Quantity"),
+                        LocalDateTime.ofEpochSecond(orderTag.getLong("CreatedAt"), 0, ZoneOffset.UTC)));
+            }
+        }
+
+        // ---- 加载公司融资项目 ----
+        if (tag.contains("CompanyFinancingProjects")) {
+            ListTag projectsTag = tag.getList("CompanyFinancingProjects", Tag.TAG_COMPOUND);
+            for (Tag rawTag : projectsTag) {
+                CompoundTag projectTag = (CompoundTag) rawTag;
+                UUID projectId = readUuidOrNull(projectTag, "ProjectId");
+                UUID companyUUID = readUuidOrNull(projectTag, "CompanyUUID");
+                if (projectId == null || companyUUID == null) {
+                    continue;
+                }
+                CompanyFinancingProject project = new CompanyFinancingProject(
+                        projectId,
+                        companyUUID,
+                        projectTag.getString("Symbol"),
+                        projectTag.getLong("IssueQuantity"),
+                        projectTag.getLong("IssuePrice"),
+                        projectTag.getLong("FundingTarget"),
+                        projectTag.getLong("DeadlineMcDay"),
+                        LocalDateTime.ofEpochSecond(projectTag.getLong("CreatedAt"), 0, ZoneOffset.UTC));
+                ListTag subscriptionsTag = projectTag.getList("Subscriptions", Tag.TAG_COMPOUND);
+                for (Tag subscriptionRaw : subscriptionsTag) {
+                    CompoundTag subscriptionTag = (CompoundTag) subscriptionRaw;
+                    UUID playerUUID = readUuidOrNull(subscriptionTag, "PlayerUUID");
+                    long quantity = subscriptionTag.getLong("Quantity");
+                    if (playerUUID != null && quantity > 0) {
+                        project.addSubscription(playerUUID, quantity);
+                    }
+                }
+                CompanyFinancingManager.addProjectDirect(project);
+            }
+        }
+
+        // ---- 加载公司股东提案 ----
+        if (tag.contains("CompanyProposals")) {
+            ListTag proposalsTag = tag.getList("CompanyProposals", Tag.TAG_COMPOUND);
+            for (Tag rawTag : proposalsTag) {
+                CompoundTag proposalTag = (CompoundTag) rawTag;
+                UUID proposalId = readUuidOrNull(proposalTag, "ProposalId");
+                UUID companyUUID = readUuidOrNull(proposalTag, "CompanyUUID");
+                UUID creatorUUID = readUuidOrNull(proposalTag, "CreatorUUID");
+                CompanyProposalType type = safeEnum(CompanyProposalType.class, proposalTag.getString("Type"), null);
+                CompanyProposalStatus status = safeEnum(CompanyProposalStatus.class,
+                        proposalTag.getString("Status"), CompanyProposalStatus.ACTIVE);
+                if (proposalId == null || companyUUID == null || creatorUUID == null || type == null) {
+                    continue;
+                }
+                CompanyProposal proposal = new CompanyProposal(
+                        proposalId,
+                        companyUUID,
+                        creatorUUID,
+                        type,
+                        proposalTag.getString("Title"),
+                        proposalTag.getString("TextValue"),
+                        proposalTag.getLong("Value1"),
+                        proposalTag.getLong("Value2"),
+                        proposalTag.getLong("Value3"),
+                        proposalTag.getLong("StartMcDay"),
+                        proposalTag.getLong("EndMcDay"),
+                        proposalTag.getDouble("PassRatio"),
+                        LocalDateTime.ofEpochSecond(proposalTag.getLong("CreatedAt"), 0, ZoneOffset.UTC),
+                        status,
+                        proposalTag.getString("ResultSummary"));
+                ListTag votesTag = proposalTag.getList("Votes", Tag.TAG_COMPOUND);
+                for (Tag voteRaw : votesTag) {
+                    CompoundTag voteTag = (CompoundTag) voteRaw;
+                    UUID playerUUID = readUuidOrNull(voteTag, "PlayerUUID");
+                    if (playerUUID != null && voteTag.getLong("Power") > 0) {
+                        proposal.addVote(playerUUID, voteTag.getBoolean("Support"), voteTag.getLong("Power"));
+                    }
+                }
+                CompanyProposalManager.addProposalDirect(proposal);
+            }
+        }
+
         // ---- 加载交易记录 ----
         if (tag.contains("Transactions")) {
 
@@ -486,7 +791,10 @@ public class EconomySavedData extends SavedData {
                 if (from == null || to == null) {
                     continue;
                 }
+                UUID playerId = readUuidOrNull(txTag, "PlayerUUID");
                 long amount = txTag.getLong("Amount");
+                long quantity = txTag.contains("Quantity") ? txTag.getLong("Quantity") : 0;
+                String objectName = txTag.contains("ObjectName") ? txTag.getString("ObjectName") : "";
                 TransactionType type = safeEnum(TransactionType.class, txTag.getString("Type"), null);
                 if (type == null) {
                     continue;
@@ -501,7 +809,10 @@ public class EconomySavedData extends SavedData {
                                         epochSeconds,
                                         0,
                                         ZoneOffset.UTC
-                                )
+                                ),
+                                playerId,
+                                objectName,
+                                quantity
                         );
 
                 AccountManager.addTransactionRecord(record);
@@ -648,12 +959,45 @@ public class EconomySavedData extends SavedData {
                         recentProfits.add(((CompoundTag) profitRaw).getLong("Profit"));
                     }
                 }
+                List<Company.DividendRecord> dividendHistory = new java.util.ArrayList<>();
+                if (companyTag.contains("DividendHistory")) {
+                    ListTag dividendHistoryTag = companyTag.getList("DividendHistory", Tag.TAG_COMPOUND);
+                    for (Tag recordRaw : dividendHistoryTag) {
+                        CompoundTag recordTag = (CompoundTag) recordRaw;
+                        dividendHistory.add(new Company.DividendRecord(
+                                recordTag.getLong("McDay"),
+                                recordTag.getLong("TotalAmount"),
+                                recordTag.getLong("PerShare")));
+                    }
+                }
                 company.restoreFinancials(
                         companyTag.getLong("DailyRevenue"),
                         companyTag.getLong("DailyCost"),
                         companyTag.getLong("RetainedEarnings"),
+                        companyTag.contains("DistributableProfit")
+                                ? companyTag.getLong("DistributableProfit")
+                                : Math.max(0, companyTag.getLong("RetainedEarnings")),
                         companyTag.getLong("LastDividendDay"),
-                        recentProfits);
+                        recentProfits,
+                        dividendHistory);
+                if (companyTag.contains("FinancialReports")) {
+                    ListTag reportsTag = companyTag.getList("FinancialReports", Tag.TAG_COMPOUND);
+                    for (Tag reportRaw : reportsTag) {
+                        CompoundTag reportTag = (CompoundTag) reportRaw;
+                        company.addFinancialReportDirect(new CompanyFinancialReport(
+                                reportTag.getLong("McDay"),
+                                reportTag.getLong("Revenue"),
+                                reportTag.getLong("Expenses"),
+                                reportTag.getLong("NetProfit"),
+                                reportTag.getLong("Assets"),
+                                reportTag.getLong("Liabilities"),
+                                reportTag.getLong("CashBalance"),
+                                reportTag.getLong("AssetChange"),
+                                reportTag.getLong("ProfitChange"),
+                                reportTag.getString("Summary"),
+                                LocalDateTime.ofEpochSecond(reportTag.getLong("CreatedAt"), 0, ZoneOffset.UTC)));
+                    }
+                }
                 company.restoreManagement(
                         companyTag.contains("Strategy")
                                 ? safeEnum(finance.company.CompanyStrategy.class,
@@ -664,6 +1008,11 @@ public class EconomySavedData extends SavedData {
                         companyTag.getInt("StorageLevel"),
                         companyTag.getInt("ManagementLevel"),
                         companyTag.contains("AutoSellRatio") ? companyTag.getDouble("AutoSellRatio") : 0.5);
+                if (companyTag.contains("BankruptcyRisk")) {
+                    company.setBankruptcyRisk(
+                            companyTag.getBoolean("BankruptcyRisk"),
+                            companyTag.getLong("BankruptcyRiskStartDay"));
+                }
 
                 // P4：恢复上市状态
                 if (companyTag.contains("IsPublic")) {
@@ -845,11 +1194,35 @@ public class EconomySavedData extends SavedData {
                 if (stockTag.contains("TradeMomentum")) {
                     stock.setTradeMomentum(stockTag.getDouble("TradeMomentum"));
                 }
+                if (stockTag.contains("NoiseOffset")) {
+                    stock.setNoiseOffset(stockTag.getInt("NoiseOffset"));
+                }
                 if (stockTag.contains("PreviousClose")) {
                     stock.setDayOpen(stockTag.getLong("PreviousClose"));
                 }
 
                 StockMarketManager.putStockDirect(stock);
+            }
+        }
+
+        // ---- 加载股票价格快照 ----
+        if (tag.contains("StockPriceSnapshots")) {
+            ListTag snapshotsTag = tag.getList("StockPriceSnapshots", Tag.TAG_COMPOUND);
+            for (Tag rawTag : snapshotsTag) {
+                CompoundTag stockSnapTag = (CompoundTag) rawTag;
+                Stock stock = StockMarketManager.getStock(stockSnapTag.getString("Symbol"));
+                if (stock == null) {
+                    continue;
+                }
+
+                ListTag snapsList = stockSnapTag.getList("Snapshots", Tag.TAG_COMPOUND);
+                for (Tag snapRaw : snapsList) {
+                    CompoundTag snapTag = (CompoundTag) snapRaw;
+                    stock.addSnapshotDirect(new StockPriceEngine.PriceSnapshot(
+                            LocalDateTime.ofEpochSecond(snapTag.getLong("Timestamp"), 0, ZoneOffset.UTC),
+                            snapTag.getLong("Price"),
+                            snapTag.getLong("Volume")));
+                }
             }
         }
 
@@ -943,9 +1316,15 @@ public class EconomySavedData extends SavedData {
     public static void resetRuntimeState() {
         AccountManager.clearAccountsDirect();
         AccountManager.clearTransactions();
+        AssetSnapshotManager.clearSnapshotsDirect();
+        PriceAlertManager.clearAlertsDirect();
+        ConditionalStockOrderManager.clearOrdersDirect();
+        CompanyFinancingManager.clearProjectsDirect();
+        CompanyProposalManager.clearProposalsDirect();
         MarketManager.clearTradeHistory();
         MarketManager.clearOrders();
         CompanyManager.clearCompaniesDirect();
+        CompanyManager.resetDividendPolicyDirect();
         NpcMarketMaker.clearMarketPrices();
         EventManager.clearActiveEvents();
         StockMarketManager.clearStocks();

@@ -1,9 +1,7 @@
 package finance.network;
 
 import finance.company.CompanyIPOService;
-import finance.gui.FinanceGuiOpener;
 import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.network.NetworkEvent;
 
@@ -43,10 +41,7 @@ public class CompanyIPOPacket {
             CompanyIPOService.IPOResult result = CompanyIPOService.ipo(
                     player.getUUID(), packet.companyId, packet.issuePrice, packet.issueQuantity);
 
-            player.sendSystemMessage(Component.literal(result.message()));
-            if (result.success()) {
-                FinanceGuiOpener.open(player);
-            }
+            GuiFeedbackPacket.send(player, result.message());
         });
         ctx.get().setPacketHandled(true);
     }
