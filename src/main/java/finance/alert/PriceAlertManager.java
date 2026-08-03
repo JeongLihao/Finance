@@ -1,6 +1,7 @@
 package finance.alert;
 
 import finance.data.EconomySavedData;
+import finance.config.FinanceConfig;
 import finance.market.MarketPrice;
 import finance.market.NpcMarketMaker;
 import finance.stock.Stock;
@@ -17,8 +18,6 @@ import java.util.UUID;
 public final class PriceAlertManager {
 
     private static final List<PriceAlert> ALERTS = new ArrayList<>();
-    private static final int MAX_ALERTS_PER_PLAYER = 20;
-
     private PriceAlertManager() {
     }
 
@@ -29,8 +28,9 @@ public final class PriceAlertManager {
             return new AddResult(false, "提醒参数无效。", null);
         }
         long count = ALERTS.stream().filter(alert -> alert.getPlayerId().equals(playerId)).count();
-        if (count >= MAX_ALERTS_PER_PLAYER) {
-            return new AddResult(false, "提醒数量已达上限 " + MAX_ALERTS_PER_PLAYER + "。", null);
+        int limit = FinanceConfig.maxPriceAlertsPerPlayer();
+        if (count >= limit) {
+            return new AddResult(false, "提醒数量已达上限 " + limit + "。", null);
         }
         String normalized = normalizeTarget(type, targetId);
         if (!exists(type, normalized)) {

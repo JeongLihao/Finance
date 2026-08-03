@@ -3,6 +3,7 @@ package finance.stock;
 import finance.account.AccountManager;
 import finance.account.TransactionRecord;
 import finance.account.TransactionType;
+import finance.config.FinanceConfig;
 import finance.data.EconomySavedData;
 import finance.util.MathUtil;
 import net.minecraft.network.chat.Component;
@@ -17,8 +18,6 @@ import java.util.UUID;
 public final class ConditionalStockOrderManager {
 
     private static final List<ConditionalStockOrder> ORDERS = new ArrayList<>();
-    private static final int MAX_ORDERS_PER_PLAYER = 20;
-
     private ConditionalStockOrderManager() {
     }
 
@@ -36,8 +35,9 @@ public final class ConditionalStockOrderManager {
             return OrderResult.fail("持仓不足，不能设置条件委托。");
         }
         long count = ORDERS.stream().filter(order -> order.getPlayerId().equals(playerId)).count();
-        if (count >= MAX_ORDERS_PER_PLAYER) {
-            return OrderResult.fail("条件委托数量已达上限 " + MAX_ORDERS_PER_PLAYER + "。");
+        int limit = FinanceConfig.maxConditionalStockOrdersPerPlayer();
+        if (count >= limit) {
+            return OrderResult.fail("条件委托数量已达上限 " + limit + "。");
         }
 
         ConditionalStockOrder order = new ConditionalStockOrder(playerId, normalized, type, triggerPrice, quantity);

@@ -39,6 +39,9 @@ public final class CentralBank {
     /** 单日最多修复偏离量的一部分，避免央行把价格一键打回基准。 */
     private static final double MAX_DAILY_STOCK_INTERVENTION = 0.35;
 
+    private static int lastStockInterventions = 0;
+    private static long lastCashDelta = 0;
+
     private CentralBank() {}
 
     public static void seedIfNeeded() {
@@ -64,6 +67,8 @@ public final class CentralBank {
      */
     public static void dailyIntervention() {
         seedIfNeeded();
+        lastStockInterventions = 0;
+        lastCashDelta = 0;
         for (MarketPrice mp : NpcMarketMaker.getAllMarketPrices().values()) {
             interveneStock(mp);
         }
@@ -89,6 +94,8 @@ public final class CentralBank {
                 CommodityInventoryManager.addCommodity(UUID, commodityId, qty);
                 AccountManager.deposit(NpcMarketMaker.NPC_UUID, payment);
                 mp.recomputePrice(marketStock - qty);
+                lastStockInterventions++;
+                lastCashDelta -= payment;
             }
             return;
         }
@@ -115,9 +122,11 @@ public final class CentralBank {
                 long paid = Math.min(marketCash, receipt);
                 if (paid > 0 && AccountManager.withdraw(NpcMarketMaker.NPC_UUID, paid)) {
                     AccountManager.deposit(UUID, paid);
+                    lastCashDelta += paid;
                 }
             }
             mp.recomputePrice(marketStock + qty);
+            lastStockInterventions++;
         }
     }
 
@@ -132,13 +141,19 @@ public final class CentralBank {
             ensureReserveCash(injection);
             if (AccountManager.withdraw(UUID, injection)) {
                 AccountManager.deposit(NpcMarketMaker.NPC_UUID, injection);
+                lastCashDelta -= injection;
             }
         } else if (marketCash > ceiling) {
             long withdrawal = Math.max(1, (marketCash - targetCash) / 3);
             if (AccountManager.withdraw(NpcMarketMaker.NPC_UUID, withdrawal)) {
                 AccountManager.deposit(UUID, withdrawal);
+                lastCashDelta += withdrawal;
             }
         }
+    }
+
+    public static String getLastInterventionSummary() {
+        return "库存干预 " + lastStockInterventions + " 项，央行现金净变化 " + lastCashDelta;
     }
 
     private static void ensureReserveCash(long amount) {

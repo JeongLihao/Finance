@@ -19,6 +19,8 @@ public class CompanyProposal {
     private final long startMcDay;
     private final long endMcDay;
     private final double passRatio;
+    private final double minParticipationRatio;
+    private final long votingSharesSnapshot;
     private final LocalDateTime createdAt;
     private final Map<UUID, VoteRecord> votes = new LinkedHashMap<>();
     private CompanyProposalStatus status = CompanyProposalStatus.ACTIVE;
@@ -27,14 +29,33 @@ public class CompanyProposal {
     public CompanyProposal(UUID companyId, UUID creatorId, CompanyProposalType type, String title,
                            String textValue, long value1, long value2, long value3,
                            long startMcDay, long endMcDay, double passRatio) {
+        this(companyId, creatorId, type, title, textValue, value1, value2, value3,
+                startMcDay, endMcDay, passRatio, 0.0, 0);
+    }
+
+    public CompanyProposal(UUID companyId, UUID creatorId, CompanyProposalType type, String title,
+                           String textValue, long value1, long value2, long value3,
+                           long startMcDay, long endMcDay, double passRatio,
+                           double minParticipationRatio, long votingSharesSnapshot) {
         this(UUID.randomUUID(), companyId, creatorId, type, title, textValue, value1, value2, value3,
-                startMcDay, endMcDay, passRatio, LocalDateTime.now(), CompanyProposalStatus.ACTIVE, "");
+                startMcDay, endMcDay, passRatio, minParticipationRatio, votingSharesSnapshot,
+                LocalDateTime.now(), CompanyProposalStatus.ACTIVE, "");
     }
 
     public CompanyProposal(UUID proposalId, UUID companyId, UUID creatorId, CompanyProposalType type,
                            String title, String textValue, long value1, long value2, long value3,
                            long startMcDay, long endMcDay, double passRatio, LocalDateTime createdAt,
                            CompanyProposalStatus status, String resultSummary) {
+        this(proposalId, companyId, creatorId, type, title, textValue, value1, value2, value3,
+                startMcDay, endMcDay, passRatio, 0.0, 0,
+                createdAt, status, resultSummary);
+    }
+
+    public CompanyProposal(UUID proposalId, UUID companyId, UUID creatorId, CompanyProposalType type,
+                           String title, String textValue, long value1, long value2, long value3,
+                           long startMcDay, long endMcDay, double passRatio,
+                           double minParticipationRatio, long votingSharesSnapshot,
+                           LocalDateTime createdAt, CompanyProposalStatus status, String resultSummary) {
         this.proposalId = proposalId;
         this.companyId = companyId;
         this.creatorId = creatorId;
@@ -47,6 +68,8 @@ public class CompanyProposal {
         this.startMcDay = startMcDay;
         this.endMcDay = endMcDay;
         this.passRatio = passRatio;
+        this.minParticipationRatio = Math.max(0.0, Math.min(1.0, minParticipationRatio));
+        this.votingSharesSnapshot = Math.max(0, votingSharesSnapshot);
         this.createdAt = createdAt;
         this.status = status == null ? CompanyProposalStatus.ACTIVE : status;
         this.resultSummary = resultSummary == null ? "" : resultSummary;
@@ -64,6 +87,8 @@ public class CompanyProposal {
     public long getStartMcDay() { return startMcDay; }
     public long getEndMcDay() { return endMcDay; }
     public double getPassRatio() { return passRatio; }
+    public double getMinParticipationRatio() { return minParticipationRatio; }
+    public long getVotingSharesSnapshot() { return votingSharesSnapshot; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public Map<UUID, VoteRecord> getVotes() { return votes; }
     public CompanyProposalStatus getStatus() { return status; }

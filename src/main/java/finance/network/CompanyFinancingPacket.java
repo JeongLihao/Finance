@@ -1,6 +1,7 @@
 package finance.network;
 
 import finance.company.CompanyFinancingManager;
+import finance.cycle.EconomyCycleService;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.network.NetworkEvent;
@@ -80,7 +81,7 @@ public class CompanyFinancingPacket {
                     GuiFeedbackPacket.send(player, "融资参数必须为正。");
                     return;
                 }
-                long mcDay = player.getServer() != null ? player.getServer().getTickCount() / 24000L : 0;
+                long mcDay = EconomyCycleService.currentMcDay(player.getServer());
                 result = CompanyFinancingManager.startProject(
                         player.getUUID(),
                         packet.id,
