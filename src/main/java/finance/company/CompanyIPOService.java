@@ -78,6 +78,15 @@ public class CompanyIPOService {
         long totalShares = Math.round(issueQuantity / DEFAULT_FLOAT_RATIO);
         long ownerShares = totalShares - issueQuantity;
 
+        if (!company.canDeposit(raisedCapital)) {
+            AccountManager.deposit(requesterId, ipoFee);
+            return fail("Company cash balance cannot hold the raised capital.");
+        }
+        if (!StockPortfolioManager.canAddHolding(requesterId, symbol, ownerShares)) {
+            AccountManager.deposit(requesterId, ipoFee);
+            return fail("Founder portfolio cannot hold the issued shares.");
+        }
+
         // 创建股票
         Stock stock = new Stock(
                 symbol,
@@ -91,8 +100,16 @@ public class CompanyIPOService {
         );
 
         // 募集资金进公司现金
-        company.deposit(raisedCapital);
-        StockPortfolioManager.addHolding(requesterId, symbol, ownerShares, issuePrice);
+        // IPO capital is an explicit issuance source; it is not transferred from the listing fee.
+        if (!company.deposit(raisedCapital)) {
+            AccountManager.deposit(requesterId, ipoFee);
+            return fail("IPO capital settlement failed.");
+        }
+        if (!StockPortfolioManager.addHolding(requesterId, symbol, ownerShares, issuePrice)) {
+            company.withdraw(raisedCapital);
+            AccountManager.deposit(requesterId, ipoFee);
+            return fail("Founder share settlement failed.");
+        }
 
         // 标记公司为已上市
         company.setPublic(true);

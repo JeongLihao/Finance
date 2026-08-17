@@ -15,6 +15,11 @@ import finance.gui.FinanceMenu;
 import finance.market.NpcMarketMaker;
 import finance.network.*;
 import finance.util.FormatUtil;
+import finance.chart.MarketInstrumentType;
+import finance.chart.MarketSummary;
+import finance.client.chart.CandlestickChart;
+import finance.client.chart.CandlestickClientCache;
+import finance.client.chart.TechnicalIndicatorChart;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
@@ -61,8 +66,8 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
     private static final int COL_CATEGORY    = 0xFFB8B0A0;
 
     // ---- 标签 ----
-    private static final String[] BASE_TABS = {"行情", "交易", "订单", "库存", "公司", "股票", "记录", "资产", "提醒"};
-    private static final String[] ADMIN_TABS = {"行情", "交易", "订单", "库存", "公司", "股票", "记录", "资产", "提醒", "仪表", "管理"};
+    private static final String[] BASE_TABS = {"行情", "交易", "订单", "库存", "公司", "股票", "记录", "资产", "提醒", "金融"};
+    private static final String[] ADMIN_TABS = {"行情", "交易", "订单", "库存", "公司", "股票", "记录", "资产", "提醒", "金融", "仪表", "管理"};
     private String[] tabNames;
     private static final CompanyType[] COMPANY_TYPES = CompanyType.values();
     private int currentTab = 0;
@@ -70,6 +75,21 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
     private String statusMessage = "";
     private String companyStrategyOverride = null;
     private int assetSortMode = 0; // 0=价值, 1=收益
+    private boolean commodityChartVisible;
+    private boolean stockChartVisible;
+    private boolean futuresChartVisible;
+    private int chartLimit = 30;
+    private ChartPanel chartPanel = ChartPanel.KLINE_MA;
+    private int financialSubTab = 0;
+    private boolean governanceView = false;
+
+    private enum ChartPanel {
+        KLINE_MA("K+MA"), MACD("MACD"), RSI("RSI"), ORDER_BOOK("Book"), RECENT("Trades"),
+        RANKINGS("Ranks"), RANK_VOLUME("VolRank");
+        private final String label;
+        ChartPanel(String label) { this.label = label; }
+        ChartPanel next() { return values()[(ordinal() + 1) % values().length]; }
+    }
 
     // ---- 行情标签（国际交易）控件 ----
     private String selectedCommodity = "iron";
@@ -171,7 +191,7 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
 
         // 公司名称输入框
         companyNameBox = new EditBox(font, leftPos + 70, topPos + CONTENT_Y + 36, 190, 16, Component.literal("公司名称"));
-        companyNameBox.setMaxLength(32);
+        companyNameBox.setMaxLength(101);
         companyNameBox.setVisible(false);
         addWidget(companyNameBox);
 
@@ -345,18 +365,185 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         renderTabs(g, mouseX, mouseY);
 
         switch (currentTab) {
-            case 0 -> renderMarketTab(g);
+            case 0 -> renderMarketTab(g, mouseX - leftPos, mouseY - topPos);
             case 1 -> renderTradeTab(g);
             case 2 -> renderOrdersTab(g);
             case 3 -> renderInventoryTab(g);
             case 4 -> renderCompanyTab(g);
-            case 5 -> renderStockTab(g);
+            case 5 -> renderStockTab(g, mouseX - leftPos, mouseY - topPos);
             case 6 -> renderTransactionTab(g);
             case 7 -> renderAssetTab(g);
             case 8 -> renderAlertTab(g);
-            case 9 -> { if (isAdmin) renderDashboardTab(g); }
-            case 10 -> { if (isAdmin) renderAdminTab(g); }
+            case 9 -> renderFinancialProductsTab(g, mouseX - leftPos, mouseY - topPos);
+            case 10 -> { if (isAdmin) renderDashboardTab(g); }
+            case 11 -> { if (isAdmin) renderAdminTab(g); }
         }
+    }
+
+    private void renderFinancialProductsTab(GuiGraphics g, int mouseX, int mouseY) {
+        FinancialProductClientCache.Entry data = FinancialProductClientCache.get();
+        drawSectionTitle(g, "金融产品", 10, CONTENT_Y);
+        String[] labels = {"指数", "发行", "债市", "持仓", "票据", "贷款", "期货", "银行", "基金"};
+        labels = Arrays.copyOf(labels, 10);
+        labels[9] = "保险";
+        for (int i = 0; i < labels.length; i++) {
+            int x = 10 + i * 38;
+            g.fill(x, CONTENT_Y - 2, x + 36, CONTENT_Y + 13, i == financialSubTab ? COL_ROW_SELECT : COL_BUTTON_BG);
+            drawClippedString(g, labels[i], x + 3, CONTENT_Y + 1, 30, COL_TEXT);
+        }
+        if (financialSubTab == 6) { renderFuturesTab(g, mouseX, mouseY); return; }
+        if (financialSubTab == 7) { renderBankTab(g); return; }
+        if (financialSubTab == 8) { renderFundTab(g); return; }
+        if (financialSubTab == 9) { renderInsuranceTab(g); return; }
+        if (data.state() == FinancialProductClientCache.State.NOT_REQUESTED) {
+            requestFinancialProducts();
+            drawClippedString(g, "正在请求服务端数据…", 12, CONTENT_Y + 28, 350, COL_TEXT_DIM); return;
+        }
+        if (data.state() == FinancialProductClientCache.State.LOADING || data.state() == FinancialProductClientCache.State.SLOW) {
+            drawClippedString(g, data.state() == FinancialProductClientCache.State.SLOW ? "服务端响应较慢，可重新进入此页刷新" : "正在加载…", 12, CONTENT_Y + 28, 350, COL_TEXT_DIM); return;
+        }
+        int y = CONTENT_Y + 24;
+        if (financialSubTab == 0) {
+            drawClippedString(g, "名称", 14, y, 150, COL_TEXT_DIM); drawClippedString(g, "点位", 180, y, 70, COL_TEXT_DIM); drawClippedString(g, "日涨跌", 270, y, 70, COL_TEXT_DIM); y += 15;
+            for (var row : data.indices()) { if (y > 174) break; drawClippedString(g, row.id(), 14, y, 150, COL_TEXT); drawClippedString(g, String.format(Locale.ROOT,"%.2f",row.value()),180,y,75,COL_TEXT); drawClippedString(g,String.format(Locale.ROOT,"%+.2f%%",row.changePercent()),270,y,70,row.changePercent()>=0?COL_GOOD:COL_BAD); y+=16; }
+        } else if (financialSubTab == 1) {
+            drawClippedString(g, "代码/状态", 14, y, 115, COL_TEXT_DIM); drawClippedString(g, "认购进度", 145, y, 100, COL_TEXT_DIM); drawClippedString(g, "票息/到期", 265, y, 105, COL_TEXT_DIM); y += 15;
+            for (var row : data.bonds()) { if (y > 174) break; drawClippedString(g,row.code()+" "+row.status(),14,y,120,COL_TEXT); drawClippedString(g,row.subscribed()+"/"+row.total(),145,y,100,COL_TEXT); drawClippedString(g,String.format(Locale.ROOT,"%.2f%% / D%d",row.couponBps()/100.0,row.maturityDay()),265,y,105,COL_TEXT); y+=16; }
+        } else if (financialSubTab == 2) {
+            drawClippedString(g,"代码",14,y,55,COL_TEXT_DIM); drawClippedString(g,"市价/参考",78,y,95,COL_TEXT_DIM); drawClippedString(g,"收益率",184,y,60,COL_TEXT_DIM); drawClippedString(g,"盘口",254,y,125,COL_TEXT_DIM); y+=15;
+            for (var row:data.bonds()) { if(y>174) break; if(row.status()!=finance.debt.BondStatus.ACTIVE) continue; long bid=data.bondOrders().stream().filter(o->o.bondId().equals(row.id())&&o.side()==finance.bondmarket.BondOrderSide.BUY).mapToLong(o->o.price()).max().orElse(0); long ask=data.bondOrders().stream().filter(o->o.bondId().equals(row.id())&&o.side()==finance.bondmarket.BondOrderSide.SELL).mapToLong(o->o.price()).min().orElse(0); drawClippedString(g,row.code(),14,y,55,COL_TEXT); drawClippedString(g,row.marketPrice()+"/"+row.referencePrice(),78,y,95,COL_TEXT); drawClippedString(g,String.format(Locale.ROOT,"%.2f/%.2f%%",row.marketYieldBps()/100.0,row.referenceYieldBps()/100.0),184,y,60,COL_ACCENT); drawClippedString(g,bid+" / "+ask,254,y,125,COL_TEXT); y+=16; }
+        } else if (financialSubTab == 3) {
+            drawClippedString(g,"代码",14,y,55,COL_TEXT_DIM); drawClippedString(g,"可用/冻结",78,y,90,COL_TEXT_DIM); drawClippedString(g,"成本/市价",180,y,95,COL_TEXT_DIM); drawClippedString(g,"浮盈/应计",285,y,100,COL_TEXT_DIM); y+=15;
+            for(var row:data.bonds()) { if(y>174) break; if(row.playerQuantity()<=0) continue; drawClippedString(g,row.code(),14,y,55,COL_TEXT); drawClippedString(g,row.availableQuantity()+"/"+row.frozenQuantity(),78,y,90,COL_TEXT); drawClippedString(g,row.averageCost()+"/"+row.marketPrice(),180,y,95,COL_TEXT); drawClippedString(g,row.unrealizedProfit()+"/"+row.accruedInterest(),285,y,100,row.unrealizedProfit()>=0?COL_GOOD:COL_BAD); y+=16; }
+        } else if (financialSubTab == 4) {
+            drawClippedString(g,"收益率曲线 7日 "+String.format(Locale.ROOT,"%.2f%%",data.yield7Bps()/100.0)+"  30日 "+String.format(Locale.ROOT,"%.2f%%",data.yield30Bps()/100.0)+"  90日 "+String.format(Locale.ROOT,"%.2f%%",data.yield90Bps()/100.0),14,y,370,COL_ACCENT); y+=18;
+            for(var row:data.bills()) { if(y>174) break; drawClippedString(g,row.termDays()+"日 "+row.status()+" 到期D"+row.maturityDay(),14,y,150,COL_TEXT); drawClippedString(g,"本金 "+row.principal()+" 预计 "+row.expectedValue(),175,y,200,COL_TEXT); y+=16; }
+        } else {
+            drawClippedString(g, "基准利率 " + String.format(Locale.ROOT,"%.2f%%",data.benchmarkRateBps()/100.0), 14, y, 160, COL_ACCENT); y += 16;
+            drawClippedString(g, data.riskSummary(), 14, y, 360, COL_WARN); y += 20;
+            for (var row : data.loans()) { if (y > 174) break; drawClippedString(g,row.status()+" 余额 "+row.outstanding()+" 利息 "+row.interest(),14,y,230,COL_TEXT); drawClippedString(g,String.format(Locale.ROOT,"%.2f%% / D%d",row.rateBps()/100.0,row.maturityDay()),255,y,115,COL_TEXT); y+=16; }
+        }
+        renderFinancialActions(g);
+    }
+
+    private void renderFinancialActions(GuiGraphics g) {
+        int y = 190;
+        g.fill(8, y - 5, imageWidth - 8, 232, COL_ROW_EVEN);
+        if (financialSubTab == 0) {
+            drawClippedString(g, isAdmin ? "管理员利率(基点)" : "基准利率由管理员调整", 14, y, 140, COL_TEXT_DIM);
+            if (isAdmin) drawFilledButton(g, "改", 365, y - 1, 28, COL_ACCENT);
+        } else if (financialSubTab == 1) {
+            drawClippedString(g, "面值", 14, y, 34, COL_TEXT_DIM); drawClippedString(g, "数量", 126, y, 34, COL_TEXT_DIM); drawClippedString(g, "票息bp", 238, y, 45, COL_TEXT_DIM);
+            drawFilledButton(g, "发", 365, y - 1, 28, COL_ACCENT);
+            drawButton(g, "认购首个开放债券", 250, y + 20, 128, false);
+        } else if (financialSubTab == 2) {
+            drawClippedString(g,"限价",14,y,34,COL_TEXT_DIM); drawClippedString(g,"数量",126,y,34,COL_TEXT_DIM);
+            drawFilledButton(g,"买",365,y-1,28,COL_ACCENT); drawButton(g,"卖首个活跃债",250,y+20,92,false); drawButton(g,"撤我的首单",344,y+20,50,false);
+        } else if (financialSubTab == 3) {
+            drawClippedString(g,"持仓成本包含认购与二级买入；票息单独累计",14,y,350,COL_TEXT_DIM);
+        } else if (financialSubTab == 4) {
+            drawClippedString(g,"本金",14,y,34,COL_TEXT_DIM); drawClippedString(g,"期限(7/30/90)",238,y,100,COL_TEXT_DIM); drawFilledButton(g,"购",365,y-1,28,COL_ACCENT);
+        } else {
+            drawClippedString(g, "金额", 14, y, 34, COL_TEXT_DIM); drawClippedString(g, "期限", 126, y, 34, COL_TEXT_DIM); drawClippedString(g, "间隔", 238, y, 34, COL_TEXT_DIM);
+            drawFilledButton(g, "申", 365, y - 1, 28, COL_ACCENT);
+            drawButton(g, "偿还首笔贷款", 270, y + 20, 108, false);
+        }
+    }
+
+    private void requestFinancialProducts() {
+        long requestId = FinancialProductClientCache.begin();
+        FinancePacketHandler.CHANNEL.sendToServer(new FinancialProductRequestPacket(requestId));
+    }
+
+    private void requestFunds(){long requestId=FundClientCache.begin();FinancePacketHandler.CHANNEL.sendToServer(new FundRequestPacket(requestId));}
+
+    private void requestInsurance(){long requestId=InsuranceClientCache.begin();FinancePacketHandler.CHANNEL.sendToServer(new InsuranceRequestPacket(requestId));}
+
+    private void renderInsuranceTab(GuiGraphics g){
+        var entry=InsuranceClientCache.get();
+        if(entry.state()==InsuranceClientCache.State.NOT_REQUESTED){requestInsurance();drawClippedString(g,"Requesting insurance data...",12,CONTENT_Y+28,350,COL_TEXT_DIM);return;}
+        if(entry.state()==InsuranceClientCache.State.LOADING||entry.state()==InsuranceClientCache.State.SLOW){drawClippedString(g,entry.state()==InsuranceClientCache.State.SLOW?"Insurance service is responding slowly":"Loading insurance data...",12,CONTENT_Y+28,350,COL_TEXT_DIM);return;}
+        var data=entry.data();int y=CONTENT_Y+22;
+        drawClippedString(g,"Risk "+data.risk().level()+" | "+data.risk().reasons(),12,y,370,COL_WARN);y+=15;
+        drawClippedString(g,"Inventory "+data.risk().inventoryValue()+"  insured "+data.risk().insuredInventory()+"  claims "+data.risk().pendingClaims(),12,y,370,COL_TEXT_DIM);y+=17;
+        drawClippedString(g,"Product/status",12,y,120,COL_TEXT_DIM);drawClippedString(g,"Coverage/remaining",142,y,120,COL_TEXT_DIM);drawClippedString(g,"Effective/expiry",275,y,110,COL_TEXT_DIM);y+=14;
+        for(var row:data.policies()){if(y>150)break;drawClippedString(g,row.product()+"/"+row.status(),12,y,120,COL_TEXT);drawClippedString(g,row.coverage()+"/"+row.remaining(),142,y,120,COL_TEXT);drawClippedString(g,"D"+row.effective()+"-"+row.expiry(),275,y,110,COL_TEXT_DIM);y+=15;}
+        for(var row:data.claims()){if(y>174)break;drawClippedString(g,"Claim "+row.status(),12,y,100,row.status()==finance.insurance.ClaimStatus.PAID?COL_GOOD:COL_WARN);drawClippedString(g,row.paid()+"/"+row.approved()+" loss "+row.loss(),118,y,170,COL_TEXT);drawClippedString(g,row.reason(),294,y,92,COL_TEXT_DIM);y+=15;}
+        g.fill(8,185,imageWidth-8,232,COL_ROW_EVEN);drawClippedString(g,"Coverage",14,190,55,COL_TEXT_DIM);drawClippedString(g,"Term(days)",126,190,70,COL_TEXT_DIM);drawButton(g,"Cancel",218,210,48,false);drawFilledButton(g,"Inventory",270,210,56,COL_ACCENT);drawFilledButton(g,"Interruption",330,210,62,COL_ACCENT);
+        if(data.admin())drawClippedString(g,"Pool "+data.poolCash()+" exposure "+data.exposure()+" unpaid "+data.unpaid(),14,215,245,COL_TEXT_DIM);
+    }
+
+    private void renderFundTab(GuiGraphics g){var data=FundClientCache.get();if(data.state()==FundClientCache.State.NOT_REQUESTED){requestFunds();drawClippedString(g,"正在请求基金数据…",12,CONTENT_Y+28,350,COL_TEXT_DIM);return;}if(data.state()==FundClientCache.State.LOADING||data.state()==FundClientCache.State.SLOW){drawClippedString(g,data.state()==FundClientCache.State.SLOW?"基金数据响应较慢":"正在加载…",12,CONTENT_Y+28,350,COL_TEXT_DIM);return;}int y=CONTENT_Y+24;drawClippedString(g,"基金/状态",14,y,135,COL_TEXT_DIM);drawClippedString(g,"净值/涨跌",154,y,90,COL_TEXT_DIM);drawClippedString(g,"我的份额",250,y,75,COL_TEXT_DIM);drawClippedString(g,"风险",330,y,60,COL_TEXT_DIM);y+=15;for(var row:data.funds()){if(y>172)break;double change=row.previousNav()>0?(row.nav()/(double)row.previousNav()-1)*100:0;drawClippedString(g,row.name()+" "+row.status(),14,y,135,COL_TEXT);drawClippedString(g,row.nav()+" / "+String.format(Locale.ROOT,"%+.2f%%",change),154,y,90,change>=0?COL_GOOD:COL_BAD);drawClippedString(g,row.shares()+" (冻"+row.frozenShares()+")",250,y,75,COL_TEXT);drawClippedString(g,row.sufficientHistory()?String.format(Locale.ROOT,"波动%.1f%%",row.volatility()):"数据不足",330,y,60,COL_WARN);y+=16;}g.fill(8,185,imageWidth-8,232,COL_ROW_EVEN);drawClippedString(g,"金额",14,190,35,COL_TEXT_DIM);drawClippedString(g,"份额/间隔",126,190,80,COL_TEXT_DIM);drawFilledButton(g,"申购",275,189,40,COL_ACCENT);drawFilledButton(g,"赎回",320,189,40,COL_ACCENT);drawFilledButton(g,"定投",365,189,28,COL_ACCENT);drawClippedString(g,"申购费、赎回费及净值均由服务端确认；赎回可能因流动性延迟。",14,215,375,COL_TEXT_DIM);}
+
+    private void requestFutures() {
+        long requestId = FuturesClientCache.begin();
+        FinancePacketHandler.CHANNEL.sendToServer(new FuturesRequestPacket(requestId));
+    }
+
+    private void requestBanks(){long requestId=BankClientCache.begin();FinancePacketHandler.CHANNEL.sendToServer(new BankRequestPacket(requestId));}
+    private void renderBankTab(GuiGraphics g) {
+        var cache = BankClientCache.get();
+        if (cache.state() == BankClientCache.State.NOT_REQUESTED) {
+            requestBanks();
+            drawClippedString(g, "正在请求银行数据…", 12, CONTENT_Y + 28, 350, COL_TEXT_DIM);
+            return;
+        }
+        if (cache.state() == BankClientCache.State.LOADING || cache.state() == BankClientCache.State.SLOW) {
+            drawClippedString(g, cache.state() == BankClientCache.State.SLOW ? "银行服务响应较慢" : "正在加载银行数据…",
+                    12, CONTENT_Y + 28, 350, COL_TEXT_DIM);
+            return;
+        }
+        var data = cache.data();
+        int y = CONTENT_Y + 20;
+        drawClippedString(g, "隔夜利率 " + data.overnightRateBps() + "bp  "
+                + (data.admin() ? "保险基金 " : "保障上限 ") + data.insuranceFund(), 12, y, 370, COL_TEXT_DIM);
+        y += 15;
+        drawClippedString(g, "银行/状态", 12, y, 100, COL_TEXT_DIM);
+        drawClippedString(g, "存款利率", 116, y, 80, COL_TEXT_DIM);
+        drawClippedString(g, "资本/流动", 202, y, 86, COL_TEXT_DIM);
+        drawClippedString(g, data.admin() ? "准备金/存款" : "存款规模", 294, y, 98, COL_TEXT_DIM);
+        y += 14;
+        for (var bank : data.banks()) {
+            if (y > 156) break;
+            drawClippedString(g, bank.code() + "/" + bank.status(), 12, y, 100,
+                    bank.status() == finance.bank.BankStatus.ACTIVE ? COL_GOOD : COL_WARN);
+            drawClippedString(g, bank.demandRateBps() + "/" + bank.timeRateBps() + "bp", 116, y, 80, COL_TEXT);
+            drawClippedString(g, bank.capitalBps() + "/" + bank.liquidityBps(), 202, y, 86, COL_TEXT);
+            drawClippedString(g, data.admin() ? bank.reserves() + "/" + bank.deposits()
+                    : Long.toString(bank.deposits()), 294, y, 98, COL_TEXT);
+            y += 15;
+        }
+        long demand = data.accounts().stream().filter(a -> a.type() == finance.bank.BankAccountType.DEMAND_DEPOSIT
+                && a.ownerType() == finance.bank.CustomerType.PLAYER).mapToLong(BankResponsePacket.AccountRow::balance).sum();
+        long company = data.accounts().stream().filter(a -> a.ownerType() == finance.bank.CustomerType.COMPANY)
+                .mapToLong(BankResponsePacket.AccountRow::balance).sum();
+        drawClippedString(g, "我的活期 " + demand + "  公司存款 " + company + "  定期 " + data.timeDeposits().size(),
+                12, 166, 370, COL_TEXT);
+        drawClippedString(g, "金额", 50, 181, 70, COL_TEXT_DIM);
+        drawClippedString(g, "期限", 162, 181, 60, COL_TEXT_DIM);
+        drawClippedString(g, "间隔", 282, 181, 60, COL_TEXT_DIM);
+        drawButton(g, "转", 54, 210, 36, false);
+        drawButton(g, "存", 94, 210, 36, false);
+        drawButton(g, "取", 134, 210, 36, false);
+        drawButton(g, "定", 174, 210, 36, false);
+        drawButton(g, "兑", 214, 210, 36, false);
+        drawButton(g, "贷", 254, 210, 36, false);
+        drawButton(g, "公取", 294, 210, 42, false);
+        if (isAdmin) drawButton(g, "处/压", 340, 210, 48, false);
+    }
+
+    private void renderFuturesTab(GuiGraphics g, int mouseX, int mouseY) {
+        FuturesClientCache.Entry cache=FuturesClientCache.get();
+        if(cache.state()==FuturesClientCache.State.NOT_REQUESTED){requestFutures();drawClippedString(g,"正在请求期货数据…",12,CONTENT_Y+28,350,COL_TEXT_DIM);return;}
+        if(cache.state()==FuturesClientCache.State.LOADING||cache.state()==FuturesClientCache.State.SLOW){drawClippedString(g,cache.state()==FuturesClientCache.State.SLOW?"期货服务响应较慢":"正在加载期货数据…",12,CONTENT_Y+28,350,COL_TEXT_DIM);return;}
+        var data=cache.data();var chartContract=data.contracts().stream().findFirst().orElse(null);
+        if(futuresChartVisible&&chartContract!=null){renderCandlestickView(g,MarketInstrumentType.FUTURES,chartContract.id().toString(),chartContract.code(),mouseX,mouseY);return;}
+        int y=CONTENT_Y+22;
+        if(chartContract!=null){double change=chartContract.settlementPrice()>0?(chartContract.lastPrice()-chartContract.settlementPrice())*100.0/chartContract.settlementPrice():0;long basis;try{basis=Math.subtractExact(chartContract.lastPrice(),chartContract.spotPrice());}catch(ArithmeticException ex){basis=chartContract.lastPrice()>=chartContract.spotPrice()?Long.MAX_VALUE:Long.MIN_VALUE;}drawClippedString(g,String.format(Locale.ROOT,"Change %.2f%%  Basis %d  Vol %d  OI %d",change,basis,chartContract.dailyVolume(),chartContract.openInterest()),14,y,370,change>=0?COL_GOOD:COL_BAD);y+=14;}
+        drawClippedString(g,"保证金 "+data.marginCash()+" 冻结 "+data.frozen()+" 权益 "+data.equity()+" 可提 "+data.withdrawable()+" "+data.riskStatus(),14,y,370,data.riskStatus()==finance.futures.MarginRiskStatus.NORMAL?COL_GOOD:COL_WARN);y+=16;
+        drawClippedString(g,"代码/标的",14,y,105,COL_TEXT_DIM);drawClippedString(g,"期/现/结",126,y,100,COL_TEXT_DIM);drawClippedString(g,"到期/OI",238,y,90,COL_TEXT_DIM);drawClippedString(g,"持仓/PnL",330,y,62,COL_TEXT_DIM);y+=14;
+        for(var row:data.contracts()){if(y>174)break;var pos=data.positions().stream().filter(p->p.contractId().equals(row.id())).findFirst().orElse(null);drawClippedString(g,row.code()+"/"+row.commodity(),14,y,105,COL_TEXT);drawClippedString(g,row.lastPrice()+"/"+row.spotPrice()+"/"+row.settlementPrice(),126,y,105,COL_TEXT);drawClippedString(g,"D"+row.maturityDay()+"/"+row.openInterest(),238,y,85,COL_TEXT);drawClippedString(g,pos==null?"0/0":pos.signedQuantity()+"/"+pos.unrealized(),330,y,62,pos==null||pos.unrealized()>=0?COL_GOOD:COL_BAD);y+=16;}
+        int ay=190;g.fill(8,ay-5,imageWidth-8,232,COL_ROW_EVEN);drawClippedString(g,"金额/限价",14,ay,60,COL_TEXT_DIM);drawClippedString(g,"数量",126,ay,34,COL_TEXT_DIM);drawClippedString(g,"期限",238,ay,34,COL_TEXT_DIM);drawFilledButton(g,"买",365,ay-1,28,COL_ACCENT);drawButton(g,"卖",244,ay+20,28,false);drawButton(g,"入",274,ay+20,28,false);drawButton(g,"出",304,ay+20,28,false);drawButton(g,"撤",334,ay+20,28,false);if(isAdmin)drawButton(g,"建",364,ay+20,28,false);
     }
 
     // ---- 标签栏 ----
@@ -383,16 +570,22 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
     }
 
     private int tabWidth() {
-        return isAdmin ? 32 : 40;
+        return Math.max(24, (imageWidth - TAB_X * 2 - (tabNames.length - 1) * 3) / tabNames.length);
     }
 
     // ================================================================
     // 标签 0: 市场行情 + 国际交易
     // ================================================================
 
-    private void renderMarketTab(GuiGraphics g) {
+    private void renderMarketTab(GuiGraphics g, int mouseX, int mouseY) {
         if (cacheDirty) refreshCache();
         refreshSelectedRow();
+
+        if (commodityChartVisible) {
+            renderCandlestickView(g, MarketInstrumentType.COMMODITY, selectedCommodity,
+                    commodityDisplayName(selectedCommodity), mouseX, mouseY);
+            return;
+        }
 
         int tableX = 8;
         int tableW = imageWidth - 16;
@@ -448,6 +641,7 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         // ---- 国际交易区域 ----
         int tradeY = MARKET_TRADE_Y;
         g.drawString(font, "国际交易", 10, tradeY + 1, COL_TEXT, false);
+        drawButton(g, "K线", 360, tradeY, 30, false);
 
         // 显示当前选中商品名（不是按钮行）
         String selName = commodityDisplayName(selectedCommodity);
@@ -732,9 +926,14 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         FinanceMenu.CompanyInfo company = menu.getPlayerCompany();
         int cardY = CONTENT_Y;
         if (company != null) {
+            if (governanceView) {
+                renderGovernanceCompany(g, company, cardY);
+                return;
+            }
             int cardH = imageHeight - cardY - 8;
             g.fill(8, cardY, imageWidth - 8, cardY + cardH, 0xFFE0E0E0);
             drawSimpleBorder(g, 8, cardY, imageWidth - 16, cardH, COL_PANEL_BORDER);
+            if (company.isPublic()) drawButton(g, "治理", 340, cardY + 14, 36, false);
 
             drawSectionTitle(g, "我的公司", 10, cardY + 2);
             g.drawString(font, "名称", 12, cardY + 18, COL_TEXT_DIM, false);
@@ -861,7 +1060,74 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
     // 标签 5: 股票
     // ================================================================
 
-    private void renderStockTab(GuiGraphics g) {
+    private void renderGovernanceCompany(GuiGraphics g, FinanceMenu.CompanyInfo company, int cardY) {
+        int cardH = imageHeight - cardY - 8;
+        g.fill(8, cardY, imageWidth - 8, cardY + cardH, 0xFFE0E0E0);
+        drawSimpleBorder(g, 8, cardY, imageWidth - 16, cardH, COL_PANEL_BORDER);
+        drawSectionTitle(g, "公司治理与资本结构", 10, cardY + 2);
+        drawButton(g, "返回", 340, cardY + 2, 36, false);
+        GovernanceClientCache.Entry entry = GovernanceClientCache.get();
+        GovernanceResponsePacket data = entry.data();
+        if (entry.state() == GovernanceClientCache.State.NOT_REQUESTED) requestGovernance(company.companyId());
+        if (data == null || !data.companyId().equals(company.companyId())) {
+            drawClippedString(g, entry.state() == GovernanceClientCache.State.SLOW
+                    ? "治理数据响应较慢，可返回后重试" : "正在加载治理数据…", 12, cardY + 24, 330, COL_WARN);
+            return;
+        }
+        drawClippedString(g, "总股本 " + data.totalShares() + "  表决股 " + data.votingShares()
+                + "  库存股 " + data.treasuryShares(), 12, cardY + 22, 360, COL_TEXT);
+        drawClippedString(g, "市值 " + data.valuation().marketCap() + "  企业价值 "
+                + data.valuation().enterpriseValue() + "  账面净资产 " + data.valuation().bookEquity(),
+                12, cardY + 38, 360, COL_TEXT);
+        drawClippedString(g, "现金 " + data.structure().cash() + "  贷款 "
+                + data.structure().bankAndOtherLoans() + "  债券 " + data.structure().bonds()
+                + "  近期债务 " + data.structure().nearTermDebt(), 12, cardY + 54, 360, COL_TEXT_DIM);
+        drawClippedString(g, "估值质量 " + data.valuation().quality() + "  控制者 "
+                + (data.controller() == null ? "分散持有" : data.controller().toString().substring(0, 8)),
+                12, cardY + 70, 360, COL_WARN);
+        drawSectionTitle(g, "主要股东", 10, cardY + 90);
+        int y = cardY + 106;
+        for (GovernanceResponsePacket.HolderRow holder : data.holders().stream().limit(1).toList()) {
+            drawClippedString(g, holder.id().toString().substring(0, 8), 12, y, 70, COL_TEXT);
+            drawClippedString(g, "持股 " + holder.shares() + "  冻结 " + holder.locked()
+                    + "  表决权 " + String.format(Locale.ROOT, "%.1f%%", holder.voting()), 88, y, 280, COL_TEXT_DIM);
+            y += ROW_HEIGHT;
+        }
+        drawSectionTitle(g, "公司行动", 10, y + 2);
+        y += 18;
+        if (data.actions().isEmpty()) drawClippedString(g, "暂无回购或收购要约", 12, y, 260, COL_TEXT_DIM);
+        for (GovernanceResponsePacket.ActionRow action : data.actions().stream().limit(1).toList()) {
+            drawClippedString(g, action.type() + "  " + action.status() + "  价格 " + action.price()
+                    + "  股份 " + action.shares() + "  截止 D" + action.endDay(), 12, y, 360, COL_TEXT);
+            y += ROW_HEIGHT;
+        }
+        int controlsY=cardY+164;
+        drawClippedString(g,"目标公司UUID；资产提案填 卖方UUID|商品ID",12,cardY+148,96,COL_TEXT_DIM);
+        drawClippedString(g,"价格",12,controlsY+4,34,COL_TEXT_DIM);
+        drawClippedString(g,"股份",132,controlsY+4,34,COL_TEXT_DIM);
+        drawClippedString(g,"期限",252,controlsY+4,34,COL_TEXT_DIM);
+        drawButton(g,"回购提案",10,controlsY+24,56,false);
+        drawButton(g,"注销提案",70,controlsY+24,56,false);
+        drawButton(g,"接受行动",130,controlsY+24,56,false);
+        drawButton(g,"执行重组",190,controlsY+24,56,false);
+        drawButton(g,"刷新",330,controlsY+24,46,false);
+        drawButton(g,"发起收购",10,controlsY+40,56,false);
+        drawButton(g,"紧急提案",70,controlsY+40,56,false);
+        drawButton(g,"资产提案",130,controlsY+40,56,false);
+    }
+
+    private void requestGovernance(UUID companyId) {
+        long requestId = GovernanceClientCache.begin();
+        FinancePacketHandler.CHANNEL.sendToServer(new GovernanceRequestPacket(requestId, companyId));
+    }
+
+    private void renderStockTab(GuiGraphics g, int mouseX, int mouseY) {
+        if (stockChartVisible) {
+            FinanceMenu.StockRow row = findSelectedStock();
+            renderCandlestickView(g, MarketInstrumentType.STOCK, selectedStock,
+                    row == null ? selectedStock : displayStockSymbol(row) + " " + row.name(), mouseX, mouseY);
+            return;
+        }
         int headerY = CONTENT_Y;
         drawHeader(g, "代码", 12, headerY);
         drawHeader(g, "名称", 62, headerY);
@@ -898,6 +1164,7 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         int tradeY = STOCK_TRADE_Y;
         drawSimpleSeparator(g, 8, tradeY - 6, imageWidth - 16);
         drawSectionTitle(g, "限价委托", 10, tradeY);
+        drawButton(g, "K线", 360, tradeY - 2, 30, false);
         FinanceMenu.StockRow selected = findSelectedStock();
         if (selected != null) {
             drawClippedString(g, displayStockSymbol(selected) + " " + selected.name(), 92, tradeY, 160, COL_TEXT);
@@ -993,6 +1260,144 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
             drawButton(g, "取消", 300, y - 2, 42, false);
             y += ROW_HEIGHT;
         }
+    }
+
+    private void renderCandlestickView(GuiGraphics g, MarketInstrumentType type, String id,
+                                       String title, int mouseX, int mouseY) {
+        drawClippedString(g, "日K · " + (title == null ? "" : title), 10, CONTENT_Y, 88, COL_TEXT);
+        drawButton(g, "30天", 178, CONTENT_Y - 2, 48, chartLimit == 30);
+        drawButton(g, "60天", 230, CONTENT_Y - 2, 48, chartLimit == 60);
+        drawButton(g, "120天", 282, CONTENT_Y - 2, 52, chartLimit == 120);
+        drawButton(g, "返回", 342, CONTENT_Y - 2, 48, false);
+        drawButton(g, chartPanel.label, 104, CONTENT_Y - 2, 66, true);
+        CandlestickClientCache.Entry chartEntry = CandlestickClientCache.get(type, id, chartLimit);
+        List<finance.chart.Candlestick> bars = chartEntry.bars();
+        if (chartEntry.state() == CandlestickClientCache.State.LOADING) {
+            drawClippedString(g, "Loading market data...", 10, CONTENT_Y + 16, 240, COL_TEXT_DIM);
+        } else if (chartEntry.state() == CandlestickClientCache.State.SLOW) {
+            drawClippedString(g, "Server response is slow; you can retry.", 10, CONTENT_Y + 16, 280, COL_BAD);
+        } else if (chartEntry.state() == CandlestickClientCache.State.EMPTY) {
+            drawClippedString(g, "No trades in this time window.", 10, CONTENT_Y + 16, 240, COL_TEXT_DIM);
+        }
+        MarketSummary summary = MarketSummary.from(bars, chartEntry.serverCurrentMcDay());
+        if (summary != null) {
+            int color = summary.change() >= 0 ? COL_GOOD : COL_BAD;
+            drawClippedString(g, "最新 " + summary.latestPrice() + "  " + signedLong(summary.change())
+                    + " (" + FormatUtil.formatPercent(summary.changePercent()) + ")", 10, CONTENT_Y + 16, 240, color);
+            drawClippedString(g, "高 " + summary.high() + " 低 " + summary.low() + " 量 " + summary.volume()
+                    + (summary.volumeSpike() ? " 放量" : ""), 250, CONTENT_Y + 16, 140, COL_TEXT_DIM);
+        }
+        if (!bars.isEmpty() && !chartEntry.latestBarComplete()) {
+            drawClippedString(g, "Current day (in progress)", 250, CONTENT_Y + 2, 132, COL_WARN);
+        }
+        int panelY = CONTENT_Y + 29;
+        int panelHeight = imageHeight - CONTENT_Y - 37;
+        switch (chartPanel) {
+            case KLINE_MA -> CandlestickChart.render(g, font, bars,
+                    8, panelY, imageWidth - 16, panelHeight, mouseX, mouseY);
+            case MACD -> TechnicalIndicatorChart.renderMacd(g, font, bars,
+                    8, panelY, imageWidth - 16, panelHeight);
+            case RSI -> TechnicalIndicatorChart.renderRsi(g, font, bars,
+                    8, panelY, imageWidth - 16, panelHeight);
+            case ORDER_BOOK -> renderOrderBook(g, chartEntry.orderBook(), panelY);
+            case RECENT -> renderRecentTrades(g, chartEntry.recentTrades(), panelY);
+            case RANKINGS -> renderRankings(g, chartEntry.rankings(), panelY);
+            case RANK_VOLUME -> renderVolumeRankings(g, chartEntry.rankings(), panelY);
+        }
+    }
+
+    private void renderOrderBook(GuiGraphics g, finance.marketdata.OrderBookSnapshot book, int y) {
+        drawHeader(g, "Bids price / qty", 26, y);
+        drawHeader(g, "Asks price / qty", 214, y);
+        for (int i = 0; i < 5; i++) {
+            int rowY = y + 16 + i * 15;
+            if (i < book.bids().size()) {
+                finance.marketdata.OrderBookLevel level = book.bids().get(i);
+                drawClippedString(g, level.price() + " / " + level.quantity(), 26, rowY, 150, COL_GOOD);
+            }
+            if (i < book.asks().size()) {
+                finance.marketdata.OrderBookLevel level = book.asks().get(i);
+                drawClippedString(g, level.price() + " / " + level.quantity(), 214, rowY, 150, COL_BAD);
+            }
+        }
+    }
+
+    private void renderRecentTrades(GuiGraphics g, List<finance.marketdata.RecentTradeEntry> trades, int y) {
+        drawHeader(g, "Time", 18, y);
+        drawHeader(g, "Side", 104, y);
+        drawHeader(g, "Price", 180, y);
+        drawHeader(g, "Qty", 282, y);
+        int rows = Math.min(8, trades.size());
+        for (int i = 0; i < rows; i++) {
+            finance.marketdata.RecentTradeEntry trade = trades.get(i);
+            int rowY = y + 15 + i * 13;
+            drawClippedString(g, "D" + trade.mcDay() + " " + trade.timestamp().toLocalTime().withNano(0),
+                    18, rowY, 76, COL_TEXT_DIM);
+            drawClippedString(g, trade.direction().name(), 104, rowY, 62,
+                    trade.direction() == finance.marketdata.TradeDirection.BUY ? COL_GOOD : COL_BAD);
+            drawClippedString(g, Long.toString(trade.price()), 180, rowY, 90, COL_TEXT);
+            drawClippedString(g, Long.toString(trade.quantity()), 282, rowY, 84, COL_TEXT);
+        }
+    }
+
+    private void renderRankings(GuiGraphics g, finance.marketdata.MarketRankingSnapshot rankings, int y) {
+        renderRankingColumn(g, "Com up", rankings.commodityGainers(), 12, y, true, false);
+        renderRankingColumn(g, "Com down", rankings.commodityLosers(), 108, y, true, false);
+        renderRankingColumn(g, "Stock up", rankings.stockGainers(), 204, y, true, false);
+        renderRankingColumn(g, "Stock down", rankings.stockLosers(), 300, y, true, false);
+    }
+
+    private void renderVolumeRankings(GuiGraphics g, finance.marketdata.MarketRankingSnapshot rankings, int y) {
+        renderRankingColumn(g, "Com volume", rankings.commodityVolumeLeaders(), 36, y, false, false);
+        renderRankingColumn(g, "Stock volume", rankings.stockVolumeLeaders(), 156, y, false, false);
+        renderRankingColumn(g, "Unusual", rankings.unusualVolume(), 276, y, false, true);
+    }
+
+    private void renderRankingColumn(GuiGraphics g, String title,
+                                     List<finance.marketdata.MarketRankingEntry> entries,
+                                     int x, int y, boolean change, boolean ratio) {
+        drawHeader(g, title, x, y);
+        for (int i = 0; i < Math.min(5, entries.size()); i++) {
+            finance.marketdata.MarketRankingEntry entry = entries.get(i);
+            drawClippedString(g, entry.id(), x, y + 15 + i * 17, 84, COL_TEXT);
+            String value = change ? String.format(java.util.Locale.ROOT, "%+.1f%%", entry.changePercent())
+                    : ratio ? String.format(java.util.Locale.ROOT, "x%.1f", entry.volumeRatio())
+                    : Long.toString(entry.volume());
+            drawClippedString(g, value, x, y + 24 + i * 17, 84,
+                    change ? (entry.changePercent() >= 0 ? COL_GOOD : COL_BAD) : COL_ACCENT);
+        }
+    }
+
+    private void requestCandlesticks(MarketInstrumentType type, String id) {
+        if (id == null || id.isBlank()) return;
+        long requestId = CandlestickClientCache.nextRequestId();
+        CandlestickClientCache.begin(requestId, type, id, chartLimit);
+        FinancePacketHandler.CHANNEL.sendToServer(new CandlestickRequestPacket(requestId, type, id, chartLimit));
+    }
+
+    private boolean handleCandlestickControls(int mx, int my, MarketInstrumentType type, String id) {
+        if (my < CONTENT_Y - 2 || my >= CONTENT_Y + 12) return false;
+        if (mx >= 104 && mx < 170) {
+            chartPanel = chartPanel.next();
+            return true;
+        }
+        int requestedLimit = 0;
+        if (mx >= 178 && mx < 226) requestedLimit = 30;
+        else if (mx >= 230 && mx < 278) requestedLimit = 60;
+        else if (mx >= 282 && mx < 334) requestedLimit = 120;
+        if (requestedLimit > 0) {
+            chartLimit = requestedLimit;
+            requestCandlesticks(type, id);
+            return true;
+        }
+        if (mx >= 342 && mx < 390) {
+            if (type == MarketInstrumentType.COMMODITY) commodityChartVisible = false;
+            else if(type == MarketInstrumentType.STOCK) stockChartVisible = false;
+            else if(type == MarketInstrumentType.FUTURES) futuresChartVisible = false;
+            updateInputVisibility();
+            return true;
+        }
+        return false;
     }
 
     // ================================================================
@@ -1104,7 +1509,12 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         drawFilledButton(g, "股票涨到", 276, y + 58, 58, COL_GOOD);
         drawFilledButton(g, "股票跌到", 340, y + 58, 50, COL_BAD);
 
-        y += 86;
+        drawFilledButton(g, "Commodity prev high", 10, y + 74, 88, COL_GOOD);
+        drawFilledButton(g, "Commodity prev low", 104, y + 74, 88, COL_BAD);
+        drawFilledButton(g, "Stock prev high", 198, y + 74, 88, COL_GOOD);
+        drawFilledButton(g, "Stock prev low", 292, y + 74, 88, COL_BAD);
+
+        y += 104;
         drawHeader(g, "类型", 12, y);
         drawHeader(g, "对象", 58, y);
         drawHeader(g, "方向", 146, y);
@@ -1141,32 +1551,65 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         FinanceMenu.EconomyDashboardRow dashboard = menu.getDashboard();
         int y = CONTENT_Y;
         drawSectionTitle(g, "经济仪表盘", 10, y);
-        drawClippedString(g, "只读监控，不直接修改市场。", 100, y, 180, COL_TEXT_DIM);
+        drawClippedString(g, "管理员只读监控：当前日数据与最近 30 天趋势", 100, y, 260, COL_TEXT_DIM);
         y += 20;
 
         g.fill(8, y - 4, imageWidth - 8, imageHeight - 8, 0xFFF1ECDD);
         drawSimpleBorder(g, 8, y - 4, imageWidth - 16, imageHeight - y - 4, COL_PANEL_BORDER);
-
-        drawClippedString(g, "货币总量", 18, y + 6, 80, COL_TEXT_DIM);
-        drawClippedString(g, Long.toString(dashboard.totalMoney()), 110, y + 6, 120, COL_ACCENT);
-        drawClippedString(g, "破产风险公司", 238, y + 6, 82, COL_TEXT_DIM);
-        drawClippedString(g, Integer.toString(dashboard.bankruptcyRiskCompanies()), 328, y + 6, 50,
+        drawClippedString(g, "货币总量", 18, y + 4, 75, COL_TEXT_DIM);
+        drawClippedString(g, Long.toString(dashboard.totalMoney()), 92, y + 4, 115, COL_ACCENT);
+        drawClippedString(g, "风险公司", 220, y + 4, 65, COL_TEXT_DIM);
+        drawClippedString(g, Integer.toString(dashboard.bankruptcyRiskCompanies()), 292, y + 4, 35,
                 dashboard.bankruptcyRiskCompanies() > 0 ? COL_BAD : COL_GOOD);
 
-        drawClippedString(g, "商品成交量", 18, y + 28, 80, COL_TEXT_DIM);
-        drawClippedString(g, Long.toString(dashboard.dailyCommodityVolume()), 110, y + 28, 120, COL_TEXT);
-        drawClippedString(g, "股票成交量", 238, y + 28, 80, COL_TEXT_DIM);
-        drawClippedString(g, Long.toString(dashboard.dailyStockVolume()), 328, y + 28, 50, COL_TEXT);
+        drawClippedString(g, "玩家", 18, y + 22, 35, COL_TEXT_DIM);
+        drawClippedString(g, Long.toString(dashboard.playerCash()), 52, y + 22, 72, COL_TEXT);
+        drawClippedString(g, "冻结", 130, y + 22, 35, COL_TEXT_DIM);
+        drawClippedString(g, Long.toString(dashboard.playerFrozenFunds()), 165, y + 22, 72, COL_TEXT);
+        drawClippedString(g, "公司", 244, y + 22, 32, COL_TEXT_DIM);
+        drawClippedString(g, Long.toString(dashboard.companyCash()), 277, y + 22, 80, COL_TEXT);
 
-        drawClippedString(g, "价格指数", 18, y + 50, 80, COL_TEXT_DIM);
-        drawClippedString(g, String.format(Locale.ROOT, "%.1f", dashboard.priceIndex()), 110, y + 50, 80,
+        drawClippedString(g, "NPC市场", 18, y + 40, 45, COL_TEXT_DIM);
+        drawClippedString(g, Long.toString(dashboard.npcCash()), 65, y + 40, 92, COL_TEXT);
+        drawClippedString(g, "央行储备", 165, y + 40, 50, COL_TEXT_DIM);
+        drawClippedString(g, Long.toString(dashboard.centralBankReserve()), 218, y + 40, 120, COL_TEXT);
+
+        drawClippedString(g, "当日商品", 18, y + 58, 48, COL_TEXT_DIM);
+        drawClippedString(g, Long.toString(dashboard.dailyCommodityVolume()), 68, y + 58, 65, COL_TEXT);
+        drawClippedString(g, "当日股票", 142, y + 58, 48, COL_TEXT_DIM);
+        drawClippedString(g, Long.toString(dashboard.dailyStockVolume()), 192, y + 58, 65, COL_TEXT);
+        drawClippedString(g, "价格指数", 266, y + 58, 45, COL_TEXT_DIM);
+        drawClippedString(g, String.format(Locale.ROOT, "%.1f", dashboard.priceIndex()), 312, y + 58, 50,
                 dashboard.priceIndex() >= 100.0 ? COL_GOOD : COL_BAD);
-        drawClippedString(g, "基准=100，按当前商品中价 / 基准价均值计算。", 190, y + 50, 180, COL_TEXT_DIM);
 
-        drawClippedString(g, "央行最近干预", 18, y + 78, 90, COL_TEXT_DIM);
-        drawClippedString(g, dashboard.centralBankSummary(), 110, y + 78, 260, COL_WARN);
-        drawClippedString(g, "用途：观察货币池、成交活跃度、价格压力和系统性风险。", 18, y + 106, 330, COL_TEXT_DIM);
+        drawClippedString(g, "近30日价格指数", 18, y + 80, 90, COL_TEXT_DIM);
+        renderDashboardTrend(g, dashboard.trends(), 18, y + 94, 340, 48);
+        drawClippedString(g, "央行最近干预：" + dashboard.centralBankSummary(), 18, y + 148, 340, COL_WARN);
     }
+
+    private void renderDashboardTrend(GuiGraphics g, List<FinanceMenu.EconomyTrendRow> trends,
+                                      int x, int y, int width, int height) {
+        g.fill(x, y, x + width, y + height, 0xFFE8E2D3);
+        if (trends == null || trends.isEmpty()) {
+            drawClippedString(g, "尚无完整日度快照", x + 8, y + 18, width - 16, COL_TEXT_DIM);
+            return;
+        }
+        double min = trends.stream().mapToDouble(FinanceMenu.EconomyTrendRow::priceIndex).min().orElse(100.0);
+        double max = trends.stream().mapToDouble(FinanceMenu.EconomyTrendRow::priceIndex).max().orElse(100.0);
+        double span = Math.max(1.0, max - min);
+        int count = trends.size();
+        for (int index = 0; index < count; index++) {
+            double value = trends.get(index).priceIndex();
+            int barHeight = Math.max(1, (int) Math.round((value - min) / span * (height - 8)));
+            int left = x + index * width / count;
+            int right = x + (index + 1) * width / count - 1;
+            g.fill(left, y + height - 3 - barHeight, Math.max(left + 1, right), y + height - 3,
+                    value >= 100.0 ? COL_GOOD : COL_BAD);
+        }
+        drawClippedString(g, String.format(Locale.ROOT, "%.1f", max), x + 2, y + 2, 45, COL_TEXT_DIM);
+        drawClippedString(g, String.format(Locale.ROOT, "%.1f", min), x + 2, y + height - 11, 45, COL_TEXT_DIM);
+    }
+
 
     // ================================================================
     // 管理（管理员专用）
@@ -1371,6 +1814,74 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
     // 点击处理
     // ================================================================
 
+    private boolean handleFinancialProductsClick(int mx, int my) {
+        if (my >= CONTENT_Y - 2 && my <= CONTENT_Y + 14) {
+            for (int i = 0; i < 10; i++) {
+                int x = 10 + i * 38;
+                if (mx >= x && mx <= x + 36) {
+                    financialSubTab = i;
+                    if(i!=6)futuresChartVisible=false;
+                    updateInputVisibility();
+                    if(i==6)requestFutures();else if(i==7)requestBanks();else if(i==8)requestFunds();else if(i==9)requestInsurance();else requestFinancialProducts();
+                    return true;
+                }
+            }
+        }
+        if(financialSubTab==6){var cache=FuturesClientCache.get();var data=cache.data();if(data==null)return false;var chartContract=data.contracts().stream().findFirst().orElse(null);if(futuresChartVisible&&chartContract!=null)return handleCandlestickControls(mx,my,MarketInstrumentType.FUTURES,chartContract.id().toString());if(my>=CONTENT_Y+22&&my<188&&chartContract!=null){futuresChartVisible=true;requestCandlesticks(MarketInstrumentType.FUTURES,chartContract.id().toString());updateInputVisibility();return true;}var contract=data.contracts().stream().filter(c->c.status()==finance.futures.FuturesContractStatus.TRADING||c.status()==finance.futures.FuturesContractStatus.LAST_TRADING_DAY).findFirst().orElse(null);long amount=Math.max(1,parseLong(stockPriceBox.getValue())),quantity=Math.max(1,parseLong(stockQuantityBox.getValue()));int term=Math.max(2,parseInt(companyAmountBox.getValue()));
+            if(my>=188&&my<=208&&mx>=365&&contract!=null){FinancePacketHandler.CHANNEL.sendToServer(new FuturesActionPacket(FuturesActionPacket.Action.PLACE_BUY,contract.id(),"",0,amount,quantity,0));requestFutures();return true;}
+            if(my>=208&&my<=230){if(mx>=244&&mx<274&&contract!=null)FinancePacketHandler.CHANNEL.sendToServer(new FuturesActionPacket(FuturesActionPacket.Action.PLACE_SELL,contract.id(),"",0,amount,quantity,0));else if(mx>=274&&mx<304)FinancePacketHandler.CHANNEL.sendToServer(new FuturesActionPacket(FuturesActionPacket.Action.DEPOSIT_MARGIN,null,"",amount,0,0,0));else if(mx>=304&&mx<334)FinancePacketHandler.CHANNEL.sendToServer(new FuturesActionPacket(FuturesActionPacket.Action.WITHDRAW_MARGIN,null,"",amount,0,0,0));else if(mx>=334&&mx<364){var own=data.orders().stream().filter(o->o.owned()).findFirst().orElse(null);if(own==null)return false;FinancePacketHandler.CHANNEL.sendToServer(new FuturesActionPacket(FuturesActionPacket.Action.CANCEL_ORDER,own.orderId(),"",0,0,0,0));}else if(mx>=364&&isAdmin)FinancePacketHandler.CHANNEL.sendToServer(new FuturesActionPacket(FuturesActionPacket.Action.CREATE_CONTRACT,null,selectedCommodity,0,0,0,term));else return false;requestFutures();return true;}}
+        if(financialSubTab==7){var cache=BankClientCache.get();var data=cache.data();if(data==null)return false;var bank=data.banks().stream().filter(b->b.status()==finance.bank.BankStatus.ACTIVE||b.status()==finance.bank.BankStatus.WATCH).findFirst().orElse(null);var demands=data.accounts().stream().filter(a->a.ownerType()==finance.bank.CustomerType.PLAYER&&a.type()==finance.bank.BankAccountType.DEMAND_DEPOSIT).toList();var demand=demands.stream().findFirst().orElse(null);var transferTarget=demands.stream().filter(a->demand!=null&&!a.id().equals(demand.id())).findFirst().orElse(null);var matured=data.timeDeposits().stream().filter(t->t.status()==finance.bank.TimeDepositStatus.MATURED).findFirst().orElse(null);long amount=Math.max(1,parseLong(stockPriceBox.getValue()));int term=Math.max(2,parseInt(stockQuantityBox.getValue())),interval=Math.max(1,parseInt(companyAmountBox.getValue()));if(my>=208&&my<=230){BankActionPacket packet;if(mx>=54&&mx<90&&demand!=null&&transferTarget!=null)packet=new BankActionPacket(BankActionPacket.Action.TRANSFER,demand.id(),transferTarget.id(),amount,0,0);else if(mx>=94&&mx<130&&bank!=null)packet=new BankActionPacket(BankActionPacket.Action.DEPOSIT,bank.id(),null,amount,0,0);else if(mx>=134&&mx<170&&demand!=null)packet=new BankActionPacket(BankActionPacket.Action.WITHDRAW,demand.id(),null,amount,0,0);else if(mx>=174&&mx<210&&demand!=null)packet=new BankActionPacket(BankActionPacket.Action.OPEN_TIME,demand.id(),null,amount,term,0);else if(mx>=214&&mx<250&&matured!=null)packet=new BankActionPacket(BankActionPacket.Action.REDEEM_TIME,matured.id(),null,0,0,0);else if(mx>=254&&mx<290&&bank!=null)packet=new BankActionPacket(BankActionPacket.Action.APPLY_COMPANY_LOAN,bank.id(),null,amount,term,Math.min(interval,term-1));else if(mx>=294&&mx<336&&bank!=null)packet=new BankActionPacket(BankActionPacket.Action.WITHDRAW_COMPANY,bank.id(),null,amount,0,0);else if(mx>=340&&isAdmin){var target=data.banks().stream().filter(b->b.status()==finance.bank.BankStatus.RESOLUTION).findFirst().orElse(null);packet=target==null?new BankActionPacket(BankActionPacket.Action.ADMIN_STRESS_TEST,null,null,0,0,0):new BankActionPacket(BankActionPacket.Action.ADMIN_RESOLVE,target.id(),null,0,0,0);}else return false;FinancePacketHandler.CHANNEL.sendToServer(packet);requestBanks();return true;}}
+        if(financialSubTab==8){var data=FundClientCache.get();if(data.state()!=FundClientCache.State.READY||data.funds().isEmpty())return false;var fund=data.funds().get(0);long amount=Math.max(1,parseLong(stockPriceBox.getValue())),shares=Math.max(100,parseLong(stockQuantityBox.getValue()));int interval=Math.max(1,parseInt(companyAmountBox.getValue()));if(my>=185&&my<=210){FundActionPacket packet;if(mx>=275&&mx<315)packet=new FundActionPacket(FundActionPacket.Action.SUBSCRIBE,fund.id(),null,amount,0,0,UUID.randomUUID().toString());else if(mx>=320&&mx<360)packet=new FundActionPacket(FundActionPacket.Action.REDEEM,fund.id(),null,0,shares,0,UUID.randomUUID().toString());else if(mx>=365)packet=new FundActionPacket(FundActionPacket.Action.CREATE_PLAN,fund.id(),null,amount,0,interval,UUID.randomUUID().toString());else return false;FinancePacketHandler.CHANNEL.sendToServer(packet);requestFunds();return true;}if(my>=210&&my<=232&&mx<270){FinancePacketHandler.CHANNEL.sendToServer(new FundActionPacket(FundActionPacket.Action.ACKNOWLEDGE_RISK,fund.id(),null,0,0,0,""));return true;}}
+        if(financialSubTab==9&&my>=208&&my<=232){var entry=InsuranceClientCache.get();if(mx>=218&&mx<266&&entry.data()!=null&&!entry.data().policies().isEmpty()){var policy=entry.data().policies().get(0);FinancePacketHandler.CHANNEL.sendToServer(new InsuranceActionPacket(InsuranceActionPacket.Action.CANCEL,policy.product(),policy.id(),0,0,UUID.randomUUID().toString()));requestInsurance();return true;}var company=menu.getPlayerCompany();if(company==null)return false;finance.insurance.InsuranceProduct product=mx>=330?finance.insurance.InsuranceProduct.BUSINESS_INTERRUPTION:finance.insurance.InsuranceProduct.INVENTORY_DISASTER;long coverage=Math.max(1,parseLong(stockPriceBox.getValue()));int term=Math.max(2,Math.min(365,parseInt(stockQuantityBox.getValue())));FinancePacketHandler.CHANNEL.sendToServer(new InsuranceActionPacket(InsuranceActionPacket.Action.PURCHASE,product,company.companyId(),coverage,term,UUID.randomUUID().toString()));requestInsurance();return true;}
+        if (my >= 188 && my <= 208 && mx >= 365) {
+            long amount = Math.max(1, parseLong(stockPriceBox.getValue()));
+            long quantity = Math.max(1, parseLong(stockQuantityBox.getValue()));
+            int third = Math.max(1, parseInt(companyAmountBox.getValue()));
+            FinancialProductActionPacket packet;
+            if (financialSubTab == 0 && isAdmin) {
+                packet = new FinancialProductActionPacket(FinancialProductActionPacket.Action.SET_BENCHMARK_RATE,
+                        null, 0, 0, third, 0, 0);
+            } else if (financialSubTab == 1) {
+                packet = new FinancialProductActionPacket(FinancialProductActionPacket.Action.ISSUE_BOND,
+                        null, amount, quantity, third, 30, 7);
+            } else if (financialSubTab == 2) {
+                var target=FinancialProductClientCache.get().bonds().stream().filter(b->b.status()==finance.debt.BondStatus.ACTIVE).findFirst().orElse(null); if(target==null)return false;
+                packet = new FinancialProductActionPacket(FinancialProductActionPacket.Action.PLACE_BOND_BUY,
+                        target.id(),amount,quantity,0,0,0);
+            } else if (financialSubTab == 4) {
+                packet = new FinancialProductActionPacket(FinancialProductActionPacket.Action.SUBSCRIBE_CENTRAL_BANK_BILL,
+                        null,amount,0,0,third,0);
+            } else if (financialSubTab == 5) {
+                packet = new FinancialProductActionPacket(FinancialProductActionPacket.Action.APPLY_LOAN,
+                        null, amount, 0, 0, (int) Math.min(365, quantity), third);
+            } else return false;
+            FinancePacketHandler.CHANNEL.sendToServer(packet);
+            return true;
+        }
+        if (my >= 208 && my <= 230) {
+            FinancialProductClientCache.Entry data = FinancialProductClientCache.get();
+            if (financialSubTab == 1 && !data.bonds().isEmpty()) {
+                FinancePacketHandler.CHANNEL.sendToServer(new FinancialProductActionPacket(
+                        FinancialProductActionPacket.Action.SUBSCRIBE_BOND, data.bonds().get(0).id(), 0,
+                        Math.max(1, parseLong(stockQuantityBox.getValue())), 0, 0, 0));
+                return true;
+            }
+            if (financialSubTab == 2) {
+                var target=data.bonds().stream().filter(b->b.status()==finance.debt.BondStatus.ACTIVE&&b.availableQuantity()>0).findFirst().orElse(null);
+                if(target!=null && mx<344) { FinancePacketHandler.CHANNEL.sendToServer(new FinancialProductActionPacket(FinancialProductActionPacket.Action.PLACE_BOND_SELL,target.id(),Math.max(1,parseLong(stockPriceBox.getValue())),Math.max(1,parseLong(stockQuantityBox.getValue())),0,0,0)); return true; }
+                var own=data.bondOrders().stream().filter(o->o.ownedByPlayer()).findFirst().orElse(null);
+                if(own!=null) { FinancePacketHandler.CHANNEL.sendToServer(new FinancialProductActionPacket(FinancialProductActionPacket.Action.CANCEL_BOND_ORDER,own.orderId(),0,0,0,0,0)); return true; }
+            }
+            if (financialSubTab == 5 && !data.loans().isEmpty()) {
+                FinancePacketHandler.CHANNEL.sendToServer(new FinancialProductActionPacket(
+                        FinancialProductActionPacket.Action.REPAY_LOAN, data.loans().get(0).id(),
+                        Math.max(1, parseLong(stockPriceBox.getValue())), 0, 0, 0, 0));
+                return true;
+            }
+        }
+        return false;
+    }
+
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         for (EditBox box : getVisibleEditBoxes()) {
@@ -1390,6 +1901,7 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
                     rememberUiState();
                     dropdownOpen = false;
                     updateInputVisibility();
+                    if (currentTab == 9) { if(financialSubTab==6)requestFutures();else if(financialSubTab==7)requestBanks();else if(financialSubTab==8)requestFunds();else requestFinancialProducts(); }
                     return true;
                 }
                 x += w + 3;
@@ -1412,7 +1924,8 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
             case 5 -> handleStockClick(mx, my);
             case 7 -> handleAssetClick(mx, my);
             case 8 -> handleAlertClick(mx, my);
-            case 10 -> isAdmin && handleAdminClick(mx, my);
+            case 9 -> handleFinancialProductsClick(mx, my);
+            case 11 -> isAdmin && handleAdminClick(mx, my);
             default -> false;
         };
         if (handled) {
@@ -1435,7 +1948,7 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
             dropdownScroll = Math.max(0, Math.min(maxScroll, dropdownScroll - (int)(delta * 14)));
             return true;
         }
-        if (currentTab == 10 && isAdmin) {
+        if (currentTab == 11 && isAdmin) {
             if (adminSubTab == 1) {
                 int maxPage = Math.max(0, (QUICK_ITEMS.length - 1) / quickItemsPerPage());
                 adminQuickPage = Math.max(0, Math.min(maxPage, adminQuickPage - (int) Math.signum(delta)));
@@ -1533,6 +2046,9 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
     // ---- 标签 0 点击: 行情 + 国际交易 ----
 
     private boolean handleMarketClick(int mx, int my) {
+        if (commodityChartVisible) {
+            return handleCandlestickControls(mx, my, MarketInstrumentType.COMMODITY, selectedCommodity);
+        }
         int headerY = CONTENT_Y;
         int rowY = headerY + 16;
         int maxRows = Math.min(cachedMarketData.size(), Math.max(1, (MARKET_TRADE_Y - rowY - 8) / ROW_HEIGHT));
@@ -1547,6 +2063,13 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         }
 
         int tradeY = MARKET_TRADE_Y;
+
+        if (mx >= 360 && mx < 390 && my >= tradeY && my < tradeY + 14) {
+            commodityChartVisible = true;
+            requestCandlesticks(MarketInstrumentType.COMMODITY, selectedCommodity);
+            updateInputVisibility();
+            return true;
+        }
 
         // 数量加减按钮
         if (my >= tradeY + 52 && my < tradeY + 66) {
@@ -1757,6 +2280,56 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         int cardY = CONTENT_Y;
         FinanceMenu.CompanyInfo playerCompany = menu.getPlayerCompany();
         if (playerCompany != null) {
+            if (governanceView) {
+                if (mx >= 340 && mx < 376 && my >= cardY + 2 && my < cardY + 15) {
+                    governanceView = false;
+                    updateInputVisibility();
+                    return true;
+                }
+                int controlsY=cardY+164;
+                long price=Math.max(1,parseLong(stockPriceBox.getValue()));
+                long quantity=Math.max(1,parseLong(stockQuantityBox.getValue()));
+                int duration=(int)Math.max(1,Math.min(90,parseLong(companyAmountBox.getValue())));
+                if(my>=controlsY+24&&my<controlsY+37){
+                    if(mx>=10&&mx<66){sendProposal(playerCompany.companyId(),CompanyProposalType.SHARE_BUYBACK,"",price,quantity,duration);return true;}
+                    if(mx>=70&&mx<126){sendProposal(playerCompany.companyId(),CompanyProposalType.TREASURY_RETIREMENT,"",quantity,0,0);return true;}
+                    if(mx>=130&&mx<186){
+                        GovernanceResponsePacket data=GovernanceClientCache.get().data();
+                        GovernanceResponsePacket.ActionRow action=data==null?null:data.actions().stream().filter(a->a.status()==finance.governance.CapitalActionStatus.OPEN).findFirst().orElse(null);
+                        if(action==null){setStatus("没有可接受的开放行动");return true;}
+                        GovernanceActionPacket.Action kind="TENDER".equals(action.type())?GovernanceActionPacket.Action.ACCEPT_TENDER:GovernanceActionPacket.Action.ACCEPT_BUYBACK;
+                        FinancePacketHandler.CHANNEL.sendToServer(new GovernanceActionPacket(kind,action.id(),0,quantity,0,0,UUID.randomUUID().toString()));
+                        setStatus("已提交行动接受请求");return true;
+                    }
+                    if(mx>=190&&mx<246){
+                        FinanceMenu.CompanyProposalRow proposal=proposalsForCompany(playerCompany.companyId()).stream()
+                                .filter(p->"PASSED".equals(p.status())&&("EMERGENCY_RECAPITALIZATION".equals(p.type())||"MAJOR_ASSET_PURCHASE".equals(p.type())))
+                                .findFirst().orElse(null);
+                        if(proposal==null){setStatus("没有等待执行的重组提案");return true;}
+                        GovernanceActionPacket.Action kind="EMERGENCY_RECAPITALIZATION".equals(proposal.type())
+                                ?GovernanceActionPacket.Action.EXECUTE_RECAPITALIZATION:GovernanceActionPacket.Action.EXECUTE_ASSET_PURCHASE;
+                        FinancePacketHandler.CHANNEL.sendToServer(new GovernanceActionPacket(kind,proposal.proposalId(),0,0,0,0,UUID.randomUUID().toString()));
+                        setStatus("已提交重组执行请求");return true;
+                    }
+                    if(mx>=330&&mx<376){GovernanceClientCache.clear();requestGovernance(playerCompany.companyId());setStatus("正在刷新治理数据");return true;}
+                }
+                if(my>=controlsY+40&&my<controlsY+53){
+                    String target=companyNameBox.getValue().trim();
+                    if(mx>=10&&mx<66){
+                        try{UUID targetCompany=UUID.fromString(target);FinancePacketHandler.CHANNEL.sendToServer(new GovernanceActionPacket(GovernanceActionPacket.Action.START_TENDER,targetCompany,price,quantity,quantity,duration,UUID.randomUUID().toString()));setStatus("已提交公开收购要约");}catch(IllegalArgumentException invalid){setStatus("请输入目标公司的完整 UUID");}return true;
+                    }
+                    if(mx>=70&&mx<126){sendProposal(playerCompany.companyId(),CompanyProposalType.EMERGENCY_RECAPITALIZATION,"",price,0,0);return true;}
+                    if(mx>=130&&mx<186){sendProposal(playerCompany.companyId(),CompanyProposalType.MAJOR_ASSET_PURCHASE,target,price,quantity,0);return true;}
+                }
+                return false;
+            }
+            if (playerCompany.isPublic() && mx >= 340 && mx < 376 && my >= cardY + 14 && my < cardY + 27) {
+                governanceView = true;
+                GovernanceClientCache.clear();
+                requestGovernance(playerCompany.companyId());
+                updateInputVisibility();
+                return true;
+            }
             if (mx >= 58 && mx < 176 && my >= cardY + 62 && my < cardY + 75) {
                 CompanyStrategy[] strategies = CompanyStrategy.values();
                 int idx = 0;
@@ -1908,6 +2481,9 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
     // ---- 标签 5 点击: 股票 ----
 
     private boolean handleStockClick(int mx, int my) {
+        if (stockChartVisible) {
+            return handleCandlestickControls(mx, my, MarketInstrumentType.STOCK, selectedStock);
+        }
         int rowY = CONTENT_Y + 16;
         int maxRows = Math.min(menu.getStocks().size(), Math.max(1, (STOCK_TRADE_Y - rowY - 10) / ROW_HEIGHT));
         for (int i = 0; i < maxRows; i++) {
@@ -1924,6 +2500,12 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         }
 
         int tradeY = STOCK_TRADE_Y;
+        if (mx >= 360 && mx < 390 && my >= tradeY - 2 && my < tradeY + 12) {
+            stockChartVisible = true;
+            requestCandlesticks(MarketInstrumentType.STOCK, selectedStock);
+            updateInputVisibility();
+            return true;
+        }
         if (my >= tradeY + 36 && my < tradeY + 50) {
             int qty = parseInt(stockQuantityBox.getValue());
             if (mx >= 124 && mx < 144) {
@@ -2034,6 +2616,32 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
     private boolean handleAlertClick(int mx, int my) {
         int y = CONTENT_Y;
         long targetPrice = parseLong(alertPriceBox.getValue());
+        if (my >= y + 74 && my < y + 87) {
+            if (mx >= 10 && mx < 98) {
+                FinancePacketHandler.CHANNEL.sendToServer(new PriceAlertPacket(
+                        PriceAlertType.COMMODITY, selectedCommodity, PriceAlertDirection.PREVIOUS_HIGH_BREAKOUT, 0));
+                return true;
+            }
+            if (mx >= 104 && mx < 192) {
+                FinancePacketHandler.CHANNEL.sendToServer(new PriceAlertPacket(
+                        PriceAlertType.COMMODITY, selectedCommodity, PriceAlertDirection.PREVIOUS_LOW_BREAKDOWN, 0));
+                return true;
+            }
+            if (selectedStock == null || selectedStock.isBlank()) {
+                setStatus("Select a stock first.");
+                return true;
+            }
+            if (mx >= 198 && mx < 286) {
+                FinancePacketHandler.CHANNEL.sendToServer(new PriceAlertPacket(
+                        PriceAlertType.STOCK, selectedStock, PriceAlertDirection.PREVIOUS_HIGH_BREAKOUT, 0));
+                return true;
+            }
+            if (mx >= 292 && mx < 380) {
+                FinancePacketHandler.CHANNEL.sendToServer(new PriceAlertPacket(
+                        PriceAlertType.STOCK, selectedStock, PriceAlertDirection.PREVIOUS_LOW_BREAKDOWN, 0));
+                return true;
+            }
+        }
         if (my >= y + 58 && my < y + 71) {
             if (targetPrice <= 0) {
                 setStatus("请输入有效提醒价格");
@@ -2073,7 +2681,7 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
             }
         }
 
-        int listY = y + 86 + 18;
+        int listY = y + 104 + 18;
         List<FinanceMenu.PriceAlertRow> alerts = menu.getPriceAlerts();
         int maxRows = Math.min(alerts.size(), Math.max(1, (imageHeight - listY - 6) / ROW_HEIGHT));
         for (int i = 0; i < maxRows; i++) {
@@ -2306,30 +2914,50 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
     // ================================================================
 
     private void updateInputVisibility() {
-        intlQuantityBox.setVisible(currentTab == 0);
+        intlQuantityBox.setVisible(currentTab == 0 && !commodityChartVisible);
         boolean trade = (currentTab == 1);
         priceBox.setVisible(trade);
         quantityBox.setVisible(trade);
         inventoryQuantityBox.setVisible(currentTab == 3);
         FinanceMenu.CompanyInfo playerCompany = menu.getPlayerCompany();
         boolean createCompany = (currentTab == 4 && playerCompany == null);
-        boolean ipoCompany = (currentTab == 4 && playerCompany != null);
-        boolean manageCompany = (currentTab == 4 && playerCompany != null);
-        if (createCompany) {
+        boolean governance = currentTab == 4 && playerCompany != null && governanceView;
+        boolean ipoCompany = (currentTab == 4 && playerCompany != null && !governanceView);
+        boolean manageCompany = (currentTab == 4 && playerCompany != null && !governanceView);
+        if(governance){
+            companyNameBox.setX(leftPos+108);
+            companyNameBox.setY(topPos+CONTENT_Y+144);
+        } else if (createCompany) {
             companyNameBox.setX(leftPos + 70);
             companyNameBox.setY(topPos + CONTENT_Y + 36);
         } else if (manageCompany) {
             companyNameBox.setX(leftPos + 198);
             companyNameBox.setY(topPos + CONTENT_Y + 140);
         }
-        companyNameBox.setVisible(createCompany || manageCompany);
-        companyAmountBox.setVisible(manageCompany);
+        companyNameBox.setVisible(governance||createCompany || manageCompany);
         ipoPriceBox.setVisible(ipoCompany);
         ipoQuantityBox.setVisible(ipoCompany);
-        stockPriceBox.setVisible(currentTab == 5);
-        stockQuantityBox.setVisible(currentTab == 5);
+        boolean financial = currentTab == 9;
+        stockPriceBox.setVisible(governance||(currentTab == 5 && !stockChartVisible)
+                || (financial && !futuresChartVisible && (financialSubTab == 1 || financialSubTab == 2 || financialSubTab == 4 || financialSubTab == 5 || financialSubTab == 6 || financialSubTab == 7 || financialSubTab == 8 || financialSubTab == 9)));
+        stockQuantityBox.setVisible(governance||(currentTab == 5 && !stockChartVisible)
+                || (financial && !futuresChartVisible && (financialSubTab == 1 || financialSubTab == 2 || financialSubTab == 5 || financialSubTab == 6 || financialSubTab == 7 || financialSubTab == 8 || financialSubTab == 9)));
+        if(governance){
+            stockPriceBox.setX(leftPos+48);stockPriceBox.setY(topPos+CONTENT_Y+164);
+            stockQuantityBox.setX(leftPos+168);stockQuantityBox.setY(topPos+CONTENT_Y+164);
+            companyAmountBox.setX(leftPos+288);companyAmountBox.setY(topPos+CONTENT_Y+164);
+        } else if (financial) {
+            stockPriceBox.setX(leftPos + 50); stockPriceBox.setY(topPos + 188);
+            stockQuantityBox.setX(leftPos + 162); stockQuantityBox.setY(topPos + 188);
+            companyAmountBox.setX(leftPos + 282); companyAmountBox.setY(topPos + 188);
+        } else {
+            stockPriceBox.setX(leftPos + 54); stockPriceBox.setY(topPos + STOCK_TRADE_Y + 18);
+            stockQuantityBox.setX(leftPos + 54); stockQuantityBox.setY(topPos + STOCK_TRADE_Y + 38);
+            companyAmountBox.setX(leftPos + 58); companyAmountBox.setY(topPos + CONTENT_Y + 106);
+        }
+        companyAmountBox.setVisible(governance||manageCompany || (financial && !futuresChartVisible && financialSubTab != 2 && financialSubTab != 3 && financialSubTab != 9));
         alertPriceBox.setVisible(currentTab == 8);
-        boolean admin = (currentTab == 10 && isAdmin);
+        boolean admin = (currentTab == 11 && isAdmin);
         boolean adminHand = admin && adminSubTab == 0;
         adminCommodityIdBox.setVisible(adminHand);
         adminItemIdBox.setVisible(adminHand);
@@ -2339,7 +2967,7 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
 
     private List<EditBox> getVisibleEditBoxes() {
         List<EditBox> list = new ArrayList<>();
-        if (currentTab == 0) list.add(intlQuantityBox);
+        if (currentTab == 0 && !commodityChartVisible) list.add(intlQuantityBox);
         if (currentTab == 1) { list.add(priceBox); list.add(quantityBox); }
         if (currentTab == 3) list.add(inventoryQuantityBox);
         if (currentTab == 4 && menu.getPlayerCompany() == null) list.add(companyNameBox);
@@ -2349,14 +2977,19 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
             list.add(ipoPriceBox);
             list.add(ipoQuantityBox);
         }
-        if (currentTab == 5) {
+        if (currentTab == 5 && !stockChartVisible) {
             list.add(stockPriceBox);
             list.add(stockQuantityBox);
         }
         if (currentTab == 8) {
             list.add(alertPriceBox);
         }
-        if (currentTab == 10 && isAdmin && adminSubTab == 0) {
+        if (currentTab == 9) {
+            if (stockPriceBox.isVisible()) list.add(stockPriceBox);
+            if (stockQuantityBox.isVisible()) list.add(stockQuantityBox);
+            if (companyAmountBox.isVisible()) list.add(companyAmountBox);
+        }
+        if (currentTab == 11 && isAdmin && adminSubTab == 0) {
             list.add(adminBasePriceBox);
             list.add(adminCommodityIdBox);
             list.add(adminItemIdBox);
@@ -2523,6 +3156,12 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
             case "SHARE_ISSUE" -> "增发";
             case "RENAME" -> "改名";
             case "FUND_USAGE" -> "用途";
+            case "SHARE_BUYBACK" -> "回购";
+            case "TREASURY_RETIREMENT" -> "注销库存股";
+            case "TENDER_OFFER_RESPONSE" -> "要约响应";
+            case "CONTROL_TRANSFER" -> "控制权";
+            case "EMERGENCY_RECAPITALIZATION" -> "紧急再融资";
+            case "MAJOR_ASSET_PURCHASE" -> "重大资产";
             default -> type;
         };
     }
@@ -2537,8 +3176,11 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
     }
 
     private String displayProposalStatus(FinanceMenu.CompanyProposalRow row) {
+        if ("EXECUTED".equals(row.status())) {
+            return "已执行";
+        }
         if ("PASSED".equals(row.status())) {
-            return "通过";
+            return "待执行";
         }
         if ("FAILED".equals(row.status())) {
             return "未过";

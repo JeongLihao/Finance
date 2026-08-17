@@ -33,19 +33,25 @@ public class CommodityInventoryManager {
     }
 
     /** 增加商品（购买、管理命令等） */
-    public static void addCommodity(
+    public static boolean addCommodity(
             UUID playerId,
             String commodityId,
             int amount
     ) {
 
-        getInventory(playerId)
+        boolean success = getInventory(playerId)
                 .addCommodity(
                         commodityId,
                         amount
                 );
+        if (success) {
+            CommodityInventorySavedData.markDirty();
+        }
+        return success;
+    }
 
-        CommodityInventorySavedData.markDirty();
+    public static boolean canAddCommodity(UUID playerId, String commodityId, int amount) {
+        return playerId != null && getInventory(playerId).canAddCommodity(commodityId, amount);
     }
 
     /** 扣除商品（下单 SELL 时调用），不足返回 false */
@@ -70,13 +76,16 @@ public class CommodityInventoryManager {
     }
 
     /** 直接设置库存并标脏，适合批量初始化时避免反复读取和加减计算。 */
-    public static void setCommodity(
+    public static boolean setCommodity(
             UUID playerId,
             String commodityId,
             int amount
     ) {
-        getInventory(playerId).setCommodity(commodityId, amount);
-        CommodityInventorySavedData.markDirty();
+        boolean success = getInventory(playerId).setCommodity(commodityId, amount);
+        if (success) {
+            CommodityInventorySavedData.markDirty();
+        }
+        return success;
     }
 
     public static Map<UUID, CommodityInventory>

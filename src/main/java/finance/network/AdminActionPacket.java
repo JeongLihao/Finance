@@ -378,7 +378,7 @@ public class AdminActionPacket {
 
             for (Company company : toDelist) {
                 long companyFunds = company.getCash();
-                long distAmount = (playerCount > 0) ? (companyFunds * 10 / 100) / playerCount : 0;
+                long distAmount = (playerCount > 0) ? (companyFunds / 10) / playerCount : 0;
 
                 if (distAmount > 0 && playerCount > 0) {
                     for (ServerPlayer p : onlinePlayers) {

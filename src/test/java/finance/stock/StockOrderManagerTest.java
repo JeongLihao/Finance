@@ -4,6 +4,9 @@ import finance.account.AccountManager;
 import finance.company.Company;
 import finance.company.CompanyManager;
 import finance.company.CompanyType;
+import finance.metrics.EconomyMetricsService;
+import finance.chart.CandlestickService;
+import finance.chart.MarketInstrumentType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -34,6 +37,8 @@ class StockOrderManagerTest {
         StockMarketManager.clearStockOrders();
         StockMarketManager.clearStockTradeHistory();
         StockPortfolioManager.clearPortfolios();
+        EconomyMetricsService.clearDirect();
+        CandlestickService.clearDirect();
 
         Company company = new Company(COMPANY_ID, "Bug Regression Inc", CompanyType.RAW_MATERIALS, 10_000);
         company.setPublic(true);
@@ -156,6 +161,8 @@ class StockOrderManagerTest {
         assertEquals(3, remainingSell.getQuantity());
         assertEquals(1, StockOrderManager.getTradeHistory().size());
         assertEquals(2, StockOrderManager.getTradeHistory().get(0).getQuantity());
+        assertEquals(2, EconomyMetricsService.getCurrentStockVolume());
+        assertEquals(2, CandlestickService.getBars(MarketInstrumentType.STOCK, SYMBOL, 30).get(0).volume());
     }
 
     @Test
@@ -192,6 +199,28 @@ class StockOrderManagerTest {
         assertFalse(result.success());
         assertEquals(5, StockPortfolioManager.getHolding(PLAYER_ID, SYMBOL).getQuantity());
         assertEquals(0, StockOrderManager.getOrders().size());
+        assertEquals(0, EconomyMetricsService.getCurrentStockVolume());
+    }
+
+    @Test
+    void marketMakerExecutionCountsExactlyFilledShares() {
+        StockOrderManager.OrderResult result = StockOrderManager.placeBuyOrder(BUYER_A, SYMBOL, 110, 3);
+
+        assertTrue(result.success());
+        assertEquals(3, StockPortfolioManager.getHolding(BUYER_A, SYMBOL).getQuantity());
+        assertEquals(3, EconomyMetricsService.getCurrentStockVolume());
+        assertEquals(3, CandlestickService.getBars(MarketInstrumentType.STOCK, SYMBOL, 30).get(0).volume());
+    }
+
+    @Test
+    void unfilledAndCancelledStockOrdersDoNotIncreaseTradeVolume() {
+        StockOrderManager.OrderResult result = StockOrderManager.placeBuyOrder(BUYER_A, SYMBOL, 90, 2);
+        assertTrue(result.success());
+        assertTrue(StockOrderManager.cancelOrder(StockOrderManager.getOrders().get(0).getOrderId(), BUYER_A));
+
+        assertEquals(0, EconomyMetricsService.getCurrentStockVolume());
+        assertEquals(0, StockOrderManager.getTradeHistory().size());
+        assertTrue(CandlestickService.getBars(MarketInstrumentType.STOCK, SYMBOL, 30).isEmpty());
     }
 
     @Test

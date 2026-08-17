@@ -12,14 +12,18 @@ public class CommodityInventory {
             new HashMap<>();
 
     /** 设置商品数量（数据加载时使用） */
-    public void setCommodity(
+    public boolean setCommodity(
             String commodityId,
             int amount
     ) {
+        if (commodityId == null || commodityId.isBlank() || amount < 0) {
+            return false;
+        }
         commodities.put(
                 commodityId,
                 amount
         );
+        return true;
     }
 
     /** 查询持有的商品数量 */
@@ -32,15 +36,26 @@ public class CommodityInventory {
     }
 
     /** 增加商品数量 */
-    public void addCommodity(
+    public boolean addCommodity(
             String commodityId,
             int amount
     ) {
-
+        if (!canAddCommodity(commodityId, amount)) {
+            return false;
+        }
         commodities.put(
                 commodityId,
                 getAmount(commodityId) + amount
         );
+        return true;
+    }
+
+    public boolean canAddCommodity(String commodityId, int amount) {
+        if (commodityId == null || commodityId.isBlank() || amount <= 0) {
+            return false;
+        }
+        int current = getAmount(commodityId);
+        return current >= 0 && current <= Integer.MAX_VALUE - amount;
     }
 
     /** 扣除商品数量，不足返回 false */
@@ -49,6 +64,9 @@ public class CommodityInventory {
             int amount
     ) {
 
+        if (commodityId == null || commodityId.isBlank() || amount <= 0) {
+            return false;
+        }
         int current = getAmount(commodityId);
 
         if (current < amount) {

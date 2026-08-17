@@ -64,6 +64,12 @@ public class StockOrderPacket {
         ctx.get().enqueueWork(() -> {
             ServerPlayer player = ctx.get().getSender();
             if (player == null) return;
+            if (!finance.diagnostic.ModuleHealthRegistry.mayWrite(finance.diagnostic.ModuleHealthRegistry.Module.STOCK)) {
+                GuiFeedbackPacket.send(player, "股票市场已因一致性问题暂停。"); return;
+            }
+            if (!MarketDataRequestLimiter.allow(player.getUUID(), player.server.getTickCount(), "stock-order:" + packet.actionType)) {
+                GuiFeedbackPacket.send(player, "操作过于频繁。"); return;
+            }
             if (packet.actionType == null || !isValidRequest(packet)) {
                 GuiFeedbackPacket.send(player, "股票订单请求参数无效。");
                 return;

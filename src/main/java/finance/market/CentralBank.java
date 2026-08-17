@@ -47,6 +47,7 @@ public final class CentralBank {
     public static void seedIfNeeded() {
         long current = AccountManager.getBalance(UUID);
         if (current < BASE_RESERVE_CASH) {
+            // Explicit central-bank issuance used only to establish the configured reserve floor.
             AccountManager.deposit(UUID, BASE_RESERVE_CASH - current);
         }
         for (var commodity : CommodityRegistry.getAllCommodities()) {
@@ -89,10 +90,11 @@ public final class CentralBank {
             long price = Math.max(1, mp.getBidPrice());
             long payment = MathUtil.multiplyExactOrNegative1(price, qty);
             ensureReserveCash(payment);
-            if (payment > 0 && AccountManager.withdraw(UUID, payment)) {
-                CommodityInventoryManager.removeCommodity(NpcMarketMaker.NPC_UUID, commodityId, qty);
-                CommodityInventoryManager.addCommodity(UUID, commodityId, qty);
-                AccountManager.deposit(NpcMarketMaker.NPC_UUID, payment);
+            if (payment > 0 && AccountManager.moveFunds(UUID, NpcMarketMaker.NPC_UUID, payment)) {
+                if (!transferCommodity(NpcMarketMaker.NPC_UUID, UUID, commodityId, qty)) {
+                    AccountManager.moveFunds(NpcMarketMaker.NPC_UUID, UUID, payment);
+                    return;
+                }
                 mp.recomputePrice(marketStock - qty);
                 lastStockInterventions++;
                 lastCashDelta -= payment;
@@ -111,17 +113,16 @@ public final class CentralBank {
                 // 极端短缺时建立少量战略储备投放，防止市场完全断货。
                 qty = Math.max(1, wanted / 2);
             } else {
-                CommodityInventoryManager.removeCommodity(UUID, commodityId, qty);
+                if (!transferCommodity(UUID, NpcMarketMaker.NPC_UUID, commodityId, qty)) return;
             }
-
-            CommodityInventoryManager.addCommodity(NpcMarketMaker.NPC_UUID, commodityId, qty);
+            if (reserve <= 0 && !CommodityInventoryManager.addCommodity(
+                    NpcMarketMaker.NPC_UUID, commodityId, qty)) return; // explicit emergency commodity issuance
             long price = Math.max(1, mp.getAskPrice());
             long receipt = MathUtil.multiplyExactOrNegative1(price, qty);
             if (receipt > 0) {
                 long marketCash = AccountManager.getBalance(NpcMarketMaker.NPC_UUID);
                 long paid = Math.min(marketCash, receipt);
-                if (paid > 0 && AccountManager.withdraw(NpcMarketMaker.NPC_UUID, paid)) {
-                    AccountManager.deposit(UUID, paid);
+                if (paid > 0 && AccountManager.moveFunds(NpcMarketMaker.NPC_UUID, UUID, paid)) {
                     lastCashDelta += paid;
                 }
             }
@@ -139,21 +140,20 @@ public final class CentralBank {
         if (marketCash < floor) {
             long injection = Math.max(1, (targetCash - marketCash) / 3);
             ensureReserveCash(injection);
-            if (AccountManager.withdraw(UUID, injection)) {
-                AccountManager.deposit(NpcMarketMaker.NPC_UUID, injection);
+            if (AccountManager.moveFunds(UUID, NpcMarketMaker.NPC_UUID, injection)) {
                 lastCashDelta -= injection;
             }
         } else if (marketCash > ceiling) {
             long withdrawal = Math.max(1, (marketCash - targetCash) / 3);
-            if (AccountManager.withdraw(NpcMarketMaker.NPC_UUID, withdrawal)) {
-                AccountManager.deposit(UUID, withdrawal);
+            if (AccountManager.moveFunds(NpcMarketMaker.NPC_UUID, UUID, withdrawal)) {
                 lastCashDelta += withdrawal;
             }
         }
     }
 
     public static String getLastInterventionSummary() {
-        return "库存干预 " + lastStockInterventions + " 项，央行现金净变化 " + lastCashDelta;
+        return "库存干预 " + lastStockInterventions + " 项，央行现金净变化 " + lastCashDelta
+                + "，票据最近投放 " + finance.fixedincome.CentralBankBillManager.lastPolicyIssuance();
     }
 
     private static void ensureReserveCash(long amount) {
@@ -167,5 +167,15 @@ public final class CentralBank {
     private static int safeInt(long value) {
         if (value <= 0) return 0;
         return value > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) value;
+    }
+
+    private static boolean transferCommodity(java.util.UUID from, java.util.UUID to,
+                                               String commodityId, int quantity) {
+        if (quantity <= 0 || CommodityInventoryManager.getCommodityAmount(from, commodityId) < quantity
+                || !CommodityInventoryManager.canAddCommodity(to, commodityId, quantity)) return false;
+        if (!CommodityInventoryManager.removeCommodity(from, commodityId, quantity)) return false;
+        if (CommodityInventoryManager.addCommodity(to, commodityId, quantity)) return true;
+        CommodityInventoryManager.addCommodity(from, commodityId, quantity);
+        return false;
     }
 }

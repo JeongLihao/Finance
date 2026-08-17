@@ -10,6 +10,7 @@ import finance.stock.Stock;
 import finance.stock.StockMarketManager;
 import finance.stock.StockPortfolioManager;
 import finance.util.ProportionalAllocator;
+import finance.util.MathUtil;
 
 import java.util.ArrayList;
 import java.util.Map;
@@ -52,26 +53,47 @@ public final class CompanyBankruptcyManager {
         if (company == null) {
             return new LiquidationResult(false, 0, 0, 0, 0);
         }
+        if (!finance.governance.CorporateActionManager.cancelForBankruptcy(company.getCompanyId(), currentMcDay)) {
+            record(company, TransactionType.COMPANY_BANKRUPTCY, 0, 0,
+                    "清算暂停：公司行动托管资产无法安全释放");
+            return new LiquidationResult(false, 0, 0, 0, 0);
+        }
         Stock stock = StockMarketManager.getStockByCompanyId(company.getCompanyId());
         String symbol = stock != null ? stock.getSymbol() : "";
-        long liquidationValue = Math.max(0, company.getCash() + company.inventoryValue());
+        long liquidationValue = MathUtil.saturatedAddNonNegative(company.getCash(), company.inventoryValue());
+        if (!finance.bondmarket.BondMarketManager.cancelOrdersForCompany(company.getCompanyId())) {
+            record(company, TransactionType.COMPANY_BANKRUPTCY, 0, 0,
+                    "清算暂停：债券订单资产无法释放");
+            return new LiquidationResult(false, liquidationValue, 0, 0, 0);
+        }
         int cancelledOrders = 0;
         int liquidatedHolders = 0;
-        long paid = 0;
+        Map<UUID, Long> holdings = stock == null ? Map.of() : StockPortfolioManager.getHoldingsForCompany(symbol);
+        finance.debt.CorporateBondManager.BankruptcyPlan debtPlan =
+                finance.debt.CorporateBondManager.planBankruptcyClaims(company.getCompanyId(), liquidationValue);
+        long shareholderPool = Math.max(0, liquidationValue - debtPlan.reservedForCreditors());
+        java.util.List<ProportionalAllocator.Allocation> shareholderAllocations = stock == null
+                ? java.util.List.of()
+                : ProportionalAllocator.allocate(shareholderPool, holdings, stock.getTotalShares());
+        finance.debt.CorporateBondManager.BankruptcySettlement debtSettlement =
+                finance.debt.CorporateBondManager.settleBankruptcyClaims(debtPlan, shareholderAllocations);
+        if (!debtSettlement.complete()) {
+            record(company, TransactionType.COMPANY_BANKRUPTCY, 0, 0,
+                    "清算暂停：债权收款账户容量不足");
+            EconomySavedData.markDirty();
+            return new LiquidationResult(false, liquidationValue, 0, 0, 0);
+        }
+        long paid = debtSettlement.paidToCreditors();
 
         if (stock != null) {
             cancelledOrders = StockMarketManager.cancelStockOrdersForSymbol(symbol);
             ConditionalStockOrderManager.cancelOrdersForSymbol(symbol, "股票退市");
             CompanyFinancingManager.cancelProjectsForCompany(company.getCompanyId());
             CompanyProposalManager.cancelActiveProposalsForCompany(company.getCompanyId(), "公司破产退市");
-            Map<UUID, Long> holdings = StockPortfolioManager.getHoldingsForCompany(symbol);
-            long totalHeld = holdings.values().stream().mapToLong(Long::longValue).sum();
-            if (liquidationValue > 0 && totalHeld > 0) {
-                for (ProportionalAllocator.Allocation share
-                        : ProportionalAllocator.allocate(liquidationValue, holdings, totalHeld)) {
+            if (!shareholderAllocations.isEmpty()) {
+                for (ProportionalAllocator.Allocation share : shareholderAllocations) {
                     long payout = share.amount();
                     if (payout > 0) {
-                        AccountManager.deposit(share.id(), payout);
                         paid += payout;
                         AccountManager.addTransactionRecord(new TransactionRecord(
                                 company.getCompanyId(),

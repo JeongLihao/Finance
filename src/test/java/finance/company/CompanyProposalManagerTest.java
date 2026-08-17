@@ -45,7 +45,7 @@ class CompanyProposalManagerTest {
         assertTrue(CompanyProposalManager.vote(HOLDER_B, proposal.getProposalId(), false, 1).success());
         CompanyProposalManager.tick(3);
 
-        assertEquals(CompanyProposalStatus.PASSED, proposal.getStatus());
+        assertEquals(CompanyProposalStatus.EXECUTED, proposal.getStatus());
         assertEquals("New Vote Inc", CompanyManager.getCompany(COMPANY_ID).getName());
         assertEquals(70, proposal.getYesVotes());
         assertEquals(30, proposal.getNoVotes());
@@ -75,7 +75,7 @@ class CompanyProposalManagerTest {
         CompanyProposalManager.vote(HOLDER_A, proposal.getProposalId(), true, 1);
         CompanyProposalManager.tick(3);
 
-        assertEquals(CompanyProposalStatus.PASSED, proposal.getStatus());
+        assertEquals(CompanyProposalStatus.EXECUTED, proposal.getStatus());
         assertEquals(1, CompanyFinancingManager.getProjects().size());
         assertEquals(100, CompanyFinancingManager.getProjects().get(0).getIssueQuantity());
     }
@@ -84,6 +84,7 @@ class CompanyProposalManagerTest {
     void proposalFailsWhenParticipationIsBelowSnapshotThreshold() {
         StockPortfolioManager.clearPortfolios();
         StockPortfolioManager.addHolding(HOLDER_A, "VOTE", 10, 10);
+        StockPortfolioManager.addHolding(HOLDER_B, "VOTE", 90, 10);
         CompanyProposalManager.createProposal(
                 OWNER_ID, COMPANY_ID, CompanyProposalType.FUND_USAGE, "低参与测试",
                 100, 0, 0, 1, 3, 0.50);
@@ -94,5 +95,13 @@ class CompanyProposalManagerTest {
 
         assertEquals(CompanyProposalStatus.FAILED, proposal.getStatus());
         assertTrue(proposal.getResultSummary().contains("参与率不足"));
+    }
+
+    @Test
+    void proposalDurationCannotOccupySlotBeyondNinetyDays() {
+        assertFalse(CompanyProposalManager.createProposal(OWNER_ID, COMPANY_ID,
+                CompanyProposalType.FUND_USAGE, "长期占位", 1, 0, 0,
+                1, 92, 0.5).success());
+        assertTrue(CompanyProposalManager.getProposals().isEmpty());
     }
 }

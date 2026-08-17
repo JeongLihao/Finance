@@ -49,6 +49,8 @@ public class InventoryActionPacket {
         ctx.get().enqueueWork(() -> {
             ServerPlayer player = ctx.get().getSender();
             if (player == null) return;
+            if (!finance.diagnostic.ModuleHealthRegistry.mayWrite(finance.diagnostic.ModuleHealthRegistry.Module.MARKET)) { GuiFeedbackPacket.send(player,"商品库存已因一致性问题暂停。"); return; }
+            if (!MarketDataRequestLimiter.allow(player.getUUID(),player.server.getTickCount(),"inventory-action:"+packet.actionType)) { GuiFeedbackPacket.send(player,"操作过于频繁。"); return; }
             if (packet.actionType == null
                     || !NetworkValidation.isValidCommodityId(packet.commodityId)
                     || !NetworkValidation.isPositive(packet.amount)) {
@@ -89,10 +91,18 @@ public class InventoryActionPacket {
             GuiFeedbackPacket.send(player, "物品栏不足。拥有: " + available + " 需要: " + amount);
             return;
         }
+        if (!CommodityInventoryManager.canAddCommodity(player.getUUID(), commodityId, amount)) {
+            GuiFeedbackPacket.send(player, "Virtual commodity inventory is full.");
+            return;
+        }
 
         int removed = InventoryUtil.removeFromInventory(player, itemId, amount);
         if (removed > 0) {
-            CommodityInventoryManager.addCommodity(player.getUUID(), commodityId, removed);
+            if (!CommodityInventoryManager.addCommodity(player.getUUID(), commodityId, removed)) {
+                InventoryUtil.addToInventory(player, itemId, removed);
+                GuiFeedbackPacket.send(player, "Deposit failed; removed items were returned.");
+                return;
+            }
             GuiFeedbackPacket.send(player, "§a已存入 " + removed + " 个「" + commodity.getDisplayName() + "」到商品库存。");
         }
 

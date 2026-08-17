@@ -10,6 +10,9 @@ import finance.commodity.CommodityInventoryManager;
 import finance.commodity.CommodityRegistry;
 import finance.commodity.Commodity;
 import finance.data.EconomySavedData;
+import finance.metrics.EconomyMetricsService;
+import finance.chart.CandlestickService;
+import finance.chart.MarketInstrumentType;
 import finance.event.MarketEvent;
 import finance.util.MathUtil;
 
@@ -96,13 +99,19 @@ public class NpcMarketMaker {
             return false;
         }
 
-        // 3. 商品：玩家 → 国际市场
-        CommodityInventoryManager.removeCommodity(playerId, commodityId, acceptedQuantity);
-        CommodityInventoryManager.addCommodity(NPC_UUID, commodityId, acceptedQuantity);
-
-        // 4. 资金：国际市场 → 玩家
-        AccountManager.withdraw(NPC_UUID, totalPayment);
-        AccountManager.deposit(playerId, totalPayment);
+        if (!CommodityInventoryManager.canAddCommodity(NPC_UUID, commodityId, acceptedQuantity)
+                || !AccountManager.moveFunds(NPC_UUID, playerId, totalPayment)) {
+            return false;
+        }
+        if (!CommodityInventoryManager.removeCommodity(playerId, commodityId, acceptedQuantity)) {
+            AccountManager.moveFunds(playerId, NPC_UUID, totalPayment);
+            return false;
+        }
+        if (!CommodityInventoryManager.addCommodity(NPC_UUID, commodityId, acceptedQuantity)) {
+            CommodityInventoryManager.addCommodity(playerId, commodityId, acceptedQuantity);
+            AccountManager.moveFunds(playerId, NPC_UUID, totalPayment);
+            return false;
+        }
 
         // 5. 记录流水
         AccountManager.addTransactionRecord(
@@ -110,13 +119,8 @@ public class NpcMarketMaker {
                         playerId, commodityId, acceptedQuantity)
         );
 
-        // 6. 记录成交（国际市场是买方，玩家是卖方）
-        MarketManager.addTradeToHistory(
-                new Trade(NPC_UUID, playerId, commodityId, bidPrice, acceptedQuantity)
-        );
-
-        // 7. 混合定价更新
-        recordNpcTrade(commodityId, true, acceptedQuantity, bidPrice);
+        CommodityTradeRecorder.recordCompletedTrade(NPC_UUID, playerId, commodityId,
+                bidPrice, acceptedQuantity, CommodityTradeSource.PLAYER_NPC, true);
 
         return true;
     }
@@ -157,13 +161,19 @@ public class NpcMarketMaker {
             return false;
         }
 
-        // 3. 资金：玩家 → 国际市场
-        AccountManager.withdraw(playerId, totalCost);
-        AccountManager.deposit(NPC_UUID, totalCost);
-
-        // 4. 商品：国际市场 → 玩家
-        CommodityInventoryManager.removeCommodity(NPC_UUID, commodityId, acceptedQuantity);
-        CommodityInventoryManager.addCommodity(playerId, commodityId, acceptedQuantity);
+        if (!CommodityInventoryManager.canAddCommodity(playerId, commodityId, acceptedQuantity)
+                || !AccountManager.moveFunds(playerId, NPC_UUID, totalCost)) {
+            return false;
+        }
+        if (!CommodityInventoryManager.removeCommodity(NPC_UUID, commodityId, acceptedQuantity)) {
+            AccountManager.moveFunds(NPC_UUID, playerId, totalCost);
+            return false;
+        }
+        if (!CommodityInventoryManager.addCommodity(playerId, commodityId, acceptedQuantity)) {
+            CommodityInventoryManager.addCommodity(NPC_UUID, commodityId, acceptedQuantity);
+            AccountManager.moveFunds(NPC_UUID, playerId, totalCost);
+            return false;
+        }
 
         // 5. 记录流水
         AccountManager.addTransactionRecord(
@@ -171,13 +181,8 @@ public class NpcMarketMaker {
                         playerId, commodityId, acceptedQuantity)
         );
 
-        // 6. 记录成交（玩家是买方，国际市场是卖方）
-        MarketManager.addTradeToHistory(
-                new Trade(playerId, NPC_UUID, commodityId, askPrice, acceptedQuantity)
-        );
-
-        // 7. 混合定价更新
-        recordNpcTrade(commodityId, false, acceptedQuantity, askPrice);
+        CommodityTradeRecorder.recordCompletedTrade(playerId, NPC_UUID, commodityId,
+                askPrice, acceptedQuantity, CommodityTradeSource.PLAYER_NPC, false);
 
         return true;
     }

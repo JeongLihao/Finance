@@ -56,4 +56,23 @@ class CompanyDividendTest {
                 .filter(record -> record.getType() == TransactionType.DIVIDEND)
                 .count());
     }
+
+    @Test
+    void partialOwnershipOnlyReceivesItsShareOfDeclaredFloat() {
+        Company company = new Company(COMPANY_ID, "Partial Dividend Co", CompanyType.RAW_MATERIALS, 2_000, OWNER_ID);
+        company.setPublic(true);
+        company.addDistributableProfit(1_000);
+        CompanyManager.registerDirect(company);
+        StockMarketManager.putStockDirect(new Stock("DIV", "Partial Dividend Co", COMPANY_ID,
+                1_000, 1_000, 0, 10, 10));
+        StockPortfolioManager.addHolding(PLAYER_A, "DIV", 100, 10);
+        CompanyManager.setDividendPolicy(0.50, 1);
+
+        CompanyManager.tryDividends(1);
+        CompanyManager.tryDividends(2);
+
+        assertEquals(1_050, AccountManager.getBalance(PLAYER_A));
+        assertEquals(1_950, company.getCash());
+        assertEquals(950, company.getDistributableProfit());
+    }
 }

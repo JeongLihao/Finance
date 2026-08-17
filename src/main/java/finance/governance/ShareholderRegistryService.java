@@ -1,0 +1,15 @@
+package finance.governance;
+
+import finance.stock.*;
+import java.math.BigInteger;
+import java.nio.charset.StandardCharsets;
+import java.util.*;
+
+public final class ShareholderRegistryService {
+ public static final UUID SYSTEM_LIQUIDITY_HOLDER=UUID.nameUUIDFromBytes("finance-system-stock-liquidity".getBytes(StandardCharsets.UTF_8));
+ private ShareholderRegistryService(){}
+ public record Holder(UUID id,long available,long marketOrderLocked,long tenderLocked,long total,double ownershipPercent,double votingPercent){}
+ public record Snapshot(UUID companyId,String symbol,long totalShares,long votingShares,long treasuryShares,long heldShares,long marketOrderLocked,long tenderLocked,long systemLiquidity,long version,List<Holder>holders,boolean consistent,String issue){public Holder largest(){return holders.isEmpty()?null:holders.get(0);}}
+ public static Snapshot snapshot(UUID companyId,long version){Stock s=StockMarketManager.getStockByCompanyId(companyId);if(s==null)return new Snapshot(companyId,"",0,0,0,0,0,0,0,version,List.of(),false,"stock missing");Map<UUID,Long> available=new LinkedHashMap<>(StockPortfolioManager.getHoldingsForCompany(s.getSymbol()));Map<UUID,Long> locked=new LinkedHashMap<>();for(StockOrder o:StockOrderManager.getOrdersBySymbol(s.getSymbol()))if(o.getType()==StockOrderType.SELL)locked.merge(o.getPlayerId(),(long)o.getQuantity(),ShareholderRegistryService::add);Map<UUID,Long> tender=CorporateActionManager.lockedShares(s.getSymbol());BigInteger known=BigInteger.ZERO;Set<UUID>ids=new TreeSet<>(Comparator.comparing(UUID::toString));ids.addAll(available.keySet());ids.addAll(locked.keySet());ids.addAll(tender.keySet());List<Holder> rows=new ArrayList<>();for(UUID id:ids){long a=available.getOrDefault(id,0L),l=locked.getOrDefault(id,0L),t=tender.getOrDefault(id,0L),total=cap(BigInteger.valueOf(a).add(BigInteger.valueOf(l)).add(BigInteger.valueOf(t)));known=known.add(BigInteger.valueOf(total));rows.add(new Holder(id,a,l,t,total,percent(total,s.getTotalShares()),percent(total,s.getVotingShares())));}BigInteger residual=BigInteger.valueOf(s.getTotalShares()).subtract(BigInteger.valueOf(s.getTreasuryShares())).subtract(known);boolean ok=residual.signum()>=0;long system=ok?cap(residual):0;if(system>0)rows.add(new Holder(SYSTEM_LIQUIDITY_HOLDER,system,0,0,system,percent(system,s.getTotalShares()),0));rows.sort(Comparator.comparingLong(Holder::total).reversed().thenComparing(x->x.id().toString()));return new Snapshot(companyId,s.getSymbol(),s.getTotalShares(),s.getVotingShares(),s.getTreasuryShares(),cap(known),sum(locked),sum(tender),system,version,List.copyOf(rows),ok,ok?"":"holdings exceed issued voting shares");}
+ private static long sum(Map<UUID,Long>m){BigInteger n=BigInteger.ZERO;for(long v:m.values())n=n.add(BigInteger.valueOf(v));return cap(n);}private static long add(long a,long b){return cap(BigInteger.valueOf(a).add(BigInteger.valueOf(b)));}private static long cap(BigInteger n){return n.max(BigInteger.ZERO).min(BigInteger.valueOf(Long.MAX_VALUE)).longValue();}private static double percent(long a,long b){return b<=0?0:a*100.0/b;}
+}

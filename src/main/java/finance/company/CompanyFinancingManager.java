@@ -91,11 +91,16 @@ public final class CompanyFinancingManager {
             return Result.fail("余额不足，认购需要 " + cost);
         }
 
-        project.addSubscription(playerId, acceptedShares);
+        if (!project.addSubscription(playerId, acceptedShares)) {
+            AccountManager.deposit(playerId, cost);
+            return Result.fail("Subscription settlement failed.");
+        }
         addRecord(playerId, project.getCompanyId(), TransactionType.COMPANY_FINANCING_SUBSCRIBE,
                 cost, acceptedShares, company.getName() + "/" + project.getSymbol());
         if (project.isFunded()) {
-            finalizeProject(project);
+            if (!finalizeProject(project)) {
+                return Result.fail("Financing settlement is pending; no partial issue was committed.");
+            }
             return Result.ok("认购成功，融资目标已达成并完成增发。");
         }
         EconomySavedData.markDirty();
@@ -106,14 +111,14 @@ public final class CompanyFinancingManager {
         boolean changed = false;
         for (CompanyFinancingProject project : new ArrayList<>(PROJECTS)) {
             if (project.isFunded()) {
-                finalizeProject(project);
-                changed = true;
+                changed |= finalizeProject(project);
                 continue;
             }
             if (currentMcDay >= project.getDeadlineMcDay()) {
-                refundProject(project);
-                PROJECTS.remove(project);
-                changed = true;
+                if (refundProject(project)) {
+                    PROJECTS.remove(project);
+                    changed = true;
+                }
             }
         }
         if (changed) {
@@ -169,9 +174,10 @@ public final class CompanyFinancingManager {
             if (!project.getCompanyId().equals(companyId)) {
                 continue;
             }
-            refundProject(project);
-            PROJECTS.remove(project);
-            cancelled++;
+            if (refundProject(project)) {
+                PROJECTS.remove(project);
+                cancelled++;
+            }
         }
         if (cancelled > 0) {
             EconomySavedData.markDirty();
@@ -179,47 +185,68 @@ public final class CompanyFinancingManager {
         return cancelled;
     }
 
-    private static void finalizeProject(CompanyFinancingProject project) {
+    private static boolean finalizeProject(CompanyFinancingProject project) {
         Company company = CompanyManager.getCompany(project.getCompanyId());
         Stock stock = StockMarketManager.getStock(project.getSymbol());
         if (company == null || stock == null) {
-            refundProject(project);
+            if (!refundProject(project)) return false;
             PROJECTS.remove(project);
-            return;
+            return true;
         }
         long subscribedShares = project.getSubscribedShares();
         long raised = project.getRaisedAmount();
         if (subscribedShares <= 0 || raised <= 0) {
-            return;
+            return false;
         }
-        company.deposit(raised);
-        stock.increaseShares(subscribedShares);
-        for (Map.Entry<UUID, Long> entry : project.getSubscriptions().entrySet()) {
-            StockPortfolioManager.addHolding(entry.getKey(), project.getSymbol(), entry.getValue(), project.getIssuePrice());
+        boolean holdingsFit = project.getSubscriptions().entrySet().stream().allMatch(entry ->
+                StockPortfolioManager.canAddHolding(entry.getKey(), project.getSymbol(), entry.getValue()));
+        if (!company.canDeposit(raised) || !stock.canIncreaseShares(subscribedShares) || !holdingsFit) {
+            if (!refundProject(project)) return false;
+            PROJECTS.remove(project);
+            EconomySavedData.markDirty();
+            return true;
+        }
+        if (!company.deposit(raised)) return false;
+        if (!stock.increaseShares(subscribedShares)) {
+            company.withdraw(raised);
+            return false;
+        }
+        if (!StockPortfolioManager.addHoldingsAtomically(
+                project.getSubscriptions(), project.getSymbol(), project.getIssuePrice())) {
+            stock.decreaseShares(subscribedShares);
+            company.withdraw(raised);
+            return false;
         }
         addRecord(company.getOwnerId(), project.getCompanyId(), TransactionType.COMPANY_FINANCING_SUCCESS,
                 raised, subscribedShares, company.getName() + "/" + project.getSymbol());
         PROJECTS.remove(project);
         EconomySavedData.markDirty();
+        return true;
     }
 
-    private static void refundProject(CompanyFinancingProject project) {
+    private static boolean refundProject(CompanyFinancingProject project) {
+        for (Map.Entry<UUID, Long> entry : project.getSubscriptions().entrySet()) {
+            long refund = MathUtil.multiplyExactOrNegative1(project.getIssuePrice(), safeInt(entry.getValue()));
+            if (refund <= 0 || !AccountManager.canDeposit(entry.getKey(), refund)) return false;
+        }
         Company company = CompanyManager.getCompany(project.getCompanyId());
         String objectName = (company != null ? company.getName() : "未知公司") + "/" + project.getSymbol();
         for (Map.Entry<UUID, Long> entry : project.getSubscriptions().entrySet()) {
             long refund = MathUtil.multiplyExactOrNegative1(project.getIssuePrice(), safeInt(entry.getValue()));
             if (refund > 0) {
-                AccountManager.deposit(entry.getKey(), refund);
+                if (!AccountManager.deposit(entry.getKey(), refund)) return false;
                 addRecord(entry.getKey(), project.getCompanyId(), TransactionType.COMPANY_FINANCING_REFUND,
                         refund, entry.getValue(), objectName);
             }
         }
+        return true;
     }
 
     private static void cancelProject(CompanyFinancingProject project, String reason) {
-        refundProject(project);
-        PROJECTS.remove(project);
-        EconomySavedData.markDirty();
+        if (refundProject(project)) {
+            PROJECTS.remove(project);
+            EconomySavedData.markDirty();
+        }
     }
 
     private static int safeInt(long value) {

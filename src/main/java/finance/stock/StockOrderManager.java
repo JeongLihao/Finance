@@ -5,7 +5,12 @@ import finance.account.TransactionRecord;
 import finance.account.TransactionType;
 import finance.config.FinanceConfig;
 import finance.data.EconomySavedData;
+import finance.metrics.EconomyMetricsService;
+import finance.marketdata.RecentTradeService;
+import finance.marketdata.TradeDirection;
 import finance.util.MathUtil;
+import finance.chart.CandlestickService;
+import finance.chart.MarketInstrumentType;
 
 import java.util.*;
 
@@ -188,8 +193,9 @@ public class StockOrderManager {
     private static OrderResult marketMakerTrade(StockOrder order, Stock stock) {
         long fairValue = stock.getFairValue();
         if (fairValue <= 0) {
-            refundOrderAssets(order);
-            return OrderResult.terminalFail("市场行情异常，请稍后重试。");
+            return refundOrderAssets(order)
+                    ? OrderResult.terminalFail("市场行情异常，请稍后重试。")
+                    : OrderResult.fail("市场行情异常，资产仍保持锁定并已保留订单。");
         }
 
         // 做市商报价
@@ -242,17 +248,28 @@ public class StockOrderManager {
         long reservedValue = MathUtil.multiplyExactOrNegative1(buyerLimitPrice, tradeQty);
         if (reservedValue <= 0 || reservedValue < totalValue) return false;
 
+        boolean playerBuyer = !buyerId.equals(MARKET_MAKER_UUID);
+        boolean playerSeller = !sellerId.equals(MARKET_MAKER_UUID);
+        long buyerRefund = playerBuyer ? reservedValue - totalValue : 0;
+        if (buyerRefund > 0 && !AccountManager.canDeposit(buyerId, buyerRefund)) return false;
+        if (playerSeller && !AccountManager.canDeposit(sellerId, totalValue)) return false;
+        if (!buyerId.equals(MARKET_MAKER_UUID)
+                && !StockPortfolioManager.canAddHolding(buyerId, symbol, tradeQty)) return false;
+
         // 更新账户：卖方收钱，买方已在挂单时冻结
-        if (!buyerId.equals(MARKET_MAKER_UUID) && reservedValue > totalValue) {
-            AccountManager.deposit(buyerId, reservedValue - totalValue);
-        }
-        if (!sellerId.equals(MARKET_MAKER_UUID)) {
-            AccountManager.deposit(sellerId, totalValue);
+        if (buyerRefund > 0 && !AccountManager.deposit(buyerId, buyerRefund)) return false;
+        if (playerSeller && !AccountManager.deposit(sellerId, totalValue)) {
+            if (buyerRefund > 0) AccountManager.withdraw(buyerId, buyerRefund);
+            return false;
         }
 
         // 更新持仓
         if (!buyerId.equals(MARKET_MAKER_UUID)) {
-            StockPortfolioManager.addHolding(buyerId, symbol, tradeQty, tradePrice);
+            if (!StockPortfolioManager.addHolding(buyerId, symbol, tradeQty, tradePrice)) {
+                if (buyerRefund > 0) AccountManager.withdraw(buyerId, buyerRefund);
+                if (playerSeller) AccountManager.withdraw(sellerId, totalValue);
+                return false;
+            }
         }
         if (!sellerId.equals(MARKET_MAKER_UUID)) {
             // 玩家卖方的股票已在挂单时扣除，这里无需操作
@@ -264,6 +281,10 @@ public class StockOrderManager {
         // 记录成交
         StockTrade trade = new StockTrade(buyerId, sellerId, symbol, tradePrice, tradeQty);
         addTradeToHistory(trade);
+        EconomyMetricsService.recordStockTrade(tradeQty);
+        CandlestickService.recordTrade(MarketInstrumentType.STOCK, symbol, tradePrice, tradeQty);
+        RecentTradeService.record(MarketInstrumentType.STOCK, symbol, tradePrice, tradeQty,
+                buyInitiated ? TradeDirection.BUY : TradeDirection.SELL);
         if (!buyerId.equals(MARKET_MAKER_UUID)) {
             AccountManager.addTransactionRecord(
                     new TransactionRecord(
@@ -304,7 +325,9 @@ public class StockOrderManager {
             StockOrder order = iterator.next();
             if (order.getOrderId().equals(orderId) && order.getPlayerId().equals(playerId)) {
                 long amount = MathUtil.multiplyExactOrNegative1(order.getPrice(), order.getQuantity());
-                refundOrderAssets(order);
+                if (!refundOrderAssets(order)) {
+                    return false;
+                }
                 iterator.remove();
                 List<StockOrder> symbolOrders = ORDERS_BY_SYMBOL.get(order.getSymbol());
                 if (symbolOrders != null) {
@@ -340,7 +363,9 @@ public class StockOrderManager {
             if (!normalized.equals(order.getSymbol())) {
                 continue;
             }
-            refundOrderAssets(order);
+            if (!refundOrderAssets(order)) {
+                continue;
+            }
             iterator.remove();
             cancelled++;
         }
@@ -351,18 +376,19 @@ public class StockOrderManager {
         return cancelled;
     }
 
-    private static void refundOrderAssets(StockOrder order) {
+    private static boolean refundOrderAssets(StockOrder order) {
         if (order.getQuantity() <= 0) {
-            return;
+            return false;
         }
         if (order.getType() == StockOrderType.BUY) {
             long refund = MathUtil.multiplyExactOrNegative1(order.getPrice(), order.getQuantity());
             if (refund > 0) {
-                AccountManager.deposit(order.getPlayerId(), refund);
+                return AccountManager.deposit(order.getPlayerId(), refund);
             }
         } else {
-            StockPortfolioManager.addHolding(order.getPlayerId(), order.getSymbol(), order.getQuantity(), 0);
+            return StockPortfolioManager.addHolding(order.getPlayerId(), order.getSymbol(), order.getQuantity(), 0);
         }
+        return false;
     }
 
     // ================================================================

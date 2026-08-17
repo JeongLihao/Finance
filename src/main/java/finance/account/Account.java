@@ -39,12 +39,16 @@ public class Account {
     // ================================================================
 
     /** 入账，amount 必须为正数 */
-    public void deposit(long amount) {
-        if (amount <= 0) {
-            return;
+    public boolean deposit(long amount) {
+        if (!canDeposit(amount)) {
+            return false;
         }
-
         balance += amount;
+        return true;
+    }
+
+    public boolean canDeposit(long amount) {
+        return amount > 0 && balance >= 0 && balance <= Long.MAX_VALUE - amount;
     }
 
     /** 出账，余额不足返回 false */
@@ -61,8 +65,12 @@ public class Account {
         return true;
     }
 
-    public void setBalance(long balance) {
+    public boolean setBalance(long balance) {
+        if (balance < 0) {
+            return false;
+        }
         this.balance = balance;
+        return true;
     }
 
     // ================================================================
@@ -71,7 +79,8 @@ public class Account {
 
     /** 将可用余额中的 amount 转为冻结余额，余额不足返回 false */
     public boolean freezeFunds(long amount) {
-        if (amount <= 0 || balance < amount) {
+        if (amount <= 0 || balance < amount || frozenBalance < 0
+                || frozenBalance > Long.MAX_VALUE - amount) {
             return false;
         }
         balance -= amount;
@@ -80,13 +89,17 @@ public class Account {
     }
 
     /** 将冻结余额中的 amount 解冻回可用余额 */
-    public void unfreezeFunds(long amount) {
+    public boolean unfreezeFunds(long amount) {
         if (amount <= 0) {
-            return;
+            return false;
         }
         long actual = Math.min(amount, frozenBalance);
+        if (actual <= 0 || !canDeposit(actual)) {
+            return false;
+        }
         frozenBalance -= actual;
         balance += actual;
+        return true;
     }
 
     /**
@@ -99,12 +112,36 @@ public class Account {
             return false;
         }
 
-        if (frozenBalance < reservedAmount) {
+        if (frozenBalance < reservedAmount || !canSettleFrozenFunds(reservedAmount, paymentAmount)) {
             return false;
         }
 
         frozenBalance -= reservedAmount;
         balance += reservedAmount - paymentAmount;
         return true;
+    }
+
+    public boolean canSettleFrozenFunds(long reservedAmount, long paymentAmount) {
+        if (reservedAmount <= 0 || paymentAmount < 0 || paymentAmount > reservedAmount
+                || frozenBalance < reservedAmount) {
+            return false;
+        }
+        long refund = reservedAmount - paymentAmount;
+        return refund == 0 || canDeposit(refund);
+    }
+
+    /** Reverses a previously completed frozen-funds settlement without transient overflow. */
+    public boolean rollbackFrozenSettlement(long reservedAmount, long paymentAmount) {
+        if (!canRollbackFrozenSettlement(reservedAmount, paymentAmount)) return false;
+        long refund = reservedAmount - paymentAmount;
+        balance -= refund;
+        frozenBalance += reservedAmount;
+        return true;
+    }
+
+    public boolean canRollbackFrozenSettlement(long reservedAmount, long paymentAmount) {
+        if (reservedAmount <= 0 || paymentAmount < 0 || paymentAmount > reservedAmount) return false;
+        long refund = reservedAmount - paymentAmount;
+        return balance >= refund && frozenBalance >= 0 && frozenBalance <= Long.MAX_VALUE - reservedAmount;
     }
 }
