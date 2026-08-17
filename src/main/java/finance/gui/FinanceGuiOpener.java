@@ -180,7 +180,8 @@ public class FinanceGuiOpener {
                     proposal.getNoVotes(),
                     proposal.getVotes().containsKey(playerId),
                     proposal.getStatus().name(),
-                    proposal.getResultSummary()));
+                    proposal.getResultSummary(),
+                    finance.governance.CorporateRestructuringService.canExecute(playerId, proposal)));
         }
 
         List<FinanceMenu.TransactionRow> transactionRows = new ArrayList<>();

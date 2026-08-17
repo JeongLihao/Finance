@@ -25,6 +25,7 @@ class CorporateRestructuringServiceTest {
         AccountManager.deposit(ownerB, 5_000);
         long before = AccountManager.getBalance(ownerB);
         CompanyProposal proposal=authorization(companyA,ownerA,CompanyProposalType.EMERGENCY_RECAPITALIZATION,"",2_000,0);
+        assertTrue(CorporateRestructuringService.canExecute(ownerB,proposal));
         assertTrue(CorporateRestructuringService.emergencyContribution(ownerB, proposal.getProposalId(),
                 8, "recap-1").success());
         assertEquals(before - 2_000, AccountManager.getBalance(ownerB));
@@ -41,6 +42,8 @@ class CorporateRestructuringServiceTest {
         CompanyManager.registerDirect(seller);
         CompanyProposal proposal=authorization(companyA,ownerA,CompanyProposalType.MAJOR_ASSET_PURCHASE,
                 companyB+"|iron",2_000,10);
+        assertTrue(CorporateRestructuringService.canExecute(ownerB,proposal));
+        assertFalse(CorporateRestructuringService.canExecute(ownerA,proposal));
         assertTrue(CorporateRestructuringService.purchaseInventoryAsset(ownerB, proposal.getProposalId(),
                 1, "asset-1").success());
         assertEquals(8_000, buyer.getCash());
