@@ -16,6 +16,24 @@ import java.util.UUID;
 public final class CorporateRestructuringService {
     private CorporateRestructuringService() {}
 
+    public static boolean canExecute(UUID actor, CompanyProposal proposal) {
+        if (actor == null || proposal == null || proposal.getStatus() != finance.company.CompanyProposalStatus.PASSED) return false;
+        if (proposal.getType() == CompanyProposalType.EMERGENCY_RECAPITALIZATION) {
+            Company company=CompanyManager.getCompany(proposal.getCompanyId());
+            return company!=null&&company.isBankruptcyRisk()&&proposal.getValue1()>0;
+        }
+        if (proposal.getType() != CompanyProposalType.MAJOR_ASSET_PURCHASE) return false;
+        String text = proposal.getTextValue();
+        int separator = text == null ? -1 : text.indexOf('|');
+        if (separator <= 0) return false;
+        try {
+            UUID sellerId=UUID.fromString(text.substring(0,separator));
+            Company buyer=CompanyManager.getCompany(proposal.getCompanyId()),seller=CompanyManager.getCompany(sellerId);
+            return buyer!=null&&seller!=null&&buyer!=seller&&GovernanceAuthorizationService.mayManage(actor,sellerId);
+        }
+        catch (IllegalArgumentException ignored) { return false; }
+    }
+
     public static synchronized CorporateActionManager.Result emergencyContribution(
             UUID investor, UUID proposalId, long day, String operationKey) {
         CompanyProposal proposal = CompanyProposalManager.getProposal(proposalId);

@@ -82,6 +82,8 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
     private ChartPanel chartPanel = ChartPanel.KLINE_MA;
     private int financialSubTab = 0;
     private boolean governanceView = false;
+    private boolean restructuringView = false;
+    private final Set<UUID> submittedRestructuring = new HashSet<>();
 
     private enum ChartPanel {
         KLINE_MA("K+MA"), MACD("MACD"), RSI("RSI"), ORDER_BOOK("Book"), RECENT("Trades"),
@@ -925,6 +927,7 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
     private void renderCompanyTab(GuiGraphics g) {
         FinanceMenu.CompanyInfo company = menu.getPlayerCompany();
         int cardY = CONTENT_Y;
+        if(restructuringView){renderRestructuringTasks(g,cardY);return;}
         if (company != null) {
             if (governanceView) {
                 renderGovernanceCompany(g, company, cardY);
@@ -933,11 +936,12 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
             int cardH = imageHeight - cardY - 8;
             g.fill(8, cardY, imageWidth - 8, cardY + cardH, 0xFFE0E0E0);
             drawSimpleBorder(g, 8, cardY, imageWidth - 16, cardH, COL_PANEL_BORDER);
+            drawButton(g,"重组任务",282,cardY+14,54,false);
             if (company.isPublic()) drawButton(g, "治理", 340, cardY + 14, 36, false);
 
             drawSectionTitle(g, "我的公司", 10, cardY + 2);
             g.drawString(font, "名称", 12, cardY + 18, COL_TEXT_DIM, false);
-            drawClippedString(g, company.name(), 58, cardY + 18, 240, COL_TEXT);
+            drawClippedString(g, company.name(), 58, cardY + 18, 214, COL_TEXT);
             g.drawString(font, "行业", 12, cardY + 32, COL_TEXT_DIM, false);
             drawClippedString(g, company.type(), 58, cardY + 32, 180, COL_ACCENT);
             g.drawString(font, "状态", 252, cardY + 32, COL_TEXT_DIM, false);
@@ -1050,10 +1054,46 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
             String typeDesc = getTypeDescription(selectedType);
             drawClippedString(g, typeDesc, 55, cardY + 76, 300, COL_TEXT_DIM);
 
+            drawButton(g,"重组任务",210,cardY+58,76,false);
             drawFilledButton(g, "创建公司", 300, cardY + 58, 76, COL_GOOD);
             drawClippedString(g, "创建后可在这里管理经营状态；上市后才会进入股票市场。",
                     12, cardY + 108, imageWidth - 24, COL_TEXT_DIM);
         }
+    }
+
+    private void renderRestructuringTasks(GuiGraphics g,int cardY){
+        int cardH=imageHeight-cardY-8;
+        g.fill(8,cardY,imageWidth-8,cardY+cardH,0xFFE0E0E0);
+        drawSimpleBorder(g,8,cardY,imageWidth-16,cardH,COL_PANEL_BORDER);
+        drawSectionTitle(g,"跨公司重组任务",10,cardY+2);
+        drawButton(g,"返回",340,cardY+2,36,false);
+        drawClippedString(g,"紧急注资允许外部投资者执行；资产交易必须由提案指定卖方的经营者确认。",12,cardY+20,360,COL_TEXT_DIM);
+        List<FinanceMenu.CompanyProposalRow> tasks=executableRestructuringTasks();
+        int y=cardY+42;
+        if(tasks.isEmpty()){drawClippedString(g,"目前没有等待执行的重组提案。",12,y,300,COL_TEXT_DIM);return;}
+        for(FinanceMenu.CompanyProposalRow row:tasks){
+            if(y+ROW_HEIGHT>cardY+cardH-4)break;
+            boolean recap="EMERGENCY_RECAPITALIZATION".equals(row.type());
+            String company=companyName(row.companyId());
+            String details=recap?"目标 "+row.value1():"价格 "+row.value1()+" 数量 "+row.value2();
+            drawClippedString(g,(recap?"紧急注资 ":"资产购买 ")+company,12,y+3,150,COL_TEXT);
+            drawClippedString(g,details,166,y+3,154,COL_TEXT_DIM);
+            drawButton(g,recap?"投资":"卖方确认",322,y+1,54,false);
+            y+=ROW_HEIGHT;
+        }
+    }
+
+    private List<FinanceMenu.CompanyProposalRow> executableRestructuringTasks(){
+        return menu.getCompanyProposalRows().stream()
+                .filter(p->"PASSED".equals(p.status()))
+                .filter(p->"EMERGENCY_RECAPITALIZATION".equals(p.type())||"MAJOR_ASSET_PURCHASE".equals(p.type()))
+                .filter(FinanceMenu.CompanyProposalRow::playerCanExecute)
+                .filter(p->!submittedRestructuring.contains(p.proposalId())).toList();
+    }
+
+    private String companyName(UUID companyId){
+        for(FinanceMenu.CompanyInfo company:menu.getAllCompanies())if(company.companyId().equals(companyId))return company.name();
+        return companyId==null?"未知公司":companyId.toString().substring(0,8);
     }
 
     // ================================================================
@@ -2279,6 +2319,23 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
     private boolean handleCompanyClick(int mx, int my) {
         int cardY = CONTENT_Y;
         FinanceMenu.CompanyInfo playerCompany = menu.getPlayerCompany();
+        if(restructuringView){
+            if(mx>=340&&mx<376&&my>=cardY+2&&my<cardY+15){restructuringView=false;updateInputVisibility();return true;}
+            int y=cardY+42;
+            for(FinanceMenu.CompanyProposalRow proposal:executableRestructuringTasks()){
+                if(y+ROW_HEIGHT>imageHeight-12)break;
+                if(mx>=322&&mx<376&&my>=y+1&&my<y+14){
+                    GovernanceActionPacket.Action action="EMERGENCY_RECAPITALIZATION".equals(proposal.type())
+                            ?GovernanceActionPacket.Action.EXECUTE_RECAPITALIZATION:GovernanceActionPacket.Action.EXECUTE_ASSET_PURCHASE;
+                    FinancePacketHandler.CHANNEL.sendToServer(new GovernanceActionPacket(action,proposal.proposalId(),0,0,0,0,UUID.randomUUID().toString()));
+                    submittedRestructuring.add(proposal.proposalId());
+                    setStatus(action==GovernanceActionPacket.Action.EXECUTE_RECAPITALIZATION?"已提交外部注资":"已提交卖方确认");
+                    return true;
+                }
+                y+=ROW_HEIGHT;
+            }
+            return false;
+        }
         if (playerCompany != null) {
             if (governanceView) {
                 if (mx >= 340 && mx < 376 && my >= cardY + 2 && my < cardY + 15) {
@@ -2330,6 +2387,7 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
                 updateInputVisibility();
                 return true;
             }
+            if(mx>=282&&mx<336&&my>=cardY+14&&my<cardY+27){restructuringView=true;governanceView=false;updateInputVisibility();return true;}
             if (mx >= 58 && mx < 176 && my >= cardY + 62 && my < cardY + 75) {
                 CompanyStrategy[] strategies = CompanyStrategy.values();
                 int idx = 0;
@@ -2454,7 +2512,7 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
                 }
             }
             return false;
-        }
+        } else if(mx>=210&&mx<286&&my>=cardY+58&&my<cardY+71){restructuringView=true;updateInputVisibility();return true;}
 
         if (mx >= 55 && mx < 175 && my >= cardY + 58 && my < cardY + 71) {
             int idx = 0;
@@ -2920,10 +2978,10 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         quantityBox.setVisible(trade);
         inventoryQuantityBox.setVisible(currentTab == 3);
         FinanceMenu.CompanyInfo playerCompany = menu.getPlayerCompany();
-        boolean createCompany = (currentTab == 4 && playerCompany == null);
+        boolean createCompany = (currentTab == 4 && playerCompany == null && !restructuringView);
         boolean governance = currentTab == 4 && playerCompany != null && governanceView;
-        boolean ipoCompany = (currentTab == 4 && playerCompany != null && !governanceView);
-        boolean manageCompany = (currentTab == 4 && playerCompany != null && !governanceView);
+        boolean ipoCompany = (currentTab == 4 && playerCompany != null && !governanceView && !restructuringView);
+        boolean manageCompany = (currentTab == 4 && playerCompany != null && !governanceView && !restructuringView);
         if(governance){
             companyNameBox.setX(leftPos+108);
             companyNameBox.setY(topPos+CONTENT_Y+144);
@@ -2970,10 +3028,10 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         if (currentTab == 0 && !commodityChartVisible) list.add(intlQuantityBox);
         if (currentTab == 1) { list.add(priceBox); list.add(quantityBox); }
         if (currentTab == 3) list.add(inventoryQuantityBox);
-        if (currentTab == 4 && menu.getPlayerCompany() == null) list.add(companyNameBox);
-        if (currentTab == 4 && menu.getPlayerCompany() != null) list.add(companyNameBox);
-        if (currentTab == 4 && menu.getPlayerCompany() != null) list.add(companyAmountBox);
-        if (currentTab == 4 && menu.getPlayerCompany() != null) {
+        if (currentTab == 4 && !restructuringView && menu.getPlayerCompany() == null) list.add(companyNameBox);
+        if (currentTab == 4 && !restructuringView && menu.getPlayerCompany() != null) list.add(companyNameBox);
+        if (currentTab == 4 && !restructuringView && menu.getPlayerCompany() != null) list.add(companyAmountBox);
+        if (currentTab == 4 && !restructuringView && menu.getPlayerCompany() != null) {
             list.add(ipoPriceBox);
             list.add(ipoQuantityBox);
         }
