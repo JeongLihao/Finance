@@ -31,7 +31,67 @@
 [stockMarketMaker]
 	# 股票做市商价差。0.02 = fairValue 上下 2% 形成 bid / ask。
 	spread = 0.02
+
+[financialProducts]
+	# 默认基准年利率，单位为基点；500 = 5.00%。只影响之后创建的合约。
+	defaultBenchmarkRateBasisPoints = 500
+	# 债券、贷款和央行票据年化计算使用的 MC 天数。
+	annualMcDays = 365
+	# 公司债与贷款的世界级合约数量上限。
+	maxCorporateBonds = 256
+	maxCompanyLoans = 256
+	# 公司债/贷款期限和合同利率硬上限。
+	maxBondTermDays = 3650
+	maxLoanTermDays = 3650
+maxContractRateBasisPoints = 10000
+
+[futures]
+	# 是否允许创建新期货合约和提交新订单。
+	enabled = true
+	# 每手合约代表的商品单位数。
+	contractSize = 10
+	# 初始、维持和强平保证金率，单位为基点。安全关系为 initial > maintenance > liquidation > 0。
+	initialMarginBasisPoints = 2000
+	maintenanceMarginBasisPoints = 1200
+	liquidationMarginBasisPoints = 800
+	maxPositionPerContract = 10000
+	maxOrders = 4096
+	minimumPriceTick = 1
+	# 系统无流动性强平的不利滑点上限，500 = 5%。
+	liquidationSlippageBasisPoints = 500
+	initialGuaranteeFund = 100000
+	finalSettlementWindowDays = 3
+	minimumSettlementVolume = 10
+	maxSettlementSpotDeviationBasisPoints = 2000
+
+[banking]
+	# 是否允许新的商业银行存款、贷款等业务；关闭不会删除既有账务。
+	enabled = true
+	# 默认系统银行数量，范围 2～4。
+	defaultBankCount = 3
+	# 每家系统银行初始实收资本；创建时以等额准备金资产明确入账。
+	initialCapital = 1000000
+	# 活期、定期和贷款相对基准利率的利差，单位为基点。
+	demandDepositSpreadBasisPoints = 300
+	timeDepositSpreadBasisPoints = 100
+	loanSpreadBasisPoints = 250
+	# 活期/定期法定准备金率与最低绝对准备金。
+	demandReserveBasisPoints = 1000
+	timeReserveBasisPoints = 500
+	minimumReserve = 10000
+	# 最低资本充足率与单一借款人占权益上限。
+	minimumCapitalBasisPoints = 800
+	singleBorrowerLimitBasisPoints = 2500
+	# 央行最后贷款人惩罚利差。
+	centralBankPenaltyBasisPoints = 300
+	# 存款保险费率及同一客户、同一家银行的合并保障上限。
+	insuranceFeeBasisPoints = 5
+	insuranceLimitPerCustomer = 100000
+	# 压力测试同业传染最大轮数。
+	stressTestMaxRounds = 8
 ```
+
+央行票据当前固定提供 7、30、90 MC 日三档，期限溢价分别为 25、100、200 基点；这些值和债券二级市场的订单/历史硬上限属于协议与业务安全边界，不支持运行中配置重载。调整 `annualMcDays` 会影响之后的计息和仍在运行的按日计算，生产服应完整重启并避免在合约周期中途修改。
 
 ## 调参建议
 
@@ -40,3 +100,8 @@
 - 想降低做市商对玩家的自动成交能力：提高 `stockMarketMaker.spread`。
 - 想让股东投票更像正式治理：提高 `proposal.minParticipationRatio`。
 - 想减少公司上市速度：提高 `company.ipoFee`。
+- 想降低期货杠杆：提高 `futures.initialMarginBasisPoints`，并保持初始率高于维持率和强平率。
+- 想降低单笔成交操纵日结的可能：提高 `futures.minimumSettlementVolume`，或降低 `maxSettlementSpotDeviationBasisPoints`。
+- 想抑制银行扩张：提高准备金率或最低资本充足率、降低单一借款人上限。降低保险上限只影响之后的处置计算，不会删除存款。
+- 银行初始资本和默认银行数量只用于首次创建；修改配置不会重写已有银行。利差变化只影响新定期存款与新贷款报价，已有合同利率保持锁定。
+- 修改合约乘数、保证金率、保障基金或结算窗口后应完整重启；已开仓合约不会重写历史成交价。

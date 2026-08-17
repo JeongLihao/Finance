@@ -6,6 +6,7 @@ import finance.company.Company;
 import finance.company.CompanyManager;
 import finance.company.CompanyType;
 import finance.data.EconomySavedData;
+import finance.metrics.EconomyMetricsService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -67,6 +68,7 @@ class ConditionalStockOrderManagerTest {
                 .anyMatch(record -> record.getType() == TransactionType.CONDITIONAL_STOCK_TRIGGER));
         assertTrue(AccountManager.getTransactions().stream()
                 .anyMatch(record -> record.getType() == TransactionType.STOCK_SELL));
+        assertEquals(2, EconomyMetricsService.getCurrentStockVolume());
     }
 
     @Test

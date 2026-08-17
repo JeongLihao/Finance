@@ -15,6 +15,7 @@ import finance.company.CompanyProposalManager;
 import finance.company.CompanyProposalStatus;
 import finance.company.CompanyProposalType;
 import finance.commodity.CommodityCategory;
+import finance.commodity.Commodity;
 import finance.commodity.CommodityRegistry;
 import finance.company.CompanyManager;
 import finance.company.CompanyStrategy;
@@ -26,6 +27,10 @@ import finance.stock.ConditionalStockOrder;
 import finance.stock.ConditionalStockOrderManager;
 import finance.stock.ConditionalStockOrderType;
 import finance.stock.StockPriceEngine;
+import finance.stock.StockTrade;
+import finance.metrics.EconomyMetricsService;
+import finance.chart.CandlestickService;
+import finance.chart.MarketInstrumentType;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
@@ -38,6 +43,7 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class EconomySavedDataTest {
 
@@ -80,6 +86,20 @@ class EconomySavedDataTest {
     }
 
     @Test
+    void loadRejectsOverflowingBalanceAndFrozenCombination() {
+        CompoundTag account = new CompoundTag();
+        account.putUUID("PlayerUUID", PLAYER_ID);
+        account.putLong("Balance", Long.MAX_VALUE);
+        account.putLong("FrozenBalance", 1);
+        CompoundTag root = new CompoundTag();
+        root.put("Accounts", listOf(account));
+
+        assertDoesNotThrow(() -> EconomySavedData.load(root));
+
+        assertEquals(0, AccountManager.getAccounts().size());
+    }
+
+    @Test
     void loadFallsBackForRecoverableEnumFields() {
         CompoundTag root = new CompoundTag();
         root.put("Companies", listOf(companyWithBadStrategy()));
@@ -98,7 +118,114 @@ class EconomySavedDataTest {
     void saveWritesCurrentDataVersion() {
         CompoundTag saved = new EconomySavedData().save(new CompoundTag());
 
-        assertEquals(13, saved.getInt("DataVersion"));
+        assertEquals(EconomySavedData.currentDataVersion(), saved.getInt("DataVersion"));
+    }
+
+    @Test
+    void saveAndLoadPreservesCandlesticksAndSkipsCorruptBars() {
+        CandlestickService.recordTrade(MarketInstrumentType.STOCK, "ABC", 4, 10, 2);
+        CandlestickService.recordTrade(MarketInstrumentType.STOCK, "ABC", 4, 12, 3);
+        CandlestickService.recordTrade(MarketInstrumentType.COMMODITY, "ABC", 4, 7, 1);
+        CompoundTag saved = new EconomySavedData().save(new CompoundTag());
+        CompoundTag corrupt = new CompoundTag();
+        corrupt.putLong("Day", -1);
+        corrupt.putLong("Open", 0);
+        saved.getList("Candlesticks", Tag.TAG_COMPOUND).getCompound(0)
+                .getList("Bars", Tag.TAG_COMPOUND).add(corrupt);
+
+        EconomySavedData.load(saved);
+
+        assertEquals(1, CandlestickService.getBars(MarketInstrumentType.STOCK, "ABC", 30).size());
+        assertEquals(12, CandlestickService.getBars(MarketInstrumentType.STOCK, "ABC", 30).get(0).close());
+        assertEquals(5, CandlestickService.getBars(MarketInstrumentType.STOCK, "ABC", 30).get(0).volume());
+        assertEquals(7, CandlestickService.getBars(MarketInstrumentType.COMMODITY, "abc", 30).get(0).close());
+        CandlestickService.recordTrade(MarketInstrumentType.STOCK, "ABC", 4, 9, 4);
+        assertEquals(9, CandlestickService.getBars(MarketInstrumentType.STOCK, "ABC", 30).get(0).close());
+        assertEquals(9, CandlestickService.getBars(MarketInstrumentType.STOCK, "ABC", 30).get(0).volume());
+    }
+
+    @Test
+    void oldSaveWithoutCandlesticksLoadsEmpty() {
+        assertDoesNotThrow(() -> EconomySavedData.load(new CompoundTag()));
+        assertTrue(CandlestickService.getSeriesDirect().isEmpty());
+    }
+
+    @Test
+    void candlestickLoadSkipsBadKeysAndKeepsLatestOneHundredTwentyBars() {
+        ListTag seriesList = new ListTag();
+        seriesList.add(candlestickSeries("UNKNOWN", "ABC", 1));
+        seriesList.add(candlestickSeries("STOCK", " ", 1));
+        seriesList.add(candlestickSeries("STOCK", "ABC", 130));
+        CompoundTag root = new CompoundTag();
+        root.put("Candlesticks", seriesList);
+
+        EconomySavedData.load(root);
+
+        var bars = CandlestickService.getBars(MarketInstrumentType.STOCK, "ABC", 120);
+        assertEquals(120, bars.size());
+        assertEquals(10, bars.get(0).mcDay());
+        assertEquals(129, bars.get(119).mcDay());
+        assertEquals(1, CandlestickService.getSeriesDirect().size());
+    }
+
+    @Test
+    void loadRestoresCustomCommodityBeforeCompanyInventory() {
+        String commodityId = "test_custom_company_inventory";
+        CommodityRegistry.register(new Commodity(
+                commodityId,
+                "minecraft:diamond",
+                "Custom Company Input",
+                CommodityCategory.MISCELLANEOUS,
+                250));
+        finance.company.Company company = new finance.company.Company(
+                COMPANY_ID,
+                "Custom Inventory Company",
+                CompanyType.RAW_MATERIALS,
+                1_000,
+                PLAYER_ID);
+        company.addInventory(commodityId, 37);
+        CompanyManager.registerDirect(company);
+
+        CompoundTag saved = new EconomySavedData().save(new CompoundTag());
+
+        EconomySavedData.resetRuntimeState();
+        CommodityRegistry.resetToDefaults();
+        EconomySavedData.load(saved);
+
+        assertNotNull(CommodityRegistry.getCommodity(commodityId));
+        finance.company.Company restored = CompanyManager.getCompany(COMPANY_ID);
+        assertNotNull(restored);
+        assertEquals(37, restored.getInventoryAmount(commodityId));
+    }
+
+    @Test
+    void loadLegacySaveKeepsDefaultCommodityCompanyInventory() {
+        String commodityId = "legacy_default_inventory_test";
+        CommodityRegistry.registerDefault(new Commodity(
+                commodityId,
+                "minecraft:iron_ingot",
+                "Legacy Default Inventory",
+                CommodityCategory.RAW_MATERIALS,
+                10));
+        finance.company.Company company = new finance.company.Company(
+                COMPANY_ID,
+                "Default Inventory Company",
+                CompanyType.RAW_MATERIALS,
+                1_000,
+                PLAYER_ID);
+        company.addInventory(commodityId, 19);
+        CompanyManager.registerDirect(company);
+
+        CompoundTag saved = new EconomySavedData().save(new CompoundTag());
+        saved.remove("CommodityDefinitions");
+
+        EconomySavedData.resetRuntimeState();
+        CommodityRegistry.resetToDefaults();
+        EconomySavedData.load(saved);
+
+        finance.company.Company restored = CompanyManager.getCompany(COMPANY_ID);
+        assertNotNull(restored);
+        assertEquals(19, restored.getInventoryAmount(commodityId));
     }
 
     @Test
@@ -151,6 +278,25 @@ class EconomySavedDataTest {
         assertEquals(1, loaded.getSnapshots().size());
         assertEquals(12, loaded.getSnapshots().get(0).getPrice());
         assertEquals(3, loaded.getSnapshots().get(0).getVolume());
+    }
+
+    @Test
+    void loadingStockTradeHistoryDoesNotCountItAsNewDailyVolume() {
+        CompanyManager.registerDirect(new finance.company.Company(
+                COMPANY_ID,
+                "Historical Trade Company",
+                CompanyType.RAW_MATERIALS,
+                1_000,
+                PLAYER_ID));
+        StockMarketManager.putStockDirect(new Stock("HIST", "Historical Trade Company", COMPANY_ID,
+                1_000, 1_000, 0, 10, 10));
+        StockMarketManager.addStockTradeDirect(new StockTrade(PLAYER_ID, OTHER_PLAYER_ID, "HIST", 10, 6));
+
+        CompoundTag saved = new EconomySavedData().save(new CompoundTag());
+        EconomySavedData.load(saved);
+
+        assertEquals(1, StockMarketManager.getStockTradeHistory().size());
+        assertEquals(0, EconomyMetricsService.getCurrentStockVolume());
     }
 
     @Test
@@ -352,6 +498,25 @@ class EconomySavedDataTest {
         ListTag list = new ListTag();
         list.add(tag);
         return list;
+    }
+
+    private static CompoundTag candlestickSeries(String type, String id, int count) {
+        CompoundTag series = new CompoundTag();
+        series.putString("Type", type);
+        series.putString("Id", id);
+        ListTag bars = new ListTag();
+        for (int day = 0; day < count; day++) {
+            CompoundTag bar = new CompoundTag();
+            bar.putLong("Day", day);
+            bar.putLong("Open", 10 + day);
+            bar.putLong("High", 12 + day);
+            bar.putLong("Low", 9 + day);
+            bar.putLong("Close", 11 + day);
+            bar.putLong("Volume", day);
+            bars.add(bar);
+        }
+        series.put("Bars", bars);
+        return series;
     }
 
     private static CompoundTag badUuidAccount() {

@@ -43,6 +43,8 @@ public class StockTradePacket {
         ctx.get().enqueueWork(() -> {
             ServerPlayer player = ctx.get().getSender();
             if (player == null) return;
+            if (!finance.diagnostic.ModuleHealthRegistry.mayWrite(finance.diagnostic.ModuleHealthRegistry.Module.STOCK)) { GuiFeedbackPacket.send(player,"股票市场已因一致性问题暂停。"); return; }
+            if (!MarketDataRequestLimiter.allow(player.getUUID(),player.server.getTickCount(),"stock-trade:"+packet.actionType)) { GuiFeedbackPacket.send(player,"操作过于频繁。"); return; }
             if (packet.actionType == null
                     || !NetworkValidation.isValidSymbol(packet.symbol)
                     || !NetworkValidation.isPositive(packet.quantity)) {

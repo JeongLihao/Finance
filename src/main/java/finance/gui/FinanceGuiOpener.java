@@ -15,10 +15,10 @@ import finance.company.CompanyProposal;
 import finance.company.CompanyProposalManager;
 import finance.commodity.CommodityInventoryManager;
 import finance.cycle.EconomyCycleService;
-import finance.market.CentralBank;
 import finance.market.MarketManager;
 import finance.market.MarketPrice;
 import finance.market.NpcMarketMaker;
+import finance.metrics.EconomyMetricsService;
 import finance.market.Order;
 import finance.stock.Stock;
 import finance.stock.ConditionalStockOrder;
@@ -316,7 +316,7 @@ public class FinanceGuiOpener {
                 continue;
             }
             long value = safeMultiply(price.getMidPrice(), entry.getValue());
-            commodityValue += value;
+            commodityValue = finance.util.MathUtil.saturatedAddNonNegative(commodityValue, value);
             String name = commodity != null ? commodity.getDisplayName() : entry.getKey();
             rows.add(new FinanceMenu.AssetRow("商品", name, entry.getValue(), value, 0,
                     value, price.getMidPrice(), 0));
@@ -332,13 +332,60 @@ public class FinanceGuiOpener {
             long value = safeMultiply(stock.getLastPrice(), holding.getQuantity());
             long cost = safeMultiply(holding.getAverageCost(), holding.getQuantity());
             long profit = value - cost;
-            stockValue += value;
+            stockValue = finance.util.MathUtil.saturatedAddNonNegative(stockValue, value);
             rows.add(new FinanceMenu.AssetRow("股票", stock.getSymbol(), holding.getQuantity(),
                     value, 0, cost, stock.getLastPrice(), profit));
         }
 
-        long totalAsset = cash + frozenCash + commodityValue + stockValue;
         long mcDay = EconomyCycleService.currentMcDay(player.getServer());
+        long fixedIncomeValue = 0;
+        for (finance.debt.CorporateBond bond : finance.debt.CorporateBondManager.bonds().values()) {
+            long quantity = bond.holdings().getOrDefault(player.getUUID(), 0L);
+            if (quantity <= 0) continue;
+            finance.debt.BondValuation valuation = finance.debt.FixedIncomeValuationService.value(bond, player.getUUID(), mcDay);
+            fixedIncomeValue = finance.util.MathUtil.saturatedAddNonNegative(fixedIncomeValue, valuation.marketValue());
+            long cost = finance.bondmarket.BondPortfolioManager.position(bond.id(), player.getUUID()).totalCost();
+            rows.add(new FinanceMenu.AssetRow("债券", bond.code(), quantity, valuation.marketValue(), 0,
+                    cost, valuation.marketPricePerUnit(), valuation.unrealizedProfit()));
+        }
+        for (finance.fixedincome.CentralBankBill bill : finance.fixedincome.CentralBankBillManager.bills().values()) {
+            if (bill.status() != finance.fixedincome.CentralBankBillStatus.ACTIVE) continue;
+            long principal = bill.principalByPlayer().getOrDefault(player.getUUID(), 0L);
+            if (principal <= 0) continue;
+            long expected = finance.fixedincome.CentralBankBillManager.expectedMaturityValue(bill, player.getUUID());
+            fixedIncomeValue = finance.util.MathUtil.saturatedAddNonNegative(fixedIncomeValue, principal);
+            rows.add(new FinanceMenu.AssetRow("票据", bill.termDays() + "日央行票据", principal, principal, 0,
+                    principal, 1, Math.max(0, expected - principal)));
+        }
+
+        finance.futures.MarginAccount marginAccount = finance.futures.MarginManager.accounts().get(player.getUUID());
+        long futuresEquity = marginAccount == null ? 0 : Math.max(0, finance.futures.FuturesRiskService.equity(player.getUUID()));
+        if (marginAccount != null && (marginAccount.cashBalance() > 0
+                || finance.futures.MarginManager.positions().keySet().stream().anyMatch(k -> k.ownerId().equals(player.getUUID())))) {
+            rows.add(new FinanceMenu.AssetRow("衍生品", "期货保证金权益", 1, futuresEquity, 0,
+                    marginAccount.cashBalance(), 1, futuresEquity - marginAccount.cashBalance()));
+        }
+
+        long fundValue = 0;
+        Map<String, finance.fund.PlayerFundPosition> fundPositions = finance.fund.FundManager.positions().get(player.getUUID());
+        if (fundPositions != null) {
+            for (Map.Entry<String, finance.fund.PlayerFundPosition> entry : fundPositions.entrySet()) {
+                finance.fund.FundState state = finance.fund.FundManager.states().get(entry.getKey());
+                finance.fund.FundDefinition definition = finance.fund.FundManager.definitions().get(entry.getKey());
+                if (state == null || definition == null || entry.getValue().shareUnits() <= 0) continue;
+                long value = finance.fund.FundMath.ratioFloor(entry.getValue().shareUnits(), state.currentNav(), finance.fund.FundManager.SHARE_SCALE);
+                fundValue = finance.util.MathUtil.saturatedAddNonNegative(fundValue, value);
+                rows.add(new FinanceMenu.AssetRow("基金", definition.displayName(), entry.getValue().shareUnits(), value, 0,
+                        entry.getValue().totalCost(), state.currentNav(), value - entry.getValue().totalCost()));
+            }
+        }
+
+        long totalAsset = finance.util.MathUtil.saturatedAddNonNegative(cash, frozenCash);
+        totalAsset = finance.util.MathUtil.saturatedAddNonNegative(totalAsset, commodityValue);
+        totalAsset = finance.util.MathUtil.saturatedAddNonNegative(totalAsset, stockValue);
+        totalAsset = finance.util.MathUtil.saturatedAddNonNegative(totalAsset, fixedIncomeValue);
+        totalAsset = finance.util.MathUtil.saturatedAddNonNegative(totalAsset, futuresEquity);
+        totalAsset = finance.util.MathUtil.saturatedAddNonNegative(totalAsset, fundValue);
         long todayProfit = AssetSnapshotManager.getTodayProfit(player.getUUID(), totalAsset, mcDay);
         List<FinanceMenu.AssetRow> withPercent = new ArrayList<>();
         for (FinanceMenu.AssetRow row : rows) {
@@ -364,50 +411,27 @@ public class FinanceGuiOpener {
     }
 
     private static FinanceMenu.EconomyDashboardRow buildDashboard() {
-        long totalMoney = 0;
-        for (Account account : AccountManager.getAccounts().values()) {
-            totalMoney = saturatedAdd(totalMoney, account.getBalance());
-            totalMoney = saturatedAdd(totalMoney, account.getFrozenBalance());
-        }
-        long commodityVolume = MarketManager.getTradeHistory().stream()
-                .mapToLong(trade -> Math.max(0, trade.getQuantity()))
-                .sum();
-        long stockVolume = StockMarketManager.getStockTradeHistory().stream()
-                .mapToLong(trade -> Math.max(0, trade.getQuantity()))
-                .sum();
-        double priceIndexTotal = 0.0;
-        int priceIndexCount = 0;
-        for (MarketPrice price : NpcMarketMaker.getAllMarketPrices().values()) {
-            if (price.getBasePrice() > 0) {
-                priceIndexTotal += (double) price.getMidPrice() / price.getBasePrice();
-                priceIndexCount++;
-            }
-        }
-        double priceIndex = priceIndexCount == 0 ? 100.0 : priceIndexTotal / priceIndexCount * 100.0;
-        int riskCompanies = 0;
-        for (Company company : CompanyManager.getCompanies()) {
-            if (company.isBankruptcyRisk()) {
-                riskCompanies++;
-            }
-        }
+        EconomyMetricsService.CurrentMetrics current = EconomyMetricsService.getCurrentMetrics();
+        List<FinanceMenu.EconomyTrendRow> trends = EconomyMetricsService.getDailySnapshots().stream()
+                .map(snapshot -> new FinanceMenu.EconomyTrendRow(
+                        snapshot.mcDay(), snapshot.commodityVolume(), snapshot.stockVolume(),
+                        snapshot.priceIndex()))
+                .toList();
         return new FinanceMenu.EconomyDashboardRow(
-                totalMoney,
-                commodityVolume,
-                stockVolume,
-                priceIndex,
-                riskCompanies,
-                CentralBank.getLastInterventionSummary());
+                current.playerCash(),
+                current.playerFrozenFunds(),
+                current.companyCash(),
+                current.npcCash(),
+                current.centralBankReserve(),
+                current.totalMoney(),
+                current.dailyCommodityVolume(),
+                current.dailyStockVolume(),
+                current.priceIndex(),
+                current.bankruptcyRiskCompanies(),
+                current.centralBankSummary() + " | " + finance.risk.FinancialRiskService.compactSummary(),
+                trends);
     }
 
-    private static long saturatedAdd(long a, long b) {
-        if (b > 0 && a > Long.MAX_VALUE - b) {
-            return Long.MAX_VALUE;
-        }
-        if (b < 0 && a < Long.MIN_VALUE - b) {
-            return Long.MIN_VALUE;
-        }
-        return a + b;
-    }
 
     private record FinanceProvider(List<FinanceMenu.MarketRow> marketData,
                                     List<FinanceMenu.OrderRow> orderRows,

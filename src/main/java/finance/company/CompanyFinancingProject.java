@@ -70,9 +70,11 @@ public class CompanyFinancingProject {
         return getRaisedAmount() >= fundingTarget;
     }
 
-    public void addSubscription(UUID playerId, long shares) {
-        if (playerId != null && shares > 0) {
-            subscriptions.merge(playerId, shares, Long::sum);
-        }
+    public boolean addSubscription(UUID playerId, long shares) {
+        if (playerId == null || shares <= 0) return false;
+        long current = subscriptions.getOrDefault(playerId, 0L);
+        if (current > Long.MAX_VALUE - shares) return false;
+        subscriptions.put(playerId, current + shares);
+        return true;
     }
 }

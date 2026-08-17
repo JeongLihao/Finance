@@ -126,13 +126,21 @@ public class Company {
         return inventory.getOrDefault(commodityId, 0);
     }
 
-    public void addInventory(String commodityId, int amount) {
+    public boolean addInventory(String commodityId, int amount) {
+        if (!canAddInventory(commodityId, amount)) return false;
         inventory.put(commodityId, getInventoryAmount(commodityId) + amount);
+        return true;
+    }
+
+    public boolean canAddInventory(String commodityId, int amount) {
+        if (commodityId == null || commodityId.isBlank() || amount <= 0) return false;
+        int current = getInventoryAmount(commodityId);
+        return current >= 0 && current <= Integer.MAX_VALUE - amount;
     }
 
     public boolean removeInventory(String commodityId, int amount) {
         int current = getInventoryAmount(commodityId);
-        if (current < amount) return false;
+        if (commodityId == null || commodityId.isBlank() || amount <= 0 || current < amount) return false;
         inventory.put(commodityId, current - amount);
         return true;
     }
@@ -179,30 +187,7 @@ public class Company {
 
     /** 从国际市场购买原料 */
     private void buyFromInternationalMarket(String commodityId, int quantity) {
-        MarketPrice mp = NpcMarketMaker.getMarketPrice(commodityId);
-        if (mp == null) return;
-        long askPrice = mp.getAskPrice();
-        long totalCost = MathUtil.multiplyExactOrNegative1(askPrice, quantity);
-        if (totalCost <= 0) return;
-
-        int marketStock = CommodityInventoryManager.getCommodityAmount(
-                NpcMarketMaker.NPC_UUID, commodityId);
-        if (marketStock < quantity) return;
-        if (cash < totalCost) return;
-
-        CommodityInventoryManager.removeCommodity(NpcMarketMaker.NPC_UUID, commodityId, quantity);
-        addInventory(commodityId, quantity);
-        withdraw(totalCost);
-        AccountManager.deposit(NpcMarketMaker.NPC_UUID, totalCost);
-
-        // P3：记录成本
-        dailyCost += totalCost;
-
-        AccountManager.addTransactionRecord(
-                new TransactionRecord(companyId, NpcMarketMaker.NPC_UUID,
-                        totalCost, TransactionType.NPC_SELL));
-
-        NpcMarketMaker.recordNpcTrade(commodityId, false, quantity, askPrice);
+        CompanyNpcTradeService.buyForCompany(this, commodityId, quantity);
     }
 
     /** 每日自动交易 —— 将可出售库存的一部分卖给国际市场变现 */
@@ -248,23 +233,7 @@ public class Company {
 
             if (sellQty <= 0 || totalCost <= 0) continue;
 
-            if (removeInventory(commodityId, sellQty)) {
-                // 商品：公司 → 国际市场
-                CommodityInventoryManager.addCommodity(NpcMarketMaker.NPC_UUID, commodityId, sellQty);
-                // 资金：国际市场 → 公司
-                AccountManager.withdraw(NpcMarketMaker.NPC_UUID, totalCost);
-                deposit(totalCost);
-
-                // P3：记录收益
-                dailyRevenue += totalCost;
-
-                AccountManager.addTransactionRecord(
-                        new TransactionRecord(NpcMarketMaker.NPC_UUID, companyId,
-                                totalCost, TransactionType.NPC_BUY));
-
-                // 更新行情
-                NpcMarketMaker.recordNpcTrade(commodityId, true, sellQty, bidPrice);
-            }
+            CompanyNpcTradeService.sellForCompany(this, commodityId, sellQty, bidPrice);
         }
     }
 
@@ -276,7 +245,8 @@ public class Company {
         for (Map.Entry<String, Integer> entry : inventory.entrySet()) {
             MarketPrice mp = NpcMarketMaker.getMarketPrice(entry.getKey());
             if (mp != null) {
-                total += (long) mp.getMidPrice() * entry.getValue();
+                long value = MathUtil.saturatedMultiplyNonNegative(mp.getMidPrice(), entry.getValue());
+                total = MathUtil.saturatedAddNonNegative(total, value);
             }
         }
         return total;
@@ -284,22 +254,41 @@ public class Company {
 
     /** 公司估值 = 现金 + 库存市值（展示用原始资产值） */
     public long getEstimatedValue() {
-        return cash + inventoryValue();
+        return MathUtil.saturatedAddNonNegative(cash, inventoryValue());
     }
 
     /** 股票基本面资产值：库存按行业景气折价，避免商品跌价时股票仍按满额资产估值。 */
     public long getFundamentalAssetValue() {
         double sentiment = getIndustrySentiment();
         double inventoryDiscount = clamp(0.45 + sentiment * 0.45, 0.35, 1.05);
-        return Math.max(0, cash + Math.round(inventoryValue() * inventoryDiscount));
+        long discountedInventory = Math.max(0, Math.round(inventoryValue() * inventoryDiscount));
+        return MathUtil.saturatedAddNonNegative(cash, discountedInventory);
     }
 
     // ---- 资金 ----
 
-    public void deposit(long amount) { cash += amount; }
+    public boolean deposit(long amount) {
+        if (amount <= 0 || cash < 0 || cash > Long.MAX_VALUE - amount) {
+            return false;
+        }
+        cash += amount;
+        return true;
+    }
+
+    public boolean canDeposit(long amount) {
+        return amount > 0 && cash >= 0 && cash <= Long.MAX_VALUE - amount;
+    }
+
+    void recordPurchaseCost(long amount) {
+        dailyCost = MathUtil.saturatedAddNonNegative(dailyCost, amount);
+    }
+
+    void recordSalesRevenue(long amount) {
+        dailyRevenue = MathUtil.saturatedAddNonNegative(dailyRevenue, amount);
+    }
 
     public boolean withdraw(long amount) {
-        if (cash < amount) return false;
+        if (amount <= 0 || cash < amount) return false;
         cash -= amount;
         return true;
     }
@@ -499,7 +488,7 @@ public class Company {
      * 简化：按最近日利润年化。
      */
     public double getDividendYieldPercent() {
-        if (cash + inventoryValue() <= 0) return 0;
+        if (getEstimatedValue() <= 0) return 0;
         long recentDailyProfit = getSmoothedDailyProfit();
         long annualProfit = recentDailyProfit * 365; // 粗估
         long totalValue = getEstimatedValue();
@@ -592,8 +581,8 @@ public class Company {
     }
 
     private void generateFinancialReport(long mcDay, long revenue, long expenses, long netProfit) {
-        long assets = Math.max(0, cash + inventoryValue());
-        long liabilities = 0;
+        long assets = getEstimatedValue();
+        long liabilities = finance.debt.CompanyCreditService.totalDebt(companyId);
         CompanyFinancialReport previous = getLatestFinancialReport();
         long assetChange = previous != null ? assets - previous.assets() : 0;
         long profitChange = previous != null ? netProfit - previous.netProfit() : 0;

@@ -6,6 +6,10 @@ import finance.market.MarketPrice;
 import finance.market.NpcMarketMaker;
 import finance.stock.Stock;
 import finance.stock.StockMarketManager;
+import finance.chart.Candlestick;
+import finance.chart.CandlestickService;
+import finance.chart.MarketInstrumentType;
+import finance.cycle.EconomyCycleService;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
@@ -24,7 +28,7 @@ public final class PriceAlertManager {
     public static AddResult addAlert(UUID playerId, PriceAlertType type, String targetId,
                                      PriceAlertDirection direction, long targetPrice) {
         if (playerId == null || type == null || direction == null || targetId == null
-                || targetId.isBlank() || targetPrice <= 0) {
+                || targetId.isBlank() || (isFixedPrice(direction) && targetPrice <= 0)) {
             return new AddResult(false, "提醒参数无效。", null);
         }
         long count = ALERTS.stream().filter(alert -> alert.getPlayerId().equals(playerId)).count();
@@ -88,7 +92,7 @@ public final class PriceAlertManager {
         while (iterator.hasNext()) {
             PriceAlert alert = iterator.next();
             long currentPrice = currentPrice(alert);
-            if (currentPrice <= 0 || !alert.shouldTrigger(currentPrice)) {
+            if (currentPrice <= 0 || !shouldTrigger(alert, currentPrice, EconomyCycleService.currentMcDay(server))) {
                 continue;
             }
             ServerPlayer player = server.getPlayerList().getPlayer(alert.getPlayerId());
@@ -113,7 +117,7 @@ public final class PriceAlertManager {
         while (iterator.hasNext()) {
             PriceAlert alert = iterator.next();
             long currentPrice = currentPrice(alert);
-            if (currentPrice > 0 && alert.shouldTrigger(currentPrice)) {
+            if (currentPrice > 0 && shouldTrigger(alert, currentPrice, Long.MAX_VALUE)) {
                 iterator.remove();
                 triggered++;
             }
@@ -135,6 +139,36 @@ public final class PriceAlertManager {
                 yield stock != null ? stock.getLastPrice() : 0;
             }
         };
+    }
+
+    public static int checkAlertsForTest(long currentMcDay) {
+        int triggered = 0;
+        Iterator<PriceAlert> iterator = ALERTS.iterator();
+        while (iterator.hasNext()) {
+            PriceAlert alert = iterator.next();
+            long currentPrice = currentPrice(alert);
+            if (currentPrice > 0 && shouldTrigger(alert, currentPrice, currentMcDay)) {
+                iterator.remove();
+                triggered++;
+            }
+        }
+        return triggered;
+    }
+
+    private static boolean shouldTrigger(PriceAlert alert, long currentPrice, long currentMcDay) {
+        if (isFixedPrice(alert.getDirection())) return alert.shouldTrigger(currentPrice);
+        MarketInstrumentType instrumentType = alert.getType() == PriceAlertType.COMMODITY
+                ? MarketInstrumentType.COMMODITY : MarketInstrumentType.STOCK;
+        List<Candlestick> bars = CandlestickService.getBars(instrumentType, alert.getTargetId(), 120);
+        Candlestick previous = null;
+        for (Candlestick bar : bars) if (bar.mcDay() < currentMcDay) previous = bar;
+        if (previous == null) return false;
+        return alert.getDirection() == PriceAlertDirection.PREVIOUS_HIGH_BREAKOUT
+                ? currentPrice > previous.high() : currentPrice < previous.low();
+    }
+
+    private static boolean isFixedPrice(PriceAlertDirection direction) {
+        return direction == PriceAlertDirection.ABOVE || direction == PriceAlertDirection.BELOW;
     }
 
     private static boolean exists(PriceAlertType type, String targetId) {

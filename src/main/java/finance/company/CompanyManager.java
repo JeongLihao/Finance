@@ -140,10 +140,11 @@ public class CompanyManager {
         }
 
         String symbol = stock.getSymbol();
-        long totalShares = stock.getTotalShares();
+        long totalShares = stock.getVotingShares();
 
         // 获取所有持有该公司股票的玩家
         java.util.Map<java.util.UUID, Long> holdings = StockPortfolioManager.getHoldingsForCompany(symbol);
+        finance.governance.CorporateActionManager.lockedShares(symbol).forEach((holder,quantity)->holdings.merge(holder,quantity,(a,b)->a>Long.MAX_VALUE-b?Long.MAX_VALUE:a+b));
 
         if (holdings.isEmpty()) {
             return; // 无股东，无处分红
@@ -156,8 +157,11 @@ public class CompanyManager {
             UUID playerId = share.id();
             long shareholding = share.weight();
             long payout = share.amount();
-            if (payout > 0 && company.withdraw(payout)) {
-                AccountManager.deposit(playerId, payout);
+            if (payout > 0 && AccountManager.canDeposit(playerId, payout) && company.withdraw(payout)) {
+                if (!AccountManager.deposit(playerId, payout)) {
+                    company.deposit(payout);
+                    continue;
+                }
                 AccountManager.addTransactionRecord(
                         new TransactionRecord(
                                 company.getCompanyId(),

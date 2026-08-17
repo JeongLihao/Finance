@@ -7,8 +7,10 @@ import finance.company.CompanyManager;
 import finance.company.CompanyProposalManager;
 import finance.event.EventManager;
 import finance.market.NpcMarketMaker;
+import finance.metrics.EconomyMetricsService;
 import finance.stock.ConditionalStockOrderManager;
 import finance.stock.StockMarketManager;
+import finance.chart.CandlestickService;
 import net.minecraft.server.MinecraftServer;
 
 public final class EconomyCycleService {
@@ -32,13 +34,19 @@ public final class EconomyCycleService {
             return;
         }
         long gameTime = server.overworld().getGameTime();
+        CandlestickService.observeDay(gameTime / TICKS_PER_MC_DAY);
+        long mcDay = gameTime / TICKS_PER_MC_DAY;
+        boolean marketClosed = FinancialCycleService.observeMarketDay(mcDay);
+        if (marketClosed) finance.futures.FuturesRiskService.notifyOnline(server, FinancialCycleService.lastClosedMarketDay());
         if (gameTime <= 0) {
             return;
         }
 
         if (gameTime % TICKS_PER_MC_DAY == 0) {
-            tickDay(server, gameTime / TICKS_PER_MC_DAY);
+            tickDay(server, mcDay);
         }
+
+        FinancialCycleService.advanceTo(mcDay);
 
         if (gameTime % NOISE_INTERVAL == 0) {
             tickNoiseAndMomentum(server);
@@ -48,6 +56,10 @@ public final class EconomyCycleService {
     }
 
     private static void tickDay(MinecraftServer server, long mcDay) {
+        // At the first tick of a new MC day, the previous day's counters are
+        // still intact. Persist them before individual price engines reset.
+        EconomyMetricsService.closeDay(mcDay - 1);
+        CandlestickService.closeDay(mcDay - 1);
         NpcMarketMaker.resetAllDayStats();
         EventManager.onDayTick(server);
         NpcMarketMaker.naturalConsumeAll();

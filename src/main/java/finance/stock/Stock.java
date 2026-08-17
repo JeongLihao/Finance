@@ -19,6 +19,7 @@ public class Stock {
 
     /** 公司/系统持有的未流通股 */
     private long ownerShares;
+    private long treasuryShares;
 
     /** 新定价引擎 */
     private final StockPriceEngine priceEngine;
@@ -65,6 +66,11 @@ public class Stock {
     public long getTotalShares() { return totalShares; }
     public long getFloatShares() { return floatShares; }
     public long getOwnerShares() { return ownerShares; }
+    public long getTreasuryShares(){return treasuryShares;}
+    public long getVotingShares(){return Math.max(0,totalShares-treasuryShares);}
+    public boolean addTreasuryShares(long quantity){if(quantity<=0||treasuryShares>Long.MAX_VALUE-quantity||treasuryShares+quantity>totalShares)return false;treasuryShares+=quantity;return true;}
+    public boolean retireTreasuryShares(long quantity){if(quantity<=0||quantity>treasuryShares||quantity>totalShares)return false;treasuryShares-=quantity;totalShares-=quantity;floatShares=Math.min(floatShares,totalShares);availableShares=floatShares;return true;}
+    public void restoreTreasuryShares(long quantity){if(quantity>=0&&quantity<=totalShares)treasuryShares=quantity;}
 
     /** 兼容旧 API：availableShares = floatShares */
     public long getAvailableShares() { return floatShares; }
@@ -103,13 +109,28 @@ public class Stock {
         }
     }
 
-    public void increaseShares(long quantity) {
-        if (quantity <= 0) {
-            return;
+    public boolean canIncreaseShares(long quantity) {
+        return quantity > 0
+                && totalShares <= Long.MAX_VALUE - quantity
+                && floatShares <= Long.MAX_VALUE - quantity;
+    }
+
+    public boolean increaseShares(long quantity) {
+        if (!canIncreaseShares(quantity)) {
+            return false;
         }
         totalShares += quantity;
         floatShares += quantity;
         availableShares = floatShares;
+        return true;
+    }
+
+    public boolean decreaseShares(long quantity) {
+        if (quantity <= 0 || totalShares < quantity || floatShares < quantity) return false;
+        totalShares -= quantity;
+        floatShares -= quantity;
+        availableShares = floatShares;
+        return true;
     }
 
     /**

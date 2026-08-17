@@ -41,6 +41,7 @@ public class PriceAlert {
         return switch (direction) {
             case ABOVE -> currentPrice >= targetPrice;
             case BELOW -> currentPrice <= targetPrice;
+            case PREVIOUS_HIGH_BREAKOUT, PREVIOUS_LOW_BREAKDOWN -> false;
         };
     }
 }

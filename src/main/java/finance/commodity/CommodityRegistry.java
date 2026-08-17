@@ -58,6 +58,9 @@ public class CommodityRegistry {
         if (DEFAULT_COMMODITIES.containsKey(id)) {
             return false;
         }
+        if (finance.futures.FuturesMarketManager.hasLiveContractForCommodity(id)) {
+            return false;
+        }
         boolean removed = COMMODITIES.remove(id) != null;
         if (removed) {
             finance.event.EventManager.markCommodityIdsDirty();

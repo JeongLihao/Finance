@@ -23,6 +23,7 @@ public class CompanyProposal {
     private final long votingSharesSnapshot;
     private final LocalDateTime createdAt;
     private final Map<UUID, VoteRecord> votes = new LinkedHashMap<>();
+    private final Map<UUID, Long> votingPowerSnapshot = new LinkedHashMap<>();
     private CompanyProposalStatus status = CompanyProposalStatus.ACTIVE;
     private String resultSummary = "";
 
@@ -91,6 +92,9 @@ public class CompanyProposal {
     public long getVotingSharesSnapshot() { return votingSharesSnapshot; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public Map<UUID, VoteRecord> getVotes() { return votes; }
+    public Map<UUID, Long> getVotingPowerSnapshot() { return Map.copyOf(votingPowerSnapshot); }
+    public long getSnapshotPower(UUID holderId) { return votingPowerSnapshot.getOrDefault(holderId, 0L); }
+    public void restoreVotingPower(UUID holderId,long power){if(holderId!=null&&power>0)votingPowerSnapshot.put(holderId,power);}
     public CompanyProposalStatus getStatus() { return status; }
     public String getResultSummary() { return resultSummary; }
 
@@ -109,6 +113,11 @@ public class CompanyProposal {
     public void finish(CompanyProposalStatus status, String resultSummary) {
         this.status = status == null ? CompanyProposalStatus.FAILED : status;
         this.resultSummary = resultSummary == null ? "" : resultSummary;
+    }
+
+    public boolean isExecutableAuthorization(CompanyProposalType expectedType, UUID expectedCompanyId) {
+        return status == CompanyProposalStatus.PASSED && type == expectedType
+                && companyId.equals(expectedCompanyId);
     }
 
     public record VoteRecord(boolean support, long power) {}

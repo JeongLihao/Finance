@@ -54,10 +54,12 @@ public class AccountManager {
     // ================================================================
 
     /** 存款 */
-    public static void deposit(UUID playerId, long amount) {
-
-        getAccount(playerId).deposit(amount);
-        EconomySavedData.markDirty();
+    public static boolean deposit(UUID playerId, long amount) {
+        boolean success = getAccount(playerId).deposit(amount);
+        if (success) {
+            EconomySavedData.markDirty();
+        }
+        return success;
     }
 
     /** 取款，余额不足返回 false */
@@ -79,15 +81,9 @@ public class AccountManager {
             return false;
         }
 
-        Account sender = getAccount(from);
-        Account receiver = getAccount(to);
-
-        if (!sender.withdraw(amount)) {
+        if (!moveFunds(from, to, amount)) {
             return false;
         }
-
-        receiver.deposit(amount);
-        EconomySavedData.markDirty();
 
         addTransactionRecord(
                 new TransactionRecord(
@@ -99,6 +95,20 @@ public class AccountManager {
         );
 
         return true;
+    }
+
+    /** Atomically moves available funds without writing a user transfer record. */
+    public static boolean moveFunds(UUID from, UUID to, long amount) {
+        if (from == null || to == null || from.equals(to) || amount <= 0) {
+            return false;
+        }
+        return finance.money.MoneyTransferService.transfer(
+                finance.money.MoneyEndpoints.account(from),
+                finance.money.MoneyEndpoints.account(to), amount).success();
+    }
+
+    public static boolean canDeposit(UUID playerId, long amount) {
+        return playerId != null && getAccount(playerId).canDeposit(amount);
     }
 
     // ================================================================
@@ -115,9 +125,12 @@ public class AccountManager {
     }
 
     /** 解冻资金（取消 BUY 单或成交后退回余额） */
-    public static void unfreezeFunds(UUID playerId, long amount) {
-        getAccount(playerId).unfreezeFunds(amount);
-        EconomySavedData.markDirty();
+    public static boolean unfreezeFunds(UUID playerId, long amount) {
+        boolean success = getAccount(playerId).unfreezeFunds(amount);
+        if (success) {
+            EconomySavedData.markDirty();
+        }
+        return success;
     }
 
     /** 从已冻结资金中支付成交款，并把买方出价高于成交价的差额退回余额 */
@@ -127,6 +140,63 @@ public class AccountManager {
             EconomySavedData.markDirty();
         }
         return success;
+    }
+
+    public static boolean settleFrozenPayment(UUID playerId, long reservedAmount, long paymentAmount) {
+        return settleFrozenFunds(playerId, reservedAmount, paymentAmount);
+    }
+
+    /** Atomically settles buyer frozen funds and credits the seller. */
+    public static synchronized boolean settleFrozenTransfer(UUID buyerId, UUID sellerId,
+                                               long reservedAmount, long paymentAmount) {
+        if (buyerId == null || sellerId == null || buyerId.equals(sellerId) || paymentAmount <= 0) {
+            return false;
+        }
+        Account buyer = getAccount(buyerId);
+        Account seller = getAccount(sellerId);
+        if (!buyer.canSettleFrozenFunds(reservedAmount, paymentAmount)
+                || !seller.canDeposit(paymentAmount)) {
+            return false;
+        }
+        if (!buyer.settleFrozenFunds(reservedAmount, paymentAmount)
+                || !seller.deposit(paymentAmount)) {
+            return false;
+        }
+        EconomySavedData.markDirty();
+        return true;
+    }
+
+    public static boolean canSettleFrozenTransfer(UUID buyerId, UUID sellerId,
+                                                  long reservedAmount, long paymentAmount) {
+        if (buyerId == null || sellerId == null || buyerId.equals(sellerId) || paymentAmount <= 0) {
+            return false;
+        }
+        return getAccount(buyerId).canSettleFrozenFunds(reservedAmount, paymentAmount)
+                && getAccount(sellerId).canDeposit(paymentAmount);
+    }
+
+    public static synchronized boolean rollbackSettledFrozenTransfer(UUID buyerId, UUID sellerId,
+                                                        long reservedAmount, long paymentAmount) {
+        if (buyerId == null || sellerId == null || reservedAmount <= 0 || paymentAmount <= 0) return false;
+        Account buyer = getAccount(buyerId);
+        Account seller = getAccount(sellerId);
+        if (seller.getBalance() < paymentAmount
+                || !buyer.canRollbackFrozenSettlement(reservedAmount, paymentAmount)) return false;
+        if (!seller.withdraw(paymentAmount)) return false;
+        if (!buyer.rollbackFrozenSettlement(reservedAmount, paymentAmount)) {
+            if (!seller.deposit(paymentAmount)) throw new IllegalStateException("rollback compensation failed");
+            return false;
+        }
+        EconomySavedData.markDirty();
+        return true;
+    }
+
+    public static synchronized boolean rollbackSettledFrozenPayment(UUID buyerId, long reservedAmount, long paymentAmount) {
+        if (buyerId == null || reservedAmount <= 0 || paymentAmount <= 0) return false;
+        Account buyer = getAccount(buyerId);
+        if (!buyer.rollbackFrozenSettlement(reservedAmount, paymentAmount)) return false;
+        EconomySavedData.markDirty();
+        return true;
     }
 
     // ================================================================

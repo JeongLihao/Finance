@@ -65,6 +65,9 @@ public final class CompanyManagementService {
         if (cost <= 0) {
             return new Result(false, "升级费用异常。");
         }
+        if (!company.canDeposit(cost)) {
+            return new Result(false, "Company cash balance is at its limit.");
+        }
         if (!AccountManager.withdraw(playerId, cost)) {
             return new Result(false, "余额不足，升级需要 " + cost);
         }
@@ -77,11 +80,16 @@ public final class CompanyManagementService {
         };
 
         if (!upgraded) {
-            AccountManager.deposit(playerId, cost);
+            if (!AccountManager.deposit(playerId, cost)) {
+                return new Result(false, "Upgrade failed and refund could not be settled.");
+            }
             return new Result(false, "该升级已达到上限。");
         }
 
-        company.deposit(cost);
+        if (!company.deposit(cost)) {
+            AccountManager.deposit(playerId, cost);
+            return new Result(false, "Company settlement failed.");
+        }
         recordCompanyAction(playerId, company, cost, 1);
         return new Result(true, "公司升级成功，投入资金 " + cost);
     }
@@ -90,11 +98,17 @@ public final class CompanyManagementService {
         if (amount <= 0) {
             return new Result(false, "注资金额必须大于 0。");
         }
+        if (!company.canDeposit(amount)) {
+            return new Result(false, "Company cash balance is at its limit.");
+        }
         if (!AccountManager.withdraw(playerId, amount)) {
             return new Result(false, "余额不足。");
         }
 
-        company.deposit(amount);
+        if (!company.deposit(amount)) {
+            AccountManager.deposit(playerId, amount);
+            return new Result(false, "Investment settlement failed.");
+        }
         recordCompanyAction(playerId, company, amount, 0);
         return new Result(true, "已向公司注资 " + amount);
     }
@@ -103,11 +117,17 @@ public final class CompanyManagementService {
         if (amount <= 0) {
             return new Result(false, "提取金额必须大于 0。");
         }
+        if (!AccountManager.canDeposit(playerId, amount)) {
+            return new Result(false, "Player account balance is at its limit.");
+        }
         if (!company.withdraw(amount)) {
             return new Result(false, "公司现金不足。");
         }
 
-        AccountManager.deposit(playerId, amount);
+        if (!AccountManager.deposit(playerId, amount)) {
+            company.deposit(amount);
+            return new Result(false, "Withdrawal settlement failed.");
+        }
         recordCompanyAction(playerId, company, amount, 0);
         return new Result(true, "已从公司提取 " + amount);
     }

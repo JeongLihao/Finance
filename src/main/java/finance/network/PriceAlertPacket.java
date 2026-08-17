@@ -80,8 +80,11 @@ public class PriceAlertPacket {
             if (player == null) {
                 return;
             }
+            if (!MarketDataRequestLimiter.allow(player.getUUID(),player.server.getTickCount(),"price-alert:"+packet.action)) { GuiFeedbackPacket.send(player,"操作过于频繁。"); return; }
             if (packet.action == Action.ADD) {
-                if (packet.type == null || packet.direction == null || packet.targetPrice <= 0
+                boolean fixedPrice = packet.direction == PriceAlertDirection.ABOVE
+                        || packet.direction == PriceAlertDirection.BELOW;
+                if (packet.type == null || packet.direction == null || (fixedPrice && packet.targetPrice <= 0)
                         || packet.targetId == null || packet.targetId.isBlank()) {
                     GuiFeedbackPacket.send(player, "提醒参数无效。");
                     return;

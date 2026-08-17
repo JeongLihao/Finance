@@ -5,6 +5,19 @@ package finance.util;
  */
 public class MathUtil {
 
+    public static long saturatedAddNonNegative(long left, long right) {
+        long safeLeft = Math.max(0, left);
+        long safeRight = Math.max(0, right);
+        return safeLeft > Long.MAX_VALUE - safeRight ? Long.MAX_VALUE : safeLeft + safeRight;
+    }
+
+    public static long saturatedMultiplyNonNegative(long left, long right) {
+        if (left <= 0 || right <= 0) {
+            return 0;
+        }
+        return left > Long.MAX_VALUE / right ? Long.MAX_VALUE : left * right;
+    }
+
     /**
      * 安全的价格 × 数量乘法，溢出时返回 -1。
      *

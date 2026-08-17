@@ -8,6 +8,7 @@ import finance.data.EconomySavedData;
 import finance.stock.Stock;
 import finance.stock.StockMarketManager;
 import finance.stock.StockPortfolioManager;
+import finance.governance.ShareholderRegistryService;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -17,6 +18,7 @@ public final class CompanyProposalManager {
 
     private static final List<CompanyProposal> PROPOSALS = new ArrayList<>();
     private static final int MAX_ACTIVE_PER_COMPANY = 5;
+    public static final int MAX_PROPOSAL_DURATION_DAYS = 90;
 
     private CompanyProposalManager() {
     }
@@ -28,13 +30,13 @@ public final class CompanyProposalManager {
         if (creatorId == null || company == null) {
             return Result.fail("公司不存在。");
         }
-        if (!creatorId.equals(company.getOwnerId())) {
-            return Result.fail("只有公司管理员可以创建提案。");
-        }
+        if (!finance.governance.GovernanceAuthorizationService.mayCreateProposal(creatorId,companyId)) return Result.fail("只有经营者、控制者或合格大股东可以创建提案。");
         if (!company.isPublic()) {
             return Result.fail("只有上市公司支持股东投票。");
         }
-        if (type == null || endMcDay <= startMcDay || passRatio <= 0 || passRatio > 1) {
+        if (type == null || startMcDay < 0 || endMcDay <= startMcDay
+                || endMcDay - startMcDay > MAX_PROPOSAL_DURATION_DAYS
+                || passRatio <= 0 || passRatio > 1) {
             return Result.fail("提案参数无效。");
         }
         long activeCount = PROPOSALS.stream()
@@ -49,16 +51,22 @@ public final class CompanyProposalManager {
             return validation;
         }
         Stock stock = StockMarketManager.getStockByCompanyId(companyId);
-        long currentHoldings = stock != null
-                ? StockPortfolioManager.getHoldingsForCompany(stock.getSymbol())
-                        .values().stream().mapToLong(Long::longValue).sum()
-                : 0;
-        long votingSharesSnapshot = stock != null
-                ? Math.max(1, Math.max(stock.getFloatShares(), currentHoldings))
-                : 0;
+        ShareholderRegistryService.Snapshot registry = stock == null
+                ? null : ShareholderRegistryService.snapshot(companyId, startMcDay);
+        if (registry == null || !registry.consistent()) {
+            return Result.fail("无法核对公司股本，已暂停新的治理提案。");
+        }
+        long votingSharesSnapshot = registry == null ? 0 : registry.holders().stream()
+                .filter(holder -> !holder.id().equals(ShareholderRegistryService.SYSTEM_LIQUIDITY_HOLDER))
+                .mapToLong(ShareholderRegistryService.Holder::total).sum();
         CompanyProposal proposal = new CompanyProposal(companyId, creatorId, type,
                 titleFor(type), textValue, value1, value2, value3, startMcDay, endMcDay,
                 passRatio, FinanceConfig.minProposalParticipationRatio(), votingSharesSnapshot);
+        if (registry != null && registry.consistent()) {
+            registry.holders().stream()
+                    .filter(holder -> !holder.id().equals(ShareholderRegistryService.SYSTEM_LIQUIDITY_HOLDER))
+                    .forEach(holder -> proposal.restoreVotingPower(holder.id(), holder.total()));
+        }
         PROPOSALS.add(proposal);
         addRecord(creatorId, company, TransactionType.COMPANY_PROPOSAL_CREATE, 0, 0, proposal.getTitle());
         EconomySavedData.markDirty();
@@ -79,8 +87,7 @@ public final class CompanyProposalManager {
         if (proposal.getVotes().containsKey(playerId)) {
             return Result.fail("你已经投过票。");
         }
-        Stock stock = StockMarketManager.getStockByCompanyId(proposal.getCompanyId());
-        long power = stock != null ? StockPortfolioManager.getHolding(playerId, stock.getSymbol()).getQuantity() : 0;
+        long power = proposal.getSnapshotPower(playerId);
         if (power <= 0) {
             return Result.fail("你不是该公司的股东。");
         }
@@ -126,9 +133,15 @@ public final class CompanyProposalManager {
             }
             return;
         }
+        proposal.finish(CompanyProposalStatus.PASSED, "表决已通过，等待执行");
         Result execution = executeProposal(proposal, company, currentMcDay);
-        proposal.finish(execution.success() ? CompanyProposalStatus.PASSED : CompanyProposalStatus.FAILED,
-                execution.message());
+        if (execution.success() && executesImmediately(proposal.getType())) {
+            proposal.finish(CompanyProposalStatus.EXECUTED, execution.message());
+        } else if (!execution.success()) {
+            proposal.finish(CompanyProposalStatus.FAILED, execution.message());
+        } else {
+            proposal.finish(CompanyProposalStatus.PASSED, execution.message());
+        }
         addRecord(company.getOwnerId(), company, TransactionType.COMPANY_PROPOSAL_RESULT, 0, yes,
                 proposal.getTitle() + " " + execution.message());
     }
@@ -152,6 +165,11 @@ public final class CompanyProposalManager {
                     : Result.fail("已通过但改名执行失败");
             case FUND_USAGE -> Result.ok("已通过，资金用途：" + proposal.getTextValue()
                     + (proposal.getValue1() > 0 ? "，预算 " + proposal.getValue1() : ""));
+            case SHARE_BUYBACK -> {var r=finance.governance.CorporateActionManager.startBuyback(company.getOwnerId(),company.getCompanyId(),proposal.getValue1(),proposal.getValue2(),(int)proposal.getValue3(),currentMcDay,"proposal-"+proposal.getProposalId());yield r.success()?Result.ok(r.message()):Result.fail(r.message());}
+            case TREASURY_RETIREMENT -> {var r=finance.governance.CorporateActionManager.retireTreasury(company.getOwnerId(),company.getCompanyId(),proposal.getValue1(),currentMcDay,"proposal-"+proposal.getProposalId());yield r.success()?Result.ok(r.message()):Result.fail(r.message());}
+            case TENDER_OFFER_RESPONSE,CONTROL_TRANSFER -> Result.ok("表决已通过；控制权仅在真实股份交割后更新");
+            case EMERGENCY_RECAPITALIZATION -> Result.ok("紧急再融资授权已生效，等待真实出资人执行");
+            case MAJOR_ASSET_PURCHASE -> Result.ok("重大资产交易授权已生效，等待卖方确认并原子交割");
         };
     }
 
@@ -166,7 +184,35 @@ public final class CompanyProposalManager {
                     ? Result.ok("") : Result.fail("新公司名不能为空且最多 32 字符。");
             case FUND_USAGE -> textValue != null && !textValue.isBlank() && textValue.length() <= 64
                     ? Result.ok("") : Result.fail("资金用途不能为空且最多 64 字符。");
+            case SHARE_BUYBACK -> value1>0&&value2>0&&value3>0&&value3<=90?Result.ok(""):Result.fail("回购价格、数量和期限必须有效。");
+            case TREASURY_RETIREMENT -> value1>0?Result.ok(""):Result.fail("库存股注销数量必须为正。");
+            case TENDER_OFFER_RESPONSE,CONTROL_TRANSFER -> value1>=0?Result.ok(""):Result.fail("治理参数无效。");
+            case EMERGENCY_RECAPITALIZATION -> value1>0?Result.ok(""):Result.fail("紧急融资目标必须为正。");
+            case MAJOR_ASSET_PURCHASE -> validAssetPurchase(textValue,value1,value2)
+                    ?Result.ok(""):Result.fail("资产交易须使用“卖方公司UUID|商品ID”，且价格和数量必须为正。");
         };
+    }
+
+    private static boolean executesImmediately(CompanyProposalType type) {
+        return switch (type) {
+            case DIVIDEND, SHARE_ISSUE, RENAME, FUND_USAGE, SHARE_BUYBACK, TREASURY_RETIREMENT -> true;
+            case TENDER_OFFER_RESPONSE, CONTROL_TRANSFER, EMERGENCY_RECAPITALIZATION, MAJOR_ASSET_PURCHASE -> false;
+        };
+    }
+
+    private static boolean validAssetPurchase(String textValue,long price,long quantity){
+        if(textValue==null||textValue.length()>101||price<=0||quantity<=0||quantity>Integer.MAX_VALUE)return false;
+        String[] parts=textValue.split("\\|",2);
+        if(parts.length!=2||parts[1].isBlank()||parts[1].length()>64)return false;
+        try{UUID.fromString(parts[0]);return true;}catch(IllegalArgumentException ignored){return false;}
+    }
+
+    public static boolean markExecuted(UUID proposalId, String result) {
+        CompanyProposal proposal = getProposal(proposalId);
+        if (proposal == null || proposal.getStatus() != CompanyProposalStatus.PASSED) return false;
+        proposal.finish(CompanyProposalStatus.EXECUTED, result);
+        EconomySavedData.markDirty();
+        return true;
     }
 
     private static long resolveVotingSnapshot(CompanyProposal proposal) {
@@ -237,6 +283,12 @@ public final class CompanyProposalManager {
             case SHARE_ISSUE -> "增发融资";
             case RENAME -> "公司改名";
             case FUND_USAGE -> "资金用途";
+            case SHARE_BUYBACK -> "股份回购";
+            case TREASURY_RETIREMENT -> "注销库存股";
+            case TENDER_OFFER_RESPONSE -> "要约收购响应";
+            case CONTROL_TRANSFER -> "控制权事项";
+            case EMERGENCY_RECAPITALIZATION -> "紧急再融资";
+            case MAJOR_ASSET_PURCHASE -> "重大资产收购";
         };
     }
 

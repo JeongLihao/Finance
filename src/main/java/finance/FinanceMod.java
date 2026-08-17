@@ -24,8 +24,11 @@ import finance.data.EconomySavedData;
 import finance.data.CommodityInventorySavedData;
 import finance.market.NpcMarketMaker;
 import finance.network.FinancePacketHandler;
+import finance.network.MarketDataRequestLimiter;
+import finance.chart.CandlestickService;
 import finance.registry.ModMenus;
 import finance.stock.StockMarketManager;
+import finance.diagnostic.StartupSelfCheckService;
 import net.minecraftforge.event.TickEvent.Phase;
 import net.minecraftforge.event.TickEvent.ServerTickEvent;
 import net.minecraftforge.fml.ModLoadingContext;
@@ -126,6 +129,7 @@ public class FinanceMod {
         EconomySavedData.get(
                 event.getServer()
         );
+        CandlestickService.observeDay(EconomyCycleService.currentMcDay(event.getServer()));
 
         CommodityInventorySavedData.get(
                 event.getServer()
@@ -140,6 +144,7 @@ public class FinanceMod {
         // 初始化系统公司股票
         StockMarketManager.seedSystemStocksIfNeeded();
         StockMarketManager.updateFairValuesAndResetDay();
+        StartupSelfCheckService.schedule(EconomyCycleService.currentMcDay(event.getServer()));
     }
 
     /** 服务器关闭/切换世界时释放所有世界级静态状态，避免下一个世界继承旧内存。 */
@@ -148,6 +153,7 @@ public class FinanceMod {
         EconomySavedData.unload();
         CommodityInventorySavedData.unload();
         CommodityRegistry.resetToDefaults();
+        MarketDataRequestLimiter.clear();
     }
 
     /** Tick 调度 —— 驱动事件压力、动量衰减、噪音刷新和股价重算 */
@@ -159,5 +165,6 @@ public class FinanceMod {
         if (server == null) return;
 
         EconomyCycleService.tick(server);
+        StartupSelfCheckService.tick();
     }
 }
