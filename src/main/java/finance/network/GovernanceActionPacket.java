@@ -7,6 +7,7 @@ import finance.diagnostic.ModuleHealthRegistry;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.network.NetworkEvent;
+import net.minecraftforge.network.PacketDistributor;
 
 import java.util.UUID;
 import java.util.function.Supplier;
@@ -50,11 +51,13 @@ public record GovernanceActionPacket(Action action, UUID targetId, long price, l
                     || packet.operationKey == null || packet.operationKey.isBlank()
                     || packet.operationKey.length() > 96) return;
             if (!ModuleHealthRegistry.mayWrite(ModuleHealthRegistry.Module.STOCK)) {
+                sendResult(player,packet.targetId,false);
                 GuiFeedbackPacket.send(player, "股票与治理模块已因一致性问题暂停写入");
                 return;
             }
             if (!MarketDataRequestLimiter.allow(player.getUUID(), player.server.getTickCount(),
                     "governance:" + packet.action)) {
+                sendResult(player,packet.targetId,false);
                 GuiFeedbackPacket.send(player, "操作过于频繁");
                 return;
             }
@@ -79,8 +82,14 @@ public record GovernanceActionPacket(Action action, UUID targetId, long price, l
                 case EXECUTE_ASSET_PURCHASE -> CorporateRestructuringService.purchaseInventoryAsset(
                         player.getUUID(), packet.targetId, day, packet.operationKey);
             };
+            sendResult(player,packet.targetId,result.success());
             GuiFeedbackPacket.send(player, result.message());
         });
         context.setPacketHandled(true);
+    }
+
+    private static void sendResult(ServerPlayer player,UUID targetId,boolean success){
+        if(player!=null&&targetId!=null)FinancePacketHandler.CHANNEL.send(
+                PacketDistributor.PLAYER.with(()->player),new GovernanceActionResultPacket(targetId,success));
     }
 }

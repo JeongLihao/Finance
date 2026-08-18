@@ -83,7 +83,6 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
     private int financialSubTab = 0;
     private boolean governanceView = false;
     private boolean restructuringView = false;
-    private final Set<UUID> submittedRestructuring = new HashSet<>();
 
     private enum ChartPanel {
         KLINE_MA("K+MA"), MACD("MACD"), RSI("RSI"), ORDER_BOOK("Book"), RECENT("Trades"),
@@ -1078,7 +1077,8 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
             String details=recap?"目标 "+row.value1():"价格 "+row.value1()+" 数量 "+row.value2();
             drawClippedString(g,(recap?"紧急注资 ":"资产购买 ")+company,12,y+3,150,COL_TEXT);
             drawClippedString(g,details,166,y+3,154,COL_TEXT_DIM);
-            drawButton(g,recap?"投资":"卖方确认",322,y+1,54,false);
+            boolean pending=GovernanceTaskClientState.isPending(row.proposalId());
+            drawButton(g,pending?"处理中":recap?"投资":"卖方确认",322,y+1,54,pending);
             y+=ROW_HEIGHT;
         }
     }
@@ -1088,7 +1088,7 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
                 .filter(p->"PASSED".equals(p.status()))
                 .filter(p->"EMERGENCY_RECAPITALIZATION".equals(p.type())||"MAJOR_ASSET_PURCHASE".equals(p.type()))
                 .filter(FinanceMenu.CompanyProposalRow::playerCanExecute)
-                .filter(p->!submittedRestructuring.contains(p.proposalId())).toList();
+                .filter(p->!GovernanceTaskClientState.hasSucceeded(p.proposalId())).toList();
     }
 
     private String companyName(UUID companyId){
@@ -1149,7 +1149,6 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         drawButton(g,"回购提案",10,controlsY+24,56,false);
         drawButton(g,"注销提案",70,controlsY+24,56,false);
         drawButton(g,"接受行动",130,controlsY+24,56,false);
-        drawButton(g,"执行重组",190,controlsY+24,56,false);
         drawButton(g,"刷新",330,controlsY+24,46,false);
         drawButton(g,"发起收购",10,controlsY+40,56,false);
         drawButton(g,"紧急提案",70,controlsY+40,56,false);
@@ -2325,10 +2324,10 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
             for(FinanceMenu.CompanyProposalRow proposal:executableRestructuringTasks()){
                 if(y+ROW_HEIGHT>imageHeight-12)break;
                 if(mx>=322&&mx<376&&my>=y+1&&my<y+14){
+                    if(!GovernanceTaskClientState.begin(proposal.proposalId()))return true;
                     GovernanceActionPacket.Action action="EMERGENCY_RECAPITALIZATION".equals(proposal.type())
                             ?GovernanceActionPacket.Action.EXECUTE_RECAPITALIZATION:GovernanceActionPacket.Action.EXECUTE_ASSET_PURCHASE;
                     FinancePacketHandler.CHANNEL.sendToServer(new GovernanceActionPacket(action,proposal.proposalId(),0,0,0,0,UUID.randomUUID().toString()));
-                    submittedRestructuring.add(proposal.proposalId());
                     setStatus(action==GovernanceActionPacket.Action.EXECUTE_RECAPITALIZATION?"已提交外部注资":"已提交卖方确认");
                     return true;
                 }
@@ -2357,16 +2356,6 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
                         GovernanceActionPacket.Action kind="TENDER".equals(action.type())?GovernanceActionPacket.Action.ACCEPT_TENDER:GovernanceActionPacket.Action.ACCEPT_BUYBACK;
                         FinancePacketHandler.CHANNEL.sendToServer(new GovernanceActionPacket(kind,action.id(),0,quantity,0,0,UUID.randomUUID().toString()));
                         setStatus("已提交行动接受请求");return true;
-                    }
-                    if(mx>=190&&mx<246){
-                        FinanceMenu.CompanyProposalRow proposal=proposalsForCompany(playerCompany.companyId()).stream()
-                                .filter(p->"PASSED".equals(p.status())&&("EMERGENCY_RECAPITALIZATION".equals(p.type())||"MAJOR_ASSET_PURCHASE".equals(p.type())))
-                                .findFirst().orElse(null);
-                        if(proposal==null){setStatus("没有等待执行的重组提案");return true;}
-                        GovernanceActionPacket.Action kind="EMERGENCY_RECAPITALIZATION".equals(proposal.type())
-                                ?GovernanceActionPacket.Action.EXECUTE_RECAPITALIZATION:GovernanceActionPacket.Action.EXECUTE_ASSET_PURCHASE;
-                        FinancePacketHandler.CHANNEL.sendToServer(new GovernanceActionPacket(kind,proposal.proposalId(),0,0,0,0,UUID.randomUUID().toString()));
-                        setStatus("已提交重组执行请求");return true;
                     }
                     if(mx>=330&&mx<376){GovernanceClientCache.clear();requestGovernance(playerCompany.companyId());setStatus("正在刷新治理数据");return true;}
                 }
