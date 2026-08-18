@@ -163,6 +163,7 @@ public class FinancePacketHandler {
         CHANNEL.registerMessage(packetId++,InsuranceRequestPacket.class,InsuranceRequestPacket::encode,InsuranceRequestPacket::decode,InsuranceRequestPacket::handle,Optional.of(NetworkDirection.PLAY_TO_SERVER));
         CHANNEL.registerMessage(packetId++,InsuranceResponsePacket.class,InsuranceResponsePacket::encode,InsuranceResponsePacket::decode,InsuranceResponsePacket::handle,Optional.of(NetworkDirection.PLAY_TO_CLIENT));
         CHANNEL.registerMessage(packetId++,GovernanceActionPacket.class,GovernanceActionPacket::encode,GovernanceActionPacket::decode,GovernanceActionPacket::handle,Optional.of(NetworkDirection.PLAY_TO_SERVER));
+        CHANNEL.registerMessage(packetId++,GovernanceActionResultPacket.class,GovernanceActionResultPacket::encode,GovernanceActionResultPacket::decode,GovernanceActionResultPacket::handle,Optional.of(NetworkDirection.PLAY_TO_CLIENT));
         CHANNEL.registerMessage(packetId++,GovernanceRequestPacket.class,GovernanceRequestPacket::encode,GovernanceRequestPacket::decode,GovernanceRequestPacket::handle,Optional.of(NetworkDirection.PLAY_TO_SERVER));
         CHANNEL.registerMessage(packetId++,GovernanceResponsePacket.class,GovernanceResponsePacket::encode,GovernanceResponsePacket::decode,GovernanceResponsePacket::handle,Optional.of(NetworkDirection.PLAY_TO_CLIENT));
     }
