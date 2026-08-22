@@ -34,7 +34,7 @@ public final class EconomyConsistencyService {
         long started = System.nanoTime();
         List<DiagnosticIssue> issues = new ArrayList<>();
         checkAccounts(issues); checkInventories(issues); checkOrders(issues); checkBondsAndLoans(issues);
-        checkBanking(issues); checkFutures(issues); checkFunds(issues, mcDay); checkInsurance(issues); checkGovernance(issues); checkHistory(issues); checkCycle(issues, mcDay);
+        checkWarehouses(issues); checkContracts(issues); checkCompanyGameplay(issues, mcDay); checkBanking(issues); checkFutures(issues); checkFunds(issues, mcDay); checkInsurance(issues); checkGovernance(issues); checkHistory(issues); checkCycle(issues, mcDay);
         if (issues.isEmpty()) add(issues, DiagnosticSeverity.INFO, "GLOBAL", "CONSISTENT", "economy", "All checked invariants passed");
         return new DiagnosticReport(UUID.randomUUID(), Instant.now(), Math.max(-1, mcDay),
                 Math.max(0, System.nanoTime() - started), issues);
@@ -45,6 +45,9 @@ public final class EconomyConsistencyService {
         if (module != null) switch (module) {
             case ACCOUNT -> checkAccounts(issues);
             case MARKET -> { checkInventories(issues); checkOrders(issues); }
+            case WAREHOUSE -> checkWarehouses(issues);
+            case CONTRACT -> checkContracts(issues);
+            case COMPANY_GAMEPLAY -> checkCompanyGameplay(issues,mcDay);
             case STOCK -> { checkInventories(issues); checkOrders(issues); checkGovernance(issues); }
             case DEBT -> checkBondsAndLoans(issues);
             case BANKING -> checkBanking(issues);
@@ -111,6 +114,106 @@ public final class EconomyConsistencyService {
                     || order.remainingQuantity() <= 0 || order.createdSequence() <= 0)
                 add(out, DiagnosticSeverity.ERROR, "DEBT", "INVALID_BOND_ORDER", String.valueOf(order.orderId()), "Bond order is duplicated or invalid");
         });
+    }
+
+    private static void checkWarehouses(List<DiagnosticIssue> out) {
+        Set<String> positions = new HashSet<>();
+        Set<UUID> owners = new HashSet<>();
+        for (finance.warehouse.WarehouseRecord record : finance.warehouse.WarehouseManager.all()) {
+            String position = record.dimensionId() + ":" + record.blockPos().asLong();
+            boolean locationMustBeUnique = record.status() != finance.warehouse.WarehouseStatus.DISABLED
+                    && record.status() != finance.warehouse.WarehouseStatus.ORPHANED;
+            if (record.capacityUnits() <= 0 || (locationMustBeUnique && !positions.add(position))) {
+                add(out, DiagnosticSeverity.ERROR, "WAREHOUSE", "INVALID_WAREHOUSE", record.warehouseId().toString(),
+                        "Warehouse capacity is invalid or an active position is duplicated");
+            }
+            owners.add(record.ownerId());
+        }
+        for (UUID owner : owners) {
+            long used = finance.warehouse.WarehouseManager.usedCapacity(owner);
+            long capacity = finance.warehouse.WarehouseManager.totalCapacity(owner);
+            if (used > capacity) add(out, DiagnosticSeverity.WARN, "WAREHOUSE", "WAREHOUSE_OVER_CAPACITY",
+                    owner.toString(), "Custody exceeds active warehouse capacity; new deposits are blocked");
+        }
+    }
+
+    private static void checkContracts(List<DiagnosticIssue> out) {
+        for (finance.contract.FinanceContract contract : finance.contract.ContractManager.contracts().values()) {
+            Account escrow = AccountManager.getAccounts().get(contract.escrowAccountId());
+            boolean live = contract.status() == finance.contract.ContractStatus.OPEN
+                    || contract.status() == finance.contract.ContractStatus.ACCEPTED;
+            if (contract.requiredQuantity() <= 0 || contract.deliveredQuantity() < 0
+                    || contract.deliveredQuantity() > contract.requiredQuantity()
+                    || contract.rewardAmount() <= 0 || contract.deadlineDay() <= contract.createdDay()) {
+                add(out, DiagnosticSeverity.ERROR, "CONTRACT", "INVALID_CONTRACT", contract.id().toString(),
+                        "Contract quantity, reward, or date invariant failed");
+            }
+            if (contract.status() == finance.contract.ContractStatus.ACCEPTED
+                    && (contract.acceptedPlayerId() == null || contract.destinationWarehouseId() == null)) {
+                add(out, DiagnosticSeverity.ERROR, "CONTRACT", "CONTRACT_ACCEPTOR_MISSING", contract.id().toString(),
+                        "Accepted contract has no player or destination warehouse");
+            }
+            if (contract.status() == finance.contract.ContractStatus.ACCEPTED
+                    && contract.destinationWarehouseId() != null) {
+                finance.warehouse.WarehouseRecord destination = finance.warehouse.WarehouseManager.get(
+                        contract.destinationWarehouseId());
+                if (destination == null || !destination.ownerId().equals(contract.acceptedPlayerId())) {
+                    add(out, DiagnosticSeverity.ERROR, "CONTRACT", "CONTRACT_DESTINATION_INVALID",
+                            contract.id().toString(), "Accepted contract destination is missing or owned by another player");
+                }
+            }
+            if (escrow == null || (live && escrow.getBalance() != contract.rewardAmount())
+                    || (!live && escrow.getBalance() != 0)) {
+                add(out, DiagnosticSeverity.FATAL, "CONTRACT", "CONTRACT_ESCROW_MISMATCH", contract.id().toString(),
+                        "Contract escrow does not match its settlement state");
+            }
+        }
+    }
+
+    private static void checkCompanyGameplay(List<DiagnosticIssue> out, long mcDay) {
+        for (finance.gameplay.company.CompanyGameplayProfile profile
+                : finance.gameplay.company.CompanyGameplayManager.profiles().values()) {
+            finance.company.Company company = finance.company.CompanyManager.getCompany(profile.companyId());
+            if (company == null) {
+                add(out, DiagnosticSeverity.ERROR, "COMPANY_GAMEPLAY", "GAMEPLAY_COMPANY_MISSING",
+                        profile.companyId().toString(), "Company gameplay profile references a missing company");
+                continue;
+            }
+            if (company.getOwnerId() != null && profile.members().containsKey(company.getOwnerId()))
+                add(out, DiagnosticSeverity.ERROR, "COMPANY_GAMEPLAY", "DUPLICATE_COMPANY_OWNER",
+                        profile.companyId().toString(), "Company owner must not be duplicated in the member map");
+            for (UUID warehouseId : profile.warehouseIds()) {
+                finance.warehouse.WarehouseRecord warehouse = finance.warehouse.WarehouseManager.get(warehouseId);
+                if (warehouse == null || !profile.companyId().equals(warehouse.companyId()))
+                    add(out, DiagnosticSeverity.ERROR, "COMPANY_GAMEPLAY", "COMPANY_WAREHOUSE_MISMATCH",
+                            warehouseId.toString(), "Company warehouse binding is missing or points to another company");
+            }
+            if (profile.operatingMode() == finance.gameplay.company.CompanyOperatingMode.PLAYER_DRIVEN
+                    && finance.gameplay.company.CompanyFacilityManager.forCompany(profile.companyId()).stream()
+                    .noneMatch(f -> f.status() != finance.gameplay.company.CompanyFacilityStatus.DISABLED
+                            && f.status() != finance.gameplay.company.CompanyFacilityStatus.ORPHANED))
+                add(out, DiagnosticSeverity.WARN, "COMPANY_GAMEPLAY", "PLAYER_COMPANY_NO_FACILITY",
+                        profile.companyId().toString(), "Player-driven company has no usable production facility");
+        }
+        Set<String> positions = new HashSet<>();
+        for (finance.gameplay.company.CompanyFacilityRecord facility : finance.gameplay.company.CompanyFacilityManager.all()) {
+            boolean orphan = facility.status() == finance.gameplay.company.CompanyFacilityStatus.ORPHANED;
+            if (!orphan && finance.company.CompanyManager.getCompany(facility.companyId()) == null)
+                add(out, DiagnosticSeverity.ERROR, "COMPANY_GAMEPLAY", "FACILITY_COMPANY_MISSING", facility.facilityId().toString(),
+                        "Facility references a missing company without being orphaned");
+            if (!orphan && !positions.add(facility.dimensionId() + ":" + facility.blockPos().asLong()))
+                add(out, DiagnosticSeverity.ERROR, "COMPANY_GAMEPLAY", "DUPLICATE_FACILITY_POSITION", facility.facilityId().toString(),
+                        "Two active facility records occupy the same position");
+            if (mcDay >= 0 && facility.lastProcessedDay() > mcDay)
+                add(out, DiagnosticSeverity.ERROR, "COMPANY_GAMEPLAY", "FACILITY_DAY_IN_FUTURE", facility.facilityId().toString(),
+                        "Facility last-processed day is later than the current world day");
+            if (facility.boundWarehouseId() != null) {
+                finance.warehouse.WarehouseRecord warehouse = finance.warehouse.WarehouseManager.get(facility.boundWarehouseId());
+                if (warehouse == null || !facility.companyId().equals(warehouse.companyId()))
+                    add(out, DiagnosticSeverity.ERROR, "COMPANY_GAMEPLAY", "FACILITY_WAREHOUSE_MISMATCH", facility.facilityId().toString(),
+                            "Facility warehouse is missing or belongs to another company");
+            }
+        }
     }
 
     private static void checkBondsAndLoans(List<DiagnosticIssue> out) {

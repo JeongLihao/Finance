@@ -24,7 +24,7 @@ import finance.account.AccountManager;
 import finance.event.EventManager;
 import finance.company.CompanyManager;
 import finance.commodity.CommodityRegistry;
-import finance.gui.FinanceGuiOpener;
+import finance.gameplay.FinanceGameplayService;
 import finance.util.MathUtil;
 import finance.util.FormatUtil;
 
@@ -69,8 +69,7 @@ public class MarketCommand {
                                         .executes(context -> {
                                             ServerPlayer player =
                                                     context.getSource().getPlayerOrException();
-                                            FinanceGuiOpener.open(player);
-                                            return 1;
+                                            return FinanceGameplayService.openLegacyCommand(player).success() ? 1 : 0;
                                         })
                         )
 

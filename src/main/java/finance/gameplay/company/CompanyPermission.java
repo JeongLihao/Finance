@@ -1,0 +1,13 @@
+package finance.gameplay.company;
+
+public enum CompanyPermission {
+    VIEW_COMPANY,
+    DEPOSIT_WAREHOUSE,
+    WITHDRAW_WAREHOUSE,
+    PUBLISH_CONTRACT,
+    MANAGE_PRODUCTION,
+    SPEND_COMPANY_CASH,
+    MANAGE_MEMBERS,
+    VIEW_PRIVATE_FINANCIALS,
+    OPEN_GOVERNANCE
+}

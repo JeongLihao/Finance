@@ -287,6 +287,14 @@ public class Company {
         dailyRevenue = MathUtil.saturatedAddNonNegative(dailyRevenue, amount);
     }
 
+    public void recordGameplayCost(long amount) {
+        if (amount > 0) dailyCost = MathUtil.saturatedAddNonNegative(dailyCost, amount);
+    }
+
+    public void recordGameplayRevenue(long amount) {
+        if (amount > 0) dailyRevenue = MathUtil.saturatedAddNonNegative(dailyRevenue, amount);
+    }
+
     public boolean withdraw(long amount) {
         if (amount <= 0 || cash < amount) return false;
         cash -= amount;

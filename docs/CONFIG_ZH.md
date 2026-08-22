@@ -6,6 +6,29 @@
 ## 默认配置示例
 
 ```toml
+[gameplay]
+	# 默认通过世界中的账本和终端进入经济系统；不会停止已有金融合同日结。
+	minecraftFirstMode = true
+	requirePhysicalTerminal = true
+	enablePortableLedger = true
+	# 设为 true 可恢复 F 键直接打开旧完整界面。
+	legacyFullScreenKeybind = false
+	warehouseCapacityEnabled = true
+	contractsEnabled = true
+	playerDrivenCompanyProduction = true
+	# 旧公司仍可继续原自动经营模式。
+	allowLegacyAutomaticCompanyProduction = true
+	# 新公司默认 HYBRID；开启后改为纯 PLAYER_DRIVEN。
+	newCompaniesPlayerDrivenOnly = false
+	# HYBRID 当天没有设施成功生产时的低效旧式兜底比例。
+	hybridLegacyFallbackRatio = 0.25
+	advancedFinanceRequiresTerminal = true
+	adminConsoleRequiresPermission = true
+	# 终端菜单的最大持续交互距离（方块）。
+	terminalInteractionDistance = 8.0
+	# 是否允许真正重大经济事件向全服广播；关闭后本地与参与者通知仍保留。
+	worldEconomyGlobalBroadcasts = true
+
 [company]
 	# 公司没有单独分红策略时使用的默认分红比例。0.40 = 40%
 	defaultDividendRatio = 0.40
@@ -90,6 +113,8 @@ maxContractRateBasisPoints = 10000
 	# 压力测试同业传染最大轮数。
 	stressTestMaxRounds = 8
 ```
+
+`gameplay` 项只控制业务入口和玩法方式，不会删除旧存档资产，也不会暂停已存在订单、债券、贷款、保单、分红或破产清算。默认模式下，携带金融账本按 F 会打开轻量钱包；商品、公司、银行、证券与管理功能需要对应世界终端。菜单会持续校验终端方块、维度和距离。若需要恢复旧完整入口，可设置 `minecraftFirstMode = false`，或仅设置 `legacyFullScreenKeybind = true`。
 
 央行票据当前固定提供 7、30、90 MC 日三档，期限溢价分别为 25、100、200 基点；这些值和债券二级市场的订单/历史硬上限属于协议与业务安全边界，不支持运行中配置重载。调整 `annualMcDays` 会影响之后的计息和仍在运行的按日计算，生产服应完整重启并避免在合约周期中途修改。
 

@@ -13,7 +13,8 @@ import java.util.Optional;
  */
 public class FinancePacketHandler {
 
-    private static final String PROTOCOL_VERSION = "1";
+    // OpenFinanceGuiPacket 从空载荷升级为受校验的入口类型 + 界面模式。
+    private static final String PROTOCOL_VERSION = "5";
 
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             ResourceLocation.fromNamespaceAndPath(FinanceMod.MOD_ID, "gui"),
@@ -25,6 +26,15 @@ public class FinancePacketHandler {
     private static int packetId = 0;
 
     public static void register() {
+        CHANNEL.registerMessage(packetId++, CompanyGameplayActionPacket.class,
+                CompanyGameplayActionPacket::encode, CompanyGameplayActionPacket::decode,
+                CompanyGameplayActionPacket::handle, Optional.of(NetworkDirection.PLAY_TO_SERVER));
+        CHANNEL.registerMessage(packetId++, WarehouseActionPacket.class,
+                WarehouseActionPacket::encode, WarehouseActionPacket::decode,
+                WarehouseActionPacket::handle, Optional.of(NetworkDirection.PLAY_TO_SERVER));
+        CHANNEL.registerMessage(packetId++, ContractActionPacket.class,
+                ContractActionPacket::encode, ContractActionPacket::decode,
+                ContractActionPacket::handle, Optional.of(NetworkDirection.PLAY_TO_SERVER));
         CHANNEL.registerMessage(packetId++,
                 TradeActionPacket.class,
                 TradeActionPacket::encode,
@@ -53,7 +63,8 @@ public class FinancePacketHandler {
                 OpenFinanceGuiPacket.class,
                 OpenFinanceGuiPacket::encode,
                 OpenFinanceGuiPacket::decode,
-                OpenFinanceGuiPacket::handle);
+                OpenFinanceGuiPacket::handle,
+                Optional.of(NetworkDirection.PLAY_TO_SERVER));
 
         CHANNEL.registerMessage(packetId++,
                 TakeOrderPacket.class,

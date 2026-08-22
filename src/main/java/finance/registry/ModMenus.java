@@ -3,6 +3,9 @@ package finance.registry;
 import finance.FinanceMod;
 import finance.gui.FinanceMenu;
 import finance.gui.MarketOverviewMenu;
+import finance.gui.WalletMenu;
+import finance.gui.WarehouseMenu;
+import finance.gui.CompanyGameplayMenu;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraftforge.common.extensions.IForgeMenuType;
 import net.minecraftforge.eventbus.api.IEventBus;
@@ -20,6 +23,13 @@ public class ModMenus {
 
     public static final RegistryObject<MenuType<FinanceMenu>> FINANCE =
             MENUS.register("finance", () -> IForgeMenuType.create(FinanceMenu::new));
+
+    public static final RegistryObject<MenuType<WalletMenu>> WALLET =
+            MENUS.register("wallet", () -> IForgeMenuType.create(WalletMenu::new));
+    public static final RegistryObject<MenuType<WarehouseMenu>> WAREHOUSE =
+            MENUS.register("warehouse", () -> IForgeMenuType.create(WarehouseMenu::new));
+    public static final RegistryObject<MenuType<CompanyGameplayMenu>> COMPANY_GAMEPLAY =
+            MENUS.register("company_gameplay", () -> IForgeMenuType.create(CompanyGameplayMenu::new));
 
     public static void register(IEventBus eventBus) {
         MENUS.register(eventBus);

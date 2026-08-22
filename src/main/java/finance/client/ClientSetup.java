@@ -16,6 +16,9 @@ public class ClientSetup {
         event.enqueueWork(() -> {
             MenuScreens.register(ModMenus.MARKET_OVERVIEW.get(), MarketOverviewScreen::new);
             MenuScreens.register(ModMenus.FINANCE.get(), FinanceScreen::new);
+            MenuScreens.register(ModMenus.WALLET.get(), WalletScreen::new);
+            MenuScreens.register(ModMenus.WAREHOUSE.get(), WarehouseScreen::new);
+            MenuScreens.register(ModMenus.COMPANY_GAMEPLAY.get(), CompanyGameplayScreen::new);
         });
     }
 }

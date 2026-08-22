@@ -62,15 +62,18 @@ public final class EconomyCycleService {
         CandlestickService.closeDay(mcDay - 1);
         NpcMarketMaker.resetAllDayStats();
         EventManager.onDayTick(server);
+        finance.event.EventContractService.processDay(server,mcDay);
         NpcMarketMaker.naturalConsumeAll();
         NpcMarketMaker.centralBankIntervention();
-        CompanyManager.tickAll();
+        CompanyManager.tickAll(mcDay);
         CompanyManager.settleDailyProfits(mcDay);
         StockMarketManager.updateFairValuesAndResetDay();
         CompanyManager.tryDividends(mcDay);
         CompanyFinancingManager.tick(mcDay);
         CompanyProposalManager.tick(mcDay);
-        CompanyBankruptcyManager.tick(mcDay);
+        CompanyBankruptcyManager.tick(server, mcDay);
+        finance.gameplay.company.CompanyFacilityWorldFeedbackService.refresh(server, mcDay);
+        finance.feedback.WorldTerminalStateService.auditDay(server, mcDay);
     }
 
     private static void tickNoiseAndMomentum(MinecraftServer server) {

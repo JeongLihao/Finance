@@ -1,0 +1,1 @@
+{"type":"minecraft:crafting_shaped","pattern":["III","IRI","III"],"key":{"I":{"item":"minecraft:copper_ingot"},"R":{"item":"minecraft:redstone"}},"result":{"item":"finance:warehouse_controller"}}

@@ -224,3 +224,18 @@ tasks.named('test', Test).configure {
         events "passed", "skipped", "failed"
     }
 }
+
+// Keep the editable GameTest template in tracked source. Forge's 1.20.1
+// GameTest loader falls back to <workingDir>/gameteststructures/*.snbt,
+// so prepare a fresh copy instead of relying on an ignored run-directory file.
+tasks.configureEach {
+    if (name == 'prepareRunGameTestServer') {
+        inputs.dir(layout.projectDirectory.dir('src/gametest/resources'))
+        doLast {
+            copy {
+                from layout.projectDirectory.dir('src/gametest/resources')
+                into layout.projectDirectory.dir('run/gameteststructures')
+            }
+        }
+    }
+}

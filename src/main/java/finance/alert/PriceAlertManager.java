@@ -10,6 +10,9 @@ import finance.chart.Candlestick;
 import finance.chart.CandlestickService;
 import finance.chart.MarketInstrumentType;
 import finance.cycle.EconomyCycleService;
+import finance.feedback.FeedbackNotification;
+import finance.feedback.FeedbackSeverity;
+import finance.feedback.WorldEconomyFeedbackService;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
@@ -96,13 +99,17 @@ public final class PriceAlertManager {
                 continue;
             }
             ServerPlayer player = server.getPlayerList().getPlayer(alert.getPlayerId());
+            List<String> arguments = List.of(displayType(alert.getType()), alert.getTargetId(),
+                    displayDirection(alert.getDirection()), Long.toString(alert.getTargetPrice()),
+                    Long.toString(currentPrice));
             if (player == null) {
-                continue;
+                WorldEconomyFeedbackService.queue(alert.getPlayerId(), new FeedbackNotification(
+                        EconomyCycleService.currentMcDay(server), FeedbackSeverity.INFO,
+                        "finance.feedback.price_alert", arguments));
+            } else {
+                player.sendSystemMessage(Component.translatable("finance.feedback.price_alert",
+                        arguments.toArray()));
             }
-            player.sendSystemMessage(Component.literal(
-                    "§e[金融提醒] " + displayType(alert.getType()) + " " + alert.getTargetId()
-                            + " 已" + displayDirection(alert.getDirection()) + " "
-                            + alert.getTargetPrice() + "，当前价 " + currentPrice + "。"));
             iterator.remove();
             changed = true;
         }

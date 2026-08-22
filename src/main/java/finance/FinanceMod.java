@@ -27,10 +27,14 @@ import finance.network.FinancePacketHandler;
 import finance.network.MarketDataRequestLimiter;
 import finance.chart.CandlestickService;
 import finance.registry.ModMenus;
+import finance.registry.ModBlocks;
+import finance.registry.ModItems;
+import finance.registry.ModBlockEntities;
 import finance.stock.StockMarketManager;
 import finance.diagnostic.StartupSelfCheckService;
 import net.minecraftforge.event.TickEvent.Phase;
 import net.minecraftforge.event.TickEvent.ServerTickEvent;
+import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.config.ModConfig;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
@@ -57,8 +61,14 @@ public class FinanceMod {
     public static final String MOD_ID = "finance";
 
     public FinanceMod(){
+        finance.advancement.FinanceAdvancementTriggers.register();
         // 请勿修复这个错误，暂时未找到安全修复的方法，修复可能导致模组崩溃
-        ModMenus.register(FMLJavaModLoadingContext.get().getModEventBus());
+        net.minecraftforge.eventbus.api.IEventBus modBus = FMLJavaModLoadingContext.get().getModEventBus();
+        ModBlocks.register(modBus);
+        ModItems.register(modBus);
+        ModBlockEntities.register(modBus);
+        ModMenus.register(modBus);
+        modBus.addListener(ModItems::addCreative);
         ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, FinanceConfig.COMMON_SPEC);
         MinecraftForge.EVENT_BUS.register(this);
         FinancePacketHandler.register();
@@ -154,6 +164,7 @@ public class FinanceMod {
         CommodityInventorySavedData.unload();
         CommodityRegistry.resetToDefaults();
         MarketDataRequestLimiter.clear();
+        finance.admin.AdminOperationGuard.clear();
     }
 
     /** Tick 调度 —— 驱动事件压力、动量衰减、噪音刷新和股价重算 */
@@ -166,5 +177,28 @@ public class FinanceMod {
 
         EconomyCycleService.tick(server);
         StartupSelfCheckService.tick();
+    }
+
+    /** Delivers bounded, persisted economy/price notifications exactly once after login. */
+    @SubscribeEvent
+    public void onPlayerLogin(PlayerEvent.PlayerLoggedInEvent event) {
+        if (event.getEntity() instanceof net.minecraft.server.level.ServerPlayer player) {
+            finance.feedback.WorldEconomyFeedbackService.deliverPending(player);
+            if (finance.account.AccountManager.getAccount(player.getUUID()).getBalance() > 0)
+                finance.advancement.FinanceAdvancementTriggers.trigger(player,"first_coin");
+            finance.company.Company playerCompany=finance.company.CompanyManager.getCompanyByOwner(player.getUUID());
+            if(playerCompany==null)playerCompany=finance.company.CompanyManager.getCompanies().stream().filter(company->
+                    finance.gameplay.company.CompanyMembershipService.hasPermission(company.getCompanyId(),player.getUUID(),
+                            finance.gameplay.company.CompanyPermission.VIEW_COMPANY)).findFirst().orElse(null);
+            if(playerCompany!=null){
+                finance.advancement.FinanceAdvancementTriggers.trigger(player,"company_member");
+                if(finance.gameplay.company.CompanyFacilityManager.forCompany(playerCompany.getCompanyId()).stream()
+                        .anyMatch(facility->facility.lastProcessedDay()>=0))
+                    finance.advancement.FinanceAdvancementTriggers.trigger(player,"company_production");
+                if(playerCompany.isPublic())finance.advancement.FinanceAdvancementTriggers.trigger(player,"public_company");
+            }
+            if(!finance.stock.StockPortfolioManager.getPortfolio(player.getUUID()).isEmpty())
+                finance.advancement.FinanceAdvancementTriggers.trigger(player,"public_company");
+        }
     }
 }

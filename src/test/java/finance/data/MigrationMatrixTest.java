@@ -18,7 +18,7 @@ class MigrationMatrixTest {
     @AfterEach void cleanup() { EconomySavedData.resetRuntimeState(); }
 
     @ParameterizedTest
-    @ValueSource(ints = {13, 15, 17, 19, 20, 21, 22, 23, 24, 25})
+    @ValueSource(ints = {13, 15, 17, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29})
     void historicalVersionFixtureUpgradesDirectlyAndRepeatedLoadDoesNotMint(int version) {
         AccountManager.deposit(PLAYER, 12_345);
         CompoundTag fixture = new EconomySavedData().save(new CompoundTag());

@@ -88,10 +88,16 @@ public class CompanyManager {
     }
 
     /** 每日经营 tick —— 所有公司生产 + 自动交易（由 FinanceMod 每天调用一次） */
-    public static void tickAll() {
+    public static void tickAll() { tickAll(-1); }
+    public static void tickAll(long day) {
         for (Company c : COMPANIES.values()) {
-            c.produce();
-            c.autoTrade();
+            finance.gameplay.company.CompanyGameplayProfile profile = finance.gameplay.company.CompanyGameplayManager.profileFor(c);
+            if (day < 0 || profile.operatingMode() == finance.gameplay.company.CompanyOperatingMode.LEGACY_AUTOMATIC
+                    && finance.config.FinanceConfig.allowLegacyAutomaticCompanyProduction()) {
+                c.produce(); c.autoTrade();
+            } else if (profile.operatingMode() != finance.gameplay.company.CompanyOperatingMode.LEGACY_AUTOMATIC) {
+                finance.gameplay.company.CompanyProductionService.processCompanyDay(c, day);
+            }
         }
         EconomySavedData.markDirty();
     }
@@ -212,6 +218,7 @@ public class CompanyManager {
                 OWNER_INDEX.remove(c.getOwnerId());
             }
             NAME_INDEX.remove(c.getName().toLowerCase());
+            finance.gameplay.company.CompanyGameplayManager.removeCompany(companyId);
             EconomySavedData.markDirty();
         }
     }
@@ -228,5 +235,6 @@ public class CompanyManager {
         COMPANIES.clear();
         OWNER_INDEX.clear();
         NAME_INDEX.clear();
+        finance.gameplay.company.CompanyGameplayManager.clearDirect();
     }
 }

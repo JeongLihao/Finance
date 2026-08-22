@@ -1,0 +1,1 @@
+{"type":"minecraft:crafting_shaped","pattern":["PGP","PBP","PGP"],"key":{"P":{"item":"minecraft:paper"},"G":{"item":"minecraft:gold_nugget"},"B":{"item":"minecraft:book"}},"result":{"item":"finance:portable_ledger"}}

@@ -22,6 +22,10 @@ public final class CompanyBankruptcyManager {
     }
 
     public static void tick(long currentMcDay) {
+        tick(null,currentMcDay);
+    }
+
+    public static void tick(net.minecraft.server.MinecraftServer server,long currentMcDay) {
         for (Company company : new ArrayList<>(CompanyManager.getCompanies())) {
             if (!company.isPublic()) {
                 company.setBankruptcyRisk(false, -1);
@@ -33,13 +37,20 @@ public final class CompanyBankruptcyManager {
             if (!risky) {
                 if (company.isBankruptcyRisk()) {
                     company.setBankruptcyRisk(false, -1);
+                    finance.gameplay.company.CompanyFacilityManager.forCompany(company.getCompanyId()).stream()
+                            .filter(f -> f.status() == finance.gameplay.company.CompanyFacilityStatus.BANKRUPTCY_HOLD)
+                            .forEach(f -> f.setStatus(finance.gameplay.company.CompanyFacilityStatus.ACTIVE));
+                    publishCompanyFeedback(server,company,currentMcDay,false);
                 }
                 continue;
             }
             if (!company.isBankruptcyRisk()) {
                 company.setBankruptcyRisk(true, currentMcDay);
+                finance.gameplay.company.CompanyFacilityManager.forCompany(company.getCompanyId())
+                        .forEach(f -> f.setStatus(finance.gameplay.company.CompanyFacilityStatus.BANKRUPTCY_HOLD));
                 record(company, TransactionType.COMPANY_BANKRUPTCY, 0, 0,
                         "进入风险状态，现金 " + company.getCash() + " / 安全线 " + safetyLine);
+                publishCompanyFeedback(server,company,currentMcDay,true);
                 continue;
             }
             if (currentMcDay - company.getBankruptcyRiskStartDay() >= FinanceConfig.bankruptcyRiskDays()) {
@@ -49,6 +60,10 @@ public final class CompanyBankruptcyManager {
         EconomySavedData.markDirty();
     }
 
+    private static void publishCompanyFeedback(net.minecraft.server.MinecraftServer server,Company company,long day,boolean risk){
+        if(server==null)return;java.util.Set<UUID> participants=new java.util.LinkedHashSet<>();if(company.getOwnerId()!=null)participants.add(company.getOwnerId());finance.gameplay.company.CompanyGameplayProfile profile=finance.gameplay.company.CompanyGameplayManager.get(company.getCompanyId());if(profile!=null)participants.addAll(profile.members().keySet());finance.feedback.WorldEconomyFeedbackService.publish(server,new finance.feedback.WorldEconomyEvent(risk?"company-risk":"company-recovery",risk?finance.feedback.WorldFeedbackType.COMPANY_RISK:finance.feedback.WorldFeedbackType.COMPANY_RECOVERY,risk?finance.feedback.FeedbackSeverity.WARNING:finance.feedback.FeedbackSeverity.INFO,company.getCompanyId().toString(),day,"",null,risk?"finance.feedback.company_risk":"finance.feedback.company_recovery",java.util.List.of(company.getName()),finance.feedback.FeedbackAudience.PARTICIPANTS,participants));
+    }
+
     public static LiquidationResult bankrupt(Company company, long currentMcDay) {
         if (company == null) {
             return new LiquidationResult(false, 0, 0, 0, 0);
@@ -56,6 +71,11 @@ public final class CompanyBankruptcyManager {
         if (!finance.governance.CorporateActionManager.cancelForBankruptcy(company.getCompanyId(), currentMcDay)) {
             record(company, TransactionType.COMPANY_BANKRUPTCY, 0, 0,
                     "清算暂停：公司行动托管资产无法安全释放");
+            return new LiquidationResult(false, 0, 0, 0, 0);
+        }
+        if (!finance.contract.ContractManager.cancelCompanyContracts(company.getCompanyId())) {
+            record(company, TransactionType.COMPANY_BANKRUPTCY, 0, 0,
+                    "清算暂停：采购合同托管资金无法安全退回");
             return new LiquidationResult(false, 0, 0, 0, 0);
         }
         Stock stock = StockMarketManager.getStockByCompanyId(company.getCompanyId());

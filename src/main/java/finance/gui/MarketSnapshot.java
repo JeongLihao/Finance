@@ -16,11 +16,15 @@ public record MarketSnapshot(
         int dayVolume,
         int marketStock
 ) {
+    public static final int MAX_ROWS = 64;
+    public static final int MAX_ID_LENGTH = 64;
 
     public static void writeList(FriendlyByteBuf buffer, List<MarketSnapshot> snapshots) {
-        buffer.writeVarInt(snapshots.size());
-        for (MarketSnapshot snapshot : snapshots) {
-            buffer.writeUtf(snapshot.commodityId());
+        int size = Math.min(MAX_ROWS, snapshots == null ? 0 : snapshots.size());
+        buffer.writeVarInt(size);
+        for (int i = 0; i < size; i++) {
+            MarketSnapshot snapshot = snapshots.get(i);
+            buffer.writeUtf(snapshot.commodityId(), MAX_ID_LENGTH);
             buffer.writeLong(snapshot.midPrice());
             buffer.writeLong(snapshot.bidPrice());
             buffer.writeLong(snapshot.askPrice());
@@ -32,10 +36,11 @@ public record MarketSnapshot(
 
     public static List<MarketSnapshot> readList(FriendlyByteBuf buffer) {
         int size = buffer.readVarInt();
+        if (size < 0 || size > MAX_ROWS) throw new IllegalArgumentException("market snapshot limit");
         List<MarketSnapshot> snapshots = new ArrayList<>(size);
         for (int i = 0; i < size; i++) {
             snapshots.add(new MarketSnapshot(
-                    buffer.readUtf(),
+                    buffer.readUtf(MAX_ID_LENGTH),
                     buffer.readLong(),
                     buffer.readLong(),
                     buffer.readLong(),
@@ -48,7 +53,8 @@ public record MarketSnapshot(
     }
 
     public static List<MarketSnapshot> sorted(List<MarketSnapshot> snapshots) {
-        return snapshots.stream()
+        if (snapshots == null) return List.of();
+        return snapshots.stream().limit(MAX_ROWS)
                 .sorted(Comparator.comparing(MarketSnapshot::commodityId))
                 .toList();
     }
