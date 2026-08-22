@@ -66,15 +66,13 @@ public class EventManager {
                     NpcMarketMaker.removeEvent(ev.getCommodityId(), ev);
                 }
 
-                String endMsg;
-                if (ev.affectsAll()) {
-                    endMsg = "【财经快讯】" + ev.getName() + "影响消退，所有商品价格恢复正常。";
-                } else {
-                    endMsg = "【财经快讯】" + ev.getName() + "影响消退，"
-                            + ev.getCommodityId() + "价格恢复正常。";
-                }
-                server.getPlayerList().broadcastSystemMessage(
-                        Component.literal(endMsg), false);
+                long day=finance.cycle.EconomyCycleService.currentMcDay(server);
+                finance.feedback.WorldEconomyFeedbackService.publish(server,new finance.feedback.WorldEconomyEvent(
+                        "event-recovery:"+ev.getName(),finance.feedback.WorldFeedbackType.MARKET_RECOVERY,
+                        finance.feedback.FeedbackSeverity.INFO,ev.affectsAll()?"all":ev.getCommodityId(),day,"",null,
+                        "finance.feedback.event_recovery",java.util.List.of(ev.getName(),ev.affectsAll()?"all":ev.getCommodityId()),
+                        ev.getTier()==EventTier.MINOR?finance.feedback.FeedbackAudience.LOCAL:finance.feedback.FeedbackAudience.GLOBAL,
+                        java.util.Set.of()));
 
                 iter.remove();
             }
@@ -140,12 +138,16 @@ public class EventManager {
             scope = event.getCommodityId();
         }
 
-        String msg = "【财经快讯】" + tierLabel + event.getDescription()
-                + "，" + scope + "价格" + event.getChangePct()
-                + "！预计持续" + event.getDurationDesc() + "。";
-
-        server.getPlayerList().broadcastSystemMessage(
-                Component.literal(msg), false);
+        long day=finance.cycle.EconomyCycleService.currentMcDay(server);
+        finance.feedback.FeedbackSeverity severity=event.getTier()==EventTier.BLACK_SWAN
+                ?finance.feedback.FeedbackSeverity.CRITICAL:event.getTier()==EventTier.MAJOR
+                ?finance.feedback.FeedbackSeverity.WARNING:finance.feedback.FeedbackSeverity.NOTICE;
+        finance.feedback.FeedbackAudience audience=event.getTier()==EventTier.MINOR
+                ?finance.feedback.FeedbackAudience.LOCAL:finance.feedback.FeedbackAudience.GLOBAL;
+        finance.feedback.WorldEconomyFeedbackService.publish(server,new finance.feedback.WorldEconomyEvent(
+                "market-event:"+event.getName(),finance.feedback.WorldFeedbackType.MAJOR_MARKET_EVENT,severity,
+                event.affectsAll()?"all":event.getCommodityId(),day,"",null,"finance.feedback.market_event",
+                java.util.List.of(tierLabel,event.getDescription(),scope,event.getChangePct(),event.getDurationDesc()),audience,java.util.Set.of()));
     }
 
     // ================================================================

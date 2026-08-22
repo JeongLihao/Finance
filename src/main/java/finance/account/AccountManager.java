@@ -45,6 +45,12 @@ public class AccountManager {
         return ACCOUNTS;
     }
 
+    /** 为托管、清算等系统主体建立零余额账户，绝不能获得玩家新手资金。 */
+    public static Account getOrCreateSystemAccount(UUID accountId) {
+        if (accountId == null) throw new IllegalArgumentException("accountId");
+        return ACCOUNTS.computeIfAbsent(accountId, Account::new);
+    }
+
     public static void clearAccountsDirect() {
         ACCOUNTS.clear();
     }

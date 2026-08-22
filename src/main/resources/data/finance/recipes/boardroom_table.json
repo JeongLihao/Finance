@@ -1,0 +1,1 @@
+{"type":"minecraft:crafting_shaped","pattern":["EEE","LBL","PPP"],"key":{"E":{"item":"minecraft:emerald"},"L":{"item":"minecraft:lectern"},"B":{"item":"minecraft:book"},"P":{"item":"minecraft:dark_oak_planks"}},"result":{"item":"finance:boardroom_table"}}

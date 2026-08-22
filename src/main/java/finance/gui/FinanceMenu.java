@@ -1,7 +1,12 @@
 package finance.gui;
 
 import finance.registry.ModMenus;
+import finance.gameplay.FinanceGameplayOpener;
+import finance.gameplay.FinanceScreenMode;
+import finance.gameplay.FinanceTerminalType;
+import net.minecraft.core.BlockPos;
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
@@ -105,6 +110,13 @@ public class FinanceMenu extends AbstractContainerMenu {
     private final double dividendRatio;
     private final int dividendCycleDays;
     private final Map<String, Integer> mcInventory; // 商品ID → MC物品栏数量
+    private final FinanceScreenMode initialMode;
+    private final FinanceTerminalType sourceType;
+    private final String sourceDimension;
+    private final BlockPos sourcePos;
+    private final long warehouseUsed;
+    private final long warehouseCapacity;
+    private final boolean warehouseOverCapacity;
 
     // ---- 构造 ----
 
@@ -131,7 +143,12 @@ public class FinanceMenu extends AbstractContainerMenu {
                 readDashboard(buffer),
                 buffer.readDouble(),
                 buffer.readVarInt(),
-                readStringIntMap(buffer));
+                readStringIntMap(buffer),
+                buffer.readEnum(FinanceScreenMode.class),
+                buffer.readEnum(FinanceTerminalType.class),
+                buffer.readUtf(128),
+                buffer.readBoolean() ? buffer.readBlockPos() : null,
+                buffer.readLong(), buffer.readLong(), buffer.readBoolean());
     }
 
     /** 从服务端直接构造 */
@@ -148,6 +165,29 @@ public class FinanceMenu extends AbstractContainerMenu {
                        EconomyDashboardRow dashboard,
                        double dividendRatio, int dividendCycleDays,
                        Map<String, Integer> mcInventory) {
+        this(containerId, marketData, playerOrders, balance, frozenBalance, playerInventory,
+                playerCompany, allCompanies, stocks, stockHoldings, stockOrders, transactions,
+                assetSummary, assetRows, priceAlerts, conditionalStockOrders, companyFinancingRows,
+                companyProposalRows, dashboard, dividendRatio, dividendCycleDays, mcInventory,
+                FinanceScreenMode.ADVANCED, FinanceTerminalType.LEGACY_FULL_SCREEN, "", null, 0, 0, false);
+    }
+
+    public FinanceMenu(int containerId, List<MarketRow> marketData, List<OrderRow> playerOrders,
+                       long balance, long frozenBalance, Map<String, Integer> playerInventory,
+                       CompanyInfo playerCompany, List<CompanyInfo> allCompanies,
+                       List<StockRow> stocks, List<StockHoldingRow> stockHoldings,
+                       List<StockOrderRow> stockOrders, List<TransactionRow> transactions,
+                       AssetSummary assetSummary, List<AssetRow> assetRows,
+                       List<PriceAlertRow> priceAlerts,
+                       List<ConditionalStockOrderRow> conditionalStockOrders,
+                       List<CompanyFinancingRow> companyFinancingRows,
+                       List<CompanyProposalRow> companyProposalRows,
+                       EconomyDashboardRow dashboard,
+                       double dividendRatio, int dividendCycleDays,
+                       Map<String, Integer> mcInventory,
+                       FinanceScreenMode initialMode, FinanceTerminalType sourceType,
+                       String sourceDimension, BlockPos sourcePos,
+                       long warehouseUsed, long warehouseCapacity, boolean warehouseOverCapacity) {
         super(ModMenus.FINANCE.get(), containerId);
         this.marketData = marketData;
         this.playerOrders = playerOrders;
@@ -170,6 +210,13 @@ public class FinanceMenu extends AbstractContainerMenu {
         this.dividendRatio = dividendRatio;
         this.dividendCycleDays = dividendCycleDays;
         this.mcInventory = mcInventory;
+        this.initialMode = initialMode == null ? FinanceScreenMode.ADVANCED : initialMode;
+        this.sourceType = sourceType == null ? FinanceTerminalType.LEGACY_FULL_SCREEN : sourceType;
+        this.sourceDimension = sourceDimension == null ? "" : sourceDimension;
+        this.sourcePos = sourcePos == null ? null : sourcePos.immutable();
+        this.warehouseUsed = Math.max(0, warehouseUsed);
+        this.warehouseCapacity = Math.max(0, warehouseCapacity);
+        this.warehouseOverCapacity = warehouseOverCapacity;
     }
 
     // ---- getter ----
@@ -195,9 +242,19 @@ public class FinanceMenu extends AbstractContainerMenu {
     public double getDividendRatio() { return dividendRatio; }
     public int getDividendCycleDays() { return dividendCycleDays; }
     public Map<String, Integer> getMcInventory() { return mcInventory; }
+    public FinanceScreenMode getInitialMode() { return initialMode; }
+    public FinanceTerminalType getSourceType() { return sourceType; }
+    public String getSourceDimension() { return sourceDimension; }
+    public BlockPos getSourcePos() { return sourcePos; }
+    public long getWarehouseUsed() { return warehouseUsed; }
+    public long getWarehouseCapacity() { return warehouseCapacity; }
+    public boolean isWarehouseOverCapacity() { return warehouseOverCapacity; }
 
     @Override
-    public boolean stillValid(Player player) { return true; }
+    public boolean stillValid(Player player) {
+        return !(player instanceof ServerPlayer serverPlayer)
+                || FinanceGameplayOpener.isValidTerminalSession(serverPlayer, sourceType, sourceDimension, sourcePos);
+    }
 
     @Override
     public ItemStack quickMoveStack(Player player, int index) { return ItemStack.EMPTY; }
@@ -218,6 +275,30 @@ public class FinanceMenu extends AbstractContainerMenu {
                                  EconomyDashboardRow dashboard,
                                  double dividendRatio, int dividendCycleDays,
                                  Map<String, Integer> mcInventory) {
+        writeAll(buffer, marketData, playerOrders, balance, frozenBalance, playerInventory,
+                playerCompany, allCompanies, stocks, stockHoldings, stockOrders, transactions,
+                assetSummary, assetRows, priceAlerts, conditionalStockOrders, companyFinancingRows,
+                companyProposalRows, dashboard, dividendRatio, dividendCycleDays, mcInventory,
+                FinanceScreenMode.ADVANCED, FinanceTerminalType.LEGACY_FULL_SCREEN, "", null, 0, 0, false);
+    }
+
+    public static void writeAll(FriendlyByteBuf buffer, List<MarketRow> marketData,
+                                 List<OrderRow> playerOrders, long balance, long frozenBalance,
+                                 Map<String, Integer> playerInventory, CompanyInfo playerCompany,
+                                 List<CompanyInfo> allCompanies,
+                                 List<StockRow> stocks, List<StockHoldingRow> stockHoldings,
+                                 List<StockOrderRow> stockOrders, List<TransactionRow> transactions,
+                                 AssetSummary assetSummary, List<AssetRow> assetRows,
+                                 List<PriceAlertRow> priceAlerts,
+                                 List<ConditionalStockOrderRow> conditionalStockOrders,
+                                 List<CompanyFinancingRow> companyFinancingRows,
+                                 List<CompanyProposalRow> companyProposalRows,
+                                 EconomyDashboardRow dashboard,
+                                 double dividendRatio, int dividendCycleDays,
+                                 Map<String, Integer> mcInventory,
+                                 FinanceScreenMode initialMode, FinanceTerminalType sourceType,
+                                 String sourceDimension, BlockPos sourcePos,
+                                 long warehouseUsed, long warehouseCapacity, boolean warehouseOverCapacity) {
         writeMarketData(buffer, marketData);
         writeOrderRows(buffer, playerOrders);
         buffer.writeVarLong(balance);
@@ -239,6 +320,14 @@ public class FinanceMenu extends AbstractContainerMenu {
         buffer.writeDouble(dividendRatio);
         buffer.writeVarInt(dividendCycleDays);
         writeStringIntMap(buffer, mcInventory != null ? mcInventory : new LinkedHashMap<>());
+        buffer.writeEnum(initialMode == null ? FinanceScreenMode.ADVANCED : initialMode);
+        buffer.writeEnum(sourceType == null ? FinanceTerminalType.LEGACY_FULL_SCREEN : sourceType);
+        buffer.writeUtf(limitString(sourceDimension, 128), 128);
+        buffer.writeBoolean(sourcePos != null);
+        if (sourcePos != null) buffer.writeBlockPos(sourcePos);
+        buffer.writeLong(Math.max(0, warehouseUsed));
+        buffer.writeLong(Math.max(0, warehouseCapacity));
+        buffer.writeBoolean(warehouseOverCapacity);
     }
 
     private static void writeMarketData(FriendlyByteBuf buffer, List<MarketRow> list) {

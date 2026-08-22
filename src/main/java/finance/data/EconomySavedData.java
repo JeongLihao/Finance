@@ -35,6 +35,10 @@ import finance.data.serializer.DiagnosticDataSerializer;
 import finance.data.serializer.FundDataSerializer;
 import finance.data.serializer.InsuranceDataSerializer;
 import finance.data.serializer.GovernanceDataSerializer;
+import finance.data.serializer.WarehouseDataSerializer;
+import finance.data.serializer.ContractDataSerializer;
+import finance.data.serializer.CompanyGameplayDataSerializer;
+import finance.data.serializer.WorldFeedbackDataSerializer;
 import finance.cycle.FinancialCycleService;
 import finance.metrics.EconomyMetricsService;
 import finance.marketdata.RecentTradeService;
@@ -66,7 +70,7 @@ import net.minecraft.world.level.storage.DimensionDataStorage;
 public class EconomySavedData extends SavedData {
 
     public static final String DATA_NAME = "finance_data";
-    private static final int DATA_VERSION = 26;
+    private static final int DATA_VERSION = 29;
     public static int currentDataVersion() { return DATA_VERSION; }
 
     // ================================================================
@@ -96,6 +100,10 @@ public class EconomySavedData extends SavedData {
         FundDataSerializer.save(tag);
         InsuranceDataSerializer.save(tag);
         GovernanceDataSerializer.save(tag);
+        WarehouseDataSerializer.save(tag);
+        CompanyGameplayDataSerializer.save(tag);
+        ContractDataSerializer.save(tag);
+        WorldFeedbackDataSerializer.save(tag);
 
 
 
@@ -390,6 +398,10 @@ public class EconomySavedData extends SavedData {
         }
 
         GovernanceDataSerializer.load(tag);
+        WarehouseDataSerializer.load(tag);
+        CompanyGameplayDataSerializer.load(tag);
+        ContractDataSerializer.load(tag);
+        WorldFeedbackDataSerializer.load(tag);
         RecentTradeService.rebuildFromHistories();
         return data;
     }
@@ -447,6 +459,12 @@ public class EconomySavedData extends SavedData {
         finance.fund.FundManager.clearDirect();
         finance.insurance.InsuranceManager.clearDirect();
         finance.governance.CorporateActionManager.clearDirect();
+        finance.warehouse.WarehouseManager.clearDirect();
+        finance.contract.ContractManager.clearDirect();
+        finance.gameplay.company.CompanyGameplayManager.clearDirect();
+        finance.feedback.WorldEconomyFeedbackService.clearDirect();
+        finance.gameplay.WorldTerminalRegistry.clearDirect();
+        finance.feedback.WorldTerminalStateService.clearDirect();
     }
 
     private static EconomySavedData createFresh() {

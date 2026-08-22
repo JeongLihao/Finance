@@ -50,6 +50,7 @@ public class CompanyCreationService {
         );
         seedInitialInventory(company);
         CompanyManager.register(company);
+        finance.gameplay.company.CompanyGameplayManager.createForNewCompany(company);
         AccountManager.addTransactionRecord(
                 new TransactionRecord(
                         ownerId,

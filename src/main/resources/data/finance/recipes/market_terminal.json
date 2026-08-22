@@ -1,0 +1,1 @@
+{"type":"minecraft:crafting_shaped","pattern":["III","IRI","III"],"key":{"I":{"item":"minecraft:emerald"},"R":{"item":"minecraft:redstone"}},"result":{"item":"finance:market_terminal"}}

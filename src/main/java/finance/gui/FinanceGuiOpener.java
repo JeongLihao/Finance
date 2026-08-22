@@ -29,6 +29,9 @@ import finance.stock.StockOrder;
 import finance.stock.StockPortfolioManager;
 import finance.commodity.Commodity;
 import finance.util.InventoryUtil;
+import finance.gameplay.FinanceScreenMode;
+import finance.gameplay.FinanceTerminalType;
+import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.network.NetworkHooks;
@@ -41,7 +44,19 @@ import java.util.*;
 public class FinanceGuiOpener {
 
     public static void open(ServerPlayer player) {
+        open(player, FinanceScreenMode.ADVANCED, FinanceTerminalType.LEGACY_FULL_SCREEN, null);
+    }
+
+    public static void open(ServerPlayer player, FinanceScreenMode initialMode,
+                            FinanceTerminalType sourceType, BlockPos sourcePos) {
         UUID playerId = player.getUUID();
+        boolean admin = player.hasPermissions(2);
+        UUID boardroomCompanyId = null;
+        if (sourceType == FinanceTerminalType.BOARDROOM_TABLE && sourcePos != null
+                && player.serverLevel().isLoaded(sourcePos)
+                && player.serverLevel().getBlockEntity(sourcePos) instanceof finance.block.entity.BoardroomTableBlockEntity table) {
+            boardroomCompanyId = table.companyId();
+        }
 
         // 1. 市场行情
         List<FinanceMenu.MarketRow> marketData = new ArrayList<>();
@@ -78,8 +93,17 @@ public class FinanceGuiOpener {
 
         final FinanceMenu.CompanyInfo companyInfo;
         Company company = CompanyManager.getCompanyByOwner(playerId);
+        if (boardroomCompanyId != null) company = CompanyManager.getCompany(boardroomCompanyId);
+        if (company == null && initialMode == finance.gameplay.FinanceScreenMode.COMPANY) {
+            company = CompanyManager.getCompanies().stream().filter(candidate ->
+                    finance.gameplay.company.CompanyMembershipService.hasPermission(candidate.getCompanyId(), playerId,
+                            finance.gameplay.company.CompanyPermission.VIEW_COMPANY)).findFirst().orElse(null);
+        }
         if (company != null) {
-            companyInfo = toCompanyInfo(company);
+            boolean privateCompanyView = company.getOwnerId()!=null&&company.getOwnerId().equals(playerId)
+                    || finance.gameplay.company.CompanyMembershipService.hasPermission(company.getCompanyId(),playerId,
+                    finance.gameplay.company.CompanyPermission.VIEW_COMPANY);
+            companyInfo = toCompanyInfo(company,privateCompanyView);
         } else {
             companyInfo = null;
         }
@@ -164,6 +188,7 @@ public class FinanceGuiOpener {
         }
         List<FinanceMenu.CompanyProposalRow> companyProposalRows = new ArrayList<>();
         for (CompanyProposal proposal : CompanyProposalManager.getProposals()) {
+            if(boardroomCompanyId!=null&&!boardroomCompanyId.equals(proposal.getCompanyId()))continue;
             companyProposalRows.add(new FinanceMenu.CompanyProposalRow(
                     proposal.getProposalId(),
                     proposal.getCompanyId(),
@@ -187,7 +212,6 @@ public class FinanceGuiOpener {
         List<FinanceMenu.TransactionRow> transactionRows = new ArrayList<>();
         List<TransactionRecord> transactions = AccountManager.getTransactions();
         int added = 0;
-        boolean admin = player.hasPermissions(2);
         for (int i = transactions.size() - 1; i >= 0 && added < 100; i--) {
             TransactionRecord record = transactions.get(i);
             UUID recordPlayer = record.getPlayerId();
@@ -216,24 +240,29 @@ public class FinanceGuiOpener {
             }
         }
 
-        FinanceMenu.EconomyDashboardRow dashboard = buildDashboard();
+        FinanceMenu.EconomyDashboardRow dashboard = admin ? buildDashboard()
+                : new FinanceMenu.EconomyDashboardRow(0,0,0,0,0,0,0,0,0,0,"",List.of());
+        long warehouseUsed = finance.warehouse.WarehouseManager.usedCapacity(playerId);
+        long warehouseCapacity = finance.warehouse.WarehouseManager.totalCapacity(playerId);
+        boolean warehouseOverCapacity = warehouseUsed > warehouseCapacity;
 
         // 打开菜单
         NetworkHooks.openScreen(player,
-                new FinanceProvider(marketData, orderRows, balance, frozenBalance, inventory, companyInfo, companyRows, stockRows, stockHoldingRows, stockOrderRows, transactionRows, assetBundle.summary(), assetBundle.rows(), priceAlertRows, conditionalStockOrderRows, companyFinancingRows, companyProposalRows, dashboard, CompanyManager.getDividendRatio(), CompanyManager.getDividendCycleDays(), mcInv),
-                buffer -> FinanceMenu.writeAll(buffer, marketData, orderRows, balance, frozenBalance, inventory, companyInfo, companyRows, stockRows, stockHoldingRows, stockOrderRows, transactionRows, assetBundle.summary(), assetBundle.rows(), priceAlertRows, conditionalStockOrderRows, companyFinancingRows, companyProposalRows, dashboard, CompanyManager.getDividendRatio(), CompanyManager.getDividendCycleDays(), mcInv));
+                new FinanceProvider(marketData, orderRows, balance, frozenBalance, inventory, companyInfo, companyRows, stockRows, stockHoldingRows, stockOrderRows, transactionRows, assetBundle.summary(), assetBundle.rows(), priceAlertRows, conditionalStockOrderRows, companyFinancingRows, companyProposalRows, dashboard, CompanyManager.getDividendRatio(), CompanyManager.getDividendCycleDays(), mcInv, initialMode, sourceType, player.serverLevel().dimension().location().toString(), sourcePos, warehouseUsed, warehouseCapacity, warehouseOverCapacity),
+                buffer -> FinanceMenu.writeAll(buffer, marketData, orderRows, balance, frozenBalance, inventory, companyInfo, companyRows, stockRows, stockHoldingRows, stockOrderRows, transactionRows, assetBundle.summary(), assetBundle.rows(), priceAlertRows, conditionalStockOrderRows, companyFinancingRows, companyProposalRows, dashboard, CompanyManager.getDividendRatio(), CompanyManager.getDividendCycleDays(), mcInv, initialMode, sourceType, player.serverLevel().dimension().location().toString(), sourcePos, warehouseUsed, warehouseCapacity, warehouseOverCapacity));
     }
 
-    private static FinanceMenu.CompanyInfo toCompanyInfo(Company company) {
+    private static FinanceMenu.CompanyInfo toCompanyInfo(Company company) { return toCompanyInfo(company,true); }
+    private static FinanceMenu.CompanyInfo toCompanyInfo(Company company,boolean privateView) {
         boolean publicFinancials = company.isPublic();
         CompanyFinancialReport report = company.getLatestFinancialReport();
         return new FinanceMenu.CompanyInfo(
                 company.getCompanyId(),
                 company.getName(), company.getType().getDisplayName(),
-                company.getCash(),
+                privateView?company.getCash():(report!=null?report.cashBalance():0),
                 publicFinancials ? company.inventoryValue() : 0,
                 publicFinancials ? company.getEstimatedValue() : 0,
-                new LinkedHashMap<>(company.getInventory()),
+                privateView?new LinkedHashMap<>(company.getInventory()):Map.of(),
                 company.isPlayerOwned(),
                 company.isPublic(),
                 company.getStrategy().getDisplayName(),
@@ -453,7 +482,14 @@ public class FinanceGuiOpener {
                                     FinanceMenu.EconomyDashboardRow dashboard,
                                     double dividendRatio,
                                     int dividendCycleDays,
-                                    Map<String, Integer> mcInventory)
+                                    Map<String, Integer> mcInventory,
+                                    FinanceScreenMode initialMode,
+                                    FinanceTerminalType sourceType,
+                                    String sourceDimension,
+                                    BlockPos sourcePos,
+                                    long warehouseUsed,
+                                    long warehouseCapacity,
+                                    boolean warehouseOverCapacity)
             implements net.minecraft.world.MenuProvider {
 
         @Override
@@ -464,7 +500,7 @@ public class FinanceGuiOpener {
         @Override
         public FinanceMenu createMenu(int containerId, net.minecraft.world.entity.player.Inventory inv,
                                        net.minecraft.world.entity.player.Player player) {
-            return new FinanceMenu(containerId, marketData, orderRows, balance, frozenBalance, inventory, companyInfo, allCompanies, stocks, stockHoldings, stockOrders, transactions, assetSummary, assetRows, priceAlerts, conditionalStockOrders, companyFinancingRows, companyProposalRows, dashboard, dividendRatio, dividendCycleDays, mcInventory);
+            return new FinanceMenu(containerId, marketData, orderRows, balance, frozenBalance, inventory, companyInfo, allCompanies, stocks, stockHoldings, stockOrders, transactions, assetSummary, assetRows, priceAlerts, conditionalStockOrders, companyFinancingRows, companyProposalRows, dashboard, dividendRatio, dividendCycleDays, mcInventory, initialMode, sourceType, sourceDimension, sourcePos, warehouseUsed, warehouseCapacity, warehouseOverCapacity);
         }
     }
 }

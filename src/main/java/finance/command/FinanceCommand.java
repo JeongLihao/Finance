@@ -5,7 +5,7 @@ import com.mojang.brigadier.arguments.LongArgumentType;
 import finance.account.AccountManager;
 import finance.account.TransactionRecord;
 import finance.account.TransactionType;
-import finance.gui.FinanceGuiOpener;
+import finance.gameplay.FinanceGameplayService;
 import finance.market.NpcMarketMaker;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
@@ -30,8 +30,7 @@ public class FinanceCommand {
                                         .executes(context -> {
                                             ServerPlayer player =
                                                     context.getSource().getPlayerOrException();
-                                            FinanceGuiOpener.open(player);
-                                            return 1;
+                                            return FinanceGameplayService.openLegacyCommand(player).success() ? 1 : 0;
                                         })
                         )
 
@@ -136,6 +135,9 @@ public class FinanceCommand {
                                 .requires(source -> source.hasPermission(2))
                                 .then(Commands.literal("account").executes(c -> resume(c.getSource(), ModuleHealthRegistry.Module.ACCOUNT)))
                                 .then(Commands.literal("market").executes(c -> resume(c.getSource(), ModuleHealthRegistry.Module.MARKET)))
+                                .then(Commands.literal("warehouse").executes(c -> resume(c.getSource(), ModuleHealthRegistry.Module.WAREHOUSE)))
+                                .then(Commands.literal("contract").executes(c -> resume(c.getSource(), ModuleHealthRegistry.Module.CONTRACT)))
+                                .then(Commands.literal("company_gameplay").executes(c -> resume(c.getSource(), ModuleHealthRegistry.Module.COMPANY_GAMEPLAY)))
                                 .then(Commands.literal("stock").executes(c -> resume(c.getSource(), ModuleHealthRegistry.Module.STOCK)))
                                 .then(Commands.literal("debt").executes(c -> resume(c.getSource(), ModuleHealthRegistry.Module.DEBT)))
                                 .then(Commands.literal("banking").executes(c -> resume(c.getSource(), ModuleHealthRegistry.Module.BANKING)))

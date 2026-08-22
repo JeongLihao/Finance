@@ -12,6 +12,7 @@ import finance.alert.PriceAlertType;
 import finance.company.CompanyProposalType;
 import finance.stock.ConditionalStockOrderType;
 import finance.gui.FinanceMenu;
+import finance.gameplay.FinanceScreenMode;
 import finance.market.NpcMarketMaker;
 import finance.network.*;
 import finance.util.FormatUtil;
@@ -69,6 +70,7 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
     private static final String[] BASE_TABS = {"行情", "交易", "订单", "库存", "公司", "股票", "记录", "资产", "提醒", "金融"};
     private static final String[] ADMIN_TABS = {"行情", "交易", "订单", "库存", "公司", "股票", "记录", "资产", "提醒", "金融", "仪表", "管理"};
     private String[] tabNames;
+    private int[] allowedTabIndices = {0};
     private static final CompanyType[] COMPANY_TYPES = CompanyType.values();
     private int currentTab = 0;
     private boolean isAdmin = false;
@@ -83,6 +85,7 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
     private int financialSubTab = 0;
     private boolean governanceView = false;
     private boolean restructuringView = false;
+    private boolean companyDetailsView = false;
 
     private enum ChartPanel {
         KLINE_MA("K+MA"), MACD("MACD"), RSI("RSI"), ORDER_BOOK("Book"), RECENT("Trades"),
@@ -158,9 +161,11 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         refreshCache();
 
         isAdmin = minecraft != null && minecraft.player != null && minecraft.player.hasPermissions(2);
-        tabNames = isAdmin ? ADMIN_TABS : BASE_TABS;
-        currentTab = 0;
+        configureEntryTabs(menu.getInitialMode());
         adminSubTab = 0;
+        governanceView = false;
+        restructuringView = false;
+        companyDetailsView = false;
         selectedCommodity = chooseInitialCommodity();
         selectedStock = "";
 
@@ -239,7 +244,7 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         adminBasePriceBox.setVisible(false);
         addWidget(adminBasePriceBox);
 
-        int adminFormY = topPos + CONTENT_Y + 144;
+        int adminFormY = topPos + CONTENT_Y + 98;
         adminCommodityIdBox = new EditBox(font, leftPos + 28, adminFormY, 82, 14, Component.literal("商品ID"));
         adminCommodityIdBox.setMaxLength(32);
         adminCommodityIdBox.setVisible(false);
@@ -275,6 +280,27 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         commodityCacheDirty = true;
         categorizedCacheDirty = true;
         updateInputVisibility();
+    }
+
+    private void configureEntryTabs(FinanceScreenMode mode) {
+        FinanceScreenMode safeMode = mode == null ? FinanceScreenMode.ADVANCED : mode;
+        allowedTabIndices = switch (safeMode) {
+            case MARKET -> new int[]{0, 1, 2};
+            case COMPANY -> new int[]{4};
+            case BANK -> new int[]{9};
+            case ADVANCED -> new int[]{0, 5, 6, 7, 8, 9};
+            case ADMIN -> isAdmin ? new int[]{10, 11} : new int[]{10};
+            case WAREHOUSE -> new int[]{3};
+            case WALLET -> new int[]{7};
+        };
+        String[] labels = (isAdmin ? ADMIN_TABS : BASE_TABS);
+        tabNames = new String[allowedTabIndices.length];
+        for (int i = 0; i < allowedTabIndices.length; i++) {
+            int index = allowedTabIndices[i];
+            tabNames[i] = index < labels.length ? labels[index] : BASE_TABS[Math.min(index, BASE_TABS.length - 1)];
+        }
+        currentTab = allowedTabIndices[0];
+        if (safeMode == FinanceScreenMode.BANK) financialSubTab = 7;
     }
 
     private void refreshCache() {
@@ -382,8 +408,12 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
     }
 
     private void renderFinancialProductsTab(GuiGraphics g, int mouseX, int mouseY) {
+        if (menu.getInitialMode() == FinanceScreenMode.BANK) {
+            financialSubTab = 7;
+            renderBankTab(g);
+            return;
+        }
         FinancialProductClientCache.Entry data = FinancialProductClientCache.get();
-        drawSectionTitle(g, "金融产品", 10, CONTENT_Y);
         String[] labels = {"指数", "发行", "债市", "持仓", "票据", "贷款", "期货", "银行", "基金"};
         labels = Arrays.copyOf(labels, 10);
         labels[9] = "保险";
@@ -471,7 +501,7 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         for(var row:data.policies()){if(y>150)break;drawClippedString(g,row.product()+"/"+row.status(),12,y,120,COL_TEXT);drawClippedString(g,row.coverage()+"/"+row.remaining(),142,y,120,COL_TEXT);drawClippedString(g,"D"+row.effective()+"-"+row.expiry(),275,y,110,COL_TEXT_DIM);y+=15;}
         for(var row:data.claims()){if(y>174)break;drawClippedString(g,"Claim "+row.status(),12,y,100,row.status()==finance.insurance.ClaimStatus.PAID?COL_GOOD:COL_WARN);drawClippedString(g,row.paid()+"/"+row.approved()+" loss "+row.loss(),118,y,170,COL_TEXT);drawClippedString(g,row.reason(),294,y,92,COL_TEXT_DIM);y+=15;}
         g.fill(8,185,imageWidth-8,232,COL_ROW_EVEN);drawClippedString(g,"Coverage",14,190,55,COL_TEXT_DIM);drawClippedString(g,"Term(days)",126,190,70,COL_TEXT_DIM);drawButton(g,"Cancel",218,210,48,false);drawFilledButton(g,"Inventory",270,210,56,COL_ACCENT);drawFilledButton(g,"Interruption",330,210,62,COL_ACCENT);
-        if(data.admin())drawClippedString(g,"Pool "+data.poolCash()+" exposure "+data.exposure()+" unpaid "+data.unpaid(),14,215,245,COL_TEXT_DIM);
+        if(data.admin())drawClippedString(g,"Pool "+data.poolCash()+" exposure "+data.exposure()+" unpaid "+data.unpaid(),14,215,194,COL_TEXT_DIM);
     }
 
     private void renderFundTab(GuiGraphics g){var data=FundClientCache.get();if(data.state()==FundClientCache.State.NOT_REQUESTED){requestFunds();drawClippedString(g,"正在请求基金数据…",12,CONTENT_Y+28,350,COL_TEXT_DIM);return;}if(data.state()==FundClientCache.State.LOADING||data.state()==FundClientCache.State.SLOW){drawClippedString(g,data.state()==FundClientCache.State.SLOW?"基金数据响应较慢":"正在加载…",12,CONTENT_Y+28,350,COL_TEXT_DIM);return;}int y=CONTENT_Y+24;drawClippedString(g,"基金/状态",14,y,135,COL_TEXT_DIM);drawClippedString(g,"净值/涨跌",154,y,90,COL_TEXT_DIM);drawClippedString(g,"我的份额",250,y,75,COL_TEXT_DIM);drawClippedString(g,"风险",330,y,60,COL_TEXT_DIM);y+=15;for(var row:data.funds()){if(y>172)break;double change=row.previousNav()>0?(row.nav()/(double)row.previousNav()-1)*100:0;drawClippedString(g,row.name()+" "+row.status(),14,y,135,COL_TEXT);drawClippedString(g,row.nav()+" / "+String.format(Locale.ROOT,"%+.2f%%",change),154,y,90,change>=0?COL_GOOD:COL_BAD);drawClippedString(g,row.shares()+" (冻"+row.frozenShares()+")",250,y,75,COL_TEXT);drawClippedString(g,row.sufficientHistory()?String.format(Locale.ROOT,"波动%.1f%%",row.volatility()):"数据不足",330,y,60,COL_WARN);y+=16;}g.fill(8,185,imageWidth-8,232,COL_ROW_EVEN);drawClippedString(g,"金额",14,190,35,COL_TEXT_DIM);drawClippedString(g,"份额/间隔",126,190,80,COL_TEXT_DIM);drawFilledButton(g,"申购",275,189,40,COL_ACCENT);drawFilledButton(g,"赎回",320,189,40,COL_ACCENT);drawFilledButton(g,"定投",365,189,28,COL_ACCENT);drawClippedString(g,"申购费、赎回费及净值均由服务端确认；赎回可能因流动性延迟。",14,215,375,COL_TEXT_DIM);}
@@ -501,17 +531,18 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         y += 15;
         drawClippedString(g, "银行/状态", 12, y, 100, COL_TEXT_DIM);
         drawClippedString(g, "存款利率", 116, y, 80, COL_TEXT_DIM);
-        drawClippedString(g, "资本/流动", 202, y, 86, COL_TEXT_DIM);
-        drawClippedString(g, data.admin() ? "准备金/存款" : "存款规模", 294, y, 98, COL_TEXT_DIM);
+        drawClippedString(g, data.admin() ? "资本/流动" : "公开风险", 202, y, 86, COL_TEXT_DIM);
+        drawClippedString(g, data.admin() ? "准备金/存款" : "公开状态", 294, y, 98, COL_TEXT_DIM);
         y += 14;
         for (var bank : data.banks()) {
             if (y > 156) break;
             drawClippedString(g, bank.code() + "/" + bank.status(), 12, y, 100,
                     bank.status() == finance.bank.BankStatus.ACTIVE ? COL_GOOD : COL_WARN);
             drawClippedString(g, bank.demandRateBps() + "/" + bank.timeRateBps() + "bp", 116, y, 80, COL_TEXT);
-            drawClippedString(g, bank.capitalBps() + "/" + bank.liquidityBps(), 202, y, 86, COL_TEXT);
+            drawClippedString(g, data.admin() ? bank.capitalBps() + "/" + bank.liquidityBps()
+                    : bank.status().name(), 202, y, 86, COL_TEXT);
             drawClippedString(g, data.admin() ? bank.reserves() + "/" + bank.deposits()
-                    : Long.toString(bank.deposits()), 294, y, 98, COL_TEXT);
+                    : "不公开总账", 294, y, 98, COL_TEXT);
             y += 15;
         }
         long demand = data.accounts().stream().filter(a -> a.type() == finance.bank.BankAccountType.DEMAND_DEPOSIT
@@ -554,7 +585,7 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         for (int i = 0; i < tabNames.length; i++) {
             String label = tabNames[i];
             int w = tabWidth();
-            boolean active = (i == currentTab);
+            boolean active = (allowedTabIndices[i] == currentTab);
             boolean hovered = mouseX >= leftPos + x && mouseX < leftPos + x + w
                     && mouseY >= topPos + TAB_Y && mouseY < topPos + TAB_Y + TAB_H;
 
@@ -658,6 +689,9 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
             drawClippedString(g, "量 " + cachedSelectedRow.dayVolume(), 170, tradeY + 44, 70, COL_TEXT_DIM);
         }
         drawClippedString(g, "余额: " + menu.getBalance(), 260, tradeY + 18, 110, COL_TEXT);
+        drawClippedString(g, "仓储 " + menu.getWarehouseUsed() + "/" + menu.getWarehouseCapacity()
+                + (menu.isWarehouseOverCapacity() ? " 超量" : ""), 260, tradeY + 44, 120,
+                menu.isWarehouseOverCapacity() ? COL_BAD : COL_TEXT_DIM);
         int owned = menu.getPlayerInventory().getOrDefault(selectedCommodity, 0);
         drawClippedString(g, "持有: " + owned, 10, tradeY + 32, 130, COL_TEXT_DIM);
         int intlQty = Math.max(1, parseInt(intlQuantityBox.getValue()));
@@ -750,6 +784,7 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         // 背景
         g.fill(ddX, ddY, ddX + ddW, ddY + ddH, COL_DROPDOWN_BG);
         drawSimpleBorder(g, ddX, ddY, ddW, ddH, COL_PANEL_BORDER);
+        g.enableScissor(ddX + 2, ddY + 2, ddX + ddW - 2, ddY + ddH - 2);
 
         int localMx = mouseX - ddX;
         int localMy = mouseY - ddY;
@@ -783,6 +818,7 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
                 }
             }
         }
+        g.disableScissor();
 
         // 滚动条
         int totalHeight = calcDropdownTotalHeight();
@@ -896,7 +932,8 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         allCommodityIds.addAll(mcInv.keySet());
 
         if (allCommodityIds.isEmpty()) {
-            g.drawString(font, "暂无商品（可通过管理标签添加常用物品）", 12, invY + 32, COL_TEXT_DIM, false);
+            drawClippedString(g, "暂无商品（可通过管理标签添加常用物品）",
+                    12, headerLineY + 18, imageWidth - 24, COL_TEXT_DIM);
             return;
         }
 
@@ -932,11 +969,16 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
                 renderGovernanceCompany(g, company, cardY);
                 return;
             }
+            if (companyDetailsView) {
+                renderCompanyDetails(g, company, cardY);
+                return;
+            }
             int cardH = imageHeight - cardY - 8;
             g.fill(8, cardY, imageWidth - 8, cardY + cardH, 0xFFE0E0E0);
             drawSimpleBorder(g, 8, cardY, imageWidth - 16, cardH, COL_PANEL_BORDER);
-            drawButton(g,"重组任务",282,cardY+14,54,false);
-            if (company.isPublic()) drawButton(g, "治理", 340, cardY + 14, 36, false);
+            drawButton(g,"重组",224,cardY+14,48,false);
+            drawButton(g,"财报提案",276,cardY+14,58,false);
+            if (company.isPublic()) drawButton(g, "治理", 338, cardY + 14, 38, false);
 
             drawSectionTitle(g, "我的公司", 10, cardY + 2);
             g.drawString(font, "名称", 12, cardY + 18, COL_TEXT_DIM, false);
@@ -996,49 +1038,9 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
                             252, cardY + 138, 120, COL_TEXT_DIM);
                 }
             }
-            int reportY = cardY + 140;
-            drawSectionTitle(g, "最新财报", 10, reportY);
-            drawClippedString(g, "收入 " + company.reportRevenue() + " 支出 " + company.reportExpenses()
-                            + " 净利 " + signedLong(company.reportNetProfit()),
-                    12, reportY + 14, 188, company.reportNetProfit() >= 0 ? COL_GOOD : COL_BAD);
-            drawClippedString(g, "提案文本", 198, reportY, 48, COL_TEXT_DIM);
-            int proposalY = reportY + 28;
-            drawSectionTitle(g, "股东提案", 10, proposalY);
-            if (company.isPublic()) {
-                drawFilledButton(g, "分红", 70, proposalY - 2, 38, COL_ACCENT);
-                drawFilledButton(g, "增发", 112, proposalY - 2, 38, COL_GOOD);
-                drawFilledButton(g, "改名", 154, proposalY - 2, 38, COL_WARN);
-                drawFilledButton(g, "用途", 196, proposalY - 2, 38, COL_ACCENT);
-                drawClippedString(g, "文本框=新名/用途；金额=比例/目标/预算",
-                        240, proposalY, 138, COL_TEXT_DIM);
-            }
-            List<FinanceMenu.CompanyProposalRow> proposals = proposalsForCompany(company.companyId());
-            int py = proposalY + 16;
-            if (proposals.isEmpty()) {
-                drawClippedString(g, company.isPublic() ? "暂无提案。" : "公司上市后可创建股东提案。",
-                        12, py, 180, COL_TEXT_DIM);
-            } else {
-                int maxProposals = Math.min(proposals.size(), Math.max(0, (imageHeight - py - 4) / ROW_HEIGHT));
-                for (int i = 0; i < maxProposals; i++) {
-                    FinanceMenu.CompanyProposalRow row = proposals.get(i);
-                    boolean active = "ACTIVE".equals(row.status());
-                    drawClippedString(g, displayProposalType(row.type()) + " " + displayProposalValues(row),
-                            12, py, 120, active ? COL_TEXT : COL_TEXT_DIM);
-                    drawClippedString(g, "赞 " + row.yesVotes() + " 反 " + row.noVotes()
-                                    + " 需" + Math.round(row.passRatio() * 100) + "%",
-                            138, py, 92, COL_TEXT_DIM);
-                    drawClippedString(g, active ? "截止" + row.endMcDay() : displayProposalStatus(row),
-                            236, py, 58, active ? COL_WARN : ("PASSED".equals(row.status()) ? COL_GOOD : COL_BAD));
-                    if (active && !row.playerVoted()) {
-                        drawButton(g, "赞成", 300, py - 2, 36, false);
-                        drawButton(g, "反对", 340, py - 2, 36, false);
-                    }
-                    py += ROW_HEIGHT;
-                }
-            }
         } else {
-            g.fill(8, cardY, imageWidth - 8, cardY + 96, 0xFFE0E0E0);
-            drawSimpleBorder(g, 8, cardY, imageWidth - 16, 96, COL_PANEL_BORDER);
+            g.fill(8, cardY, imageWidth - 8, cardY + 126, 0xFFE0E0E0);
+            drawSimpleBorder(g, 8, cardY, imageWidth - 16, 126, COL_PANEL_BORDER);
 
             drawSectionTitle(g, "创建公司", 10, cardY + 2);
             g.drawString(font, "费用", 12, cardY + 18, COL_TEXT_DIM, false);
@@ -1057,6 +1059,64 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
             drawFilledButton(g, "创建公司", 300, cardY + 58, 76, COL_GOOD);
             drawClippedString(g, "创建后可在这里管理经营状态；上市后才会进入股票市场。",
                     12, cardY + 108, imageWidth - 24, COL_TEXT_DIM);
+        }
+    }
+
+    /** 财报和股东提案使用独立视图，避免与 IPO/融资表单共享坐标。 */
+    private void renderCompanyDetails(GuiGraphics g, FinanceMenu.CompanyInfo company, int cardY) {
+        int cardH = imageHeight - cardY - 8;
+        g.fill(8, cardY, imageWidth - 8, cardY + cardH, 0xFFE0E0E0);
+        drawSimpleBorder(g, 8, cardY, imageWidth - 16, cardH, COL_PANEL_BORDER);
+        drawSectionTitle(g, "财报与股东提案", 10, cardY + 2);
+        drawButton(g, "返回", 340, cardY + 2, 36, false);
+
+        drawClippedString(g, "收入 " + company.reportRevenue(), 12, cardY + 22, 112, COL_TEXT);
+        drawClippedString(g, "支出 " + company.reportExpenses(), 134, cardY + 22, 112, COL_TEXT);
+        drawClippedString(g, "净利润 " + signedLong(company.reportNetProfit()), 256, cardY + 22, 120,
+                company.reportNetProfit() >= 0 ? COL_GOOD : COL_BAD);
+        drawClippedString(g, "资产 " + company.reportAssets(), 12, cardY + 38, 112, COL_TEXT_DIM);
+        drawClippedString(g, "负债 " + company.reportLiabilities(), 134, cardY + 38, 112, COL_TEXT_DIM);
+        drawClippedString(g, "现金 " + company.cash(), 256, cardY + 38, 120, COL_TEXT_DIM);
+
+        if (!company.isPublic()) {
+            drawClippedString(g, "公司上市后才可创建和参与股东提案。", 12, cardY + 64, 300, COL_WARN);
+            return;
+        }
+
+        drawClippedString(g, "文本", 12, cardY + 62, 32, COL_TEXT_DIM);
+        drawClippedString(g, "金额", 12, cardY + 84, 32, COL_TEXT_DIM);
+        drawClippedString(g, "价格", 132, cardY + 84, 32, COL_TEXT_DIM);
+        drawClippedString(g, "数量", 252, cardY + 84, 32, COL_TEXT_DIM);
+        drawFilledButton(g, "分红", 10, cardY + 106, 48, COL_ACCENT);
+        drawFilledButton(g, "增发", 64, cardY + 106, 48, COL_GOOD);
+        drawFilledButton(g, "改名", 118, cardY + 106, 48, COL_WARN);
+        drawFilledButton(g, "用途", 172, cardY + 106, 48, COL_ACCENT);
+        drawClippedString(g, "金额=分红比例/目标/预算", 230, cardY + 109, 146, COL_TEXT_DIM);
+
+        int proposalY = cardY + 128;
+        drawSectionTitle(g, "提案记录", 10, proposalY);
+        List<FinanceMenu.CompanyProposalRow> proposals = proposalsForCompany(company.companyId());
+        int py = proposalY + 16;
+        if (proposals.isEmpty()) {
+            drawClippedString(g, "暂无提案。", 12, py, 180, COL_TEXT_DIM);
+            return;
+        }
+        int maxProposals = Math.min(proposals.size(), Math.max(0, (cardY + cardH - py - 4) / ROW_HEIGHT));
+        for (int i = 0; i < maxProposals; i++) {
+            FinanceMenu.CompanyProposalRow row = proposals.get(i);
+            boolean active = "ACTIVE".equals(row.status());
+            drawClippedString(g, displayProposalType(row.type()) + " " + displayProposalValues(row),
+                    12, py, 120, active ? COL_TEXT : COL_TEXT_DIM);
+            drawClippedString(g, "赞 " + row.yesVotes() + " 反 " + row.noVotes()
+                            + " 需" + Math.round(row.passRatio() * 100) + "%",
+                    138, py, 92, COL_TEXT_DIM);
+            drawClippedString(g, active ? "截止" + row.endMcDay() : displayProposalStatus(row),
+                    236, py, 58, active ? COL_WARN : ("PASSED".equals(row.status()) ? COL_GOOD : COL_BAD));
+            if (active && !row.playerVoted()) {
+                drawButton(g, "赞成", 300, py - 2, 36, false);
+                drawButton(g, "反对", 340, py - 2, 36, false);
+            }
+            py += ROW_HEIGHT;
         }
     }
 
@@ -1125,34 +1185,34 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         drawClippedString(g, "估值质量 " + data.valuation().quality() + "  控制者 "
                 + (data.controller() == null ? "分散持有" : data.controller().toString().substring(0, 8)),
                 12, cardY + 70, 360, COL_WARN);
-        drawSectionTitle(g, "主要股东", 10, cardY + 90);
-        int y = cardY + 106;
+        drawSectionTitle(g, "主要股东", 10, cardY + 88);
+        int holderY = cardY + 104;
         for (GovernanceResponsePacket.HolderRow holder : data.holders().stream().limit(1).toList()) {
-            drawClippedString(g, holder.id().toString().substring(0, 8), 12, y, 70, COL_TEXT);
+            drawClippedString(g, holder.id().toString().substring(0, 8), 12, holderY, 70, COL_TEXT);
             drawClippedString(g, "持股 " + holder.shares() + "  冻结 " + holder.locked()
-                    + "  表决权 " + String.format(Locale.ROOT, "%.1f%%", holder.voting()), 88, y, 280, COL_TEXT_DIM);
-            y += ROW_HEIGHT;
+                    + "  表决权 " + String.format(Locale.ROOT, "%.1f%%", holder.voting()), 88, holderY, 280, COL_TEXT_DIM);
         }
-        drawSectionTitle(g, "公司行动", 10, y + 2);
-        y += 18;
-        if (data.actions().isEmpty()) drawClippedString(g, "暂无回购或收购要约", 12, y, 260, COL_TEXT_DIM);
+        if (data.holders().isEmpty()) drawClippedString(g, "暂无股东", 12, holderY, 160, COL_TEXT_DIM);
+        drawSectionTitle(g, "公司行动", 10, cardY + 120);
+        int actionY = cardY + 134;
+        if (data.actions().isEmpty()) drawClippedString(g, "暂无回购或收购要约", 12, actionY, 260, COL_TEXT_DIM);
         for (GovernanceResponsePacket.ActionRow action : data.actions().stream().limit(1).toList()) {
             drawClippedString(g, action.type() + "  " + action.status() + "  价格 " + action.price()
-                    + "  股份 " + action.shares() + "  截止 D" + action.endDay(), 12, y, 360, COL_TEXT);
-            y += ROW_HEIGHT;
+                    + "  股份 " + action.shares() + "  截止 D" + action.endDay(), 12, actionY, 360, COL_TEXT);
         }
-        int controlsY=cardY+164;
-        drawClippedString(g,"目标公司UUID；资产提案填 卖方UUID|商品ID",12,cardY+148,96,COL_TEXT_DIM);
+        int controlsY=cardY+160;
+        drawClippedString(g,"目标/卖方",12,cardY+146,90,COL_TEXT_DIM);
         drawClippedString(g,"价格",12,controlsY+4,34,COL_TEXT_DIM);
         drawClippedString(g,"股份",132,controlsY+4,34,COL_TEXT_DIM);
         drawClippedString(g,"期限",252,controlsY+4,34,COL_TEXT_DIM);
-        drawButton(g,"回购提案",10,controlsY+24,56,false);
-        drawButton(g,"注销提案",70,controlsY+24,56,false);
-        drawButton(g,"接受行动",130,controlsY+24,56,false);
-        drawButton(g,"刷新",330,controlsY+24,46,false);
-        drawButton(g,"发起收购",10,controlsY+40,56,false);
-        drawButton(g,"紧急提案",70,controlsY+40,56,false);
-        drawButton(g,"资产提案",130,controlsY+40,56,false);
+        int buttonY = controlsY + 23;
+        drawButton(g,"回购",10,buttonY,48,false);
+        drawButton(g,"注销",62,buttonY,48,false);
+        drawButton(g,"接受",114,buttonY,48,false);
+        drawButton(g,"收购",166,buttonY,48,false);
+        drawButton(g,"注资",218,buttonY,48,false);
+        drawButton(g,"资产",270,buttonY,48,false);
+        drawButton(g,"刷新",322,buttonY,54,false);
     }
 
     private void requestGovernance(UUID companyId) {
@@ -1318,16 +1378,15 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         } else if (chartEntry.state() == CandlestickClientCache.State.EMPTY) {
             drawClippedString(g, "No trades in this time window.", 10, CONTENT_Y + 16, 240, COL_TEXT_DIM);
         }
-        MarketSummary summary = MarketSummary.from(bars, chartEntry.serverCurrentMcDay());
+        MarketSummary summary = chartEntry.state() == CandlestickClientCache.State.READY
+                ? MarketSummary.from(bars, chartEntry.serverCurrentMcDay()) : null;
         if (summary != null) {
             int color = summary.change() >= 0 ? COL_GOOD : COL_BAD;
             drawClippedString(g, "最新 " + summary.latestPrice() + "  " + signedLong(summary.change())
                     + " (" + FormatUtil.formatPercent(summary.changePercent()) + ")", 10, CONTENT_Y + 16, 240, color);
             drawClippedString(g, "高 " + summary.high() + " 低 " + summary.low() + " 量 " + summary.volume()
-                    + (summary.volumeSpike() ? " 放量" : ""), 250, CONTENT_Y + 16, 140, COL_TEXT_DIM);
-        }
-        if (!bars.isEmpty() && !chartEntry.latestBarComplete()) {
-            drawClippedString(g, "Current day (in progress)", 250, CONTENT_Y + 2, 132, COL_WARN);
+                    + (summary.volumeSpike() ? " 放量" : "")
+                    + (!chartEntry.latestBarComplete() ? " 未收盘" : ""), 250, CONTENT_Y + 16, 140, COL_TEXT_DIM);
         }
         int panelY = CONTENT_Y + 29;
         int panelHeight = imageHeight - CONTENT_Y - 37;
@@ -1703,14 +1762,13 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         drawSectionTitle(g, "手动添加", 10, y);
         y += 14;
 
-        // adminFormY = CONTENT_Y + 144 → localY = 144
-        // 当前 y = 106，label 应在 y + 38 = 144
+        // 输入框与标签共用 localY=144，避免输入框掉到说明文字下方。
         g.drawString(font, "ID:", 10, y + 38, COL_TEXT_DIM, false);
         g.drawString(font, "物品:", 120, y + 38, COL_TEXT_DIM, false);
         g.drawString(font, "名称:", 270, y + 38, COL_TEXT_DIM, false);
         y += 56;
 
-        g.drawString(font, "价格:", 10, y + 2, COL_TEXT_DIM, false);
+        drawClippedString(g, "价格使用上方设置", 10, y + 2, 100, COL_TEXT_DIM);
         g.drawString(font, "分类:", 120, y + 2, COL_TEXT_DIM, false);
         drawButton(g, "< " + adminCategory.getDisplayName() + " >", 152, y, 80, true);
         drawFilledButton(g, "添加", 244, y, 44, COL_GOOD);
@@ -1776,9 +1834,7 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
 
             // 物品图标
             Item item = BuiltInRegistries.ITEM.get(ResourceLocation.tryParse(QUICK_ITEMS[i][1]));
-            if (item != null) {
-                g.renderItem(new ItemStack(item), listX + 4, y + 1);
-            }
+            renderItemIcon(g, item, listX + 4, y + 2);
 
             drawClippedString(g, QUICK_ITEMS[i][2], listX + 22, y + 3, 80, registered ? COL_TEXT_DIM : COL_TEXT);
             drawClippedString(g, "基础价: " + QUICK_ITEMS[i][3], listX + 110, y + 3, 80, COL_TEXT_DIM);
@@ -1854,7 +1910,8 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
     // ================================================================
 
     private boolean handleFinancialProductsClick(int mx, int my) {
-        if (my >= CONTENT_Y - 2 && my <= CONTENT_Y + 14) {
+        if (menu.getInitialMode() != FinanceScreenMode.BANK
+                && my >= CONTENT_Y - 2 && my <= CONTENT_Y + 14) {
             for (int i = 0; i < 10; i++) {
                 int x = 10 + i * 38;
                 if (mx >= x && mx <= x + 36) {
@@ -1936,7 +1993,7 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
             for (int i = 0; i < tabNames.length; i++) {
                 int w = tabWidth();
                 if (mx >= x && mx < x + w) {
-                    currentTab = i;
+                    currentTab = allowedTabIndices[i];
                     rememberUiState();
                     dropdownOpen = false;
                     updateInputVisibility();
@@ -2342,14 +2399,14 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
                     updateInputVisibility();
                     return true;
                 }
-                int controlsY=cardY+164;
+                int controlsY=cardY+160;
                 long price=Math.max(1,parseLong(stockPriceBox.getValue()));
                 long quantity=Math.max(1,parseLong(stockQuantityBox.getValue()));
                 int duration=(int)Math.max(1,Math.min(90,parseLong(companyAmountBox.getValue())));
-                if(my>=controlsY+24&&my<controlsY+37){
-                    if(mx>=10&&mx<66){sendProposal(playerCompany.companyId(),CompanyProposalType.SHARE_BUYBACK,"",price,quantity,duration);return true;}
-                    if(mx>=70&&mx<126){sendProposal(playerCompany.companyId(),CompanyProposalType.TREASURY_RETIREMENT,"",quantity,0,0);return true;}
-                    if(mx>=130&&mx<186){
+                if(my>=controlsY+23&&my<controlsY+36){
+                    if(mx>=10&&mx<58){sendProposal(playerCompany.companyId(),CompanyProposalType.SHARE_BUYBACK,"",price,quantity,duration);return true;}
+                    if(mx>=62&&mx<110){sendProposal(playerCompany.companyId(),CompanyProposalType.TREASURY_RETIREMENT,"",quantity,0,0);return true;}
+                    if(mx>=114&&mx<162){
                         GovernanceResponsePacket data=GovernanceClientCache.get().data();
                         GovernanceResponsePacket.ActionRow action=data==null?null:data.actions().stream().filter(a->a.status()==finance.governance.CapitalActionStatus.OPEN).findFirst().orElse(null);
                         if(action==null){setStatus("没有可接受的开放行动");return true;}
@@ -2357,26 +2414,62 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
                         FinancePacketHandler.CHANNEL.sendToServer(new GovernanceActionPacket(kind,action.id(),0,quantity,0,0,UUID.randomUUID().toString()));
                         setStatus("已提交行动接受请求");return true;
                     }
-                    if(mx>=330&&mx<376){GovernanceClientCache.clear();requestGovernance(playerCompany.companyId());setStatus("正在刷新治理数据");return true;}
-                }
-                if(my>=controlsY+40&&my<controlsY+53){
                     String target=companyNameBox.getValue().trim();
-                    if(mx>=10&&mx<66){
+                    if(mx>=166&&mx<214){
                         try{UUID targetCompany=UUID.fromString(target);FinancePacketHandler.CHANNEL.sendToServer(new GovernanceActionPacket(GovernanceActionPacket.Action.START_TENDER,targetCompany,price,quantity,quantity,duration,UUID.randomUUID().toString()));setStatus("已提交公开收购要约");}catch(IllegalArgumentException invalid){setStatus("请输入目标公司的完整 UUID");}return true;
                     }
-                    if(mx>=70&&mx<126){sendProposal(playerCompany.companyId(),CompanyProposalType.EMERGENCY_RECAPITALIZATION,"",price,0,0);return true;}
-                    if(mx>=130&&mx<186){sendProposal(playerCompany.companyId(),CompanyProposalType.MAJOR_ASSET_PURCHASE,target,price,quantity,0);return true;}
+                    if(mx>=218&&mx<266){sendProposal(playerCompany.companyId(),CompanyProposalType.EMERGENCY_RECAPITALIZATION,"",price,0,0);return true;}
+                    if(mx>=270&&mx<318){sendProposal(playerCompany.companyId(),CompanyProposalType.MAJOR_ASSET_PURCHASE,target,price,quantity,0);return true;}
+                    if(mx>=322&&mx<376){GovernanceClientCache.clear();requestGovernance(playerCompany.companyId());setStatus("正在刷新治理数据");return true;}
                 }
                 return false;
             }
-            if (playerCompany.isPublic() && mx >= 340 && mx < 376 && my >= cardY + 14 && my < cardY + 27) {
+            if (companyDetailsView) {
+                if (mx >= 340 && mx < 376 && my >= cardY + 2 && my < cardY + 15) {
+                    companyDetailsView = false;
+                    updateInputVisibility();
+                    return true;
+                }
+                if (!playerCompany.isPublic()) return false;
+                if (my >= cardY + 106 && my < cardY + 119) {
+                    long amount = Math.max(1, parseLong(companyAmountBox.getValue()));
+                    long price = Math.max(1, parseLong(ipoPriceBox.getValue()));
+                    long quantity = Math.max(1, parseLong(ipoQuantityBox.getValue()));
+                    String text = companyNameBox.getValue().trim();
+                    if (mx >= 10 && mx < 58) { sendProposal(playerCompany.companyId(), CompanyProposalType.DIVIDEND, "", amount, 0, 0); return true; }
+                    if (mx >= 64 && mx < 112) { sendProposal(playerCompany.companyId(), CompanyProposalType.SHARE_ISSUE, "", quantity, price, amount); return true; }
+                    if (mx >= 118 && mx < 166) { sendProposal(playerCompany.companyId(), CompanyProposalType.RENAME, text, 0, 0, 0); return true; }
+                    if (mx >= 172 && mx < 220) { sendProposal(playerCompany.companyId(), CompanyProposalType.FUND_USAGE, text, amount, 0, 0); return true; }
+                }
+                List<FinanceMenu.CompanyProposalRow> proposals = proposalsForCompany(playerCompany.companyId());
+                int py = cardY + 144;
+                int maxProposals = Math.min(proposals.size(), Math.max(0, (imageHeight - 8 - py - 4) / ROW_HEIGHT));
+                for (int i = 0; i < maxProposals; i++) {
+                    FinanceMenu.CompanyProposalRow row = proposals.get(i);
+                    if ("ACTIVE".equals(row.status()) && !row.playerVoted()) {
+                        if (mx >= 300 && mx < 336 && my >= py - 2 && my < py + 11) {
+                            FinancePacketHandler.CHANNEL.sendToServer(CompanyProposalPacket.vote(row.proposalId(), true));
+                            setStatus("已提交赞成票"); return true;
+                        }
+                        if (mx >= 340 && mx < 376 && my >= py - 2 && my < py + 11) {
+                            FinancePacketHandler.CHANNEL.sendToServer(CompanyProposalPacket.vote(row.proposalId(), false));
+                            setStatus("已提交反对票"); return true;
+                        }
+                    }
+                    py += ROW_HEIGHT;
+                }
+                return false;
+            }
+            if (playerCompany.isPublic() && mx >= 338 && mx < 376 && my >= cardY + 14 && my < cardY + 27) {
                 governanceView = true;
+                companyDetailsView = false;
                 GovernanceClientCache.clear();
                 requestGovernance(playerCompany.companyId());
                 updateInputVisibility();
                 return true;
             }
-            if(mx>=282&&mx<336&&my>=cardY+14&&my<cardY+27){restructuringView=true;governanceView=false;updateInputVisibility();return true;}
+            if(mx>=224&&mx<272&&my>=cardY+14&&my<cardY+27){restructuringView=true;governanceView=false;companyDetailsView=false;updateInputVisibility();return true;}
+            if(mx>=276&&mx<334&&my>=cardY+14&&my<cardY+27){companyDetailsView=true;governanceView=false;restructuringView=false;updateInputVisibility();return true;}
             if (mx >= 58 && mx < 176 && my >= cardY + 62 && my < cardY + 75) {
                 CompanyStrategy[] strategies = CompanyStrategy.values();
                 int idx = 0;
@@ -2453,52 +2546,6 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
                 FinancePacketHandler.CHANNEL.sendToServer(
                         CompanyFinancingPacket.start(playerCompany.companyId(), quantity, price, target));
                 return true;
-            }
-            if (playerCompany.isPublic()) {
-                int proposalY = cardY + 140 + 28;
-                if (my >= proposalY - 2 && my < proposalY + 11) {
-                    long amount = Math.max(1, parseLong(companyAmountBox.getValue()));
-                    long price = Math.max(1, parseLong(ipoPriceBox.getValue()));
-                    long quantity = Math.max(1, parseLong(ipoQuantityBox.getValue()));
-                    String text = companyNameBox.getValue().trim();
-                    if (mx >= 70 && mx < 108) {
-                        sendProposal(playerCompany.companyId(), CompanyProposalType.DIVIDEND, "", amount, 0, 0);
-                        return true;
-                    }
-                    if (mx >= 112 && mx < 150) {
-                        sendProposal(playerCompany.companyId(), CompanyProposalType.SHARE_ISSUE, "", quantity, price, amount);
-                        return true;
-                    }
-                    if (mx >= 154 && mx < 192) {
-                        sendProposal(playerCompany.companyId(), CompanyProposalType.RENAME, text, 0, 0, 0);
-                        return true;
-                    }
-                    if (mx >= 196 && mx < 234) {
-                        sendProposal(playerCompany.companyId(), CompanyProposalType.FUND_USAGE, text, amount, 0, 0);
-                        return true;
-                    }
-                }
-                List<FinanceMenu.CompanyProposalRow> proposals = proposalsForCompany(playerCompany.companyId());
-                int py = proposalY + 16;
-                int maxProposals = Math.min(proposals.size(), Math.max(0, (imageHeight - py - 4) / ROW_HEIGHT));
-                for (int i = 0; i < maxProposals; i++) {
-                    FinanceMenu.CompanyProposalRow row = proposals.get(i);
-                    if (!"ACTIVE".equals(row.status()) || row.playerVoted()) {
-                        py += ROW_HEIGHT;
-                        continue;
-                    }
-                    if (mx >= 300 && mx < 336 && my >= py - 2 && my < py + 11) {
-                        FinancePacketHandler.CHANNEL.sendToServer(CompanyProposalPacket.vote(row.proposalId(), true));
-                        setStatus("已提交赞成票");
-                        return true;
-                    }
-                    if (mx >= 340 && mx < 376 && my >= py - 2 && my < py + 11) {
-                        FinancePacketHandler.CHANNEL.sendToServer(CompanyProposalPacket.vote(row.proposalId(), false));
-                        setStatus("已提交反对票");
-                        return true;
-                    }
-                    py += ROW_HEIGHT;
-                }
             }
             return false;
         } else if(mx>=210&&mx<286&&my>=cardY+58&&my<cardY+71){restructuringView=true;updateInputVisibility();return true;}
@@ -2969,11 +3016,16 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         FinanceMenu.CompanyInfo playerCompany = menu.getPlayerCompany();
         boolean createCompany = (currentTab == 4 && playerCompany == null && !restructuringView);
         boolean governance = currentTab == 4 && playerCompany != null && governanceView;
-        boolean ipoCompany = (currentTab == 4 && playerCompany != null && !governanceView && !restructuringView);
-        boolean manageCompany = (currentTab == 4 && playerCompany != null && !governanceView && !restructuringView);
+        boolean companyDetails = currentTab == 4 && playerCompany != null && companyDetailsView;
+        boolean ipoCompany = (currentTab == 4 && playerCompany != null && !governanceView
+                && !restructuringView && !companyDetailsView);
+        boolean manageCompany = ipoCompany;
         if(governance){
             companyNameBox.setX(leftPos+108);
             companyNameBox.setY(topPos+CONTENT_Y+144);
+        } else if (companyDetails) {
+            companyNameBox.setX(leftPos + 48);
+            companyNameBox.setY(topPos + CONTENT_Y + 58);
         } else if (createCompany) {
             companyNameBox.setX(leftPos + 70);
             companyNameBox.setY(topPos + CONTENT_Y + 36);
@@ -2981,9 +3033,9 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
             companyNameBox.setX(leftPos + 198);
             companyNameBox.setY(topPos + CONTENT_Y + 140);
         }
-        companyNameBox.setVisible(governance||createCompany || manageCompany);
-        ipoPriceBox.setVisible(ipoCompany);
-        ipoQuantityBox.setVisible(ipoCompany);
+        companyNameBox.setVisible(governance || companyDetails || createCompany);
+        ipoPriceBox.setVisible(ipoCompany || companyDetails);
+        ipoQuantityBox.setVisible(ipoCompany || companyDetails);
         boolean financial = currentTab == 9;
         stockPriceBox.setVisible(governance||(currentTab == 5 && !stockChartVisible)
                 || (financial && !futuresChartVisible && (financialSubTab == 1 || financialSubTab == 2 || financialSubTab == 4 || financialSubTab == 5 || financialSubTab == 6 || financialSubTab == 7 || financialSubTab == 8 || financialSubTab == 9)));
@@ -3001,11 +3053,25 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
             stockPriceBox.setX(leftPos + 54); stockPriceBox.setY(topPos + STOCK_TRADE_Y + 18);
             stockQuantityBox.setX(leftPos + 54); stockQuantityBox.setY(topPos + STOCK_TRADE_Y + 38);
             companyAmountBox.setX(leftPos + 58); companyAmountBox.setY(topPos + CONTENT_Y + 106);
+            ipoPriceBox.setX(leftPos + 58); ipoPriceBox.setY(topPos + CONTENT_Y + 136);
+            ipoQuantityBox.setX(leftPos + 172); ipoQuantityBox.setY(topPos + CONTENT_Y + 136);
         }
-        companyAmountBox.setVisible(governance||manageCompany || (financial && !futuresChartVisible && financialSubTab != 2 && financialSubTab != 3 && financialSubTab != 9));
+        if (companyDetails) {
+            companyAmountBox.setX(leftPos + 48); companyAmountBox.setY(topPos + CONTENT_Y + 80);
+            ipoPriceBox.setX(leftPos + 168); ipoPriceBox.setY(topPos + CONTENT_Y + 80);
+            ipoQuantityBox.setX(leftPos + 288); ipoQuantityBox.setY(topPos + CONTENT_Y + 80);
+        }
+        companyAmountBox.setVisible(governance || companyDetails || manageCompany
+                || (financial && !futuresChartVisible && financialSubTab != 2 && financialSubTab != 3 && financialSubTab != 9));
         alertPriceBox.setVisible(currentTab == 8);
         boolean admin = (currentTab == 11 && isAdmin);
         boolean adminHand = admin && adminSubTab == 0;
+        if (adminHand) {
+            adminBasePriceBox.setX(leftPos + 228); adminBasePriceBox.setY(topPos + CONTENT_Y + 42);
+            adminCommodityIdBox.setX(leftPos + 28); adminCommodityIdBox.setY(topPos + CONTENT_Y + 98);
+            adminItemIdBox.setX(leftPos + 140); adminItemIdBox.setY(topPos + CONTENT_Y + 98);
+            adminDisplayNameBox.setX(leftPos + 296); adminDisplayNameBox.setY(topPos + CONTENT_Y + 98);
+        }
         adminCommodityIdBox.setVisible(adminHand);
         adminItemIdBox.setVisible(adminHand);
         adminDisplayNameBox.setVisible(adminHand);
@@ -3018,9 +3084,9 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         if (currentTab == 1) { list.add(priceBox); list.add(quantityBox); }
         if (currentTab == 3) list.add(inventoryQuantityBox);
         if (currentTab == 4 && !restructuringView && menu.getPlayerCompany() == null) list.add(companyNameBox);
-        if (currentTab == 4 && !restructuringView && menu.getPlayerCompany() != null) list.add(companyNameBox);
-        if (currentTab == 4 && !restructuringView && menu.getPlayerCompany() != null) list.add(companyAmountBox);
-        if (currentTab == 4 && !restructuringView && menu.getPlayerCompany() != null) {
+        if (currentTab == 4 && !restructuringView && menu.getPlayerCompany() != null && companyNameBox.isVisible()) list.add(companyNameBox);
+        if (currentTab == 4 && !restructuringView && menu.getPlayerCompany() != null && companyAmountBox.isVisible()) list.add(companyAmountBox);
+        if (currentTab == 4 && !restructuringView && menu.getPlayerCompany() != null && ipoPriceBox.isVisible()) {
             list.add(ipoPriceBox);
             list.add(ipoQuantityBox);
         }
@@ -3083,6 +3149,11 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         String itemId = commodity.getItemId();
         if (itemId == null) return;
         Item item = BuiltInRegistries.ITEM.get(ResourceLocation.tryParse(itemId));
+        renderItemIcon(g, item, x, y);
+    }
+
+    /** 所有紧凑表格中的物品图标统一缩放为约 10×10。 */
+    private void renderItemIcon(GuiGraphics g, Item item, int x, int y) {
         if (item == null) return;
         g.pose().pushPose();
         g.pose().translate(x, y, 0);

@@ -1,0 +1,1 @@
+{"variants":{"indicator=normal":{"model":"finance:block/securities_terminal"},"indicator=shortage":{"model":"finance:block/securities_terminal"},"indicator=offline":{"model":"finance:block/terminal_offline"},"indicator=restricted":{"model":"finance:block/securities_terminal"},"indicator=resolution":{"model":"finance:block/terminal_resolution"}}}

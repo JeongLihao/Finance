@@ -45,6 +45,7 @@ public final class FinancialCycleService {
         if(finance.diagnostic.ModuleHealthRegistry.mayWrite(finance.diagnostic.ModuleHealthRegistry.Module.FUND))finance.fund.FundManager.processDay(day);
         if(finance.diagnostic.ModuleHealthRegistry.mayWrite(finance.diagnostic.ModuleHealthRegistry.Module.INSURANCE))finance.insurance.InsuranceManager.processDay(day);
         if(finance.diagnostic.ModuleHealthRegistry.mayWrite(finance.diagnostic.ModuleHealthRegistry.Module.STOCK))finance.governance.CorporateActionManager.processDay(day);
+        finance.contract.ContractManager.processDay(day);
     }
 
     /** Closes a fully completed market day before the new day's price reset. */

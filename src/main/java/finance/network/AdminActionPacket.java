@@ -200,6 +200,17 @@ public class AdminActionPacket {
                 GuiFeedbackPacket.send(player, "管理员请求参数无效。");
                 return;
             }
+            if(!MarketDataRequestLimiter.allow(player.getUUID(),player.server.getTickCount(),"admin:"+packet.actionType)){
+                GuiFeedbackPacket.send(player,"管理员操作过于频繁。");return;
+            }
+            if (requiresConfirmation(packet.actionType)) {
+                String subject=packet.commodityId==null?"":packet.commodityId;
+                long tick=player.server.getTickCount();
+                if(!finance.admin.AdminOperationGuard.confirm(player.getUUID(),packet.actionType.name(),subject,tick)){
+                    GuiFeedbackPacket.send(player,"高风险操作：请在 10 秒内再次执行以确认影响范围。");return;
+                }
+                finance.admin.AdminOperationGuard.audit(player.getUUID(),packet.actionType.name(),subject,tick,true);
+            }
 
             switch (packet.actionType) {
                 case ADD_COMMODITY -> handleAdd(player, packet);
@@ -472,4 +483,6 @@ public class AdminActionPacket {
             case SET_DIVIDEND_CYCLE -> packet.basePrice >= 1 && packet.basePrice <= 365;
         };
     }
+
+    private static boolean requiresConfirmation(ActionType type){return type==ActionType.REMOVE_COMMODITY||type==ActionType.CLEAR_COMMODITY_PRICE_HISTORY||type==ActionType.CLEAR_STOCK_PRICE_HISTORY||type==ActionType.CLEAR_ALL_PRICE_HISTORY;}
 }

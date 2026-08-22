@@ -51,6 +51,20 @@ public final class FinanceConfig {
             BANK_DEMAND_RESERVE_BPS_VALUE=1_000,BANK_TIME_RESERVE_BPS_VALUE=500,BANK_MIN_CAPITAL_BPS_VALUE=800,
             BANK_SINGLE_BORROWER_BPS_VALUE=2_500,BANK_CB_PENALTY_BPS_VALUE=500,BANK_INSURANCE_FEE_BPS_VALUE=5,
             BANK_STRESS_ROUNDS_VALUE=8;
+    private static final boolean MINECRAFT_FIRST_MODE_VALUE = true;
+    private static final boolean REQUIRE_PHYSICAL_TERMINAL_VALUE = true;
+    private static final boolean ENABLE_PORTABLE_LEDGER_VALUE = true;
+    private static final boolean LEGACY_FULL_SCREEN_KEYBIND_VALUE = false;
+    private static final boolean WAREHOUSE_CAPACITY_ENABLED_VALUE = true;
+    private static final boolean CONTRACTS_ENABLED_VALUE = true;
+    private static final boolean PLAYER_DRIVEN_COMPANY_PRODUCTION_VALUE = true;
+    private static final boolean ALLOW_LEGACY_AUTOMATIC_COMPANY_PRODUCTION_VALUE = true;
+    private static final boolean NEW_COMPANIES_PLAYER_DRIVEN_ONLY_VALUE = false;
+    private static final double HYBRID_LEGACY_FALLBACK_RATIO_VALUE = 0.25D;
+    private static final boolean ADVANCED_FINANCE_REQUIRES_TERMINAL_VALUE = true;
+    private static final boolean ADMIN_CONSOLE_REQUIRES_PERMISSION_VALUE = true;
+    private static final double TERMINAL_INTERACTION_DISTANCE_VALUE = 8.0D;
+    private static final boolean WORLD_ECONOMY_GLOBAL_BROADCASTS_VALUE = true;
 
     private static final ForgeConfigSpec.IntValue DEFAULT_DIVIDEND_CYCLE_DAYS;
     private static final ForgeConfigSpec.DoubleValue DEFAULT_DIVIDEND_RATIO;
@@ -83,9 +97,68 @@ public final class FinanceConfig {
             FUTURES_SETTLEMENT_WINDOW, FUTURES_MAX_SPOT_DEVIATION_BPS;
     private static final ForgeConfigSpec.BooleanValue BANKING_ENABLED;private static final ForgeConfigSpec.LongValue BANK_INITIAL_CAPITAL,BANK_MIN_RESERVE,BANK_INSURANCE_LIMIT;
     private static final ForgeConfigSpec.IntValue DEFAULT_BANK_COUNT,BANK_DEMAND_SPREAD,BANK_TIME_SPREAD,BANK_LOAN_SPREAD,BANK_DEMAND_RESERVE_BPS,BANK_TIME_RESERVE_BPS,BANK_MIN_CAPITAL_BPS,BANK_SINGLE_BORROWER_BPS,BANK_CB_PENALTY_BPS,BANK_INSURANCE_FEE_BPS,BANK_STRESS_ROUNDS;
+    private static final ForgeConfigSpec.BooleanValue MINECRAFT_FIRST_MODE;
+    private static final ForgeConfigSpec.BooleanValue REQUIRE_PHYSICAL_TERMINAL;
+    private static final ForgeConfigSpec.BooleanValue ENABLE_PORTABLE_LEDGER;
+    private static final ForgeConfigSpec.BooleanValue LEGACY_FULL_SCREEN_KEYBIND;
+    private static final ForgeConfigSpec.BooleanValue WAREHOUSE_CAPACITY_ENABLED;
+    private static final ForgeConfigSpec.BooleanValue CONTRACTS_ENABLED;
+    private static final ForgeConfigSpec.BooleanValue PLAYER_DRIVEN_COMPANY_PRODUCTION;
+    private static final ForgeConfigSpec.BooleanValue ALLOW_LEGACY_AUTOMATIC_COMPANY_PRODUCTION;
+    private static final ForgeConfigSpec.BooleanValue NEW_COMPANIES_PLAYER_DRIVEN_ONLY;
+    private static final ForgeConfigSpec.DoubleValue HYBRID_LEGACY_FALLBACK_RATIO;
+    private static final ForgeConfigSpec.BooleanValue ADVANCED_FINANCE_REQUIRES_TERMINAL;
+    private static final ForgeConfigSpec.BooleanValue ADMIN_CONSOLE_REQUIRES_PERMISSION;
+    private static final ForgeConfigSpec.DoubleValue TERMINAL_INTERACTION_DISTANCE;
+    private static final ForgeConfigSpec.BooleanValue WORLD_ECONOMY_GLOBAL_BROADCASTS;
 
     static {
         ForgeConfigSpec.Builder builder = new ForgeConfigSpec.Builder();
+
+        builder.push("gameplay");
+        MINECRAFT_FIRST_MODE = builder
+                .comment("默认使用 Minecraft-first 入口；金融合同与日结不会因此停止。")
+                .define("minecraftFirstMode", MINECRAFT_FIRST_MODE_VALUE);
+        REQUIRE_PHYSICAL_TERMINAL = builder
+                .comment("市场、仓库、银行、公司和监管界面是否要求服务端验证实体终端。")
+                .define("requirePhysicalTerminal", REQUIRE_PHYSICAL_TERMINAL_VALUE);
+        ENABLE_PORTABLE_LEDGER = builder
+                .comment("是否允许随身金融账本入口。")
+                .define("enablePortableLedger", ENABLE_PORTABLE_LEDGER_VALUE);
+        LEGACY_FULL_SCREEN_KEYBIND = builder
+                .comment("是否允许旧快捷键直接打开完整金融界面；默认关闭以引导使用世界终端。")
+                .define("legacyFullScreenKeybind", LEGACY_FULL_SCREEN_KEYBIND_VALUE);
+        WAREHOUSE_CAPACITY_ENABLED = builder
+                .comment("是否对新的世界仓库启用容量限制；历史托管资产不会被删除。")
+                .define("warehouseCapacityEnabled", WAREHOUSE_CAPACITY_ENABLED_VALUE);
+        CONTRACTS_ENABLED = builder
+                .comment("是否允许创建新的世界合同；关闭不会吞掉既有托管或到期结算。")
+                .define("contractsEnabled", CONTRACTS_ENABLED_VALUE);
+        PLAYER_DRIVEN_COMPANY_PRODUCTION = builder
+                .comment("Minecraft-first 模式下新公司是否优先采用玩家参与生产。")
+                .define("playerDrivenCompanyProduction", PLAYER_DRIVEN_COMPANY_PRODUCTION_VALUE);
+        ALLOW_LEGACY_AUTOMATIC_COMPANY_PRODUCTION = builder
+                .comment("是否保留旧公司的自动经营兼容路径。")
+                .define("allowLegacyAutomaticCompanyProduction", ALLOW_LEGACY_AUTOMATIC_COMPANY_PRODUCTION_VALUE);
+        NEW_COMPANIES_PLAYER_DRIVEN_ONLY = builder
+                .comment("新公司是否直接使用纯玩家驱动模式；关闭时默认使用带低效兜底的 HYBRID。")
+                .define("newCompaniesPlayerDrivenOnly", NEW_COMPANIES_PLAYER_DRIVEN_ONLY_VALUE);
+        HYBRID_LEGACY_FALLBACK_RATIO = builder
+                .comment("HYBRID 公司当天没有设施成功生产时的旧式兜底产量比例。")
+                .defineInRange("hybridLegacyFallbackRatio", HYBRID_LEGACY_FALLBACK_RATIO_VALUE, 0.0D, 1.0D);
+        ADVANCED_FINANCE_REQUIRES_TERMINAL = builder
+                .comment("股票、债券、基金、期货等高级金融界面是否要求证券终端。")
+                .define("advancedFinanceRequiresTerminal", ADVANCED_FINANCE_REQUIRES_TERMINAL_VALUE);
+        ADMIN_CONSOLE_REQUIRES_PERMISSION = builder
+                .comment("央行控制台是否要求服务端 2 级管理员权限。")
+                .define("adminConsoleRequiresPermission", ADMIN_CONSOLE_REQUIRES_PERMISSION_VALUE);
+        TERMINAL_INTERACTION_DISTANCE = builder
+                .comment("玩家可持续使用金融终端的最大距离（方块）。超出距离会关闭菜单。")
+                .defineInRange("terminalInteractionDistance", TERMINAL_INTERACTION_DISTANCE_VALUE, 1.0D, 32.0D);
+        WORLD_ECONOMY_GLOBAL_BROADCASTS = builder
+                .comment("是否允许真正重大的经济事件向全服广播；局部与参与者通知不受此项影响。")
+                .define("worldEconomyGlobalBroadcasts", WORLD_ECONOMY_GLOBAL_BROADCASTS_VALUE);
+        builder.pop();
 
         builder.push("company");
         DEFAULT_DIVIDEND_RATIO = builder
@@ -255,6 +328,21 @@ public final class FinanceConfig {
         return getInt(MAX_PRICE_ALERTS_PER_PLAYER, MAX_PRICE_ALERTS_PER_PLAYER_VALUE);
     }
 
+    public static boolean minecraftFirstMode() { return getBoolean(MINECRAFT_FIRST_MODE, MINECRAFT_FIRST_MODE_VALUE); }
+    public static boolean requirePhysicalTerminal() { return getBoolean(REQUIRE_PHYSICAL_TERMINAL, REQUIRE_PHYSICAL_TERMINAL_VALUE); }
+    public static boolean enablePortableLedger() { return getBoolean(ENABLE_PORTABLE_LEDGER, ENABLE_PORTABLE_LEDGER_VALUE); }
+    public static boolean legacyFullScreenKeybind() { return getBoolean(LEGACY_FULL_SCREEN_KEYBIND, LEGACY_FULL_SCREEN_KEYBIND_VALUE); }
+    public static boolean warehouseCapacityEnabled() { return getBoolean(WAREHOUSE_CAPACITY_ENABLED, WAREHOUSE_CAPACITY_ENABLED_VALUE); }
+    public static boolean contractsEnabled() { return getBoolean(CONTRACTS_ENABLED, CONTRACTS_ENABLED_VALUE); }
+    public static boolean playerDrivenCompanyProduction() { return getBoolean(PLAYER_DRIVEN_COMPANY_PRODUCTION, PLAYER_DRIVEN_COMPANY_PRODUCTION_VALUE); }
+    public static boolean allowLegacyAutomaticCompanyProduction() { return getBoolean(ALLOW_LEGACY_AUTOMATIC_COMPANY_PRODUCTION, ALLOW_LEGACY_AUTOMATIC_COMPANY_PRODUCTION_VALUE); }
+    public static boolean newCompaniesPlayerDrivenOnly() { return getBoolean(NEW_COMPANIES_PLAYER_DRIVEN_ONLY, NEW_COMPANIES_PLAYER_DRIVEN_ONLY_VALUE); }
+    public static double hybridLegacyFallbackRatio() { return getDouble(HYBRID_LEGACY_FALLBACK_RATIO, HYBRID_LEGACY_FALLBACK_RATIO_VALUE); }
+    public static boolean advancedFinanceRequiresTerminal() { return getBoolean(ADVANCED_FINANCE_REQUIRES_TERMINAL, ADVANCED_FINANCE_REQUIRES_TERMINAL_VALUE); }
+    public static boolean adminConsoleRequiresPermission() { return getBoolean(ADMIN_CONSOLE_REQUIRES_PERMISSION, ADMIN_CONSOLE_REQUIRES_PERMISSION_VALUE); }
+    public static double terminalInteractionDistance() { return getDouble(TERMINAL_INTERACTION_DISTANCE, TERMINAL_INTERACTION_DISTANCE_VALUE); }
+    public static boolean worldEconomyGlobalBroadcasts() { return getBoolean(WORLD_ECONOMY_GLOBAL_BROADCASTS, WORLD_ECONOMY_GLOBAL_BROADCASTS_VALUE); }
+
     public static int maxConditionalStockOrdersPerPlayer() {
         return getInt(MAX_CONDITIONAL_STOCK_ORDERS_PER_PLAYER, MAX_CONDITIONAL_STOCK_ORDERS_PER_PLAYER_VALUE);
     }
@@ -324,6 +412,14 @@ public final class FinanceConfig {
     }
 
     private static double getDouble(ForgeConfigSpec.DoubleValue value, double fallback) {
+        try {
+            return value.get();
+        } catch (IllegalStateException ex) {
+            return fallback;
+        }
+    }
+
+    private static boolean getBoolean(ForgeConfigSpec.BooleanValue value, boolean fallback) {
         try {
             return value.get();
         } catch (IllegalStateException ex) {
