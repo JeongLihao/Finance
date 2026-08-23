@@ -7,6 +7,8 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 
 public final class WalletScreen extends AbstractContainerScreen<WalletMenu> {
+    static final int PANEL_WIDTH = 300;
+    static final int PANEL_HEIGHT = 210;
     private static final int BG = 0xFFE7E2D3;
     private static final int BORDER = 0xFF373737;
     private static final int TEXT = 0xFF202020;
@@ -14,8 +16,8 @@ public final class WalletScreen extends AbstractContainerScreen<WalletMenu> {
 
     public WalletScreen(WalletMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
-        imageWidth = 300;
-        imageHeight = 210;
+        imageWidth = PANEL_WIDTH;
+        imageHeight = PANEL_HEIGHT;
         inventoryLabelY = 10_000;
     }
 
@@ -27,20 +29,24 @@ public final class WalletScreen extends AbstractContainerScreen<WalletMenu> {
 
     @Override
     protected void renderLabels(GuiGraphics graphics, int mouseX, int mouseY) {
-        graphics.drawString(font, title, 12, 10, TEXT, false);
-        graphics.drawString(font, Component.translatable("screen.finance.wallet.day", menu.mcDay()), 218, 10, DIM, false);
+        Component day = Component.translatable("screen.finance.wallet.day", menu.mcDay());
+        int dayX = imageWidth - 12 - font.width(day);
+        graphics.drawString(font, font.plainSubstrByWidth(title.getString(), Math.max(40, dayX - 20)),
+                12, 10, TEXT, false);
+        graphics.drawString(font, day, dayX, 10, DIM, false);
         graphics.drawString(font, Component.translatable("screen.finance.wallet.balance", menu.balance()), 12, 31, TEXT, false);
         graphics.drawString(font, Component.translatable("screen.finance.wallet.frozen", menu.frozenBalance()), 12, 45, DIM, false);
         graphics.drawString(font, Component.translatable("screen.finance.wallet.total", menu.totalAsset()), 12, 59, TEXT, false);
         graphics.drawString(font, Component.translatable("screen.finance.wallet.recent"), 12, 82, TEXT, false);
-        int y = 98;
+        int y = 96;
         for (WalletMenu.WalletTransaction row : menu.transactions()) {
             String objectName = row.objectName().isBlank() ? "-" : row.objectName();
             String line = row.type() + "  " + objectName + "  " + row.amount();
             graphics.drawString(font, font.plainSubstrByWidth(line, 274), 14, y, DIM, false);
-            y += 11;
+            y += 10;
         }
-        graphics.drawString(font, Component.translatable("screen.finance.wallet.transfer_hint"), 12, 194, DIM, false);
+        graphics.drawString(font, font.plainSubstrByWidth(
+                Component.translatable("screen.finance.wallet.transfer_hint").getString(), 276), 12, 198, DIM, false);
     }
 
     @Override

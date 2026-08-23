@@ -1,1 +1,1 @@
-{"parent":"minecraft:block/cube_all","textures":{"all":"minecraft:block/orange_concrete"}}
+{"parent":"minecraft:block/cube_bottom_top","textures":{"side":"finance:block/machine_casing","top":"finance:block/indicator_full","bottom":"finance:block/machine_casing"}}

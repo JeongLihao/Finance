@@ -1,1 +1,1 @@
-{"parent":"minecraft:block/cube_all","textures":{"all":"minecraft:block/copper_block"}}
+{"parent":"minecraft:block/cube_bottom_top","textures":{"side":"finance:block/warehouse_controller","top":"finance:block/indicator_normal","bottom":"finance:block/machine_casing"}}

@@ -86,6 +86,7 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
     private boolean governanceView = false;
     private boolean restructuringView = false;
     private boolean companyDetailsView = false;
+    private float layoutScale = 1.0F;
 
     private enum ChartPanel {
         KLINE_MA("K+MA"), MACD("MACD"), RSI("RSI"), ORDER_BOOK("Book"), RECENT("Trades"),
@@ -158,6 +159,9 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
     @Override
     protected void init() {
         super.init();
+        layoutScale = fitScale(width, height);
+        leftPos = Math.round((width / layoutScale - PANEL_WIDTH) / 2.0F);
+        topPos = Math.round((height / layoutScale - PANEL_HEIGHT) / 2.0F);
         refreshCache();
 
         isAdmin = minecraft != null && minecraft.player != null && minecraft.player.hasPermissions(2);
@@ -371,16 +375,21 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        int virtualMouseX = toVirtual(mouseX);
+        int virtualMouseY = toVirtual(mouseY);
+        graphics.pose().pushPose();
+        graphics.pose().scale(layoutScale, layoutScale, 1.0F);
         renderBackground(graphics);
-        super.render(graphics, mouseX, mouseY, partialTick);
+        super.render(graphics, virtualMouseX, virtualMouseY, partialTick);
         for (EditBox box : getVisibleEditBoxes()) {
-            box.render(graphics, mouseX, mouseY, partialTick);
+            box.render(graphics, virtualMouseX, virtualMouseY, partialTick);
         }
         // 下拉菜单渲染在最上层
         if (dropdownOpen && (currentTab == 0 || currentTab == 1)) {
-            renderDropdown(graphics, mouseX, mouseY);
+            renderDropdown(graphics, virtualMouseX, virtualMouseY);
         }
-        renderTooltip(graphics, mouseX, mouseY);
+        renderTooltip(graphics, virtualMouseX, virtualMouseY);
+        graphics.pose().popPose();
     }
 
     @Override
@@ -392,16 +401,16 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         renderTabs(g, mouseX, mouseY);
 
         switch (currentTab) {
-            case 0 -> renderMarketTab(g, mouseX - leftPos, mouseY - topPos);
+            case 0 -> renderMarketTab(g, mouseX, mouseY);
             case 1 -> renderTradeTab(g);
             case 2 -> renderOrdersTab(g);
             case 3 -> renderInventoryTab(g);
             case 4 -> renderCompanyTab(g);
-            case 5 -> renderStockTab(g, mouseX - leftPos, mouseY - topPos);
+            case 5 -> renderStockTab(g, mouseX, mouseY);
             case 6 -> renderTransactionTab(g);
             case 7 -> renderAssetTab(g);
             case 8 -> renderAlertTab(g);
-            case 9 -> renderFinancialProductsTab(g, mouseX - leftPos, mouseY - topPos);
+            case 9 -> renderFinancialProductsTab(g, mouseX, mouseY);
             case 10 -> { if (isAdmin) renderDashboardTab(g); }
             case 11 -> { if (isAdmin) renderAdminTab(g); }
         }
@@ -586,8 +595,8 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
             String label = tabNames[i];
             int w = tabWidth();
             boolean active = (allowedTabIndices[i] == currentTab);
-            boolean hovered = mouseX >= leftPos + x && mouseX < leftPos + x + w
-                    && mouseY >= topPos + TAB_Y && mouseY < topPos + TAB_Y + TAB_H;
+            boolean hovered = mouseX >= x && mouseX < x + w
+                    && mouseY >= TAB_Y && mouseY < TAB_Y + TAB_H;
 
             int textColor = active ? COL_TEXT : (hovered ? COL_TEXT : COL_TEXT_DIM);
             if (active || hovered) {
@@ -784,7 +793,8 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         // 背景
         g.fill(ddX, ddY, ddX + ddW, ddY + ddH, COL_DROPDOWN_BG);
         drawSimpleBorder(g, ddX, ddY, ddW, ddH, COL_PANEL_BORDER);
-        g.enableScissor(ddX + 2, ddY + 2, ddX + ddW - 2, ddY + ddH - 2);
+        g.enableScissor(toScreen(ddX + 2), toScreen(ddY + 2),
+                toScreen(ddX + ddW - 2), toScreen(ddY + ddH - 2));
 
         int localMx = mouseX - ddX;
         int localMy = mouseY - ddY;
@@ -866,7 +876,8 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         drawHeader(g, "操作", 286, headerY + 2);
         g.fill(tableX + 1, headerY + 13, tableX + tableW - 1, headerY + 14, COL_PANEL_BORDER);
         if (orders.isEmpty()) {
-            g.drawString(font, "暂无挂单。玩家挂出的买单和卖单会显示在这里。", 12, headerY + 20, COL_TEXT_DIM, false);
+            drawClippedString(g, "暂无挂单。玩家挂出的买单和卖单会显示在这里。",
+                    12, headerY + 20, imageWidth - 24, COL_TEXT_DIM);
             return;
         }
 
@@ -1238,7 +1249,8 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
 
         List<FinanceMenu.StockRow> stocks = menu.getStocks();
         if (stocks.isEmpty()) {
-            g.drawString(font, "暂无股票。系统公司初始化后会自动生成股票。", 12, headerY + 18, COL_TEXT_DIM, false);
+            drawClippedString(g, "暂无股票。系统公司初始化后会自动生成股票。",
+                    12, headerY + 18, imageWidth - 24, COL_TEXT_DIM);
             return;
         }
 
@@ -1622,7 +1634,8 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
 
         List<FinanceMenu.PriceAlertRow> alerts = menu.getPriceAlerts();
         if (alerts.isEmpty()) {
-            g.drawString(font, "暂无提醒。设置后价格到达目标会发送游戏内消息。", 12, y + 20, COL_TEXT_DIM, false);
+            drawClippedString(g, "暂无提醒。设置后价格到达目标会发送游戏内消息。",
+                    12, y + 20, imageWidth - 24, COL_TEXT_DIM);
             return;
         }
         int rowY = y + 18;
@@ -1980,6 +1993,8 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        mouseX /= layoutScale;
+        mouseY /= layoutScale;
         for (EditBox box : getVisibleEditBoxes()) {
             box.mouseClicked(mouseX, mouseY, button);
         }
@@ -2038,6 +2053,8 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
+        mouseX /= layoutScale;
+        mouseY /= layoutScale;
         if (dropdownOpen && (currentTab == 0 || currentTab == 1)) {
             int totalHeight = calcDropdownTotalHeight();
             int maxScroll = Math.max(0, totalHeight - 116);
@@ -2058,6 +2075,20 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
             }
         }
         return super.mouseScrolled(mouseX, mouseY, delta);
+    }
+
+    private int toVirtual(int coordinate) {
+        return Math.round(coordinate / layoutScale);
+    }
+
+    private int toScreen(int coordinate) {
+        return Math.round(coordinate * layoutScale);
+    }
+
+    static float fitScale(int screenWidth, int screenHeight) {
+        float widthScale = Math.max(1.0F, screenWidth - 8.0F) / PANEL_WIDTH;
+        float heightScale = Math.max(1.0F, screenHeight - 8.0F) / PANEL_HEIGHT;
+        return Math.max(0.01F, Math.min(1.0F, Math.min(widthScale, heightScale)));
     }
 
     @Override
