@@ -1,1 +1,1 @@
-{"parent":"minecraft:block/cube_all","textures":{"all":"minecraft:block/lime_concrete"}}
+{"parent":"finance:block/company_factory_controller","textures":{"top":"finance:block/indicator_normal"}}

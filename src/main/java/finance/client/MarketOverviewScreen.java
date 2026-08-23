@@ -18,10 +18,11 @@ import java.util.List;
 
 public class MarketOverviewScreen extends AbstractContainerScreen<MarketOverviewMenu> {
 
-    private static final int PANEL_WIDTH = 310;
-    private static final int PANEL_HEIGHT = 250;
+    static final int PANEL_WIDTH = 310;
+    static final int PANEL_HEIGHT = 240;
     private static final int ROW_HEIGHT = 14;
     private int selectedRow;
+    private int rowOffset;
     private EditBox quantity;
     private String status="";
 
@@ -78,10 +79,11 @@ public class MarketOverviewScreen extends AbstractContainerScreen<MarketOverview
         }
 
         int rowY = 42;
-        int maxRows = Math.min(snapshots.size(), 9);
-        for (int i = 0; i < maxRows; i++) {
+        int maxRows = Math.min(Math.max(0, snapshots.size() - rowOffset), 9);
+        for (int visibleIndex = 0; visibleIndex < maxRows; visibleIndex++) {
+            int i = rowOffset + visibleIndex;
             MarketSnapshot snapshot = snapshots.get(i);
-            int y = rowY + i * ROW_HEIGHT;
+            int y = rowY + visibleIndex * ROW_HEIGHT;
             int bg = (i % 2 == 0) ? 0x221C252D : 0x111C252D;
             if(i==selectedRow)bg=0x553A6C8E;
             graphics.fill(8, y - 2, imageWidth - 8, y + ROW_HEIGHT - 2, bg);
@@ -98,13 +100,15 @@ public class MarketOverviewScreen extends AbstractContainerScreen<MarketOverview
         var opportunity = menu.opportunity();
         int infoY = 174;
         graphics.drawString(font, Component.translatable("finance.market.today_opportunity"), 10, infoY, 0xF5D76E, false);
-        graphics.drawString(font, Component.translatable("finance.market.shortage", opportunity.shortageId(), opportunity.shortageStock()), 10, infoY + 12, 0xC8CED6, false);
-        graphics.drawString(font, Component.translatable("finance.market.contract", opportunity.contractId(), opportunity.contractReward()), 10, infoY + 24, 0xC8CED6, false);
-        graphics.drawString(font, Component.translatable("finance.market.advanced_hint"), 10, 207, 0x8F99A4, false);
+        drawClipped(graphics, Component.translatable("finance.market.shortage", opportunity.shortageId(), opportunity.shortageStock()).getString(), 10, infoY + 12, 290, 0xC8CED6);
+        drawClipped(graphics, Component.translatable("finance.market.contract", opportunity.contractId(), opportunity.contractReward()).getString(), 10, infoY + 24, 290, 0xC8CED6);
+        drawClipped(graphics, Component.translatable("finance.market.advanced_hint").getString(), 10, 207, 290, 0x8F99A4);
         if(!status.isBlank())graphics.drawString(font,font.plainSubstrByWidth(status,94),212,223,0xF5D76E,false);
     }
 
-    @Override public boolean mouseClicked(double mouseX,double mouseY,int button){double x=mouseX-leftPos,y=mouseY-topPos;if(button==0&&x>=8&&x<=imageWidth-8&&y>=40&&y<40+Math.min(menu.getSnapshots().size(),9)*ROW_HEIGHT){selectedRow=Math.max(0,Math.min(8,(int)((y-40)/ROW_HEIGHT)));}return super.mouseClicked(mouseX,mouseY,button);}
+    @Override public boolean mouseClicked(double mouseX,double mouseY,int button){double x=mouseX-leftPos,y=mouseY-topPos;if(button==0&&x>=8&&x<=imageWidth-8&&y>=40&&y<40+Math.min(Math.max(0,menu.getSnapshots().size()-rowOffset),9)*ROW_HEIGHT){selectedRow=Math.min(menu.getSnapshots().size()-1,rowOffset+Math.max(0,(int)((y-40)/ROW_HEIGHT)));}return super.mouseClicked(mouseX,mouseY,button);}
+
+    @Override public boolean mouseScrolled(double mouseX,double mouseY,double delta){double x=mouseX-leftPos,y=mouseY-topPos;if(x>=8&&x<=imageWidth-8&&y>=40&&y<168&&delta!=0){int direction=delta>0?-1:1;rowOffset=Math.max(0,Math.min(Math.max(0,menu.getSnapshots().size()-9),rowOffset+direction));selectedRow=Math.max(rowOffset,Math.min(selectedRow,Math.min(menu.getSnapshots().size()-1,rowOffset+8)));return true;}return super.mouseScrolled(mouseX,mouseY,delta);}
 
     private void drawHeader(GuiGraphics graphics, String label, int x, int y) {
         graphics.drawString(font, label, x, y, 0x9EA8B3, false);

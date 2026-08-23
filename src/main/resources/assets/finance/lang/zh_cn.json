@@ -54,7 +54,7 @@
   "screen.finance.company_gameplay.facilities": "生产设施",
   "screen.finance.company_gameplay.warehouses": "已绑定公司仓库：%s",
   "screen.finance.company_gameplay.contracts": "公司采购合同",
-  "screen.finance.company_gameplay.input_hint": "输入：玩家 UUID｜商品 ID｜数量｜奖励；操作由服务端重新校验",
+  "screen.finance.company_gameplay.input_hint": "输入：玩家 UUID｜商品 ID｜数量｜奖励",
   "screen.finance.company_gameplay.action.mode": "模式",
   "screen.finance.company_gameplay.action.accept": "接受",
   "screen.finance.company_gameplay.action.reject": "拒绝",
