@@ -44,7 +44,10 @@ $target = [IntPtr]::Zero
     param($handle, $state)
     $title = [Text.StringBuilder]::new(256)
     [void][Phase6WindowApi]::GetWindowText($handle, $title, 256)
-    if ([Phase6WindowApi]::IsWindowVisible($handle) -and $title.ToString() -match 'Multiplayer') {
+    # Window titles are localized (for example, Chinese does not contain
+    # "Multiplayer"), so identify the Forge game window and then use the
+    # launch username below to select the requested isolated client.
+    if ([Phase6WindowApi]::IsWindowVisible($handle) -and $title.ToString() -match '^Minecraft\*? Forge ') {
         $processId = 0
         [void][Phase6WindowApi]::GetWindowThreadProcessId($handle, [ref]$processId)
         $commandLine = (Get-CimInstance Win32_Process -Filter "ProcessId=$processId").CommandLine
