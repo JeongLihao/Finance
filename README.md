@@ -235,7 +235,7 @@ Minecraft-first 模式默认通过世界中的金融终端分流功能：市场�
 
 ### 服务器配置
 
-首次启动后 Forge 会生成 `config/finance-common.toml`。第三阶段新增的主要默认项如下：
+首次启动后 Forge 会生成 `config/finance-common.toml`。当前主要默认项如下：
 
 ```toml
 [gameplay]
@@ -365,8 +365,8 @@ creditBMinimumScore = 30
 
 - [CHANGELOG.md](CHANGELOG.md)：版本更新、功能变化和修复记录。
 - [DEVELOPMENT_NOTES.md](DEVELOPMENT_NOTES.md)：开发笔记和模块结构。
-- [STOCK-SYSTEM-SUMMARY.md](STOCK-SYSTEM-SUMMARY.md)：股票系统阶段总结。
-- [Phase 6 多人验收](docs/PHASE6_MULTIPLAYER_ACCEPTANCE.md)：隔离专服、三个客户端、八入口视觉与资产闭环验收方法。
+- [STOCK-SYSTEM-SUMMARY.md](STOCK-SYSTEM-SUMMARY.md)：股票系统设计与实现总结。
+- [多人验收](docs/PHASE6_MULTIPLAYER_ACCEPTANCE.md)：隔离专服、三个客户端、八入口视觉与资产闭环验收方法。
 - [生存进程与设施等级矩阵](docs/SURVIVAL_PROGRESSION_MATRIX.md)：配方、解锁、升级成本、身份防复制和平衡样本。
 - [实体物流资产生命周期](docs/LOGISTICS_ASSET_LIFECYCLE.md)：运单状态、运输托管、载体支持、公司权限和失败恢复策略。
 

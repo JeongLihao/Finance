@@ -2,7 +2,7 @@
 
 ## 技术选择
 
-Finance 0.4.1 的第 10 阶段采用安全 MVP。Forge 1.20.1 的 jigsaw、动态结构注册、structure set 与二进制模板必须同时正确，且服务器配置不能通过 `/reload` 让已生成区块消失。当前工程此前没有世界生成注册层，因此首版不把实验遗迹注入生物群系，也不修改原版 biome source、seed、矿物或村庄。
+Finance 0.4.1 的探索功能采用安全 MVP。Forge 1.20.1 的 jigsaw、动态结构注册、structure set 与二进制模板必须同时正确，且服务器配置不能通过 `/reload` 让已生成区块消失。当前工程此前没有世界生成注册层，因此首版不把实验遗迹注入生物群系，也不修改原版 biome source、seed、矿物或村庄。
 
 仓库遗迹和路边贸易站以稳定 JSON 蓝图交付，尺寸分别为 7×5×7 与 5×4×7；它们可供后续正式结构模板制作和数据包启用。蓝图不属于 Minecraft 的活动 worldgen registry，因此不会意外生成或修改旧世界。`worldgenEnabled=false` 是明确的安全默认值，切换世界生成未来必须完整重启，`/reload` 不会重生成已有区块。
 
