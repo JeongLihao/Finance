@@ -210,7 +210,9 @@ time set day
             throw new GradleException("Unknown Phase 6 stage '${requestedStage}'. Expected one of ${stagePositions.keySet()}.")
         }
         def stageX = stagePositions[requestedStage]
-        def stageTag = "phase6_positioned_${requestedStage}_v1"
+        // Bump this tag when the acceptance-stage coordinates change so a
+        // reused isolated world cannot leave testers at stale positions.
+        def stageTag = "phase6_positioned_${requestedStage}_v3"
         new File(functionsDir, 'on_tick.mcfunction').setText("""\
 execute unless entity @e[type=minecraft:marker,tag=phase6_platform_v3] run forceload add -130 -35 -110 -15
 execute unless entity @e[type=minecraft:marker,tag=phase6_platform_v3] run fill -130 199 -35 -110 199 -15 minecraft:stone
@@ -230,8 +232,8 @@ give @a[tag=!phase6_ready,name=Phase6PlayerA] minecraft:iron_ingot 32
 give @a[tag=!phase6_ready,name=Phase6PlayerB] minecraft:iron_ingot 32
 gamemode survival @a[tag=!${stageTag}]
 tp @a[tag=!${stageTag},name=Phase6PlayerA] ${stageX} 200 -28.5 180 20
-tp @a[tag=!${stageTag},name=Phase6PlayerB] ${stageX} 200 -27.5 180 20
-tp @a[tag=!${stageTag},name=Phase6Admin] ${stageX} 200 -26.5 180 20
+tp @a[tag=!${stageTag},name=Phase6PlayerB] ${stageX} 200 -28.5 180 20
+tp @a[tag=!${stageTag},name=Phase6Admin] ${stageX} 200 -28.5 180 20
 tag @a[tag=!${stageTag}] add ${stageTag}
 tag @a[tag=!phase6_ready] add phase6_ready
 """, 'UTF-8')
@@ -259,7 +261,7 @@ motd=Finance Phase 6 Acceptance
             clientDir.mkdirs()
             def options = new File(clientDir, 'options.txt')
             if (!options.exists()) {
-                options.setText("guiScale:${guiScale}\nonboardAccessibility:false\nskipMultiplayerWarning:true\nnarrator:0\nrenderDistance:8\nsimulationDistance:6\n", 'UTF-8')
+                options.setText("guiScale:${guiScale}\nonboardAccessibility:false\nskipMultiplayerWarning:true\ntutorialStep:none\nnarrator:0\nrenderDistance:8\nsimulationDistance:6\n", 'UTF-8')
             }
         }
     }
