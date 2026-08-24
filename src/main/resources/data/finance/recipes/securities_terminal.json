@@ -1,1 +1,1 @@
-{"type":"minecraft:crafting_shaped","pattern":["III","IRI","III"],"key":{"I":{"item":"minecraft:lapis_lazuli"},"R":{"item":"minecraft:redstone"}},"result":{"item":"finance:securities_terminal"}}
+{"type":"minecraft:crafting_shaped","pattern":["QGQ","ORO","OCO"],"key":{"Q":{"item":"minecraft:quartz"},"G":{"item":"minecraft:glass_pane"},"O":{"item":"minecraft:obsidian"},"R":{"item":"minecraft:redstone_block"},"C":{"item":"minecraft:comparator"}},"result":{"item":"finance:securities_terminal"}}

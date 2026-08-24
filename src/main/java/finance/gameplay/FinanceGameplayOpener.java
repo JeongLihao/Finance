@@ -87,17 +87,17 @@ public final class FinanceGameplayOpener {
             FinanceGuiOpener.open(player, decision.screenMode(), sourceType, decision.sourcePos());
         }
         switch(sourceType){
-            case PORTABLE_LEDGER->finance.advancement.FinanceAdvancementTriggers.trigger(player,"portable_finance");
-            case MARKET_TERMINAL->finance.advancement.FinanceAdvancementTriggers.trigger(player,"market_access");
             case COMPANY_DESK,BOARDROOM_TABLE->finance.advancement.FinanceAdvancementTriggers.trigger(player,"company_member");
-            case SECURITIES_TERMINAL->{finance.advancement.FinanceAdvancementTriggers.trigger(player,"advanced_finance");if(!finance.stock.StockPortfolioManager.getPortfolio(player.getUUID()).isEmpty())finance.advancement.FinanceAdvancementTriggers.trigger(player,"public_company");}
+            case SECURITIES_TERMINAL->finance.advancement.FinanceAdvancementTriggers.trigger(player,"advanced_finance");
             default->{}
         }
         return GameplayActionResult.success("finance.access.opened", false);
     }
 
     private static GameplayActionResult deny(ServerPlayer player, String key) {
-        player.sendSystemMessage(Component.translatable(key));
+        // Terminal interaction feedback belongs on the HUD. Keeping expected access
+        // denials out of chat also prevents repeated right-clicks from polluting logs.
+        player.displayClientMessage(Component.translatable(key), true);
         return GameplayActionResult.failure(key);
     }
 

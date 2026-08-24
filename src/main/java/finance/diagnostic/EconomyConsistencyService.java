@@ -34,7 +34,7 @@ public final class EconomyConsistencyService {
         long started = System.nanoTime();
         List<DiagnosticIssue> issues = new ArrayList<>();
         checkAccounts(issues); checkInventories(issues); checkOrders(issues); checkBondsAndLoans(issues);
-        checkWarehouses(issues); checkContracts(issues); checkCompanyGameplay(issues, mcDay); checkBanking(issues); checkFutures(issues); checkFunds(issues, mcDay); checkInsurance(issues); checkGovernance(issues); checkHistory(issues); checkCycle(issues, mcDay);
+        checkWarehouses(issues); checkLogistics(issues); checkSettlements(issues); checkExploration(issues); checkContracts(issues); checkCompanyGameplay(issues, mcDay); checkBanking(issues); checkFutures(issues); checkFunds(issues, mcDay); checkInsurance(issues); checkGovernance(issues); checkHistory(issues); checkCycle(issues, mcDay);
         if (issues.isEmpty()) add(issues, DiagnosticSeverity.INFO, "GLOBAL", "CONSISTENT", "economy", "All checked invariants passed");
         return new DiagnosticReport(UUID.randomUUID(), Instant.now(), Math.max(-1, mcDay),
                 Math.max(0, System.nanoTime() - started), issues);
@@ -46,6 +46,9 @@ public final class EconomyConsistencyService {
             case ACCOUNT -> checkAccounts(issues);
             case MARKET -> { checkInventories(issues); checkOrders(issues); }
             case WAREHOUSE -> checkWarehouses(issues);
+            case LOGISTICS -> checkLogistics(issues);
+            case SETTLEMENT -> checkSettlements(issues);
+            case EXPLORATION -> checkExploration(issues);
             case CONTRACT -> checkContracts(issues);
             case COMPANY_GAMEPLAY -> checkCompanyGameplay(issues,mcDay);
             case STOCK -> { checkInventories(issues); checkOrders(issues); checkGovernance(issues); }
@@ -134,6 +137,53 @@ public final class EconomyConsistencyService {
             long capacity = finance.warehouse.WarehouseManager.totalCapacity(owner);
             if (used > capacity) add(out, DiagnosticSeverity.WARN, "WAREHOUSE", "WAREHOUSE_OVER_CAPACITY",
                     owner.toString(), "Custody exceeds active warehouse capacity; new deposits are blocked");
+        }
+    }
+
+    private static void checkLogistics(List<DiagnosticIssue> out) {
+        for (finance.logistics.Shipment shipment : finance.logistics.ShipmentManager.all().values()) {
+            finance.logistics.TransportCargo cargo = finance.logistics.TransportCustodyManager.get(shipment.id());
+            boolean exact = cargo != null && shipment.commodityId().equals(cargo.commodityId())
+                    && shipment.quantity() == cargo.quantity();
+            if (shipment.status().carriesCargo() != exact)
+                add(out, DiagnosticSeverity.FATAL, "LOGISTICS", "SHIPMENT_CUSTODY_MISMATCH",
+                        shipment.id().toString(), "Shipment status and transport custody do not match");
+            if (finance.warehouse.WarehouseManager.get(shipment.sourceWarehouseId()) == null
+                    || finance.warehouse.WarehouseManager.get(shipment.destinationWarehouseId()) == null)
+                add(out, DiagnosticSeverity.FATAL, "LOGISTICS", "SHIPMENT_WAREHOUSE_MISSING",
+                        shipment.id().toString(), "Shipment references a missing warehouse");
+        }
+        for (UUID shipmentId : finance.logistics.TransportCustodyManager.all().keySet())
+            if (finance.logistics.ShipmentManager.get(shipmentId) == null)
+                add(out, DiagnosticSeverity.FATAL, "LOGISTICS", "ORPHAN_TRANSPORT_CUSTODY",
+                        shipmentId.toString(), "Transport custody has no shipment record");
+    }
+
+    private static void checkSettlements(List<DiagnosticIssue> out) {
+        for (finance.settlement.LocalDemand demand : finance.settlement.SettlementManager.demands().values()) {
+            if (finance.settlement.SettlementManager.get(demand.settlementId()) == null) {
+                add(out, DiagnosticSeverity.FATAL, "SETTLEMENT", "MISSING_SETTLEMENT",
+                        demand.id().toString(), "Local demand references a missing settlement");
+                continue;
+            }
+            Account escrow = AccountManager.getAccounts().get(demand.escrowAccountId());
+            boolean live = demand.status() == finance.settlement.DemandStatus.OPEN
+                    || demand.status() == finance.settlement.DemandStatus.ACCEPTED;
+            long balance = escrow == null ? -1 : escrow.getBalance();
+            if ((live && balance != demand.reward()) || (!live && balance != 0))
+                add(out, DiagnosticSeverity.FATAL, "SETTLEMENT", "ESCROW_MISMATCH",
+                        demand.id().toString(), "Local demand status and escrow balance do not match");
+        }
+    }
+
+    private static void checkExploration(List<DiagnosticIssue> out) {
+        for (finance.exploration.ExplorationAssignment assignment : finance.exploration.ExplorationManager.assignments().values()) {
+            Account escrow = AccountManager.getAccounts().get(assignment.escrowId());
+            long balance = escrow == null ? -1 : escrow.getBalance();
+            boolean live = assignment.status() == finance.exploration.ExplorationStatus.ACTIVE;
+            if ((live && balance != assignment.reward()) || (!live && balance != 0))
+                add(out, DiagnosticSeverity.FATAL, "EXPLORATION", "EXPLORATION_ESCROW_MISMATCH",
+                        assignment.id().toString(), "Exploration status and escrow balance do not match");
         }
     }
 

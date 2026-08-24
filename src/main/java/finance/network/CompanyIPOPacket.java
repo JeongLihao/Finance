@@ -41,7 +41,6 @@ public class CompanyIPOPacket {
             CompanyIPOService.IPOResult result = CompanyIPOService.ipo(
                     player.getUUID(), packet.companyId, packet.issuePrice, packet.issueQuantity);
 
-            if(result.success())finance.advancement.FinanceAdvancementTriggers.trigger(player,"public_company");
 
             GuiFeedbackPacket.send(player, result.message());
         });

@@ -48,13 +48,19 @@ public final class CompanyProductionService {
         if (company.isBankruptcyRisk()) { facility.setStatus(CompanyFacilityStatus.BANKRUPTCY_HOLD); return false; }
         if (facility.boundWarehouseId() == null || !CompanyGameplayManager.profileFor(company).warehouseIds()
                 .contains(facility.boundWarehouseId())) { facility.setStatus(CompanyFacilityStatus.OUTPUT_FULL); return false; }
-        Map<String, Integer> inputs = scaled(company.getType().getDailyConsumption(), facility.productionLevel());
-        Map<String, Integer> outputs = scaled(company.getType().getDailyProduction(), facility.productionLevel());
+        int throughput = finance.config.FinanceConfig.factoryThroughput(facility.productionLevel());
+        Map<String, Integer> inputs = scaled(company.getType().getDailyConsumption(), throughput);
+        Map<String, Integer> outputs = scaled(company.getType().getDailyProduction(), throughput);
         if (!CompanyInventoryFacade.canAddOutput(company, outputs)) { facility.setStatus(CompanyFacilityStatus.OUTPUT_FULL); return false; }
         for (var e : inputs.entrySet()) if (CompanyInventoryFacade.availableInput(company, e.getKey()) < e.getValue()) {
             facility.setStatus(CompanyFacilityStatus.MISSING_INPUT); return false;
         }
-        long maintenance = Math.max(1L, company.estimateDailyOperatingCost() / 4L);
+        long baseMaintenance = Math.max(1L, company.estimateDailyOperatingCost() / 4L);
+        long maintenance = Math.max(1L, java.math.BigInteger.valueOf(baseMaintenance)
+                .multiply(java.math.BigInteger.valueOf(finance.config.FinanceConfig.factoryMaintenanceBasisPoints(
+                        facility.productionLevel())))
+                .divide(java.math.BigInteger.valueOf(10_000L))
+                .min(java.math.BigInteger.valueOf(Long.MAX_VALUE)).longValue());
         if (company.getCash() < maintenance || !company.withdraw(maintenance)) {
             facility.setStatus(CompanyFacilityStatus.BANKRUPTCY_HOLD); return false;
         }

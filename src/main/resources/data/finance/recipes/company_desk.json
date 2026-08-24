@@ -1,1 +1,1 @@
-{"type":"minecraft:crafting_shaped","pattern":["III","IRI","III"],"key":{"I":{"item":"minecraft:oak_planks"},"R":{"item":"minecraft:redstone"}},"result":{"item":"finance:company_desk"}}
+{"type":"minecraft:crafting_shaped","pattern":["PBP","PCP","P P"],"key":{"P":{"tag":"minecraft:planks"},"B":{"item":"minecraft:book"},"C":{"item":"minecraft:crafting_table"}},"result":{"item":"finance:company_desk"}}

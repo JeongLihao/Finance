@@ -18,7 +18,7 @@ import io.netty.handler.codec.DecoderException;
 public record WarehouseActionPacket(Action action, UUID warehouseId, String commodityId,
                                     int amount, String operationKey) {
     private static final int MAX_TRANSFER_AMOUNT = 1_000_000;
-    public enum Action { DEPOSIT, WITHDRAW, BIND_COMPANY, UNBIND_COMPANY }
+    public enum Action { DEPOSIT, WITHDRAW, BIND_COMPANY, UNBIND_COMPANY, UPGRADE }
 
     public static void encode(WarehouseActionPacket packet, FriendlyByteBuf buffer) {
         buffer.writeEnum(packet.action);
@@ -35,7 +35,9 @@ public record WarehouseActionPacket(Action action, UUID warehouseId, String comm
         int amount = buffer.readVarInt();
         String operationKey = buffer.readUtf(64);
         boolean inventoryAction = action == Action.DEPOSIT || action == Action.WITHDRAW;
-        if (operationKey.isBlank() || inventoryAction
+        boolean invalidUpgrade = action == Action.UPGRADE
+                && (amount != 0 || !"upgrade".equals(commodityId));
+        if (operationKey.isBlank() || invalidUpgrade || inventoryAction
                 && (commodityId.isBlank() || amount <= 0 || amount > MAX_TRANSFER_AMOUNT)) {
             throw new DecoderException("Invalid warehouse action intent");
         }
@@ -47,7 +49,10 @@ public record WarehouseActionPacket(Action action, UUID warehouseId, String comm
         context.enqueueWork(() -> {
             ServerPlayer player = context.getSender();
             boolean inventoryAction = packet.action == Action.DEPOSIT || packet.action == Action.WITHDRAW;
-            if (player == null || packet.action == null || inventoryAction && (packet.amount <= 0 || packet.commodityId.isBlank())
+            boolean invalidUpgrade = packet.action == Action.UPGRADE
+                    && (packet.amount != 0 || !"upgrade".equals(packet.commodityId));
+            if (player == null || packet.action == null || invalidUpgrade
+                    || inventoryAction && (packet.amount <= 0 || packet.commodityId.isBlank())
                     || packet.operationKey.isBlank() || !(player.containerMenu instanceof WarehouseMenu menu)
                     || !menu.warehouseId().equals(packet.warehouseId) || !menu.stillValid(player)) return;
             WarehouseActionResult result;
@@ -55,7 +60,10 @@ public record WarehouseActionPacket(Action action, UUID warehouseId, String comm
                     packet.commodityId, packet.amount, packet.operationKey);
             else if (packet.action == Action.WITHDRAW) result = WarehouseService.withdraw(player, packet.warehouseId,
                     packet.commodityId, packet.amount, packet.operationKey);
-            else {
+            else if (packet.action == Action.UPGRADE) {
+                result = finance.warehouse.WarehouseUpgradeService.upgrade(player, packet.warehouseId,
+                        packet.operationKey);
+            } else {
                 finance.company.Company company = finance.company.CompanyManager.getCompanyByOwner(player.getUUID());
                 finance.gameplay.company.CompanyGameplayActionResult binding = company == null
                         ? finance.gameplay.company.CompanyGameplayActionResult.fail("finance.company_gameplay.no_company")

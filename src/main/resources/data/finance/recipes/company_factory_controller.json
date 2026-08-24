@@ -1,1 +1,1 @@
-{"type":"minecraft:crafting_shaped","pattern":["IRI","PFP","III"],"key":{"I":{"item":"minecraft:iron_ingot"},"R":{"item":"minecraft:redstone"},"P":{"item":"minecraft:piston"},"F":{"item":"minecraft:furnace"}},"result":{"item":"finance:company_factory_controller"}}
+{"type":"minecraft:crafting_shaped","pattern":["IRI","PFP","ICI"],"key":{"I":{"item":"minecraft:iron_ingot"},"R":{"item":"minecraft:redstone"},"P":{"item":"minecraft:piston"},"F":{"item":"minecraft:furnace"},"C":{"item":"minecraft:comparator"}},"result":{"item":"finance:company_factory_controller"}}

@@ -21,9 +21,15 @@ public final class CompanyFacilityManager {
     public static synchronized boolean restore(CompanyFacilityRecord record) {
         if (record == null || FACILITIES.size() >= MAX_FACILITIES || FACILITIES.containsKey(record.facilityId())
                 || CompanyManager.getCompany(record.companyId()) == null && record.status() != CompanyFacilityStatus.ORPHANED
-                || forCompany(record.companyId()).size() >= MAX_PER_COMPANY
-                || FACILITIES.values().stream().anyMatch(existing -> existing.dimensionId().equals(record.dimensionId())
-                && existing.blockPos().equals(record.blockPos()))) return false;
+                || incomingCount(record.companyId()) >= facilityLimit(record.companyId())) return false;
+        boolean incomingActive = record.status() != CompanyFacilityStatus.DISABLED
+                && record.status() != CompanyFacilityStatus.ORPHANED;
+        CompanyFacilityRecord conflict = FACILITIES.values().stream().filter(existing -> incomingActive
+                && existing.status() != CompanyFacilityStatus.DISABLED
+                && existing.status() != CompanyFacilityStatus.ORPHANED
+                && existing.dimensionId().equals(record.dimensionId()) && existing.blockPos().equals(record.blockPos()))
+                .findFirst().orElse(null);
+        if (conflict != null) return false;
         FACILITIES.put(record.facilityId(), record); return true;
     }
     public static synchronized boolean register(CompanyFacilityRecord record) {
@@ -33,4 +39,18 @@ public final class CompanyFacilityManager {
             .forEach(f -> f.setStatus(CompanyFacilityStatus.ORPHANED)); }
     public static void disable(UUID facilityId) { CompanyFacilityRecord f = get(facilityId); if (f != null) { f.setStatus(CompanyFacilityStatus.DISABLED); EconomySavedData.markDirty(); } }
     public static void clearDirect() { FACILITIES.clear(); }
+
+    public static int facilityLimit(UUID companyId) {
+        CompanyGameplayProfile profile = CompanyGameplayManager.get(companyId);
+        if (profile == null) return 1;
+        return Math.max(1, Math.min(MAX_PER_COMPANY, profile.warehouseIds().stream()
+                .map(finance.warehouse.WarehouseManager::get).filter(java.util.Objects::nonNull)
+                .mapToInt(record -> record.tier().facilitySlots()).max().orElse(1)));
+    }
+
+    private static long incomingCount(UUID companyId) {
+        return FACILITIES.values().stream().filter(f -> f.companyId().equals(companyId)
+                && f.status() != CompanyFacilityStatus.DISABLED
+                && f.status() != CompanyFacilityStatus.ORPHANED).count();
+    }
 }

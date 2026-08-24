@@ -21,6 +21,20 @@ public class FinanceMenu extends AbstractContainerMenu {
 
     static final int DASHBOARD_TREND_LIMIT = 30;
     private static final int MAX_DECODED_DASHBOARD_TRENDS = 256;
+    static final int MAX_MARKET_ROWS = 512;
+    static final int MAX_ORDER_ROWS = 1_024;
+    static final int MAX_MAP_ENTRIES = 1_024;
+    static final int MAX_COMPANY_ROWS = 512;
+    static final int MAX_STOCK_ROWS = 512;
+    static final int MAX_HISTORY_POINTS = 1_024;
+    static final int MAX_HOLDING_ROWS = 512;
+    static final int MAX_STOCK_ORDER_ROWS = 1_024;
+    static final int MAX_TRANSACTION_ROWS = 500;
+    static final int MAX_ASSET_ROWS = 1_024;
+    static final int MAX_ALERT_ROWS = 512;
+    static final int MAX_CONDITIONAL_ORDER_ROWS = 512;
+    static final int MAX_FINANCING_ROWS = 512;
+    static final int MAX_PROPOSAL_ROWS = 1_024;
 
     // ---- 数据记录 ----
 
@@ -330,10 +344,11 @@ public class FinanceMenu extends AbstractContainerMenu {
         buffer.writeBoolean(warehouseOverCapacity);
     }
 
-    private static void writeMarketData(FriendlyByteBuf buffer, List<MarketRow> list) {
-        buffer.writeVarInt(list.size());
-        for (MarketRow r : list) {
-            buffer.writeUtf(r.commodityId());
+    static void writeMarketData(FriendlyByteBuf buffer, List<MarketRow> list) {
+        List<MarketRow> safe = bounded(list, MAX_MARKET_ROWS);
+        buffer.writeVarInt(safe.size());
+        for (MarketRow r : safe) {
+            buffer.writeUtf(limitString(r.commodityId(), 64), 64);
             buffer.writeLong(r.midPrice());
             buffer.writeLong(r.bidPrice());
             buffer.writeLong(r.askPrice());
@@ -346,12 +361,12 @@ public class FinanceMenu extends AbstractContainerMenu {
         }
     }
 
-    private static List<MarketRow> readMarketData(FriendlyByteBuf buffer) {
-        int size = buffer.readVarInt();
+    static List<MarketRow> readMarketData(FriendlyByteBuf buffer) {
+        int size = readBoundedSize(buffer, "market rows", MAX_MARKET_ROWS);
         List<MarketRow> list = new ArrayList<>(size);
         for (int i = 0; i < size; i++) {
             list.add(new MarketRow(
-                    buffer.readUtf(), buffer.readLong(), buffer.readLong(),
+                    buffer.readUtf(64), buffer.readLong(), buffer.readLong(),
                     buffer.readLong(), buffer.readDouble(), buffer.readVarInt(), buffer.readVarInt(),
                     buffer.readLong(), buffer.readLong(), readLongList(buffer)));
         }
@@ -359,11 +374,12 @@ public class FinanceMenu extends AbstractContainerMenu {
     }
 
     private static void writeOrderRows(FriendlyByteBuf buffer, List<OrderRow> list) {
-        buffer.writeVarInt(list.size());
-        for (OrderRow r : list) {
+        List<OrderRow> safe = bounded(list, MAX_ORDER_ROWS);
+        buffer.writeVarInt(safe.size());
+        for (OrderRow r : safe) {
             buffer.writeUUID(r.orderId());
-            buffer.writeUtf(r.commodityId());
-            buffer.writeUtf(r.type());
+            buffer.writeUtf(limitString(r.commodityId(), 64), 64);
+            buffer.writeUtf(limitString(r.type(), 16), 16);
             buffer.writeLong(r.price());
             buffer.writeVarInt(r.quantity());
             buffer.writeBoolean(r.ownedByPlayer());
@@ -371,29 +387,30 @@ public class FinanceMenu extends AbstractContainerMenu {
     }
 
     private static List<OrderRow> readOrderRows(FriendlyByteBuf buffer) {
-        int size = buffer.readVarInt();
+        int size = readBoundedSize(buffer, "commodity orders", MAX_ORDER_ROWS);
         List<OrderRow> list = new ArrayList<>(size);
         for (int i = 0; i < size; i++) {
             list.add(new OrderRow(
-                    buffer.readUUID(), buffer.readUtf(), buffer.readUtf(),
+                    buffer.readUUID(), buffer.readUtf(64), buffer.readUtf(16),
                     buffer.readLong(), buffer.readVarInt(), buffer.readBoolean()));
         }
         return list;
     }
 
     private static void writeStringIntMap(FriendlyByteBuf buffer, Map<String, Integer> map) {
-        buffer.writeVarInt(map.size());
-        for (Map.Entry<String, Integer> entry : map.entrySet()) {
-            buffer.writeUtf(entry.getKey());
+        List<Map.Entry<String, Integer>> entries = bounded(new ArrayList<>(map.entrySet()), MAX_MAP_ENTRIES);
+        buffer.writeVarInt(entries.size());
+        for (Map.Entry<String, Integer> entry : entries) {
+            buffer.writeUtf(limitString(entry.getKey(), 64), 64);
             buffer.writeVarInt(entry.getValue());
         }
     }
 
     private static Map<String, Integer> readStringIntMap(FriendlyByteBuf buffer) {
-        int size = buffer.readVarInt();
+        int size = readBoundedSize(buffer, "string map", MAX_MAP_ENTRIES);
         Map<String, Integer> map = new LinkedHashMap<>();
         for (int i = 0; i < size; i++) {
-            map.put(buffer.readUtf(), buffer.readVarInt());
+            map.put(buffer.readUtf(64), buffer.readVarInt());
         }
         return map;
     }
@@ -402,15 +419,15 @@ public class FinanceMenu extends AbstractContainerMenu {
         buffer.writeBoolean(info != null);
         if (info != null) {
             buffer.writeUUID(info.companyId());
-            buffer.writeUtf(info.name());
-            buffer.writeUtf(info.type());
+            buffer.writeUtf(limitString(info.name(), 64), 64);
+            buffer.writeUtf(limitString(info.type(), 32), 32);
             buffer.writeLong(info.cash());
             buffer.writeLong(info.inventoryValue());
             buffer.writeLong(info.totalValue());
             writeStringIntMap(buffer, info.inventory());
             buffer.writeBoolean(info.playerOwned());
             buffer.writeBoolean(info.isPublic());
-            buffer.writeUtf(info.strategy());
+            buffer.writeUtf(limitString(info.strategy(), 32), 32);
             buffer.writeVarInt(info.productionLevel());
             buffer.writeVarInt(info.storageLevel());
             buffer.writeVarInt(info.managementLevel());
@@ -432,9 +449,9 @@ public class FinanceMenu extends AbstractContainerMenu {
     private static CompanyInfo readCompanyInfo(FriendlyByteBuf buffer) {
         if (!buffer.readBoolean()) return null;
         return new CompanyInfo(
-                buffer.readUUID(), buffer.readUtf(), buffer.readUtf(), buffer.readLong(),
+                buffer.readUUID(), buffer.readUtf(64), buffer.readUtf(32), buffer.readLong(),
                 buffer.readLong(), buffer.readLong(), readStringIntMap(buffer),
-                buffer.readBoolean(), buffer.readBoolean(), buffer.readUtf(),
+                buffer.readBoolean(), buffer.readBoolean(), buffer.readUtf(32),
                 buffer.readVarInt(), buffer.readVarInt(), buffer.readVarInt(), buffer.readDouble(),
                 buffer.readLong(), buffer.readLong(), buffer.readLong(),
                 buffer.readLong(), buffer.readLong(), buffer.readLong(),
@@ -443,14 +460,15 @@ public class FinanceMenu extends AbstractContainerMenu {
     }
 
     private static void writeCompanyInfoList(FriendlyByteBuf buffer, List<CompanyInfo> companies) {
-        buffer.writeVarInt(companies.size());
-        for (CompanyInfo company : companies) {
+        List<CompanyInfo> safe = bounded(companies, MAX_COMPANY_ROWS);
+        buffer.writeVarInt(safe.size());
+        for (CompanyInfo company : safe) {
             writeCompanyInfo(buffer, company);
         }
     }
 
     private static List<CompanyInfo> readCompanyInfoList(FriendlyByteBuf buffer) {
-        int size = buffer.readVarInt();
+        int size = readBoundedSize(buffer, "companies", MAX_COMPANY_ROWS);
         List<CompanyInfo> companies = new ArrayList<>(size);
         for (int i = 0; i < size; i++) {
             CompanyInfo company = readCompanyInfo(buffer);
@@ -462,10 +480,11 @@ public class FinanceMenu extends AbstractContainerMenu {
     }
 
     private static void writeStockRows(FriendlyByteBuf buffer, List<StockRow> rows) {
-        buffer.writeVarInt(rows.size());
-        for (StockRow row : rows) {
-            buffer.writeUtf(row.symbol());
-            buffer.writeUtf(row.name());
+        List<StockRow> safe = bounded(rows, MAX_STOCK_ROWS);
+        buffer.writeVarInt(safe.size());
+        for (StockRow row : safe) {
+            buffer.writeUtf(limitString(row.symbol(), 16), 16);
+            buffer.writeUtf(limitString(row.name(), 64), 64);
             buffer.writeLong(row.lastPrice());
             buffer.writeDouble(row.dayChange());
             buffer.writeLong(row.dayVolume());
@@ -481,11 +500,11 @@ public class FinanceMenu extends AbstractContainerMenu {
     }
 
     private static List<StockRow> readStockRows(FriendlyByteBuf buffer) {
-        int size = buffer.readVarInt();
+        int size = readBoundedSize(buffer, "stocks", MAX_STOCK_ROWS);
         List<StockRow> rows = new ArrayList<>(size);
         for (int i = 0; i < size; i++) {
             rows.add(new StockRow(
-                    buffer.readUtf(), buffer.readUtf(), buffer.readLong(),
+                    buffer.readUtf(16), buffer.readUtf(64), buffer.readLong(),
                     buffer.readDouble(), buffer.readLong(), buffer.readLong(), buffer.readLong(),
                     buffer.readLong(), buffer.readLong(), readLongList(buffer),
                     buffer.readLong(), buffer.readLong(), buffer.readLong()));
@@ -494,7 +513,7 @@ public class FinanceMenu extends AbstractContainerMenu {
     }
 
     private static void writeLongList(FriendlyByteBuf buffer, List<Long> values) {
-        List<Long> safe = values != null ? values : List.of();
+        List<Long> safe = tail(values, MAX_HISTORY_POINTS);
         buffer.writeVarInt(safe.size());
         for (Long value : safe) {
             buffer.writeLong(value != null ? value : 0L);
@@ -502,7 +521,7 @@ public class FinanceMenu extends AbstractContainerMenu {
     }
 
     private static List<Long> readLongList(FriendlyByteBuf buffer) {
-        int size = buffer.readVarInt();
+        int size = readBoundedSize(buffer, "price history", MAX_HISTORY_POINTS);
         List<Long> values = new ArrayList<>(size);
         for (int i = 0; i < size; i++) {
             values.add(buffer.readLong());
@@ -511,29 +530,31 @@ public class FinanceMenu extends AbstractContainerMenu {
     }
 
     private static void writeStockHoldingRows(FriendlyByteBuf buffer, List<StockHoldingRow> rows) {
-        buffer.writeVarInt(rows.size());
-        for (StockHoldingRow row : rows) {
-            buffer.writeUtf(row.symbol());
+        List<StockHoldingRow> safe = bounded(rows, MAX_HOLDING_ROWS);
+        buffer.writeVarInt(safe.size());
+        for (StockHoldingRow row : safe) {
+            buffer.writeUtf(limitString(row.symbol(), 16), 16);
             buffer.writeLong(row.quantity());
             buffer.writeLong(row.averageCost());
         }
     }
 
     private static List<StockHoldingRow> readStockHoldingRows(FriendlyByteBuf buffer) {
-        int size = buffer.readVarInt();
+        int size = readBoundedSize(buffer, "stock holdings", MAX_HOLDING_ROWS);
         List<StockHoldingRow> rows = new ArrayList<>(size);
         for (int i = 0; i < size; i++) {
-            rows.add(new StockHoldingRow(buffer.readUtf(), buffer.readLong(), buffer.readLong()));
+            rows.add(new StockHoldingRow(buffer.readUtf(16), buffer.readLong(), buffer.readLong()));
         }
         return rows;
     }
 
     private static void writeStockOrderRows(FriendlyByteBuf buffer, List<StockOrderRow> rows) {
-        buffer.writeVarInt(rows.size());
-        for (StockOrderRow row : rows) {
+        List<StockOrderRow> safe = bounded(rows, MAX_STOCK_ORDER_ROWS);
+        buffer.writeVarInt(safe.size());
+        for (StockOrderRow row : safe) {
             buffer.writeUUID(row.orderId());
-            buffer.writeUtf(row.symbol());
-            buffer.writeUtf(row.type());
+            buffer.writeUtf(limitString(row.symbol(), 16), 16);
+            buffer.writeUtf(limitString(row.type(), 16), 16);
             buffer.writeLong(row.price());
             buffer.writeVarInt(row.quantity());
             buffer.writeBoolean(row.ownedByPlayer());
@@ -541,19 +562,20 @@ public class FinanceMenu extends AbstractContainerMenu {
     }
 
     private static List<StockOrderRow> readStockOrderRows(FriendlyByteBuf buffer) {
-        int size = buffer.readVarInt();
+        int size = readBoundedSize(buffer, "stock orders", MAX_STOCK_ORDER_ROWS);
         List<StockOrderRow> rows = new ArrayList<>(size);
         for (int i = 0; i < size; i++) {
             rows.add(new StockOrderRow(
-                    buffer.readUUID(), buffer.readUtf(), buffer.readUtf(),
+                    buffer.readUUID(), buffer.readUtf(16), buffer.readUtf(16),
                     buffer.readLong(), buffer.readVarInt(), buffer.readBoolean()));
         }
         return rows;
     }
 
     private static void writeTransactionRows(FriendlyByteBuf buffer, List<TransactionRow> rows) {
-        buffer.writeVarInt(rows.size());
-        for (TransactionRow row : rows) {
+        List<TransactionRow> safe = tail(rows, MAX_TRANSACTION_ROWS);
+        buffer.writeVarInt(safe.size());
+        for (TransactionRow row : safe) {
             buffer.writeLong(row.timestamp());
             buffer.writeUUID(row.playerId());
             buffer.writeUtf(limitString(row.type(), 32), 32);
@@ -564,7 +586,7 @@ public class FinanceMenu extends AbstractContainerMenu {
     }
 
     private static List<TransactionRow> readTransactionRows(FriendlyByteBuf buffer) {
-        int size = buffer.readVarInt();
+        int size = readBoundedSize(buffer, "transactions", MAX_TRANSACTION_ROWS);
         List<TransactionRow> rows = new ArrayList<>(size);
         for (int i = 0; i < size; i++) {
             rows.add(new TransactionRow(
@@ -599,7 +621,7 @@ public class FinanceMenu extends AbstractContainerMenu {
     }
 
     private static void writeAssetRows(FriendlyByteBuf buffer, List<AssetRow> rows) {
-        List<AssetRow> safe = rows != null ? rows : List.of();
+        List<AssetRow> safe = bounded(rows, MAX_ASSET_ROWS);
         buffer.writeVarInt(safe.size());
         for (AssetRow row : safe) {
             buffer.writeUtf(limitString(row.category(), 16), 16);
@@ -614,7 +636,7 @@ public class FinanceMenu extends AbstractContainerMenu {
     }
 
     private static List<AssetRow> readAssetRows(FriendlyByteBuf buffer) {
-        int size = buffer.readVarInt();
+        int size = readBoundedSize(buffer, "asset rows", MAX_ASSET_ROWS);
         List<AssetRow> rows = new ArrayList<>(size);
         for (int i = 0; i < size; i++) {
             rows.add(new AssetRow(
@@ -631,7 +653,7 @@ public class FinanceMenu extends AbstractContainerMenu {
     }
 
     private static void writePriceAlertRows(FriendlyByteBuf buffer, List<PriceAlertRow> rows) {
-        List<PriceAlertRow> safe = rows != null ? rows : List.of();
+        List<PriceAlertRow> safe = bounded(rows, MAX_ALERT_ROWS);
         buffer.writeVarInt(safe.size());
         for (PriceAlertRow row : safe) {
             buffer.writeUUID(row.alertId());
@@ -643,7 +665,7 @@ public class FinanceMenu extends AbstractContainerMenu {
     }
 
     private static List<PriceAlertRow> readPriceAlertRows(FriendlyByteBuf buffer) {
-        int size = buffer.readVarInt();
+        int size = readBoundedSize(buffer, "price alerts", MAX_ALERT_ROWS);
         List<PriceAlertRow> rows = new ArrayList<>(size);
         for (int i = 0; i < size; i++) {
             rows.add(new PriceAlertRow(
@@ -657,7 +679,7 @@ public class FinanceMenu extends AbstractContainerMenu {
     }
 
     private static void writeConditionalStockOrderRows(FriendlyByteBuf buffer, List<ConditionalStockOrderRow> rows) {
-        List<ConditionalStockOrderRow> safe = rows != null ? rows : List.of();
+        List<ConditionalStockOrderRow> safe = bounded(rows, MAX_CONDITIONAL_ORDER_ROWS);
         buffer.writeVarInt(safe.size());
         for (ConditionalStockOrderRow row : safe) {
             buffer.writeUUID(row.orderId());
@@ -669,7 +691,7 @@ public class FinanceMenu extends AbstractContainerMenu {
     }
 
     private static List<ConditionalStockOrderRow> readConditionalStockOrderRows(FriendlyByteBuf buffer) {
-        int size = buffer.readVarInt();
+        int size = readBoundedSize(buffer, "conditional stock orders", MAX_CONDITIONAL_ORDER_ROWS);
         List<ConditionalStockOrderRow> rows = new ArrayList<>(size);
         for (int i = 0; i < size; i++) {
             rows.add(new ConditionalStockOrderRow(
@@ -683,7 +705,7 @@ public class FinanceMenu extends AbstractContainerMenu {
     }
 
     private static void writeCompanyFinancingRows(FriendlyByteBuf buffer, List<CompanyFinancingRow> rows) {
-        List<CompanyFinancingRow> safe = rows != null ? rows : List.of();
+        List<CompanyFinancingRow> safe = bounded(rows, MAX_FINANCING_ROWS);
         buffer.writeVarInt(safe.size());
         for (CompanyFinancingRow row : safe) {
             buffer.writeUUID(row.projectId());
@@ -701,7 +723,7 @@ public class FinanceMenu extends AbstractContainerMenu {
     }
 
     private static List<CompanyFinancingRow> readCompanyFinancingRows(FriendlyByteBuf buffer) {
-        int size = buffer.readVarInt();
+        int size = readBoundedSize(buffer, "company financing rows", MAX_FINANCING_ROWS);
         List<CompanyFinancingRow> rows = new ArrayList<>(size);
         for (int i = 0; i < size; i++) {
             rows.add(new CompanyFinancingRow(
@@ -721,7 +743,7 @@ public class FinanceMenu extends AbstractContainerMenu {
     }
 
     private static void writeCompanyProposalRows(FriendlyByteBuf buffer, List<CompanyProposalRow> rows) {
-        List<CompanyProposalRow> safe = rows != null ? rows : List.of();
+        List<CompanyProposalRow> safe = bounded(rows, MAX_PROPOSAL_ROWS);
         buffer.writeVarInt(safe.size());
         for (CompanyProposalRow row : safe) {
             buffer.writeUUID(row.proposalId());
@@ -745,7 +767,7 @@ public class FinanceMenu extends AbstractContainerMenu {
     }
 
     private static List<CompanyProposalRow> readCompanyProposalRows(FriendlyByteBuf buffer) {
-        int size = buffer.readVarInt();
+        int size = readBoundedSize(buffer, "company proposals", MAX_PROPOSAL_ROWS);
         List<CompanyProposalRow> rows = new ArrayList<>(size);
         for (int i = 0; i < size; i++) {
             rows.add(new CompanyProposalRow(
@@ -827,6 +849,24 @@ public class FinanceMenu extends AbstractContainerMenu {
             }
         }
         return trends;
+    }
+
+    static int readBoundedSize(FriendlyByteBuf buffer, String field, int maximum) {
+        int size = buffer.readVarInt();
+        if (size < 0 || size > maximum) {
+            throw new IllegalArgumentException("Invalid " + field + " count: " + size);
+        }
+        return size;
+    }
+
+    private static <T> List<T> bounded(List<T> values, int maximum) {
+        if (values == null || values.isEmpty()) return List.of();
+        return values.size() <= maximum ? values : values.subList(0, maximum);
+    }
+
+    private static <T> List<T> tail(List<T> values, int maximum) {
+        if (values == null || values.isEmpty()) return List.of();
+        return values.size() <= maximum ? values : values.subList(values.size() - maximum, values.size());
     }
 
     private static String limitString(String text, int maxLength) {

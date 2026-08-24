@@ -3,6 +3,7 @@ package finance.block;
 import finance.block.entity.CompanyFactoryControllerBlockEntity;
 import finance.gui.CompanyGameplayGuiOpener;
 import finance.gameplay.company.CompanyFacilityManager;
+import finance.gameplay.company.CompanyUpgradeRequirementService;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
@@ -28,8 +29,20 @@ public final class CompanyFactoryControllerBlock extends BaseEntityBlock {
     public CompanyFactoryControllerBlock(Properties properties) { super(properties); registerDefaultState(stateDefinition.any().setValue(INDICATOR, Indicator.OFF)); }
     @Override public InteractionResult use(BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
         if (!level.isClientSide && player instanceof ServerPlayer server && level.getBlockEntity(pos) instanceof CompanyFactoryControllerBlockEntity factory) {
-            if (factory.registerOrValidate(server)) CompanyGameplayGuiOpener.open(server, pos);
-            else server.sendSystemMessage(net.minecraft.network.chat.Component.translatable("finance.company_gameplay.factory_denied"));
+            if (factory.registerOrValidate(server)) {
+                if (player.isShiftKeyDown()) {
+                    var facility = CompanyFacilityManager.get(factory.facilityId());
+                    var company = facility == null ? null : finance.company.CompanyManager.getCompany(facility.companyId());
+                    CompanyUpgradeRequirementService.Requirement requirement = company == null || facility == null ? null
+                            : CompanyUpgradeRequirementService.requirement(company.getType(), facility.type(),
+                            facility.productionLevel());
+                    server.displayClientMessage(net.minecraft.network.chat.Component.translatable(
+                            "finance.company_gameplay.inspect", facility == null ? 0 : facility.productionLevel(),
+                            facility == null ? "-" : facility.status().name(),
+                            CompanyUpgradeRequirementService.summary(requirement)), true);
+                } else CompanyGameplayGuiOpener.open(server, pos);
+            }
+            else server.displayClientMessage(net.minecraft.network.chat.Component.translatable("finance.company_gameplay.factory_denied"), true);
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }

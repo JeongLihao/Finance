@@ -63,6 +63,8 @@ public final class EconomyCycleService {
         NpcMarketMaker.resetAllDayStats();
         EventManager.onDayTick(server);
         finance.event.EventContractService.processDay(server,mcDay);
+        finance.settlement.SettlementService.processDay(server, mcDay);
+        finance.exploration.ExplorationService.processDay(mcDay);
         NpcMarketMaker.naturalConsumeAll();
         NpcMarketMaker.centralBankIntervention();
         CompanyManager.tickAll(mcDay);

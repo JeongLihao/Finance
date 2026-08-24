@@ -33,6 +33,7 @@ public class TakeOrderPacket {
             if (player == null) return;
 
             MarketManager.TakeOrderResult result = MarketManager.takeOrder(packet.orderId, player.getUUID());
+            if (result.success()) finance.advancement.FinanceAdvancementTriggers.trigger(player, "first_trade");
             GuiFeedbackPacket.send(player, result.message());
         });
         ctx.get().setPacketHandled(true);

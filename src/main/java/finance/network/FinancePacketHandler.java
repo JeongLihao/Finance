@@ -14,7 +14,7 @@ import java.util.Optional;
 public class FinancePacketHandler {
 
     // OpenFinanceGuiPacket 从空载荷升级为受校验的入口类型 + 界面模式。
-    private static final String PROTOCOL_VERSION = "5";
+    private static final String PROTOCOL_VERSION = "8";
 
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             ResourceLocation.fromNamespaceAndPath(FinanceMod.MOD_ID, "gui"),
@@ -37,27 +37,31 @@ public class FinancePacketHandler {
                 ContractActionPacket::handle, Optional.of(NetworkDirection.PLAY_TO_SERVER));
         CHANNEL.registerMessage(packetId++,
                 TradeActionPacket.class,
-                TradeActionPacket::encode,
-                TradeActionPacket::decode,
-                TradeActionPacket::handle);
+                 TradeActionPacket::encode,
+                 TradeActionPacket::decode,
+                 TradeActionPacket::handle,
+                 Optional.of(NetworkDirection.PLAY_TO_SERVER));
 
         CHANNEL.registerMessage(packetId++,
                 CancelOrderPacket.class,
-                CancelOrderPacket::encode,
-                CancelOrderPacket::decode,
-                CancelOrderPacket::handle);
+                 CancelOrderPacket::encode,
+                 CancelOrderPacket::decode,
+                 CancelOrderPacket::handle,
+                 Optional.of(NetworkDirection.PLAY_TO_SERVER));
 
         CHANNEL.registerMessage(packetId++,
                 CreateCompanyPacket.class,
-                CreateCompanyPacket::encode,
-                CreateCompanyPacket::decode,
-                CreateCompanyPacket::handle);
+                 CreateCompanyPacket::encode,
+                 CreateCompanyPacket::decode,
+                 CreateCompanyPacket::handle,
+                 Optional.of(NetworkDirection.PLAY_TO_SERVER));
 
         CHANNEL.registerMessage(packetId++,
                 StockTradePacket.class,
-                StockTradePacket::encode,
-                StockTradePacket::decode,
-                StockTradePacket::handle);
+                 StockTradePacket::encode,
+                 StockTradePacket::decode,
+                 StockTradePacket::handle,
+                 Optional.of(NetworkDirection.PLAY_TO_SERVER));
 
         CHANNEL.registerMessage(packetId++,
                 OpenFinanceGuiPacket.class,
@@ -68,69 +72,80 @@ public class FinancePacketHandler {
 
         CHANNEL.registerMessage(packetId++,
                 TakeOrderPacket.class,
-                TakeOrderPacket::encode,
-                TakeOrderPacket::decode,
-                TakeOrderPacket::handle);
+                 TakeOrderPacket::encode,
+                 TakeOrderPacket::decode,
+                 TakeOrderPacket::handle,
+                 Optional.of(NetworkDirection.PLAY_TO_SERVER));
 
         CHANNEL.registerMessage(packetId++,
                 AdminActionPacket.class,
-                AdminActionPacket::encode,
-                AdminActionPacket::decode,
-                AdminActionPacket::handle);
+                 AdminActionPacket::encode,
+                 AdminActionPacket::decode,
+                 AdminActionPacket::handle,
+                 Optional.of(NetworkDirection.PLAY_TO_SERVER));
 
         CHANNEL.registerMessage(packetId++,
                 InventoryActionPacket.class,
-                InventoryActionPacket::encode,
-                InventoryActionPacket::decode,
-                InventoryActionPacket::handle);
+                 InventoryActionPacket::encode,
+                 InventoryActionPacket::decode,
+                 InventoryActionPacket::handle,
+                 Optional.of(NetworkDirection.PLAY_TO_SERVER));
 
         CHANNEL.registerMessage(packetId++,
                 StockOrderPacket.class,
-                StockOrderPacket::encode,
-                StockOrderPacket::decode,
-                StockOrderPacket::handle);
+                 StockOrderPacket::encode,
+                 StockOrderPacket::decode,
+                 StockOrderPacket::handle,
+                 Optional.of(NetworkDirection.PLAY_TO_SERVER));
 
         CHANNEL.registerMessage(packetId++,
                 CompanyIPOPacket.class,
-                CompanyIPOPacket::encode,
-                CompanyIPOPacket::decode,
-                CompanyIPOPacket::handle);
+                 CompanyIPOPacket::encode,
+                 CompanyIPOPacket::decode,
+                 CompanyIPOPacket::handle,
+                 Optional.of(NetworkDirection.PLAY_TO_SERVER));
 
         CHANNEL.registerMessage(packetId++,
                 CompanyManagePacket.class,
-                CompanyManagePacket::encode,
-                CompanyManagePacket::decode,
-                CompanyManagePacket::handle);
+                 CompanyManagePacket::encode,
+                 CompanyManagePacket::decode,
+                 CompanyManagePacket::handle,
+                 Optional.of(NetworkDirection.PLAY_TO_SERVER));
 
         CHANNEL.registerMessage(packetId++,
                 GuiFeedbackPacket.class,
-                GuiFeedbackPacket::encode,
-                GuiFeedbackPacket::decode,
-                GuiFeedbackPacket::handle);
+                 GuiFeedbackPacket::encode,
+                 GuiFeedbackPacket::decode,
+                 GuiFeedbackPacket::handle,
+                 Optional.of(NetworkDirection.PLAY_TO_CLIENT));
 
         CHANNEL.registerMessage(packetId++,
                 PriceAlertPacket.class,
-                PriceAlertPacket::encode,
-                PriceAlertPacket::decode,
-                PriceAlertPacket::handle);
+                 PriceAlertPacket::encode,
+                 PriceAlertPacket::decode,
+                 PriceAlertPacket::handle,
+                 Optional.of(NetworkDirection.PLAY_TO_SERVER));
 
         CHANNEL.registerMessage(packetId++,
                 ConditionalStockOrderPacket.class,
-                ConditionalStockOrderPacket::encode,
-                ConditionalStockOrderPacket::decode,
-                ConditionalStockOrderPacket::handle);
+                 ConditionalStockOrderPacket::encode,
+                 ConditionalStockOrderPacket::decode,
+                 ConditionalStockOrderPacket::handle,
+                 Optional.of(NetworkDirection.PLAY_TO_SERVER));
 
         CHANNEL.registerMessage(packetId++,
                 CompanyFinancingPacket.class,
-                CompanyFinancingPacket::encode,
-                CompanyFinancingPacket::decode,
-                CompanyFinancingPacket::handle);
+                 CompanyFinancingPacket::encode,
+                 CompanyFinancingPacket::decode,
+                 CompanyFinancingPacket::handle,
+                 Optional.of(NetworkDirection.PLAY_TO_SERVER));
 
         CHANNEL.registerMessage(packetId++,
                 CompanyProposalPacket.class,
-                CompanyProposalPacket::encode,
-                CompanyProposalPacket::decode,
-                CompanyProposalPacket::handle);
+                 CompanyProposalPacket::encode,
+                 CompanyProposalPacket::decode,
+                 CompanyProposalPacket::handle,
+                 Optional.of(NetworkDirection.PLAY_TO_SERVER));
 
         CHANNEL.registerMessage(packetId++,
                 CandlestickRequestPacket.class,
@@ -177,5 +192,8 @@ public class FinancePacketHandler {
         CHANNEL.registerMessage(packetId++,GovernanceActionResultPacket.class,GovernanceActionResultPacket::encode,GovernanceActionResultPacket::decode,GovernanceActionResultPacket::handle,Optional.of(NetworkDirection.PLAY_TO_CLIENT));
         CHANNEL.registerMessage(packetId++,GovernanceRequestPacket.class,GovernanceRequestPacket::encode,GovernanceRequestPacket::decode,GovernanceRequestPacket::handle,Optional.of(NetworkDirection.PLAY_TO_SERVER));
         CHANNEL.registerMessage(packetId++,GovernanceResponsePacket.class,GovernanceResponsePacket::encode,GovernanceResponsePacket::decode,GovernanceResponsePacket::handle,Optional.of(NetworkDirection.PLAY_TO_CLIENT));
+        CHANNEL.registerMessage(packetId++, SettlementActionPacket.class,
+                SettlementActionPacket::encode, SettlementActionPacket::decode, SettlementActionPacket::handle,
+                Optional.of(NetworkDirection.PLAY_TO_SERVER));
     }
 }

@@ -60,7 +60,7 @@ class WarehousePersistenceTest {
         assertEquals(200, CommodityInventoryManager.getCommodityAmount(owner, "iron"));
     }
 
-    @Test void activeReplacementAtSamePositionSupersedesDestroyedRecord() {
+    @Test void activeReplacementAtSamePositionRetainsDestroyedRecoveryRecord() {
         UUID owner = UUID.randomUUID();
         WarehouseRecord destroyed = new WarehouseRecord(UUID.randomUUID(), "minecraft:overworld", BlockPos.ZERO,
                 owner, null, 100, WarehouseStatus.DISABLED, 0, 0, WarehousePermissionMode.OWNER_ONLY);
@@ -68,7 +68,7 @@ class WarehousePersistenceTest {
                 owner, null, 100, WarehouseStatus.ACTIVE, 1, 1, WarehousePermissionMode.OWNER_ONLY);
         assertTrue(WarehouseManager.restore(destroyed));
         assertTrue(WarehouseManager.restore(replacement));
-        assertNull(WarehouseManager.get(destroyed.warehouseId()));
+        assertSame(destroyed, WarehouseManager.get(destroyed.warehouseId()));
         assertSame(replacement, WarehouseManager.get(replacement.warehouseId()));
     }
 }

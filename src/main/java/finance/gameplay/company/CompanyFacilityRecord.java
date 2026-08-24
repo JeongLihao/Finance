@@ -7,7 +7,7 @@ import java.util.Set;
 import java.util.UUID;
 
 public final class CompanyFacilityRecord {
-    public static final int MAX_LEVEL = 5;
+    public static final int MAX_LEVEL = 3;
     public static final int MAX_OPERATION_KEYS = 128;
     private final UUID facilityId;
     private final UUID companyId;

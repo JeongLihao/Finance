@@ -4,6 +4,7 @@ import finance.FinanceMod;
 import finance.item.PortableLedgerItem;
 import finance.item.FinanceTerminalBlockItem;
 import finance.item.FinanceGuideItem;
+import finance.item.SealedCargoCrateItem;
 import finance.gameplay.FinanceTerminalType;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.CreativeModeTabs;
@@ -21,6 +22,8 @@ public final class ModItems {
     public static final RegistryObject<Item> PORTABLE_LEDGER = ITEMS.register("portable_ledger",
             () -> new PortableLedgerItem(new Item.Properties().stacksTo(1)));
     public static final RegistryObject<Item> FINANCE_GUIDE=ITEMS.register("finance_guide",()->new FinanceGuideItem(new Item.Properties().stacksTo(1)));
+    public static final RegistryObject<Item> SEALED_CARGO_CRATE = ITEMS.register("sealed_cargo_crate",
+            () -> new SealedCargoCrateItem(new Item.Properties().stacksTo(1)));
     public static final RegistryObject<Item> MARKET_TERMINAL = blockItem("market_terminal", ModBlocks.MARKET_TERMINAL, FinanceTerminalType.MARKET_TERMINAL);
     public static final RegistryObject<Item> WAREHOUSE_CONTROLLER = blockItem("warehouse_controller", ModBlocks.WAREHOUSE_CONTROLLER, FinanceTerminalType.WAREHOUSE_CONTROLLER);
     public static final RegistryObject<Item> BANK_COUNTER = blockItem("bank_counter", ModBlocks.BANK_COUNTER, FinanceTerminalType.BANK_COUNTER);
@@ -29,6 +32,12 @@ public final class ModItems {
     public static final RegistryObject<Item> SECURITIES_TERMINAL = blockItem("securities_terminal", ModBlocks.SECURITIES_TERMINAL, FinanceTerminalType.SECURITIES_TERMINAL);
     public static final RegistryObject<Item> CENTRAL_BANK_CONSOLE = blockItem("central_bank_console", ModBlocks.CENTRAL_BANK_CONSOLE, FinanceTerminalType.CENTRAL_BANK_CONSOLE);
     public static final RegistryObject<Item> BOARDROOM_TABLE = blockItem("boardroom_table",ModBlocks.BOARDROOM_TABLE,FinanceTerminalType.BOARDROOM_TABLE);
+    public static final RegistryObject<Item> SETTLEMENT_TRADE_STATION = ITEMS.register("settlement_trade_station",
+            () -> new finance.item.SettlementTradeStationItem(ModBlocks.SETTLEMENT_TRADE_STATION.get(), new Item.Properties()));
+    public static final RegistryObject<Item> SURVEY_BOARD = ITEMS.register("survey_board",
+            () -> new BlockItem(ModBlocks.SURVEY_BOARD.get(),new Item.Properties()));
+    public static final RegistryObject<Item> SURVEY_NOTE = ITEMS.register("survey_note",
+            () -> new finance.item.SurveyNoteItem(new Item.Properties().stacksTo(1)));
 
     private ModItems() {}
 
@@ -45,6 +54,7 @@ public final class ModItems {
         if (event.getTabKey() == CreativeModeTabs.FUNCTIONAL_BLOCKS) {
             event.accept(PORTABLE_LEDGER);
             event.accept(FINANCE_GUIDE);
+            event.accept(SEALED_CARGO_CRATE);
             event.accept(MARKET_TERMINAL);
             event.accept(WAREHOUSE_CONTROLLER);
             event.accept(BANK_COUNTER);
@@ -53,6 +63,9 @@ public final class ModItems {
             event.accept(SECURITIES_TERMINAL);
             event.accept(CENTRAL_BANK_CONSOLE);
             event.accept(BOARDROOM_TABLE);
+            event.accept(SETTLEMENT_TRADE_STATION);
+            event.accept(SURVEY_BOARD);
+            event.accept(SURVEY_NOTE);
         }
     }
 }

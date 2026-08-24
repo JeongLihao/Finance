@@ -1,0 +1,1 @@
+{"type":"minecraft:crafting_shaped","pattern":["ISI","PBP","III"],"key":{"I":{"item":"minecraft:iron_nugget"},"S":{"item":"minecraft:string"},"P":{"item":"minecraft:paper"},"B":{"item":"minecraft:barrel"}},"result":{"item":"finance:sealed_cargo_crate"}}

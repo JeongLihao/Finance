@@ -1,0 +1,50 @@
+# Lower-pressure cooperative profile. Authority and escrow rules are unchanged.
+[gameplay]
+minecraftFirstMode = true
+requirePhysicalTerminal = true
+enablePortableLedger = true
+legacyFullScreenKeybind = false
+warehouseCapacityEnabled = true
+contractsEnabled = true
+playerDrivenCompanyProduction = true
+allowLegacyAutomaticCompanyProduction = true
+newCompaniesPlayerDrivenOnly = false
+hybridLegacyFallbackRatio = 0.40
+advancedFinanceRequiresTerminal = true
+adminConsoleRequiresPermission = true
+terminalInteractionDistance = 10.0
+worldEconomyGlobalBroadcasts = false
+
+[gameplay.facilityTiers]
+warehouseTier1Capacity = 2048
+warehouseTier1TransferLimit = 128
+warehouseTier2Capacity = 8192
+warehouseTier2TransferLimit = 512
+warehouseTier3Capacity = 32768
+warehouseTier3TransferLimit = 2048
+factoryTier1Throughput = 1
+factoryTier1MaintenanceBasisPoints = 8000
+factoryTier2Throughput = 2
+factoryTier2MaintenanceBasisPoints = 7000
+factoryTier3Throughput = 4
+factoryTier3MaintenanceBasisPoints = 6000
+
+[gameplay.logistics]
+maxActivePerPlayer = 12
+maxActivePerCompany = 48
+maxCargoUnits = 2048
+defaultDeadlineDays = 21
+
+[gameplay.settlements]
+maxActivePerPlayer = 6
+maxOpenPerSettlement = 10
+demandDeadlineDays = 8
+rewardBasisPoints = 12500
+
+[gameplay.exploration]
+enabled = true
+worldgenEnabled = false
+requestCooldownDays = 1
+maximumTargetDistance = 4096
+deadlineDays = 10
+reward = 300

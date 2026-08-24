@@ -65,6 +65,24 @@ public final class FinanceConfig {
     private static final boolean ADMIN_CONSOLE_REQUIRES_PERMISSION_VALUE = true;
     private static final double TERMINAL_INTERACTION_DISTANCE_VALUE = 8.0D;
     private static final boolean WORLD_ECONOMY_GLOBAL_BROADCASTS_VALUE = true;
+    private static final int[] WAREHOUSE_CAPACITY_VALUES = {1_024, 4_096, 16_384};
+    private static final int[] WAREHOUSE_TRANSFER_VALUES = {64, 256, 1_024};
+    private static final int[] FACTORY_THROUGHPUT_VALUES = {1, 2, 4};
+    private static final int[] FACTORY_MAINTENANCE_BPS_VALUES = {10_000, 9_000, 8_000};
+    private static final int LOGISTICS_MAX_ACTIVE_PLAYER_VALUE = 8;
+    private static final int LOGISTICS_MAX_ACTIVE_COMPANY_VALUE = 32;
+    private static final int LOGISTICS_MAX_CARGO_UNITS_VALUE = 1_024;
+    private static final int LOGISTICS_DEADLINE_DAYS_VALUE = 14;
+    private static final int SETTLEMENT_MAX_ACTIVE_PLAYER_VALUE = 4;
+    private static final int SETTLEMENT_MAX_OPEN_VALUE = 8;
+    private static final int SETTLEMENT_DEADLINE_DAYS_VALUE = 5;
+    private static final int SETTLEMENT_REWARD_BPS_VALUE = 12_000;
+    private static final boolean EXPLORATION_ENABLED_VALUE = true;
+    private static final boolean EXPLORATION_WORLDGEN_ENABLED_VALUE = false;
+    private static final int EXPLORATION_COOLDOWN_DAYS_VALUE = 2;
+    private static final int EXPLORATION_MAX_DISTANCE_VALUE = 4_096;
+    private static final int EXPLORATION_DEADLINE_DAYS_VALUE = 7;
+    private static final long EXPLORATION_REWARD_VALUE = 250L;
 
     private static final ForgeConfigSpec.IntValue DEFAULT_DIVIDEND_CYCLE_DAYS;
     private static final ForgeConfigSpec.DoubleValue DEFAULT_DIVIDEND_RATIO;
@@ -111,6 +129,20 @@ public final class FinanceConfig {
     private static final ForgeConfigSpec.BooleanValue ADMIN_CONSOLE_REQUIRES_PERMISSION;
     private static final ForgeConfigSpec.DoubleValue TERMINAL_INTERACTION_DISTANCE;
     private static final ForgeConfigSpec.BooleanValue WORLD_ECONOMY_GLOBAL_BROADCASTS;
+    private static final ForgeConfigSpec.IntValue[] WAREHOUSE_CAPACITIES = new ForgeConfigSpec.IntValue[3];
+    private static final ForgeConfigSpec.IntValue[] WAREHOUSE_TRANSFER_LIMITS = new ForgeConfigSpec.IntValue[3];
+    private static final ForgeConfigSpec.IntValue[] FACTORY_THROUGHPUT = new ForgeConfigSpec.IntValue[3];
+    private static final ForgeConfigSpec.IntValue[] FACTORY_MAINTENANCE_BPS = new ForgeConfigSpec.IntValue[3];
+    private static final ForgeConfigSpec.IntValue LOGISTICS_MAX_ACTIVE_PLAYER;
+    private static final ForgeConfigSpec.IntValue LOGISTICS_MAX_ACTIVE_COMPANY;
+    private static final ForgeConfigSpec.IntValue LOGISTICS_MAX_CARGO_UNITS;
+    private static final ForgeConfigSpec.IntValue LOGISTICS_DEADLINE_DAYS;
+    private static final ForgeConfigSpec.IntValue SETTLEMENT_MAX_ACTIVE_PLAYER, SETTLEMENT_MAX_OPEN,
+            SETTLEMENT_DEADLINE_DAYS, SETTLEMENT_REWARD_BPS;
+    private static final ForgeConfigSpec.BooleanValue EXPLORATION_ENABLED, EXPLORATION_WORLDGEN_ENABLED;
+    private static final ForgeConfigSpec.IntValue EXPLORATION_COOLDOWN_DAYS, EXPLORATION_MAX_DISTANCE,
+            EXPLORATION_DEADLINE_DAYS;
+    private static final ForgeConfigSpec.LongValue EXPLORATION_REWARD;
 
     static {
         ForgeConfigSpec.Builder builder = new ForgeConfigSpec.Builder();
@@ -158,6 +190,57 @@ public final class FinanceConfig {
         WORLD_ECONOMY_GLOBAL_BROADCASTS = builder
                 .comment("是否允许真正重大的经济事件向全服广播；局部与参与者通知不受此项影响。")
                 .define("worldEconomyGlobalBroadcasts", WORLD_ECONOMY_GLOBAL_BROADCASTS_VALUE);
+        builder.push("facilityTiers");
+        for (int tier = 1; tier <= 3; tier++) {
+            int index = tier - 1;
+            WAREHOUSE_CAPACITIES[index] = builder
+                    .comment("仓库等级 " + tier + " 的总容量。重载不会删除超额资产。")
+                    .defineInRange("warehouseTier" + tier + "Capacity", WAREHOUSE_CAPACITY_VALUES[index], 64, 1_000_000);
+            WAREHOUSE_TRANSFER_LIMITS[index] = builder
+                    .comment("仓库等级 " + tier + " 的单次存取上限。")
+                    .defineInRange("warehouseTier" + tier + "TransferLimit", WAREHOUSE_TRANSFER_VALUES[index], 1, 1_000_000);
+            FACTORY_THROUGHPUT[index] = builder
+                    .comment("工厂等级 " + tier + " 的生产批次倍率。")
+                    .defineInRange("factoryTier" + tier + "Throughput", FACTORY_THROUGHPUT_VALUES[index], 1, 16);
+            FACTORY_MAINTENANCE_BPS[index] = builder
+                    .comment("工厂等级 " + tier + " 的维护费倍率，10000 表示 100%。")
+                    .defineInRange("factoryTier" + tier + "MaintenanceBasisPoints", FACTORY_MAINTENANCE_BPS_VALUES[index], 1_000, 20_000);
+        }
+        builder.pop();
+        builder.push("logistics");
+        LOGISTICS_MAX_ACTIVE_PLAYER = builder.comment("每名玩家最多关联的未结束运单。")
+                .defineInRange("maxActivePerPlayer", LOGISTICS_MAX_ACTIVE_PLAYER_VALUE, 1, 64);
+        LOGISTICS_MAX_ACTIVE_COMPANY = builder.comment("每家公司最多保留的未结束运单。")
+                .defineInRange("maxActivePerCompany", LOGISTICS_MAX_ACTIVE_COMPANY_VALUE, 1, 256);
+        LOGISTICS_MAX_CARGO_UNITS = builder.comment("单个密封货箱可承载的最大商品单位；仍受源仓库单次吞吐限制。")
+                .defineInRange("maxCargoUnits", LOGISTICS_MAX_CARGO_UNITS_VALUE, 1, 16_384);
+        LOGISTICS_DEADLINE_DAYS = builder.comment("普通运单默认提示期限，单位为 MC 天；超期不会删除运输托管。")
+                .defineInRange("defaultDeadlineDays", LOGISTICS_DEADLINE_DAYS_VALUE, 1, 365);
+        builder.pop();
+        builder.push("settlements");
+        SETTLEMENT_MAX_ACTIVE_PLAYER = builder.comment("每名玩家最多同时接受的聚落需求。")
+                .defineInRange("maxActivePerPlayer", SETTLEMENT_MAX_ACTIVE_PLAYER_VALUE, 1, 32);
+        SETTLEMENT_MAX_OPEN = builder.comment("每个聚落最多保留的未结束公共需求。")
+                .defineInRange("maxOpenPerSettlement", SETTLEMENT_MAX_OPEN_VALUE, 1, 16);
+        SETTLEMENT_DEADLINE_DAYS = builder.comment("本地需求默认期限，单位为 MC 天。")
+                .defineInRange("demandDeadlineDays", SETTLEMENT_DEADLINE_DAYS_VALUE, 1, 30);
+        SETTLEMENT_REWARD_BPS = builder.comment("本地需求相对可信市场采购价的奖励比例，10000=100%。")
+                .defineInRange("rewardBasisPoints", SETTLEMENT_REWARD_BPS_VALUE, 5_000, 20_000);
+        builder.pop();
+        builder.push("exploration");
+        EXPLORATION_ENABLED = builder.comment("是否允许玩家通过调查板创建有真实预算托管的探索任务。")
+                .define("enabled", EXPLORATION_ENABLED_VALUE);
+        EXPLORATION_WORLDGEN_ENABLED = builder.comment("实验性遗迹世界生成总开关。首版默认关闭；模板资源仍可由数据包或管理员使用。修改后需完整重启服务器，/reload 不会重生成旧区块。")
+                .define("worldgenEnabled", EXPLORATION_WORLDGEN_ENABLED_VALUE);
+        EXPLORATION_COOLDOWN_DAYS = builder.comment("同一玩家申请新调查任务的冷却，单位为 MC 天。")
+                .defineInRange("requestCooldownDays", EXPLORATION_COOLDOWN_DAYS_VALUE, 0, 30);
+        EXPLORATION_MAX_DISTANCE = builder.comment("调查板只会在此半径内选择已登记目标；不会加载或扫描新区块。")
+                .defineInRange("maximumTargetDistance", EXPLORATION_MAX_DISTANCE_VALUE, 128, 16_384);
+        EXPLORATION_DEADLINE_DAYS = builder.comment("调查任务有效期，单位为 MC 天。")
+                .defineInRange("deadlineDays", EXPLORATION_DEADLINE_DAYS_VALUE, 1, 30);
+        EXPLORATION_REWARD = builder.comment("每次调查完成奖励；申请时从 NPC 市场账户转入独立托管。")
+                .defineInRange("reward", EXPLORATION_REWARD_VALUE, 1L, 100_000L);
+        builder.pop();
         builder.pop();
 
         builder.push("company");
@@ -342,6 +425,47 @@ public final class FinanceConfig {
     public static boolean adminConsoleRequiresPermission() { return getBoolean(ADMIN_CONSOLE_REQUIRES_PERMISSION, ADMIN_CONSOLE_REQUIRES_PERMISSION_VALUE); }
     public static double terminalInteractionDistance() { return getDouble(TERMINAL_INTERACTION_DISTANCE, TERMINAL_INTERACTION_DISTANCE_VALUE); }
     public static boolean worldEconomyGlobalBroadcasts() { return getBoolean(WORLD_ECONOMY_GLOBAL_BROADCASTS, WORLD_ECONOMY_GLOBAL_BROADCASTS_VALUE); }
+    public static int warehouseCapacity(int tier) {
+        int index = Math.max(0, Math.min(2, tier - 1));
+        int value = getInt(WAREHOUSE_CAPACITIES[index], WAREHOUSE_CAPACITY_VALUES[index]);
+        if (index > 0) value = Math.max(value, warehouseCapacity(index));
+        return value;
+    }
+    public static int warehouseTransferLimit(int tier) {
+        int index = Math.max(0, Math.min(2, tier - 1));
+        int value = getInt(WAREHOUSE_TRANSFER_LIMITS[index], WAREHOUSE_TRANSFER_VALUES[index]);
+        return Math.min(warehouseCapacity(tier), value);
+    }
+    public static int factoryThroughput(int tier) {
+        int index = Math.max(0, Math.min(2, tier - 1));
+        return getInt(FACTORY_THROUGHPUT[index], FACTORY_THROUGHPUT_VALUES[index]);
+    }
+    public static int factoryMaintenanceBasisPoints(int tier) {
+        int index = Math.max(0, Math.min(2, tier - 1));
+        return getInt(FACTORY_MAINTENANCE_BPS[index], FACTORY_MAINTENANCE_BPS_VALUES[index]);
+    }
+    public static int logisticsMaxActivePerPlayer() {
+        return getInt(LOGISTICS_MAX_ACTIVE_PLAYER, LOGISTICS_MAX_ACTIVE_PLAYER_VALUE);
+    }
+    public static int logisticsMaxActivePerCompany() {
+        return getInt(LOGISTICS_MAX_ACTIVE_COMPANY, LOGISTICS_MAX_ACTIVE_COMPANY_VALUE);
+    }
+    public static int logisticsMaxCargoUnits() {
+        return getInt(LOGISTICS_MAX_CARGO_UNITS, LOGISTICS_MAX_CARGO_UNITS_VALUE);
+    }
+    public static int logisticsDefaultDeadlineDays() {
+        return getInt(LOGISTICS_DEADLINE_DAYS, LOGISTICS_DEADLINE_DAYS_VALUE);
+    }
+    public static int settlementMaxActivePerPlayer(){return getInt(SETTLEMENT_MAX_ACTIVE_PLAYER,SETTLEMENT_MAX_ACTIVE_PLAYER_VALUE);}
+    public static int settlementMaxOpen(){return getInt(SETTLEMENT_MAX_OPEN,SETTLEMENT_MAX_OPEN_VALUE);}
+    public static int settlementDeadlineDays(){return getInt(SETTLEMENT_DEADLINE_DAYS,SETTLEMENT_DEADLINE_DAYS_VALUE);}
+    public static int settlementRewardBasisPoints(){return getInt(SETTLEMENT_REWARD_BPS,SETTLEMENT_REWARD_BPS_VALUE);}
+    public static boolean explorationEnabled(){return getBoolean(EXPLORATION_ENABLED,EXPLORATION_ENABLED_VALUE);}
+    public static boolean explorationWorldgenEnabled(){return getBoolean(EXPLORATION_WORLDGEN_ENABLED,EXPLORATION_WORLDGEN_ENABLED_VALUE);}
+    public static int explorationCooldownDays(){return getInt(EXPLORATION_COOLDOWN_DAYS,EXPLORATION_COOLDOWN_DAYS_VALUE);}
+    public static int explorationMaxDistance(){return getInt(EXPLORATION_MAX_DISTANCE,EXPLORATION_MAX_DISTANCE_VALUE);}
+    public static int explorationDeadlineDays(){return getInt(EXPLORATION_DEADLINE_DAYS,EXPLORATION_DEADLINE_DAYS_VALUE);}
+    public static long explorationReward(){return getLong(EXPLORATION_REWARD,EXPLORATION_REWARD_VALUE);}
 
     public static int maxConditionalStockOrdersPerPlayer() {
         return getInt(MAX_CONDITIONAL_STOCK_ORDERS_PER_PLAYER, MAX_CONDITIONAL_STOCK_ORDERS_PER_PLAYER_VALUE);

@@ -1,0 +1,14 @@
+package finance.client;
+
+import finance.gui.SettlementMenu;import finance.network.FinancePacketHandler;import finance.network.SettlementActionPacket;
+import net.minecraft.client.gui.GuiGraphics;import net.minecraft.client.gui.components.Button;import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;import net.minecraft.network.chat.Component;import net.minecraft.world.entity.player.Inventory;import java.util.UUID;
+
+public final class SettlementScreen extends AbstractContainerScreen<SettlementMenu>{static final int PANEL_WIDTH=320,PANEL_HEIGHT=220;private int selected;
+    public SettlementScreen(SettlementMenu m,Inventory i,Component t){super(m,i,t);imageWidth=PANEL_WIDTH;imageHeight=PANEL_HEIGHT;inventoryLabelY=10000;}
+    @Override protected void init(){super.init();selected=Math.max(0,Math.min(selected,Math.max(0,menu.rows().size()-1)));addRenderableWidget(Button.builder(Component.translatable("screen.finance.settlement.accept"),b->send(SettlementActionPacket.Action.ACCEPT)).bounds(leftPos+170,topPos+190,65,18).build());addRenderableWidget(Button.builder(Component.translatable("screen.finance.settlement.deliver"),b->send(SettlementActionPacket.Action.DELIVER)).bounds(leftPos+241,topPos+190,69,18).build());}
+    private void send(SettlementActionPacket.Action action){if(menu.rows().isEmpty())return;FinancePacketHandler.CHANNEL.sendToServer(new SettlementActionPacket(action,menu.settlementId(),menu.rows().get(selected).id(),UUID.randomUUID().toString()));}
+    @Override protected void renderBg(GuiGraphics g,float f,int x,int y){g.fill(leftPos,topPos,leftPos+imageWidth,topPos+imageHeight,0xFF3A2D21);g.fill(leftPos+2,topPos+2,leftPos+imageWidth-2,topPos+imageHeight-2,0xFFF2E6C9);}
+    @Override protected void renderLabels(GuiGraphics g,int mx,int my){g.drawString(font,title,10,9,0xFF342515,false);g.drawString(font,Component.translatable("screen.finance.settlement.summary",menu.status(),menu.contributionLevel(),menu.contributionPoints()),10,25,0xFF5B4936,false);int y=48;for(int i=0;i<menu.rows().size();i++){var r=menu.rows().get(i);if(i==selected)g.fill(8,y-2,312,y+11,0xFFD8E7C8);String text=Component.translatable("screen.finance.settlement.row",r.theme(),r.commodity(),r.quantity(),r.reward(),r.deadline(),r.status()).getString();g.drawString(font,clip(text,300),12,y,0xFF342515,false);y+=16;}if(menu.rows().isEmpty())g.drawString(font,Component.translatable("screen.finance.settlement.empty"),12,52,0xFF77705F,false);if(!menu.message().isBlank())g.drawString(font,Component.translatable(menu.message()),10,172,0xFF27632A,false);}
+    @Override public boolean mouseClicked(double x,double y,int b){int start=topPos+46;if(y>=start){int row=(int)((y-start)/16);if(x>=leftPos+8&&x<leftPos+312&&row>=0&&row<menu.rows().size()){selected=row;return true;}}return super.mouseClicked(x,y,b);}
+    private String clip(String s,int w){while(font.width(s)>w&&s.length()>1)s=s.substring(0,s.length()-2)+"…";return s;}
+}

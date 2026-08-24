@@ -1,0 +1,1 @@
+{"variants":{"indicator=green":{"model":"finance:block/settlement_trade_station_green"},"indicator=yellow":{"model":"finance:block/settlement_trade_station_yellow"},"indicator=red":{"model":"finance:block/settlement_trade_station_red"}}}

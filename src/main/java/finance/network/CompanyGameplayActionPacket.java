@@ -75,7 +75,7 @@ public record CompanyGameplayActionPacket(Action action,UUID companyId,UUID targ
                 case REMOVE_MEMBER -> result = CompanyMembershipService.removeMember(
                         player.getUUID(), p.companyId, p.targetId, p.operationKey);
                 case UPGRADE_FACILITY -> result = CompanyUpgradeService.upgrade(
-                        player.getUUID(), p.targetId, p.operationKey);
+                        player, p.targetId, p.operationKey);
                 case PUBLISH_CONTRACT -> {
                     FinanceContract contract = CompanyContractService.publishProcurement(player.getUUID(),
                             p.companyId, p.text, p.quantity, p.amount, day, 3, p.operationKey);

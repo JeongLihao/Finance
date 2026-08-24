@@ -12,6 +12,7 @@ class CompactScreenLayoutTest {
         assertFitsMinimum(MarketOverviewScreen.PANEL_WIDTH, MarketOverviewScreen.PANEL_HEIGHT);
         assertFitsMinimum(WarehouseScreen.PANEL_WIDTH, WarehouseScreen.PANEL_HEIGHT);
         assertFitsMinimum(CompanyGameplayScreen.PANEL_WIDTH, CompanyGameplayScreen.PANEL_HEIGHT);
+        assertFitsMinimum(SettlementScreen.PANEL_WIDTH, SettlementScreen.PANEL_HEIGHT);
     }
 
     @Test

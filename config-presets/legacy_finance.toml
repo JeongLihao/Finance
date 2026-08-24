@@ -1,0 +1,36 @@
+# Compatibility-oriented access profile. Administrative permission remains mandatory.
+[gameplay]
+minecraftFirstMode = false
+requirePhysicalTerminal = false
+enablePortableLedger = true
+legacyFullScreenKeybind = true
+warehouseCapacityEnabled = false
+contractsEnabled = true
+playerDrivenCompanyProduction = false
+allowLegacyAutomaticCompanyProduction = true
+newCompaniesPlayerDrivenOnly = false
+hybridLegacyFallbackRatio = 1.0
+advancedFinanceRequiresTerminal = false
+adminConsoleRequiresPermission = true
+terminalInteractionDistance = 8.0
+worldEconomyGlobalBroadcasts = true
+
+[gameplay.logistics]
+maxActivePerPlayer = 8
+maxActivePerCompany = 32
+maxCargoUnits = 1024
+defaultDeadlineDays = 14
+
+[gameplay.settlements]
+maxActivePerPlayer = 4
+maxOpenPerSettlement = 8
+demandDeadlineDays = 5
+rewardBasisPoints = 12000
+
+[gameplay.exploration]
+enabled = true
+worldgenEnabled = false
+requestCooldownDays = 2
+maximumTargetDistance = 4096
+deadlineDays = 7
+reward = 250

@@ -35,6 +35,8 @@ import finance.diagnostic.StartupSelfCheckService;
 import net.minecraftforge.event.TickEvent.Phase;
 import net.minecraftforge.event.TickEvent.ServerTickEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
+import net.minecraftforge.event.entity.item.ItemExpireEvent;
+import net.minecraftforge.event.entity.EntityLeaveLevelEvent;
 import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.config.ModConfig;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
@@ -184,8 +186,7 @@ public class FinanceMod {
     public void onPlayerLogin(PlayerEvent.PlayerLoggedInEvent event) {
         if (event.getEntity() instanceof net.minecraft.server.level.ServerPlayer player) {
             finance.feedback.WorldEconomyFeedbackService.deliverPending(player);
-            if (finance.account.AccountManager.getAccount(player.getUUID()).getBalance() > 0)
-                finance.advancement.FinanceAdvancementTriggers.trigger(player,"first_coin");
+            finance.account.AccountManager.getAccount(player.getUUID());
             finance.company.Company playerCompany=finance.company.CompanyManager.getCompanyByOwner(player.getUUID());
             if(playerCompany==null)playerCompany=finance.company.CompanyManager.getCompanies().stream().filter(company->
                     finance.gameplay.company.CompanyMembershipService.hasPermission(company.getCompanyId(),player.getUUID(),
@@ -195,10 +196,35 @@ public class FinanceMod {
                 if(finance.gameplay.company.CompanyFacilityManager.forCompany(playerCompany.getCompanyId()).stream()
                         .anyMatch(facility->facility.lastProcessedDay()>=0))
                     finance.advancement.FinanceAdvancementTriggers.trigger(player,"company_production");
-                if(playerCompany.isPublic())finance.advancement.FinanceAdvancementTriggers.trigger(player,"public_company");
             }
-            if(!finance.stock.StockPortfolioManager.getPortfolio(player.getUUID()).isEmpty())
-                finance.advancement.FinanceAdvancementTriggers.trigger(player,"public_company");
         }
+    }
+
+    /** Expired ground cargo becomes recoverable; authoritative units remain in transport custody. */
+    @SubscribeEvent
+    public void onCargoExpire(ItemExpireEvent event) {
+        finance.item.SealedCargoCrateItem.markLost(event.getEntity(), "cargo item expired");
+    }
+
+    /** Vanilla discards item entities far below the world before their normal lifespan expires. */
+    @SubscribeEvent
+    public void onCargoLeaveLevel(EntityLeaveLevelEvent event) {
+        if (!event.getLevel().isClientSide && event.getEntity() instanceof net.minecraft.world.entity.item.ItemEntity item
+                && item.getY() < event.getLevel().getMinBuildHeight() - 16) {
+            finance.item.SealedCargoCrateItem.markLost(item, "cargo item fell into the void");
+        }
+    }
+
+    /** Aggregates nearby villager/golem losses; only the threshold changes settlement state. */
+    @SubscribeEvent
+    public void onSettlementCasualty(net.minecraftforge.event.entity.living.LivingDeathEvent event) {
+        if (!(event.getEntity().level() instanceof net.minecraft.server.level.ServerLevel level)
+                || !(event.getEntity() instanceof net.minecraft.world.entity.npc.Villager
+                || event.getEntity() instanceof net.minecraft.world.entity.animal.IronGolem)) return;
+        finance.settlement.SettlementService.nearest(level, event.getEntity().blockPosition(), 96).ifPresent(settlement -> {
+            if (settlement.noteCasualty(level.getGameTime() / 24_000L)) {
+                EconomySavedData.markDirty();
+            }
+        });
     }
 }

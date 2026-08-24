@@ -1,1 +1,1 @@
-{"type":"minecraft:crafting_shaped","pattern":["III","IRI","III"],"key":{"I":{"item":"minecraft:gold_ingot"},"R":{"item":"minecraft:redstone"}},"result":{"item":"finance:bank_counter"}}
+{"type":"minecraft:crafting_shaped","pattern":["SIS","IBI","SSS"],"key":{"S":{"item":"minecraft:stone_bricks"},"I":{"item":"minecraft:iron_ingot"},"B":{"item":"minecraft:barrel"}},"result":{"item":"finance:bank_counter"}}

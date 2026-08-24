@@ -1,0 +1,1 @@
+{"parent":"minecraft:recipes/root","criteria":{"has_paper":{"trigger":"minecraft:inventory_changed","conditions":{"items":[{"items":["minecraft:paper"]}]}},"has_book":{"trigger":"minecraft:inventory_changed","conditions":{"items":[{"items":["minecraft:book"]}]}}},"requirements":[["has_paper"],["has_book"]],"rewards":{"recipes":["finance:portable_ledger"]}}

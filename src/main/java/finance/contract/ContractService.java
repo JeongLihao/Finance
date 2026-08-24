@@ -100,6 +100,56 @@ public final class ContractService {
         return ContractSettlementResult.success("finance.contract.complete_success", contract.rewardAmount());
     }
 
+    /** Settles an accepted contract from cargo already staged in its destination warehouse custody. */
+    public static synchronized ContractSettlementResult completeFromTransport(ServerPlayer player, UUID contractId,
+                                                                               WarehouseRecord destination,
+                                                                               String commodityId, int quantity,
+                                                                               String operationKey) {
+        if (!validKey(operationKey) || destination == null || commodityId == null || commodityId.isBlank()
+                || quantity <= 0)
+            return ContractSettlementResult.failure("finance.contract.invalid_request");
+        FinanceContract contract = ContractManager.get(contractId);
+        long day = player.serverLevel().getGameTime() / 24_000L;
+        if (contract == null || contract.status() != ContractStatus.ACCEPTED
+                || !player.getUUID().equals(contract.acceptedPlayerId())
+                || !destination.warehouseId().equals(contract.destinationWarehouseId())
+                || !commodityId.equals(contract.commodityId()) || quantity != contract.requiredQuantity())
+            return ContractSettlementResult.failure("finance.contract.invalid_session");
+        String key = player.getUUID() + ":" + operationKey;
+        if (contract.hasOperation(key)) return ContractSettlementResult.failure("finance.contract.duplicate_operation");
+        if (day > contract.deadlineDay()) return ContractSettlementResult.failure("finance.contract.expired");
+        Account escrow = AccountManager.getAccounts().get(contract.escrowAccountId());
+        if (escrow == null || escrow.getBalance() != contract.rewardAmount())
+            return ContractSettlementResult.failure("finance.contract.escrow_mismatch");
+        if (!AccountManager.canDeposit(player.getUUID(), contract.rewardAmount()))
+            return ContractSettlementResult.failure("finance.contract.balance_overflow");
+        UUID stagedCustody = WarehouseService.custodyOwner(destination);
+        UUID issuerCustody = contract.issuerType() == ContractIssuerType.COMPANY
+                ? CompanyInventoryFacade.custodyId(contract.issuerId()) : NpcMarketMaker.NPC_UUID;
+        if (CommodityInventoryManager.getCommodityAmount(stagedCustody, commodityId) < quantity
+                || !CommodityInventoryManager.canAddCommodity(issuerCustody, commodityId, quantity))
+            return ContractSettlementResult.failure("finance.contract.destination_full");
+        if (!CommodityInventoryManager.removeCommodity(stagedCustody, commodityId, quantity))
+            return ContractSettlementResult.failure("finance.contract.delivery_failed");
+        if (!CommodityInventoryManager.addCommodity(issuerCustody, commodityId, quantity)) {
+            CommodityInventoryManager.addCommodity(stagedCustody, commodityId, quantity);
+            return ContractSettlementResult.failure("finance.contract.delivery_failed");
+        }
+        if (!AccountManager.moveFunds(contract.escrowAccountId(), player.getUUID(), contract.rewardAmount())) {
+            if (!CommodityInventoryManager.removeCommodity(issuerCustody, commodityId, quantity)
+                    || !CommodityInventoryManager.addCommodity(stagedCustody, commodityId, quantity))
+                throw new IllegalStateException("Transport contract payment rollback could not restore staged cargo");
+            return ContractSettlementResult.failure("finance.contract.payment_failed");
+        }
+        contract.complete();
+        contract.recordOperation(key);
+        finance.advancement.FinanceAdvancementTriggers.trigger(player, "first_contract");
+        AccountManager.addTransactionRecord(new TransactionRecord(contract.escrowAccountId(), player.getUUID(),
+                contract.rewardAmount(), TransactionType.CONTRACT_COMPLETE, player.getUUID(), commodityId, quantity));
+        EconomySavedData.markDirty();
+        return ContractSettlementResult.success("finance.contract.complete_success", contract.rewardAmount());
+    }
+
     private static boolean validKey(String key) {
         return key != null && !key.isBlank() && key.length() <= 64;
     }
