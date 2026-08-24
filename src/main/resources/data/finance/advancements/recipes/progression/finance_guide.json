@@ -1,0 +1,1 @@
+{"parent":"minecraft:recipes/root","criteria":{"has_ink":{"trigger":"minecraft:inventory_changed","conditions":{"items":[{"items":["minecraft:ink_sac"]}]}},"has_book":{"trigger":"minecraft:inventory_changed","conditions":{"items":[{"items":["minecraft:book"]}]}}},"requirements":[["has_ink"],["has_book"]],"rewards":{"recipes":["finance:finance_guide"]}}

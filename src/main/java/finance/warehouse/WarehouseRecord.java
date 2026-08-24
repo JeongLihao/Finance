@@ -13,7 +13,8 @@ public final class WarehouseRecord {
     private final BlockPos blockPos;
     private final UUID ownerId;
     private UUID companyId;
-    private final int capacityUnits;
+    private int capacityUnits;
+    private WarehouseTier tier;
     private WarehouseStatus status;
     private final long createdDay;
     private long lastAuditDay;
@@ -34,10 +35,20 @@ public final class WarehouseRecord {
         this.ownerId = ownerId;
         this.companyId = companyId;
         this.capacityUnits = capacityUnits;
+        this.tier = WarehouseTier.fromLegacyCapacity(capacityUnits);
         this.status = status;
         this.createdDay = createdDay;
         this.lastAuditDay = lastAuditDay;
         this.permissionMode = permissionMode;
+    }
+
+    public WarehouseRecord(UUID warehouseId, String dimensionId, BlockPos blockPos, UUID ownerId,
+                           UUID companyId, WarehouseTier tier, int capacityUnits, WarehouseStatus status,
+                           long createdDay, long lastAuditDay, WarehousePermissionMode permissionMode) {
+        this(warehouseId, dimensionId, blockPos, ownerId, companyId, capacityUnits, status,
+                createdDay, lastAuditDay, permissionMode);
+        if (tier == null) throw new IllegalArgumentException("Invalid warehouse tier");
+        this.tier = tier;
     }
 
     public UUID warehouseId() { return warehouseId; }
@@ -46,6 +57,8 @@ public final class WarehouseRecord {
     public UUID ownerId() { return ownerId; }
     public UUID companyId() { return companyId; }
     public int capacityUnits() { return capacityUnits; }
+    public WarehouseTier tier() { return tier; }
+    public int transferLimit() { return tier.transferLimit(); }
     public WarehouseStatus status() { return status; }
     public long createdDay() { return createdDay; }
     public long lastAuditDay() { return lastAuditDay; }
@@ -55,6 +68,12 @@ public final class WarehouseRecord {
     public void setStatus(WarehouseStatus status) { if (status != null) this.status = status; }
     public void setLastAuditDay(long day) { if (day >= -1) lastAuditDay = day; }
     public void bindCompany(UUID companyId) { this.companyId = companyId; }
+    public boolean upgrade(WarehouseTier target, int newCapacity) {
+        if (target == null || tier.next() != target || newCapacity < capacityUnits) return false;
+        tier = target;
+        capacityUnits = newCapacity;
+        return true;
+    }
 
     public boolean hasOperation(String key) { return key != null && operationKeys.contains(key); }
     public void recordOperation(String key) {

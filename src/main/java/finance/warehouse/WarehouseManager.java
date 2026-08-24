@@ -16,7 +16,7 @@ import finance.gameplay.company.CompanyMembershipService;
 import finance.gameplay.company.CompanyPermission;
 
 public final class WarehouseManager {
-    public static final int DEFAULT_CAPACITY = 4_096;
+    public static final int DEFAULT_CAPACITY = 1_024;
     public static final int MAX_RECORDS = 4_096;
     private static final Map<UUID, WarehouseRecord> WAREHOUSES = new LinkedHashMap<>();
 
@@ -42,10 +42,6 @@ public final class WarehouseManager {
             if (atPosition != null) {
                 entity.assignIdentity(atPosition.warehouseId(), atPosition.ownerId());
                 existing = atPosition;
-            } else {
-                WAREHOUSES.values().removeIf(record -> record.dimensionId().equals(dimension)
-                        && record.blockPos().equals(pos) && (record.status() == WarehouseStatus.DISABLED
-                        || record.status() == WarehouseStatus.ORPHANED));
             }
         }
         if (existing == null) {
@@ -53,9 +49,11 @@ public final class WarehouseManager {
             UUID owner = entity.ownerId() != null ? entity.ownerId() : player.getUUID();
             entity.assignIdentity(id, owner);
             long day = player.serverLevel().getGameTime() / 24_000L;
-            existing = new WarehouseRecord(id, dimension, pos, owner, null, DEFAULT_CAPACITY,
+            existing = new WarehouseRecord(id, dimension, pos, owner, null, WarehouseTier.BASIC,
+                    WarehouseTier.BASIC.capacity(),
                     WarehouseStatus.ACTIVE, day, day, WarehousePermissionMode.OWNER_ONLY);
             WAREHOUSES.put(id, existing);
+            finance.advancement.FinanceAdvancementTriggers.trigger(player, "warehouse_built");
             EconomySavedData.markDirty();
         }
         refreshOwnerStatus(existing.ownerId());
@@ -67,17 +65,13 @@ public final class WarehouseManager {
 
     public static synchronized boolean restore(WarehouseRecord record) {
         if (record == null || WAREHOUSES.containsKey(record.warehouseId())) return false;
-        WarehouseRecord positionConflict = WAREHOUSES.values().stream().filter(existing ->
-                existing.dimensionId().equals(record.dimensionId()) && existing.blockPos().equals(record.blockPos()))
+        boolean incomingActive = record.status() != WarehouseStatus.DISABLED
+                && record.status() != WarehouseStatus.ORPHANED;
+        WarehouseRecord positionConflict = WAREHOUSES.values().stream().filter(existing -> incomingActive
+                && existing.status() != WarehouseStatus.DISABLED && existing.status() != WarehouseStatus.ORPHANED
+                && existing.dimensionId().equals(record.dimensionId()) && existing.blockPos().equals(record.blockPos()))
                 .findFirst().orElse(null);
-        if (positionConflict != null) {
-            boolean existingInactive = positionConflict.status() == WarehouseStatus.DISABLED
-                    || positionConflict.status() == WarehouseStatus.ORPHANED;
-            boolean incomingActive = record.status() != WarehouseStatus.DISABLED
-                    && record.status() != WarehouseStatus.ORPHANED;
-            if (!existingInactive || !incomingActive) return false;
-            WAREHOUSES.remove(positionConflict.warehouseId());
-        }
+        if (positionConflict != null) return false;
         WAREHOUSES.put(record.warehouseId(), record);
         return true;
     }

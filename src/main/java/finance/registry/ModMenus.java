@@ -6,6 +6,7 @@ import finance.gui.MarketOverviewMenu;
 import finance.gui.WalletMenu;
 import finance.gui.WarehouseMenu;
 import finance.gui.CompanyGameplayMenu;
+import finance.gui.SettlementMenu;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraftforge.common.extensions.IForgeMenuType;
 import net.minecraftforge.eventbus.api.IEventBus;
@@ -30,6 +31,8 @@ public class ModMenus {
             MENUS.register("warehouse", () -> IForgeMenuType.create(WarehouseMenu::new));
     public static final RegistryObject<MenuType<CompanyGameplayMenu>> COMPANY_GAMEPLAY =
             MENUS.register("company_gameplay", () -> IForgeMenuType.create(CompanyGameplayMenu::new));
+    public static final RegistryObject<MenuType<SettlementMenu>> SETTLEMENT =
+            MENUS.register("settlement", () -> IForgeMenuType.create(SettlementMenu::new));
 
     public static void register(IEventBus eventBus) {
         MENUS.register(eventBus);

@@ -6,6 +6,7 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
+import java.util.Comparator;
 
 public final class CommodityItemResolver {
     public record Resolution(boolean valid, Item item, String messageKey) {}
@@ -24,5 +25,16 @@ public final class CommodityItemResolver {
             return new Resolution(false, null, "finance.warehouse.virtual_commodity");
         }
         return new Resolution(true, item, "finance.warehouse.item_resolved");
+    }
+
+    public static String commodityId(Item item) {
+        if (item == null || item == Items.AIR) return null;
+        return CommodityRegistry.getAllCommodities().stream()
+                .sorted(Comparator.comparing(Commodity::getId))
+                .filter(commodity -> {
+                    ResourceLocation id = ResourceLocation.tryParse(commodity.getItemId());
+                    return id != null && BuiltInRegistries.ITEM.containsKey(id)
+                            && BuiltInRegistries.ITEM.get(id) == item;
+                }).map(Commodity::getId).findFirst().orElse(null);
     }
 }

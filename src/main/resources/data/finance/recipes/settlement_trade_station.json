@@ -1,0 +1,1 @@
+{"type":"minecraft:crafting_shaped","pattern":["PBP","CEC","PPP"],"key":{"P":{"tag":"minecraft:planks"},"B":{"item":"minecraft:bell"},"C":{"item":"minecraft:copper_ingot"},"E":{"item":"minecraft:emerald"}},"result":{"item":"finance:settlement_trade_station"}}

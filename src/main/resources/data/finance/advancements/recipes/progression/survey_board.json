@@ -1,0 +1,1 @@
+{"parent":"finance:portable_finance","criteria":{"has_compass":{"trigger":"minecraft:inventory_changed","conditions":{"items":[{"items":["minecraft:compass"]}]}}},"rewards":{"recipes":["finance:survey_board"]},"requirements":[["has_compass"]]}

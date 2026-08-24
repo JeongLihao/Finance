@@ -22,6 +22,8 @@ public final class WarehouseScreen extends AbstractContainerScreen<WarehouseMenu
     private int selectedContract;
     private int rowOffset;
     private int contractOffset;
+    private int shipmentOffset;
+    private boolean showShipments;
     private boolean pending;
     private EditBox amount;
 
@@ -39,6 +41,7 @@ public final class WarehouseScreen extends AbstractContainerScreen<WarehouseMenu
         selectedContract = clampSelection(selectedContract, menu.contracts().size());
         rowOffset = clampOffset(rowOffset, menu.rows().size(), COMMODITY_ROWS);
         contractOffset = clampOffset(contractOffset, menu.contracts().size(), CONTRACT_ROWS);
+        shipmentOffset = clampOffset(shipmentOffset, menu.shipments().size(), CONTRACT_ROWS);
         amount = new EditBox(font, leftPos + 52, topPos + 202, 55, 16,
                 Component.translatable("screen.finance.warehouse.amount"));
         amount.setMaxLength(8);
@@ -72,30 +75,43 @@ public final class WarehouseScreen extends AbstractContainerScreen<WarehouseMenu
             y += 12;
         }
 
-        drawClipped(graphics, Component.translatable("screen.finance.contracts").getString(),
+        drawClipped(graphics, Component.translatable(showShipments
+                        ? "screen.finance.logistics.shipments" : "screen.finance.contracts").getString(),
                 10, 123, 300, 0xFF202020);
         int contractY = 139;
-        int contractEnd = Math.min(menu.contracts().size(), contractOffset + CONTRACT_ROWS);
-        for (int i = contractOffset; i < contractEnd; i++) {
-            WarehouseMenu.ContractRow row = menu.contracts().get(i);
-            if (i == selectedContract) graphics.fill(8, contractY - 2, 312, contractY + 10, 0xFFD5E3C7);
-            String line = row.commodityId() + " x" + row.quantity() + "  奖励 " + row.reward()
-                    + "  D" + row.deadlineDay() + "  " + row.status();
-            drawClipped(graphics, line, 12, contractY, 296, 0xFF202020);
-            contractY += 12;
+        if (showShipments) {
+            int shipmentEnd = Math.min(menu.shipments().size(), shipmentOffset + CONTRACT_ROWS);
+            for (int i = shipmentOffset; i < shipmentEnd; i++) {
+                WarehouseMenu.ShipmentRow row = menu.shipments().get(i);
+                String line = row.commodityId() + " x" + row.quantity() + "  " + row.source()
+                        + "→" + row.destination() + "  D" + row.deadlineDay() + "  " + row.status();
+                drawClipped(graphics, line, 12, contractY, 296, 0xFF202020);
+                contractY += 12;
+            }
+        } else {
+            int contractEnd = Math.min(menu.contracts().size(), contractOffset + CONTRACT_ROWS);
+            for (int i = contractOffset; i < contractEnd; i++) {
+                WarehouseMenu.ContractRow row = menu.contracts().get(i);
+                if (i == selectedContract) graphics.fill(8, contractY - 2, 312, contractY + 10, 0xFFD5E3C7);
+                String line = row.commodityId() + " x" + row.quantity() + "  奖励 " + row.reward()
+                        + "  D" + row.deadlineDay() + "  " + row.status();
+                drawClipped(graphics, line, 12, contractY, 296, 0xFF202020);
+                contractY += 12;
+            }
         }
 
         if (!menu.statusKey().isBlank()) {
             drawClipped(graphics, Component.translatable(menu.statusKey(), menu.statusAmount()).getString(),
                     10, 177, 300, menu.statusKey().contains("success") ? 0xFF2D7D32 : 0xFF9A2F2F);
         }
-        drawClipped(graphics, Component.translatable("screen.finance.warehouse.lock_hint").getString(),
-                10, 189, 300, 0xFF555555);
+        drawClipped(graphics, Component.translatable("screen.finance.warehouse.tier", menu.tier(),
+                menu.transferLimit(), menu.upgradeMaterials()).getString(), 10, 189, 210, 0xFF555555);
 
         drawClipped(graphics, Component.translatable("screen.finance.warehouse.amount").getString(),
                 10, 206, 38, 0xFF555555);
         drawButton(graphics, 112, 202, 54, Component.translatable("screen.finance.warehouse.deposit"));
         drawButton(graphics, 170, 202, 54, Component.translatable("screen.finance.warehouse.withdraw"));
+        drawButton(graphics, 228, 202, 82, Component.translatable("screen.finance.warehouse.upgrade"));
         drawButton(graphics, 10, 221, 66, Component.translatable("screen.finance.warehouse.bind_company"));
         drawButton(graphics, 80, 221, 66, Component.translatable("screen.finance.warehouse.unbind_company"));
         drawButton(graphics, 170, 221, 54, Component.translatable("screen.finance.contract.accept"));
@@ -131,10 +147,21 @@ public final class WarehouseScreen extends AbstractContainerScreen<WarehouseMenu
             selected = Math.min(menu.rows().size() - 1, rowOffset + Math.max(0, (my - 57) / 12));
             return true;
         }
-        if (mx >= 8 && mx < 312 && my >= 137
+        if (mx >= 8 && mx < 312 && my >= 121 && my < 136) {
+            showShipments = !showShipments;
+            return true;
+        }
+        if (!showShipments && mx >= 8 && mx < 312 && my >= 137
                 && my < 137 + Math.min(CONTRACT_ROWS, Math.max(0, menu.contracts().size() - contractOffset)) * 12) {
             selectedContract = Math.min(menu.contracts().size() - 1,
                     contractOffset + Math.max(0, (my - 137) / 12));
+            return true;
+        }
+        if (my >= 202 && my < 218 && mx >= 228 && mx < 310) {
+            FinancePacketHandler.CHANNEL.sendToServer(new WarehouseActionPacket(
+                    WarehouseActionPacket.Action.UPGRADE, menu.warehouseId(), "upgrade", 0,
+                    UUID.randomUUID().toString()));
+            pending = true;
             return true;
         }
         if (my >= 202 && my < 218 && selected >= 0 && selected < menu.rows().size()) {
@@ -154,7 +181,7 @@ public final class WarehouseScreen extends AbstractContainerScreen<WarehouseMenu
                 return true;
             }
         }
-        if (my >= 221 && my < 237 && selectedContract >= 0 && selectedContract < menu.contracts().size()) {
+        if (!showShipments && my >= 221 && my < 237 && selectedContract >= 0 && selectedContract < menu.contracts().size()) {
             ContractActionPacket.Action action = mx >= 170 && mx < 224
                     ? ContractActionPacket.Action.ACCEPT
                     : mx >= 228 && mx < 310 ? ContractActionPacket.Action.COMPLETE : null;
@@ -188,8 +215,12 @@ public final class WarehouseScreen extends AbstractContainerScreen<WarehouseMenu
             return true;
         }
         if (my >= 123 && my < 175) {
-            contractOffset = clampOffset(contractOffset + direction, menu.contracts().size(), CONTRACT_ROWS);
-            selectedContract = keepVisible(selectedContract, contractOffset, menu.contracts().size(), CONTRACT_ROWS);
+            if (showShipments) shipmentOffset = clampOffset(shipmentOffset + direction,
+                    menu.shipments().size(), CONTRACT_ROWS);
+            else {
+                contractOffset = clampOffset(contractOffset + direction, menu.contracts().size(), CONTRACT_ROWS);
+                selectedContract = keepVisible(selectedContract, contractOffset, menu.contracts().size(), CONTRACT_ROWS);
+            }
             return true;
         }
         return super.mouseScrolled(mouseX, mouseY, delta);

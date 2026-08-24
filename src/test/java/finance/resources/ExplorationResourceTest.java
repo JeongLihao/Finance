@@ -1,0 +1,7 @@
+package finance.resources;
+import com.google.gson.*;import org.junit.jupiter.api.Test;import java.io.*;import java.nio.charset.StandardCharsets;import static org.junit.jupiter.api.Assertions.*;
+class ExplorationResourceTest {
+ @Test void blueprintsAndLootAreBoundedAndContainNoAuthorityNbt()throws Exception{for(String id:new String[]{"abandoned_warehouse","roadside_trade_post"}){JsonObject blueprint=json("data/finance/exploration_structures/"+id+".json");assertFalse(blueprint.get("authorityNbt").getAsBoolean());for(JsonElement size:blueprint.getAsJsonArray("size"))assertTrue(size.getAsInt()<=16);String serialized=blueprint.toString();assertFalse(serialized.contains("Balance"));assertFalse(serialized.contains("Escrow"));assertFalse(serialized.contains("Owner"));String loot=json("data/finance/loot_tables/chests/"+id+".json").toString();assertFalse(loot.contains("currency"));assertFalse(loot.contains("stock"));assertFalse(loot.contains("admin"));assertFalse(loot.contains("set_nbt"));}}
+ @Test void noActiveWorldgenRegistryIsShippedInSafeMvp(){assertNull(getClass().getClassLoader().getResource("data/finance/worldgen/structure_set/abandoned_warehouse.json"));assertNull(getClass().getClassLoader().getResource("data/forge/forge/biome_modifier/finance_ruins.json"));}
+ private JsonObject json(String path)throws Exception{try(InputStream in=getClass().getClassLoader().getResourceAsStream(path)){assertNotNull(in,path);return JsonParser.parseReader(new InputStreamReader(in,StandardCharsets.UTF_8)).getAsJsonObject();}}
+}

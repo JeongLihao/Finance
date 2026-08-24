@@ -30,6 +30,7 @@ class FinanceTextureResourceTest {
         }
         assertTexture("assets/finance/textures/item/portable_ledger.png");
         assertTexture("assets/finance/textures/item/finance_guide.png");
+        assertTexture("assets/finance/textures/item/sealed_cargo_crate.png");
     }
 
     @Test
@@ -46,7 +47,7 @@ class FinanceTextureResourceTest {
 
     @Test
     void portableItemsUseFinanceTexturesInsteadOfVanillaBooks() throws Exception {
-        for (String item : List.of("portable_ledger", "finance_guide")) {
+        for (String item : List.of("portable_ledger", "finance_guide", "sealed_cargo_crate")) {
             JsonObject model = readJson("assets/finance/models/item/" + item + ".json");
             assertEquals("finance:item/" + item,
                     model.getAsJsonObject("textures").get("layer0").getAsString());

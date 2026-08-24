@@ -8,5 +8,5 @@ import net.minecraft.network.chat.FormattedText;
 /** Client-only translated pages; the common item never loads rendering classes on a server. */
 public final class FinanceGuideClientHandler {
     private FinanceGuideClientHandler(){}
-    public static void open(){Minecraft.getInstance().setScreen(new BookViewScreen(new BookViewScreen.BookAccess(){public int getPageCount(){return 8;}public FormattedText getPageRaw(int page){return Component.translatable("finance.guide.page."+(page+1));}}));}
+    public static void open(){Minecraft.getInstance().setScreen(new BookViewScreen(new BookViewScreen.BookAccess(){public int getPageCount(){return 13;}public FormattedText getPageRaw(int page){return Component.translatable("finance.guide.page."+(page+1));}}));}
 }

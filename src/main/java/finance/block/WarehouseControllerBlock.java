@@ -16,6 +16,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 import org.jetbrains.annotations.Nullable;
 import finance.warehouse.WarehouseManager;
+import finance.warehouse.WarehouseRecord;
 import net.minecraft.util.StringRepresentable;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.EnumProperty;
@@ -31,10 +32,25 @@ public final class WarehouseControllerBlock extends BaseEntityBlock {
     @Override
     public InteractionResult use(BlockState state, Level level, BlockPos pos, Player player,
                                  InteractionHand hand, BlockHitResult hit) {
+        // Let the cargo item own bind/load/unload interaction instead of opening the warehouse menu first.
+        if (player.getItemInHand(hand).is(finance.registry.ModItems.SEALED_CARGO_CRATE.get()))
+            return InteractionResult.PASS;
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
+            var exploration = finance.exploration.ExplorationService.verifyAt(serverPlayer,pos,
+                    finance.exploration.ExplorationTargetType.WAREHOUSE);
+            if(exploration.success())serverPlayer.displayClientMessage(net.minecraft.network.chat.Component.translatable(
+                    exploration.messageKey(),exploration.assignment().reward()),true);
             BlockEntity entity = level.getBlockEntity(pos);
             if (entity instanceof WarehouseControllerBlockEntity warehouse) {
                 warehouse.claimIfNeeded(player.getUUID());
+                WarehouseRecord record = WarehouseManager.registerOrRecover(serverPlayer, warehouse);
+                if (player.isShiftKeyDown() && record != null) {
+                    var requirement = finance.warehouse.WarehouseUpgradeRequirementService.requirement(record.tier());
+                    serverPlayer.displayClientMessage(net.minecraft.network.chat.Component.translatable(
+                            "finance.warehouse.inspect", record.tier().level(), record.capacityUnits(),
+                            record.transferLimit(), finance.warehouse.WarehouseUpgradeRequirementService.summary(requirement)), true);
+                    return InteractionResult.CONSUME;
+                }
             }
             FinanceGameplayOpener.openTerminal(serverPlayer, pos, FinanceTerminalType.WAREHOUSE_CONTROLLER);
             if (entity instanceof WarehouseControllerBlockEntity warehouse) updateIndicator(level,pos,warehouse.warehouseId());
@@ -61,8 +77,8 @@ public final class WarehouseControllerBlock extends BaseEntityBlock {
         if (!level.isClientSide && level.getBlockEntity(pos) instanceof WarehouseControllerBlockEntity warehouse) {
             WarehouseManager.disable(warehouse.warehouseId());
             if (player instanceof ServerPlayer serverPlayer) {
-                serverPlayer.sendSystemMessage(net.minecraft.network.chat.Component.translatable(
-                        "finance.warehouse.removed_warning"));
+                serverPlayer.displayClientMessage(net.minecraft.network.chat.Component.translatable(
+                        "finance.warehouse.removed_warning"), true);
             }
         }
         super.playerWillDestroy(level, pos, state, player);

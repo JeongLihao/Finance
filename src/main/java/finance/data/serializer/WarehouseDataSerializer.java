@@ -4,6 +4,7 @@ import finance.warehouse.WarehouseManager;
 import finance.warehouse.WarehousePermissionMode;
 import finance.warehouse.WarehouseRecord;
 import finance.warehouse.WarehouseStatus;
+import finance.warehouse.WarehouseTier;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
@@ -34,6 +35,7 @@ public final class WarehouseDataSerializer {
             tag.putUUID("Owner", record.ownerId());
             if (record.companyId() != null) tag.putUUID("Company", record.companyId());
             tag.putInt("Capacity", record.capacityUnits());
+            tag.putString("Tier", record.tier().name());
             tag.putString("Status", record.status().name());
             tag.putLong("CreatedDay", record.createdDay());
             tag.putLong("LastAuditDay", record.lastAuditDay());
@@ -70,8 +72,12 @@ public final class WarehouseDataSerializer {
                         || Math.abs((long) pos.getX()) > 30_000_000L || Math.abs((long) pos.getZ()) > 30_000_000L
                         || pos.getY() < -2_048 || pos.getY() > 2_048 || capacity <= 0 || capacity > MAX_CAPACITY
                         || status == null || permission == null || created < 0 || audit < -1) continue;
+                WarehouseTier tier = tag.contains("Tier")
+                        ? NbtDataSupport.safeEnum(WarehouseTier.class, tag.getString("Tier"), null)
+                        : WarehouseTier.fromLegacyCapacity(capacity);
+                if (tier == null) continue;
                 WarehouseRecord record = new WarehouseRecord(id, dimension, pos, owner,
-                        NbtDataSupport.readUuidOrNull(tag, "Company"), capacity, status, created, audit, permission);
+                        NbtDataSupport.readUuidOrNull(tag, "Company"), tier, capacity, status, created, audit, permission);
                 ListTag operations = tag.getList("Operations", Tag.TAG_STRING);
                 for (int op = Math.max(0, operations.size() - WarehouseRecord.MAX_OPERATION_KEYS);
                      op < operations.size(); op++) {

@@ -28,6 +28,25 @@ class WarehouseContractPacketTest {
         assertThrows(RuntimeException.class, () -> WarehouseActionPacket.decode(buffer));
     }
 
+    @Test void warehouseUpgradeRoundTripsOnlyCanonicalIntent() {
+        UUID warehouse = UUID.randomUUID();
+        WarehouseActionPacket packet = new WarehouseActionPacket(WarehouseActionPacket.Action.UPGRADE,
+                warehouse, "upgrade", 0, "upgrade-operation");
+        FriendlyByteBuf valid = new FriendlyByteBuf(Unpooled.buffer());
+        WarehouseActionPacket.encode(packet, valid);
+        assertEquals(packet, WarehouseActionPacket.decode(valid));
+
+        for (int forgedAmount : new int[] {-1, 1, Integer.MAX_VALUE}) {
+            FriendlyByteBuf forged = new FriendlyByteBuf(Unpooled.buffer());
+            forged.writeEnum(WarehouseActionPacket.Action.UPGRADE);
+            forged.writeUUID(warehouse);
+            forged.writeUtf("upgrade", 64);
+            forged.writeVarInt(forgedAmount);
+            forged.writeUtf("upgrade-operation", 64);
+            assertThrows(RuntimeException.class, () -> WarehouseActionPacket.decode(forged));
+        }
+    }
+
     @Test void contractActionRoundTripsWithoutRewardOrPlayerIdentity() {
         ContractActionPacket packet = new ContractActionPacket(ContractActionPacket.Action.COMPLETE,
                 UUID.randomUUID(), UUID.randomUUID(), "operation-2");

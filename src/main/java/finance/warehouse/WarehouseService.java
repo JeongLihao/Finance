@@ -26,6 +26,8 @@ public final class WarehouseService {
             return WarehouseActionResult.failure("finance.warehouse.module_paused");
         if (!validOperation(operationKey) || amount <= 0 || commodityId == null || commodityId.isBlank())
             return WarehouseActionResult.failure("finance.warehouse.invalid_request");
+        if (amount > record.transferLimit())
+            return WarehouseActionResult.failure("finance.warehouse.transfer_limit");
         String scopedKey = player.getUUID() + ":" + operationKey;
         if (record.hasOperation(scopedKey)) return WarehouseActionResult.failure("finance.warehouse.duplicate_operation");
         if (!WarehouseManager.canDeposit(player, record)) return WarehouseActionResult.failure("finance.warehouse.no_permission");
@@ -63,6 +65,8 @@ public final class WarehouseService {
         if (record == null) return WarehouseActionResult.failure("finance.warehouse.invalid_session");
         if (!validOperation(operationKey) || amount <= 0 || commodityId == null || commodityId.isBlank())
             return WarehouseActionResult.failure("finance.warehouse.invalid_request");
+        if (amount > record.transferLimit())
+            return WarehouseActionResult.failure("finance.warehouse.transfer_limit");
         String scopedKey = player.getUUID() + ":" + operationKey;
         if (record.hasOperation(scopedKey)) return WarehouseActionResult.failure("finance.warehouse.duplicate_operation");
         if (!WarehouseManager.canWithdraw(player, record)) return WarehouseActionResult.failure("finance.warehouse.no_permission");

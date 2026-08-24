@@ -1,0 +1,1 @@
+{"type":"minecraft:crafting_shaped","pattern":["PCP","SCS","PPP"],"key":{"P":{"tag":"minecraft:planks"},"C":{"item":"minecraft:compass"},"S":{"item":"minecraft:string"}},"result":{"item":"finance:survey_board"}}

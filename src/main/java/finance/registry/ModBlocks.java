@@ -6,11 +6,14 @@ import finance.block.WarehouseControllerBlock;
 import finance.block.CompanyDeskBlock;
 import finance.block.CompanyFactoryControllerBlock;
 import finance.block.BoardroomTableBlock;
+import finance.block.SettlementTradeStationBlock;
+import finance.block.SurveyBoardBlock;
 import finance.gameplay.FinanceTerminalType;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.material.MapColor;
+import net.minecraft.world.level.material.PushReaction;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.registries.DeferredRegister;
 import net.minecraftforge.registries.ForgeRegistries;
@@ -21,7 +24,8 @@ public final class ModBlocks {
             DeferredRegister.create(ForgeRegistries.BLOCKS, FinanceMod.MOD_ID);
 
     private static BlockBehaviour.Properties terminalProperties() {
-        return BlockBehaviour.Properties.of().mapColor(MapColor.METAL).strength(3.5F).sound(SoundType.METAL);
+        return BlockBehaviour.Properties.of().mapColor(MapColor.METAL).strength(3.5F)
+                .sound(SoundType.METAL).pushReaction(PushReaction.BLOCK);
     }
 
     public static final RegistryObject<Block> MARKET_TERMINAL = BLOCKS.register("market_terminal",
@@ -40,6 +44,12 @@ public final class ModBlocks {
             () -> new FinanceTerminalBlock(terminalProperties(), FinanceTerminalType.CENTRAL_BANK_CONSOLE));
     public static final RegistryObject<Block> BOARDROOM_TABLE = BLOCKS.register("boardroom_table",
             () -> new BoardroomTableBlock(terminalProperties()));
+    public static final RegistryObject<Block> SETTLEMENT_TRADE_STATION = BLOCKS.register("settlement_trade_station",
+            () -> new SettlementTradeStationBlock(BlockBehaviour.Properties.of().mapColor(MapColor.WOOD)
+                    .strength(2.5F).sound(SoundType.WOOD).pushReaction(PushReaction.BLOCK)));
+    public static final RegistryObject<Block> SURVEY_BOARD = BLOCKS.register("survey_board",
+            () -> new SurveyBoardBlock(BlockBehaviour.Properties.of().mapColor(MapColor.WOOD)
+                    .strength(2.0F).sound(SoundType.WOOD)));
 
     private ModBlocks() {}
 

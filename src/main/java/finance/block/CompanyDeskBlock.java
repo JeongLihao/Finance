@@ -20,7 +20,7 @@ public final class CompanyDeskBlock extends BaseEntityBlock {
     @Override public InteractionResult use(BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
         if (!level.isClientSide && player instanceof ServerPlayer server && level.getBlockEntity(pos) instanceof CompanyDeskBlockEntity desk) {
             if (desk.bindOrValidate(server)) CompanyGameplayGuiOpener.open(server, pos);
-            else server.sendSystemMessage(net.minecraft.network.chat.Component.translatable("finance.company_gameplay.desk_denied"));
+            else server.displayClientMessage(net.minecraft.network.chat.Component.translatable("finance.company_gameplay.desk_denied"), true);
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }

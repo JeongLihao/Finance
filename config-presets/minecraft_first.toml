@@ -1,0 +1,36 @@
+# Finance v0.4.1 recommended default. Copy the selected values into config/finance-common.toml.
+[gameplay]
+minecraftFirstMode = true
+requirePhysicalTerminal = true
+enablePortableLedger = true
+legacyFullScreenKeybind = false
+warehouseCapacityEnabled = true
+contractsEnabled = true
+playerDrivenCompanyProduction = true
+allowLegacyAutomaticCompanyProduction = true
+newCompaniesPlayerDrivenOnly = false
+hybridLegacyFallbackRatio = 0.25
+advancedFinanceRequiresTerminal = true
+adminConsoleRequiresPermission = true
+terminalInteractionDistance = 8.0
+worldEconomyGlobalBroadcasts = true
+
+[gameplay.logistics]
+maxActivePerPlayer = 8
+maxActivePerCompany = 32
+maxCargoUnits = 1024
+defaultDeadlineDays = 14
+
+[gameplay.settlements]
+maxActivePerPlayer = 4
+maxOpenPerSettlement = 8
+demandDeadlineDays = 5
+rewardBasisPoints = 12000
+
+[gameplay.exploration]
+enabled = true
+worldgenEnabled = false
+requestCooldownDays = 2
+maximumTargetDistance = 4096
+deadlineDays = 7
+reward = 250

@@ -73,12 +73,18 @@ public class TradeActionPacket {
                     packet.price,
                     packet.quantity);
 
+            finance.market.Trade previousLast = MarketManager.getTradeHistory().isEmpty() ? null
+                    : MarketManager.getTradeHistory().get(MarketManager.getTradeHistory().size() - 1);
             boolean changed = switch (safePacket.actionType) {
                 case P2P_BUY -> handleP2pBuy(player, safePacket);
                 case P2P_SELL -> handleP2pSell(player, safePacket);
                 case INTL_BUY -> handleIntlBuy(player, safePacket);
                 case INTL_SELL -> handleIntlSell(player, safePacket);
             };
+            finance.market.Trade currentLast = MarketManager.getTradeHistory().isEmpty() ? null
+                    : MarketManager.getTradeHistory().get(MarketManager.getTradeHistory().size() - 1);
+            if (changed && currentLast != null && currentLast != previousLast)
+                finance.advancement.FinanceAdvancementTriggers.trigger(player, "first_trade");
         });
         ctx.get().setPacketHandled(true);
     }

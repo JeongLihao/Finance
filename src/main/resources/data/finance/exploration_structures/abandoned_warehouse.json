@@ -1,0 +1,1 @@
+{"format":1,"size":[7,5,7],"activation":"player_interaction","authorityNbt":false,"palette":["minecraft:stone_bricks","minecraft:cracked_stone_bricks","minecraft:oak_planks","minecraft:barrel","finance:warehouse_controller"],"lootTable":"finance:chests/abandoned_warehouse","notes":"Blueprint only; world generation is disabled by default and this resource does not alter biomes."}

@@ -35,9 +35,13 @@ public final class WarehouseGuiOpener {
         if (record == null || !WarehouseManager.canView(player, record)) return false;
         List<WarehouseMenu.CommodityRow> rows = rows(player, record);
         List<WarehouseMenu.ContractRow> contracts = contracts(player);
+        List<WarehouseMenu.ShipmentRow> shipments = shipments(player, record);
         java.util.UUID custodyOwner = finance.warehouse.WarehouseService.custodyOwner(record);
         long used = WarehouseManager.usedCapacity(custodyOwner);
         long capacity = WarehouseManager.totalCapacity(custodyOwner);
+        var upgrade = finance.warehouse.WarehouseUpgradeRequirementService.requirement(record.tier());
+        long upgradeCash = upgrade == null ? 0 : upgrade.cash();
+        String upgradeMaterials = finance.warehouse.WarehouseUpgradeRequirementService.summary(upgrade);
         String ownerName = record.ownerId().equals(player.getUUID())
                 ? player.getGameProfile().getName() : record.ownerId().toString().substring(0, 8);
         MenuProvider provider = new MenuProvider() {
@@ -45,14 +49,30 @@ public final class WarehouseGuiOpener {
             @Override public WarehouseMenu createMenu(int containerId, net.minecraft.world.entity.player.Inventory inventory,
                                                        net.minecraft.world.entity.player.Player menuPlayer) {
                 return new WarehouseMenu(containerId, record.warehouseId(), ownerName, record.dimensionId(),
-                        record.blockPos(), used, capacity, record.status(), rows, contracts, statusKey, statusAmount);
+                        record.blockPos(), used, capacity, record.tier().level(), record.transferLimit(),
+                        upgradeCash, upgradeMaterials, record.status(), rows, contracts, shipments,
+                        statusKey, statusAmount);
             }
         };
         NetworkHooks.openScreen(player, provider, buffer -> WarehouseMenu.write(buffer, record.warehouseId(),
-                ownerName, record.dimensionId(), record.blockPos(), used, capacity, record.status(), rows,
-                contracts, statusKey, statusAmount));
+                ownerName, record.dimensionId(), record.blockPos(), used, capacity, record.tier().level(),
+                record.transferLimit(), upgradeCash, upgradeMaterials, record.status(), rows,
+                contracts, shipments, statusKey, statusAmount));
         return true;
     }
+
+    private static List<WarehouseMenu.ShipmentRow> shipments(ServerPlayer player, WarehouseRecord warehouse) {
+        return finance.logistics.ShipmentManager.relatedTo(player.getUUID(), player.hasPermissions(2)).stream()
+                .filter(shipment -> shipment.sourceWarehouseId().equals(warehouse.warehouseId())
+                        || shipment.destinationWarehouseId().equals(warehouse.warehouseId()))
+                .limit(WarehouseMenu.MAX_SHIPMENTS)
+                .map(shipment -> new WarehouseMenu.ShipmentRow(shipment.id(), shipment.commodityId(),
+                        shipment.quantity(), shortId(shipment.sourceWarehouseId()),
+                        shortId(shipment.destinationWarehouseId()), shipment.deadlineDay(), shipment.status().name()))
+                .toList();
+    }
+
+    private static String shortId(java.util.UUID id) { return id.toString().substring(0, 8); }
 
     private static List<WarehouseMenu.ContractRow> contracts(ServerPlayer player) {
         return ContractManager.contracts().values().stream()

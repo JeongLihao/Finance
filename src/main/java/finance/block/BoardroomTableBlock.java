@@ -24,7 +24,7 @@ public final class BoardroomTableBlock extends BaseEntityBlock {
     @Override public InteractionResult use(BlockState state,Level level,BlockPos pos,Player player,InteractionHand hand,BlockHitResult hit){
         if(!level.isClientSide&&player instanceof ServerPlayer server&&level.getBlockEntity(pos) instanceof BoardroomTableBlockEntity table){
             if(table.bindOrValidate(server))FinanceGameplayOpener.openTerminal(server,pos,FinanceTerminalType.BOARDROOM_TABLE);
-            else server.sendSystemMessage(net.minecraft.network.chat.Component.translatable("finance.boardroom.bind_denied"));
+            else server.displayClientMessage(net.minecraft.network.chat.Component.translatable("finance.boardroom.bind_denied"), true);
         }return InteractionResult.sidedSuccess(level.isClientSide);
     }
     @Override public void setPlacedBy(Level level,BlockPos pos,BlockState state,@Nullable LivingEntity placer,ItemStack stack){super.setPlacedBy(level,pos,state,placer,stack);if(!level.isClientSide){if(level.getBlockEntity(pos) instanceof BoardroomTableBlockEntity table)table.resetUntrustedPlacement();WorldTerminalRegistry.register(new WorldTerminalRegistry.TerminalRecord(level.dimension().location().toString(),pos.immutable(),FinanceTerminalType.BOARDROOM_TABLE));}}

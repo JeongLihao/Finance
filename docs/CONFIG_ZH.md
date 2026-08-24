@@ -3,6 +3,8 @@
 配置类型：Forge COMMON 配置。  
 配置文件由 Forge 在运行环境中生成，修改后建议重启服务器；部分参数在代码中每次使用时读取，Forge 完成配置重载后也能生效，但生产服仍建议重启以避免玩家观察到半周期变化。
 
+可复制的三套推荐配置见 [CONFIG_PRESETS.md](CONFIG_PRESETS.md) 和仓库根目录 `config-presets/`。`facilityTiers`、`logistics`、`settlements`、`exploration` 实际位于 `gameplay` 下，因此 TOML 表名分别是 `[gameplay.facilityTiers]`、`[gameplay.logistics]`、`[gameplay.settlements]`、`[gameplay.exploration]`。服务器值是权威值，客户端本地文件不能改变资产结算。
+
 ## 默认配置示例
 
 ```toml
@@ -28,6 +30,27 @@
 	terminalInteractionDistance = 8.0
 	# 是否允许真正重大经济事件向全服广播；关闭后本地与参与者通知仍保留。
 	worldEconomyGlobalBroadcasts = true
+
+[gameplay.logistics]
+	maxActivePerPlayer = 8
+	maxActivePerCompany = 32
+	maxCargoUnits = 1024
+	defaultDeadlineDays = 14
+
+[gameplay.settlements]
+	maxActivePerPlayer = 4
+	maxOpenPerSettlement = 8
+	demandDeadlineDays = 5
+	rewardBasisPoints = 12000
+
+[gameplay.exploration]
+	enabled = true
+	# 当前安全 MVP 没有活动随机结构注册，保持 false。
+	worldgenEnabled = false
+	requestCooldownDays = 2
+	maximumTargetDistance = 4096
+	deadlineDays = 7
+	reward = 250
 
 [company]
 	# 公司没有单独分红策略时使用的默认分红比例。0.40 = 40%

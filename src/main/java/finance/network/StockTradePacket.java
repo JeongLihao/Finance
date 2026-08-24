@@ -57,7 +57,6 @@ public class StockTradePacket {
                 case BUY -> StockMarketManager.buy(player.getUUID(), symbol, packet.quantity);
                 case SELL -> StockMarketManager.sell(player.getUUID(), symbol, packet.quantity);
             };
-            if(result.success()&&packet.actionType==ActionType.BUY)finance.advancement.FinanceAdvancementTriggers.trigger(player,"public_company");
             GuiFeedbackPacket.send(player, result.message());
         });
         ctx.get().setPacketHandled(true);

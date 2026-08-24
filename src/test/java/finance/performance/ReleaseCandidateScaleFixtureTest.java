@@ -1,0 +1,20 @@
+package finance.performance;
+
+import finance.account.AccountManager;import finance.commodity.*;import finance.company.*;import finance.contract.*;import finance.data.EconomySavedData;import finance.gameplay.company.*;import finance.logistics.*;import finance.settlement.*;import finance.warehouse.*;import net.minecraft.core.BlockPos;import net.minecraft.nbt.CompoundTag;import org.junit.jupiter.api.*;import java.nio.charset.StandardCharsets;import java.time.Duration;import java.util.*;import static org.junit.jupiter.api.Assertions.*;
+
+class ReleaseCandidateScaleFixtureTest {
+ private static final String ITEM="rc_iron";
+ @BeforeEach void setup(){EconomySavedData.resetRuntimeState();CommodityRegistry.register(new Commodity(ITEM,"minecraft:iron_ingot","RC Iron",CommodityCategory.RAW_MATERIALS,10));}
+ @AfterEach void cleanup(){EconomySavedData.resetRuntimeState();CommodityRegistry.removeCommodity(ITEM);}
+ @Test void cooperativeServerFixtureSavesLoadsAndPreservesAllCardinality(){assertTimeout(Duration.ofSeconds(15),()->{
+  List<UUID> players=new ArrayList<>();for(int i=0;i<20;i++){UUID id=id("player",i);players.add(id);AccountManager.getOrCreateSystemAccount(id).setBalance(10_000+i);}
+  List<Company> companies=new ArrayList<>();for(int i=0;i<50;i++){Company c=new Company(id("company",i),"RC Company "+i,CompanyType.RAW_MATERIALS,100_000,players.get(i%20));CompanyManager.registerDirect(c);CompanyGameplayManager.createForNewCompany(c);companies.add(c);}
+  List<WarehouseRecord> warehouses=new ArrayList<>();for(int i=0;i<100;i++){Company c=companies.get(i%50);WarehouseRecord w=new WarehouseRecord(id("warehouse",i),"minecraft:overworld",new BlockPos(i,64,0),c.getOwnerId(),c.getCompanyId(),4096,WarehouseStatus.ACTIVE,0,0,WarehousePermissionMode.OWNER_ONLY);assertTrue(WarehouseManager.restore(w));warehouses.add(w);if(i<50){CompanyGameplayManager.get(c.getCompanyId()).bindWarehouse(w.warehouseId());assertTrue(CompanyFacilityManager.restore(new CompanyFacilityRecord(id("facility",i),c.getCompanyId(),"minecraft:overworld",new BlockPos(i,65,1),CompanyFacilityType.FACTORY_CONTROLLER,1,CompanyFacilityStatus.ACTIVE,-1,w.warehouseId())));}}
+  for(int i=0;i<500;i++){boolean live=i<100;UUID escrow=id("escrow",i);AccountManager.getOrCreateSystemAccount(escrow).setBalance(live?100:0);assertTrue(ContractManager.restore(new FinanceContract(id("contract",i),ContractType.PROCUREMENT,ContractIssuerType.NPC_MARKET,id("issuer",i),ITEM,1,live?0:1,100,escrow,null,0,30,null,live?ContractStatus.OPEN:ContractStatus.COMPLETED,"")));}
+  for(int i=0;i<100;i++)assertTrue(SettlementManager.restoreSettlement(new SettlementRecord(id("settlement",i),"minecraft:overworld",new BlockPos(i,64,100),"RC Settlement "+i,SettlementStatus.ACTIVE,-1,-1,"")));
+  for(int i=0;i<200;i++){WarehouseRecord source=warehouses.get(i%100),destination=warehouses.get((i+1)%100);assertTrue(ShipmentManager.restore(new Shipment(id("shipment",i),source.warehouseId(),destination.warehouseId(),null,ITEM,1,players.get(i%20),players.get(i%20),companies.get(i%50).getCompanyId(),ShipmentStatus.DELIVERED,0,14,id("token",i),"")));}
+  long saveStart=System.nanoTime();CompoundTag snapshot=new EconomySavedData().save(new CompoundTag());long saveMs=(System.nanoTime()-saveStart)/1_000_000;int chars=snapshot.toString().length();EconomySavedData.resetRuntimeState();long loadStart=System.nanoTime();EconomySavedData.load(snapshot);long loadMs=(System.nanoTime()-loadStart)/1_000_000;
+  assertEquals(20,players.size());assertEquals(50,CompanyManager.getCompanies().size());assertEquals(100,WarehouseManager.all().size());assertEquals(50,CompanyFacilityManager.all().size());assertEquals(500,ContractManager.contracts().size());assertEquals(100,SettlementManager.settlements().size());assertEquals(200,ShipmentManager.all().size());System.out.printf("rc-scale save=%dms load=%dms nbtChars=%d players=20 warehouses=100 companies=50 contracts=500 activeContracts=100 settlements=100 shipments=200%n",saveMs,loadMs,chars);
+ });}
+ private static UUID id(String kind,int index){return UUID.nameUUIDFromBytes(("finance-rc:"+kind+":"+index).getBytes(StandardCharsets.UTF_8));}
+}
