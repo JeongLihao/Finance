@@ -23,6 +23,7 @@ public final class PortableLedgerItem extends Item {
         ItemStack stack = player.getItemInHand(hand);
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
             FinanceGameplayOpener.openPortableLedger(serverPlayer);
+            finance.tutorial.TutorialProgressService.record(serverPlayer, "wallet_opened");
         }
         return InteractionResultHolder.sidedSuccess(stack, level.isClientSide);
     }

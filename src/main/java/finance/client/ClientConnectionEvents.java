@@ -19,5 +19,6 @@ public final class ClientConnectionEvents {
         BankClientCache.clear();
         FundClientCache.clear();
         InsuranceClientCache.clear();GovernanceClientCache.clear();GovernanceTaskClientState.clear();
+        TutorialClientState.clear();
     }
 }

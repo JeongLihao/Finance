@@ -25,11 +25,18 @@ public class FinanceKeyMappings {
             "key.categories.finance"
     );
 
+    public static final KeyMapping OPEN_GUIDE = new KeyMapping(
+            "key.finance.open_guide", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_J, "key.categories.finance");
+    public static final KeyMapping TOGGLE_TUTORIAL = new KeyMapping(
+            "key.finance.toggle_tutorial", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_U, "key.categories.finance");
+
     @Mod.EventBusSubscriber(modid = FinanceMod.MOD_ID, bus = Mod.EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
     public static class ModBusEvents {
         @SubscribeEvent
         public static void registerKeyMappings(RegisterKeyMappingsEvent event) {
             event.register(OPEN_FINANCE);
+            event.register(OPEN_GUIDE);
+            event.register(TOGGLE_TUTORIAL);
         }
     }
 
@@ -47,6 +54,8 @@ public class FinanceKeyMappings {
             while (OPEN_FINANCE.consumeClick()) {
                 FinancePacketHandler.CHANNEL.sendToServer(new OpenFinanceGuiPacket());
             }
+            while (OPEN_GUIDE.consumeClick()) FinanceGuideClientHandler.open();
+            while (TOGGLE_TUTORIAL.consumeClick()) TutorialClientState.toggleVisible();
         }
     }
 }
