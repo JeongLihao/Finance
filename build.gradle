@@ -276,6 +276,10 @@ repositories {
     // Put repositories for dependencies here
     // ForgeGradle automatically adds the Forge maven and Maven Central for you
     mavenCentral()
+    // Optional Create-style visual tutorial library. Finance remains usable
+    // without it; the handbook and advancement route are the fallback.
+    maven { url = 'https://maven.createmod.net' }
+    maven { url = 'https://raw.githubusercontent.com/Fuzss/modresources/main/maven/' }
 
     // If you have mod jar dependencies in ./libs, you can declare them as a repository like so.
     // See https://docs.gradle.org/current/userguide/declaring_repositories.html#sub:flat_dir_resolver
@@ -291,6 +295,9 @@ dependencies {
     // If the group id is "net.minecraft" and the artifact id is one of ["client", "server", "joined"],
     // then special handling is done to allow a setup of a vanilla dependency without the use of an external repository.
     minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+    // Ponder publishes a Mojmap development artifact. It is compile-only:
+    // players who want animated scenes install Ponder as a separate client mod.
+    compileOnly "net.createmod.ponder:Ponder-Forge-${minecraft_version}:${ponder_version}"
     testImplementation platform('org.junit:junit-bom:5.10.2')
     testImplementation 'org.junit.jupiter:junit-jupiter'
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine'

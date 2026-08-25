@@ -66,6 +66,15 @@ description='''为服务器提供账户、转账、商品库存、玩家订单�
     ordering="NONE"
     side="BOTH"
 
+# Optional client-side visual tutorials. Without Ponder the translated Finance
+# handbook and advancement route remain fully available.
+[[dependencies.finance]]
+    modId="ponder"
+    mandatory=false
+    versionRange="[1.0.92,1.1)"
+    ordering="AFTER"
+    side="CLIENT"
+
 # Features are specific properties of the game environment, that you may want to declare you require. This example declares
 # that your mod requires GL version 3.2 or higher. Other features will be added. They are side aware so declaring this won't
 # stop your mod loading on the server for example.
