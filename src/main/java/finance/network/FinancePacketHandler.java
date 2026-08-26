@@ -14,7 +14,7 @@ import java.util.Optional;
 public class FinancePacketHandler {
 
     // OpenFinanceGuiPacket 从空载荷升级为受校验的入口类型 + 界面模式。
-    private static final String PROTOCOL_VERSION = "9";
+    private static final String PROTOCOL_VERSION = "10";
 
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             ResourceLocation.fromNamespaceAndPath(FinanceMod.MOD_ID, "gui"),

@@ -54,7 +54,7 @@ public class FinanceKeyMappings {
             while (OPEN_FINANCE.consumeClick()) {
                 FinancePacketHandler.CHANNEL.sendToServer(new OpenFinanceGuiPacket());
             }
-            while (OPEN_GUIDE.consumeClick()) FinanceGuideClientHandler.open();
+            while (OPEN_GUIDE.consumeClick()) TutorialHubScreen.open();
             while (TOGGLE_TUTORIAL.consumeClick()) TutorialClientState.toggleVisible();
         }
     }
