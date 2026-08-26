@@ -25,9 +25,10 @@ public final class TutorialHud {
         if (!TutorialClientState.visible() || stage == null || minecraft.options.hideGui
                 || minecraft.player == null || minecraft.screen != null) return;
 
-        String id = stage.translationId();
-        Component title = Component.translatable("finance.tutorial.stage." + id + ".title");
-        Component hint = Component.translatable("finance.tutorial.stage." + id + ".hint");
+        String translationBase = TutorialClientState.objectiveTranslationBase();
+        if (translationBase == null) return;
+        Component title = Component.translatable(translationBase + ".title");
+        Component hint = Component.translatable(translationBase + ".hint");
         Component controls = Component.translatable("finance.tutorial.controls");
         Font font = minecraft.font;
         int width = Math.min(220, event.getWindow().getGuiScaledWidth() - 16);
@@ -37,7 +38,8 @@ public final class TutorialHud {
         int y = 8;
         GuiGraphics graphics = event.getGuiGraphics();
         graphics.fill(x, y, x + width, y + height, 0xC0101010);
-        graphics.fill(x, y, x + 3, y + height, 0xFF55AA55);
+        graphics.fill(x, y, x + 3, y + height,
+                TutorialClientState.highlighted() ? 0xFFFFCC45 : 0xFF55AA55);
         graphics.drawString(font, title, x + 9, y + 7, 0xFFFFFFFF, false);
         for (int line = 0; line < hintLines.size(); line++) {
             graphics.drawString(font, hintLines.get(line), x + 9, y + 20 + line * 10, 0xFFE0E0E0, false);
