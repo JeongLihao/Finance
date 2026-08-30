@@ -19,6 +19,7 @@ public final class FinanceContract {
     private final long createdDay;
     private final long deadlineDay;
     private UUID acceptedPlayerId;
+    private UUID acceptedCompanyId;
     private ContractStatus status;
     private String failureReason;
     private final LinkedHashSet<String> operationKeys = new LinkedHashSet<>();
@@ -28,19 +29,33 @@ public final class FinanceContract {
                            long rewardAmount, UUID escrowAccountId, UUID destinationWarehouseId,
                            long createdDay, long deadlineDay, UUID acceptedPlayerId,
                            ContractStatus status, String failureReason) {
+        this(id, type, issuerType, issuerId, commodityId, requiredQuantity, deliveredQuantity,
+                rewardAmount, escrowAccountId, destinationWarehouseId, createdDay, deadlineDay,
+                acceptedPlayerId, null, status, failureReason);
+    }
+
+    public FinanceContract(UUID id, ContractType type, ContractIssuerType issuerType, UUID issuerId,
+                           String commodityId, int requiredQuantity, int deliveredQuantity,
+                           long rewardAmount, UUID escrowAccountId, UUID destinationWarehouseId,
+                           long createdDay, long deadlineDay, UUID acceptedPlayerId, UUID acceptedCompanyId,
+                           ContractStatus status, String failureReason) {
         if (id == null || type == null || issuerType == null || issuerId == null || commodityId == null
                 || commodityId.isBlank() || commodityId.length() > 64 || requiredQuantity <= 0
                 || deliveredQuantity < 0 || deliveredQuantity > requiredQuantity || rewardAmount <= 0
                 || escrowAccountId == null || createdDay < 0 || deadlineDay <= createdDay || status == null) {
             throw new IllegalArgumentException("Invalid finance contract");
         }
-        if (status == ContractStatus.ACCEPTED && acceptedPlayerId == null) throw new IllegalArgumentException("Missing acceptor");
+        if (status == ContractStatus.ACCEPTED && (acceptedPlayerId == null) == (acceptedCompanyId == null))
+            throw new IllegalArgumentException("Missing or ambiguous acceptor");
+        if (acceptedCompanyId != null && issuerType != ContractIssuerType.COMPANY)
+            throw new IllegalArgumentException("Company supplier requires company procurement");
         if (status == ContractStatus.COMPLETED && deliveredQuantity != requiredQuantity) throw new IllegalArgumentException("Incomplete completion");
         this.id = id; this.type = type; this.issuerType = issuerType; this.issuerId = issuerId;
         this.commodityId = commodityId; this.requiredQuantity = requiredQuantity;
         this.deliveredQuantity = deliveredQuantity; this.rewardAmount = rewardAmount;
         this.escrowAccountId = escrowAccountId; this.destinationWarehouseId = destinationWarehouseId;
         this.createdDay = createdDay; this.deadlineDay = deadlineDay; this.acceptedPlayerId = acceptedPlayerId;
+        this.acceptedCompanyId = acceptedCompanyId;
         this.status = status; this.failureReason = limit(failureReason, 96);
     }
 
@@ -57,6 +72,7 @@ public final class FinanceContract {
     public long createdDay() { return createdDay; }
     public long deadlineDay() { return deadlineDay; }
     public UUID acceptedPlayerId() { return acceptedPlayerId; }
+    public UUID acceptedCompanyId() { return acceptedCompanyId; }
     public ContractStatus status() { return status; }
     public String failureReason() { return failureReason; }
     public Set<String> operationKeys() { return Set.copyOf(operationKeys); }
@@ -64,6 +80,25 @@ public final class FinanceContract {
     public boolean accept(UUID playerId, UUID warehouseId) {
         if (status != ContractStatus.OPEN || playerId == null || warehouseId == null) return false;
         acceptedPlayerId = playerId; destinationWarehouseId = warehouseId; status = ContractStatus.ACCEPTED; return true;
+    }
+    public boolean acceptCompany(UUID companyId) {
+        if (status != ContractStatus.OPEN || issuerType != ContractIssuerType.COMPANY || companyId == null
+                || companyId.equals(issuerId)) return false;
+        acceptedCompanyId = companyId; status = ContractStatus.ACCEPTED; return true;
+    }
+    public int remainingQuantity() { return requiredQuantity - deliveredQuantity; }
+    public long paidAmount() { return proportionalReward(deliveredQuantity); }
+    public long remainingReward() { return rewardAmount - paidAmount(); }
+    public long paymentFor(int quantity) {
+        if (quantity <= 0 || quantity > remainingQuantity()) return -1;
+        return proportionalReward(deliveredQuantity + quantity) - proportionalReward(deliveredQuantity);
+    }
+    public boolean recordCompanyDelivery(int quantity) {
+        if (status != ContractStatus.ACCEPTED || acceptedCompanyId == null || quantity <= 0
+                || quantity > remainingQuantity()) return false;
+        deliveredQuantity += quantity;
+        if (deliveredQuantity == requiredQuantity) { status = ContractStatus.COMPLETED; failureReason = ""; }
+        return true;
     }
     public void complete() { deliveredQuantity = requiredQuantity; status = ContractStatus.COMPLETED; failureReason = ""; }
     public void expire() { if (!status.terminal()) status = ContractStatus.EXPIRED; }
@@ -80,5 +115,9 @@ public final class FinanceContract {
     private static String limit(String value, int max) {
         String safe = value == null ? "" : value;
         return safe.length() <= max ? safe : safe.substring(0, max);
+    }
+    private long proportionalReward(int quantity) {
+        return java.math.BigInteger.valueOf(rewardAmount).multiply(java.math.BigInteger.valueOf(quantity))
+                .divide(java.math.BigInteger.valueOf(requiredQuantity)).longValueExact();
     }
 }

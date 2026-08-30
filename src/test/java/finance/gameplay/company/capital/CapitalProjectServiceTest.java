@@ -3,6 +3,10 @@ package finance.gameplay.company.capital;
 import finance.account.AccountManager;
 import finance.company.Company;
 import finance.company.CompanyManager;
+import finance.company.CompanyProposal;
+import finance.company.CompanyProposalManager;
+import finance.company.CompanyProposalStatus;
+import finance.company.CompanyProposalType;
 import finance.company.CompanyType;
 import finance.data.EconomySavedData;
 import finance.gameplay.company.CompanyFacilityManager;
@@ -97,5 +101,38 @@ class CapitalProjectServiceTest {
         assertFalse(CapitalProjectService.recover(owner, project.projectId(), 6, "late").success());
         assertEquals(CapitalProjectStatus.FAILED_RECOVERABLE, project.status());
         assertEquals(1_000, AccountManager.getBalance(project.escrowAccountId()));
+    }
+
+    @Test void passedProposalCannotAuthorizeAnotherProjectWithMatchingBudgetAndType() {
+        UUID owner = UUID.randomUUID();
+        Company company = new Company(UUID.randomUUID(), "Authorization", CompanyType.RAW_MATERIALS, 10_000, owner);
+        CompanyManager.registerDirect(company);
+        CompanyGameplayManager.createForNewCompany(company);
+        WorldCapitalProject approvedProject = authorizationProject(company.getCompanyId(), owner);
+        WorldCapitalProject otherProject = authorizationProject(company.getCompanyId(), owner);
+        assertTrue(CapitalProjectManager.register(approvedProject));
+        assertTrue(CapitalProjectManager.register(otherProject));
+        CompanyProposal proposal = new CompanyProposal(company.getCompanyId(), owner,
+                CompanyProposalType.CAPITAL_PROJECT, "Capital project", approvedProject.projectId().toString(),
+                approvedProject.budget(), approvedProject.type().ordinal(), 0, 0, 3, 0.6D);
+        proposal.finish(CompanyProposalStatus.PASSED, "approved");
+        CompanyProposalManager.addProposalDirect(proposal);
+
+        CapitalProjectActionResult rejected = CapitalProjectService.authorize(owner, otherProject.projectId(),
+                proposal.getProposalId(), 4, "wrong-project");
+
+        assertFalse(rejected.success());
+        assertEquals(CapitalProjectStatus.AUTHORIZATION_REQUIRED, otherProject.status());
+        assertEquals(CompanyProposalStatus.PASSED, proposal.getStatus());
+        assertTrue(CapitalProjectService.authorize(owner, approvedProject.projectId(), proposal.getProposalId(),
+                4, "right-project").success());
+        assertEquals(CapitalProjectStatus.DRAFT, approvedProject.status());
+        assertEquals(CompanyProposalStatus.EXECUTED, proposal.getStatus());
+    }
+
+    private static WorldCapitalProject authorizationProject(UUID companyId, UUID owner) {
+        return new WorldCapitalProject(UUID.randomUUID(), companyId, WorldCapitalProjectType.FACTORY_UPGRADE,
+                UUID.randomUUID(), owner, 0, 20, 2, CapitalFundingSource.RETAINED_EARNINGS, 2_000,
+                Map.of(Items.IRON_INGOT, 12), true, CapitalProjectStatus.AUTHORIZATION_REQUIRED, 0);
     }
 }

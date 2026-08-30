@@ -99,6 +99,9 @@ public class CommodityInventoryManager {
     }
 
     public static int removeCommodityFromAll(String commodityId) {
+        if (finance.collateral.InventoryCollateralManager.hasReservationsForCommodity(commodityId)) {
+            return 0;
+        }
         int affectedInventories = 0;
         for (CommodityInventory inventory : INVENTORIES.values()) {
             if (inventory.getAllCommodities().remove(commodityId) != null) {

@@ -49,6 +49,16 @@ class InventoryCollateralServiceTest {
         assertFalse(result.success());assertEquals(0,InventoryCollateralManager.pledged(custody,"pledge_test"));assertEquals(100,InventoryCollateralManager.available(custody,"pledge_test"));
     }
 
+    @Test void bulkCommodityRemovalCannotEraseReservedCollateral(){
+        var result=InventoryCollateralService.apply(owner,company.getCompanyId(),bank,"pledge_test",60,1,"remove-guard");
+        assertTrue(result.success(),result.message());
+
+        assertTrue(InventoryCollateralManager.hasReservationsForCommodity("pledge_test"));
+        assertEquals(0,CommodityInventoryManager.removeCommodityFromAll("pledge_test"));
+        assertEquals(100,CommodityInventoryManager.getCommodityAmount(custody,"pledge_test"));
+        assertEquals(60,InventoryCollateralManager.pledged(custody,"pledge_test"));
+    }
+
     @Test void bankruptcyWaitsForSecuredInventoryToSettleBeforeCompanyRemoval(){
         var result=InventoryCollateralService.apply(owner,company.getCompanyId(),bank,"pledge_test",60,1,"bankruptcy");
         assertTrue(result.success(),result.message());

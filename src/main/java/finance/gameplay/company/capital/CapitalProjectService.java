@@ -101,7 +101,8 @@ public final class CapitalProjectService {
         CompanyProposal proposal = CompanyProposalManager.getProposal(proposalId);
         if (proposal == null || !proposal.isExecutableAuthorization(CompanyProposalType.CAPITAL_PROJECT,
                 project.companyId()) || proposal.getValue1() != project.budget()
-                || proposal.getValue2() != project.type().ordinal())
+                || proposal.getValue2() != project.type().ordinal()
+                || !project.projectId().toString().equals(proposal.getTextValue()))
             return fail("finance.capital_project.authorization_invalid");
         if (!CompanyProposalManager.markExecuted(proposalId, "资本项目授权已由项目 " + project.projectId() + " 消费"))
             return fail("finance.capital_project.authorization_invalid");

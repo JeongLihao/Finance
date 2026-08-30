@@ -22,7 +22,8 @@ public final class CompanyGameplayMenu extends AbstractContainerMenu {
     public record MemberRow(UUID playerId, String role) {}
     public record WarehouseRow(UUID id, long used, long capacity) {}
     public record FacilityRow(UUID id, int level, String status, long lastDay) {}
-    public record ContractRow(UUID id, String commodity, int quantity, long reward, String status) {}
+    public record ContractRow(UUID id, UUID issuerCompanyId, UUID acceptedCompanyId, String commodity,
+                              int quantity, int delivered, long reward, long deadlineDay, String status) {}
     public record ProjectRow(UUID id, String type, UUID targetId, int targetLevel, long budget, long funded,
                              String fundingSource, String status, boolean governanceRequired, UUID proposalId,
                              String failureKey) {}
@@ -108,8 +109,10 @@ public final class CompanyGameplayMenu extends AbstractContainerMenu {
         }
         b.writeVarInt(Math.min(MAX_CONTRACTS, contracts.size()));
         for (int i = 0; i < Math.min(MAX_CONTRACTS, contracts.size()); i++) {
-            ContractRow r = contracts.get(i); b.writeUUID(r.id()); b.writeUtf(limit(r.commodity(), 64), 64);
-            b.writeVarInt(r.quantity()); b.writeLong(r.reward()); b.writeUtf(limit(r.status(), 24), 24);
+            ContractRow r = contracts.get(i); b.writeUUID(r.id()); b.writeUUID(r.issuerCompanyId());
+            b.writeBoolean(r.acceptedCompanyId()!=null);if(r.acceptedCompanyId()!=null)b.writeUUID(r.acceptedCompanyId());
+            b.writeUtf(limit(r.commodity(), 64), 64);b.writeVarInt(r.quantity());b.writeVarInt(r.delivered());
+            b.writeLong(r.reward());b.writeLong(r.deadlineDay());b.writeUtf(limit(r.status(), 24), 24);
         }
         b.writeVarInt(Math.min(MAX_PROJECTS, projects.size()));
         for (int i = 0; i < Math.min(MAX_PROJECTS, projects.size()); i++) {
@@ -130,7 +133,7 @@ public final class CompanyGameplayMenu extends AbstractContainerMenu {
     private static List<MemberRow> readMembers(FriendlyByteBuf b) { int n=count(b,MAX_MEMBERS); List<MemberRow> r=new ArrayList<>(n); for(int i=0;i<n;i++)r.add(new MemberRow(b.readUUID(),b.readUtf(24))); return r; }
     private static List<WarehouseRow> readWarehouses(FriendlyByteBuf b) { int n=count(b,MAX_WAREHOUSES); List<WarehouseRow> r=new ArrayList<>(n); for(int i=0;i<n;i++)r.add(new WarehouseRow(b.readUUID(),b.readLong(),b.readLong())); return r; }
     private static List<FacilityRow> readFacilities(FriendlyByteBuf b) { int n=count(b,MAX_FACILITIES); List<FacilityRow> r=new ArrayList<>(n); for(int i=0;i<n;i++)r.add(new FacilityRow(b.readUUID(),b.readVarInt(),b.readUtf(24),b.readLong())); return r; }
-    private static List<ContractRow> readContracts(FriendlyByteBuf b) { int n=count(b,MAX_CONTRACTS); List<ContractRow> r=new ArrayList<>(n); for(int i=0;i<n;i++)r.add(new ContractRow(b.readUUID(),b.readUtf(64),b.readVarInt(),b.readLong(),b.readUtf(24))); return r; }
+    private static List<ContractRow> readContracts(FriendlyByteBuf b) { int n=count(b,MAX_CONTRACTS); List<ContractRow> r=new ArrayList<>(n); for(int i=0;i<n;i++)r.add(new ContractRow(b.readUUID(),b.readUUID(),b.readBoolean()?b.readUUID():null,b.readUtf(64),b.readVarInt(),b.readVarInt(),b.readLong(),b.readLong(),b.readUtf(24))); return r; }
     private static List<ProjectRow> readProjects(FriendlyByteBuf b) { int n=count(b,MAX_PROJECTS); List<ProjectRow> r=new ArrayList<>(n); for(int i=0;i<n;i++)r.add(new ProjectRow(b.readUUID(),b.readUtf(24),b.readUUID(),b.readVarInt(),b.readLong(),b.readLong(),b.readUtf(24),b.readUtf(32),b.readBoolean(),b.readBoolean()?b.readUUID():null,b.readUtf(96))); return r; }
     private static int count(FriendlyByteBuf b,int max){int n=b.readVarInt();if(n<0||n>max)throw new IllegalArgumentException("invalid company gameplay rows");return n;}
     private static String limit(String value,int max){String s=value==null?"":value;return s.length()>max?s.substring(0,max):s;}

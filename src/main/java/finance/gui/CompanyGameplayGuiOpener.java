@@ -48,11 +48,17 @@ public final class CompanyGameplayGuiOpener {
                 .map(facility -> new CompanyGameplayMenu.FacilityRow(facility.facilityId(),
                         facility.productionLevel(), facility.status().name(), facility.lastProcessedDay())).toList();
         List<CompanyGameplayMenu.ContractRow> contracts = invited ? List.of()
-                : ContractManager.contracts().values().stream().filter(contract -> companyId.equals(contract.issuerId()))
+                : ContractManager.contracts().values().stream().filter(contract ->
+                        contract.issuerType()==finance.contract.ContractIssuerType.COMPANY
+                        && (companyId.equals(contract.issuerId())
+                        || companyId.equals(contract.acceptedCompanyId())
+                        || contract.status()==finance.contract.ContractStatus.OPEN))
                 .sorted(Comparator.comparingLong(finance.contract.FinanceContract::deadlineDay))
                 .limit(CompanyGameplayMenu.MAX_CONTRACTS)
-                .map(contract -> new CompanyGameplayMenu.ContractRow(contract.id(), contract.commodityId(),
-                        contract.requiredQuantity(), contract.rewardAmount(), contract.status().name())).toList();
+                .map(contract -> new CompanyGameplayMenu.ContractRow(contract.id(), contract.issuerId(),
+                        contract.acceptedCompanyId(), contract.commodityId(), contract.requiredQuantity(),
+                        contract.deliveredQuantity(), contract.rewardAmount(), contract.deadlineDay(),
+                        contract.status().name())).toList();
         List<CompanyGameplayMenu.ProjectRow> projects = invited ? List.of()
                 : finance.gameplay.company.capital.CapitalProjectManager.forCompany(companyId).stream()
                 .limit(CompanyGameplayMenu.MAX_PROJECTS)
