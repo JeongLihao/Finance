@@ -33,6 +33,8 @@ def configurePhase6Userdev = { cfg, String launchTarget, boolean clientRun ->
     cfg.property 'ignoreList', 'bootstraplauncher,securejarhandler,asm-commons,asm-util,asm-analysis,asm-tree,asm,JarJarFileSystems,client-extra,fmlcore,javafmllanguage,lowcodelanguage,mclanguage,forge-'
     cfg.property 'mergeModules', 'jna-5.10.0.jar,jna-platform-5.10.0.jar'
     cfg.property 'forge.enableGameTest', 'true'
+    cfg.property 'mixin.env.remapRefMap', 'true'
+    cfg.property 'mixin.env.refMapRemappingFile', file('build/createSrgToMcp/output.srg').absolutePath
     cfg.client clientRun
 }
 
@@ -81,6 +83,13 @@ minecraft {
         // applies to all the run configs below
         configureEach {
             workingDirectory project.file('run')
+
+            // Ponder's published refmap targets SRG names (for example m_5741_).
+            // Userdev runs use Mojmap names, so Mixin must translate the refmap
+            // before applying injections. Without these properties the client
+            // fails during startup in WindowResizeMixin.
+            property 'mixin.env.remapRefMap', 'true'
+            property 'mixin.env.refMapRemappingFile', file('build/createSrgToMcp/output.srg').absolutePath
 
             // Recommended logging data for a userdev environment
             // The markers can be added/remove as needed separated by commas.

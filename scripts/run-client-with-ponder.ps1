@@ -8,7 +8,7 @@ $modsPath = Join-Path $runPath 'mods'
 $mappingPath = Join-Path $projectPath 'build\createSrgToMcp\output.srg'
 $runConfigPath = Join-Path $projectPath '.idea\runConfigurations\runClient.xml'
 $classpathPath = Join-Path $projectPath 'build\classpath\runClient_minecraftClasspath.txt'
-$requiredMods = @(
+$staleRuntimeMods = @(
     'Ponder-Forge-1.20.1-1.0.92_mapped_official_1.20.1.jar',
     'flywheel-forge-1.20.1-1.0.6-281_mapped_official_1.20.1.jar'
 )
@@ -18,10 +18,10 @@ foreach ($requiredPath in @($mappingPath, $runConfigPath, $classpathPath)) {
         throw "Missing generated userdev file: $requiredPath"
     }
 }
-foreach ($modName in $requiredMods) {
+foreach ($modName in $staleRuntimeMods) {
     $modPath = Join-Path $modsPath $modName
-    if (-not (Test-Path -LiteralPath $modPath -PathType Leaf)) {
-        throw "Missing mapped test mod: $modPath"
+    if (Test-Path -LiteralPath $modPath -PathType Leaf) {
+        throw "Duplicate userdev dependency in run/mods: $modPath. Remove it; Gradle already supplies the mapped runtime dependency."
     }
 }
 
