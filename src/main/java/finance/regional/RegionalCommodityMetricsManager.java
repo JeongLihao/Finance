@@ -6,9 +6,11 @@ import java.math.BigInteger;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.BiConsumer;
 
@@ -17,6 +19,7 @@ public final class RegionalCommodityMetricsManager {
     public static final int MAX_HISTORY_DAYS = 120;
     private static final Map<RegionalCommodityKey, Deque<RegionalCommoditySnapshot>> HISTORY = new LinkedHashMap<>();
     private static final Map<RegionalCommodityKey, DailyAccumulator> LIVE = new LinkedHashMap<>();
+    private static final Set<RegionalCommodityKey> KNOWN_KEYS = new HashSet<>();
     private static long lastClosedDay = -1;
 
     private RegionalCommodityMetricsManager() {}
@@ -28,6 +31,7 @@ public final class RegionalCommodityMetricsManager {
         if (existing != null || !knownKey(key) && uniqueKeyCount() >= MAX_KEYS) return null;
         DailyAccumulator created = new DailyAccumulator(day);
         LIVE.put(key, created);
+        KNOWN_KEYS.add(key);
         return created;
     }
 
@@ -93,7 +97,9 @@ public final class RegionalCommodityMetricsManager {
     }
 
     static synchronized void append(RegionalCommodityKey key, RegionalCommoditySnapshot snapshot) {
+        if (key == null || snapshot == null || !knownKey(key) && uniqueKeyCount() >= MAX_KEYS) return;
         Deque<RegionalCommoditySnapshot> rows = HISTORY.computeIfAbsent(key, ignored -> new ArrayDeque<>());
+        KNOWN_KEYS.add(key);
         if (!rows.isEmpty() && rows.peekLast().day() >= snapshot.day()) return;
         rows.addLast(snapshot);
         while (rows.size() > finance.config.FinanceConfig.regionalHistoryDays()) rows.removeFirst();
@@ -105,25 +111,26 @@ public final class RegionalCommodityMetricsManager {
     public static synchronized long lastClosedDay() { return lastClosedDay; }
     public static synchronized void restoreLastClosedDay(long day) { lastClosedDay = Math.max(-1, day); }
     public static synchronized void restoreSnapshot(RegionalCommodityKey key, RegionalCommoditySnapshot row) {
-        if (key == null || row == null || HISTORY.size() >= MAX_KEYS && !HISTORY.containsKey(key)) return;
+        if (key == null || row == null || !knownKey(key) && uniqueKeyCount() >= MAX_KEYS) return;
         Deque<RegionalCommoditySnapshot> rows = HISTORY.computeIfAbsent(key, ignored -> new ArrayDeque<>());
+        KNOWN_KEYS.add(key);
         if (rows.isEmpty() || rows.peekLast().day() < row.day()) rows.addLast(row);
         while (rows.size() > MAX_HISTORY_DAYS) rows.removeFirst();
     }
     public static synchronized void restoreLive(RegionalCommodityKey key, DailyAccumulator value) {
-        if (key != null && value != null && (knownKey(key) || uniqueKeyCount() < MAX_KEYS))
+        if (key != null && value != null && (knownKey(key) || uniqueKeyCount() < MAX_KEYS)) {
             LIVE.put(key, value.copy());
+            KNOWN_KEYS.add(key);
+        }
     }
-    public static synchronized void clearDirect() { HISTORY.clear(); LIVE.clear(); lastClosedDay = -1; }
+    public static synchronized void clearDirect() { HISTORY.clear(); LIVE.clear(); KNOWN_KEYS.clear(); lastClosedDay = -1; }
 
     private static boolean knownKey(RegionalCommodityKey key) {
-        return HISTORY.containsKey(key) || LIVE.containsKey(key);
+        return KNOWN_KEYS.contains(key);
     }
 
     private static int uniqueKeyCount() {
-        int count = HISTORY.size();
-        for (RegionalCommodityKey key : LIVE.keySet()) if (!HISTORY.containsKey(key)) count++;
-        return count;
+        return KNOWN_KEYS.size();
     }
 
     public static final class DailyAccumulator {

@@ -24,7 +24,7 @@ public final class ContractDataSerializer {
 
     public static void save(CompoundTag root) {
         CompoundTag contractRoot = new CompoundTag();
-        contractRoot.putInt("Version", 1);
+        contractRoot.putInt("Version", 2);
         ListTag records = new ListTag();
         int count = 0;
         for (FinanceContract contract : ContractManager.contracts().values()) {
@@ -43,6 +43,7 @@ public final class ContractDataSerializer {
             tag.putLong("CreatedDay", contract.createdDay());
             tag.putLong("DeadlineDay", contract.deadlineDay());
             if (contract.acceptedPlayerId() != null) tag.putUUID("AcceptedPlayer", contract.acceptedPlayerId());
+            if (contract.acceptedCompanyId() != null) tag.putUUID("AcceptedCompany", contract.acceptedCompanyId());
             tag.putString("Status", contract.status().name());
             tag.putString("Failure", contract.failureReason());
             ListTag operations = new ListTag();
@@ -61,6 +62,8 @@ public final class ContractDataSerializer {
         ContractManager.clearDirect();
         if (!root.contains(ROOT, Tag.TAG_COMPOUND)) return;
         CompoundTag contractRoot = root.getCompound(ROOT);
+        int version = contractRoot.getInt("Version");
+        if (version < 1 || version > 2) return;
         ListTag records = contractRoot.getList("Records", Tag.TAG_COMPOUND);
         for (int i = 0; i < Math.min(MAX_RECORDS, records.size()); i++) {
             CompoundTag tag = records.getCompound(i);
@@ -78,19 +81,27 @@ public final class ContractDataSerializer {
                 if (id == null || issuer == null || escrowId == null || CommodityRegistry.getCommodity(commodity) == null
                         || type == null || issuerType == null || status == null || escrow == null || reward <= 0) continue;
                 if (issuerType == ContractIssuerType.COMPANY && CompanyManager.getCompany(issuer) == null) continue;
-                boolean live = status == ContractStatus.OPEN || status == ContractStatus.ACCEPTED;
-                if ((live && escrow.getBalance() != reward) || (!live && escrow.getBalance() != 0)) continue;
                 UUID destination = NbtDataSupport.readUuidOrNull(tag, "Destination");
                 UUID acceptedPlayer = NbtDataSupport.readUuidOrNull(tag, "AcceptedPlayer");
-                if (status == ContractStatus.OPEN && (destination != null || acceptedPlayer != null)) continue;
-                if (status == ContractStatus.ACCEPTED && (destination == null || acceptedPlayer == null
-                        || WarehouseManager.get(destination) == null
+                UUID acceptedCompany = version >= 2
+                        ? NbtDataSupport.readUuidOrNull(tag, "AcceptedCompany") : null;
+                if (status == ContractStatus.OPEN
+                        && (destination != null || acceptedPlayer != null || acceptedCompany != null)) continue;
+                if (status == ContractStatus.ACCEPTED && (acceptedPlayer == null) == (acceptedCompany == null)) continue;
+                if (status == ContractStatus.ACCEPTED && acceptedPlayer != null
+                        && (destination == null || WarehouseManager.get(destination) == null
                         || !acceptedPlayer.equals(WarehouseManager.get(destination).ownerId()))) continue;
+                if (status == ContractStatus.ACCEPTED && acceptedCompany != null
+                        && (issuerType != ContractIssuerType.COMPANY || destination != null
+                        || acceptedCompany.equals(issuer) || CompanyManager.getCompany(acceptedCompany) == null)) continue;
                 FinanceContract contract = new FinanceContract(id, type, issuerType, issuer, commodity,
                         tag.getInt("Required"), tag.getInt("Delivered"), reward, escrowId,
                         destination, tag.getLong("CreatedDay"),
-                        tag.getLong("DeadlineDay"), acceptedPlayer, status,
+                        tag.getLong("DeadlineDay"), acceptedPlayer, acceptedCompany, status,
                         tag.getString("Failure"));
+                boolean live = status == ContractStatus.OPEN || status == ContractStatus.ACCEPTED;
+                if ((live && escrow.getBalance() != contract.remainingReward())
+                        || (!live && escrow.getBalance() != 0)) continue;
                 ListTag operations = tag.getList("Operations", Tag.TAG_STRING);
                 for (int op = Math.max(0, operations.size() - FinanceContract.MAX_OPERATION_KEYS);
                      op < operations.size(); op++) {

@@ -242,7 +242,7 @@ public final class CompanyProposalManager {
     }
 
     public static List<CompanyProposal> getProposals() {
-        return PROPOSALS;
+        return List.copyOf(PROPOSALS);
     }
 
     public static List<CompanyProposal> getProposalsForCompany(UUID companyId) {

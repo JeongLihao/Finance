@@ -9,7 +9,7 @@ import finance.data.EconomySavedData;
 import java.util.UUID;
 
 public final class CompanyContractService {
-    public static final int MAX_ACTIVE_PER_COMPANY = 4;
+    public static final int MAX_ACTIVE_PER_COMPANY = 8;
     private CompanyContractService() {}
 
     public static synchronized FinanceContract publishProcurement(UUID actor, UUID companyId, String commodityId,
@@ -17,7 +17,8 @@ public final class CompanyContractService {
                                                                    int durationDays, String operationKey) {
         Company company = CompanyManager.getCompany(companyId); CompanyGameplayProfile profile = CompanyGameplayManager.get(companyId);
         if (company == null || profile == null || actor == null || operationKey == null || operationKey.isBlank()
-                || operationKey.length() > 64 || durationDays < 1 || durationDays > 30 || company.isBankruptcyRisk()
+                || operationKey.length() > 64 || durationDays < 1 || durationDays > 30 || reward < quantity
+                || company.isBankruptcyRisk()
                 || !CompanyMembershipService.hasPermission(companyId, actor, CompanyPermission.PUBLISH_CONTRACT)) return null;
         String key = actor + ":" + operationKey;
         if (profile.hasOperation(key)) return null;

@@ -175,13 +175,14 @@ public final class ContractManager {
         Account escrow = AccountManager.getAccounts().get(contract.escrowAccountId());
         if (escrow == null) { contract.setFailureReason("missing escrow account"); return; }
         long balance = escrow.getBalance();
-        if (balance != contract.rewardAmount() || !refundToIssuer(contract, escrow, balance)) {
+        if (balance != contract.remainingReward() || !refundToIssuer(contract, escrow, balance)) {
             contract.setFailureReason("escrow refund blocked"); return;
         }
         contract.expire();
         AccountManager.addTransactionRecord(new TransactionRecord(contract.escrowAccountId(), contract.issuerId(),
-                balance, TransactionType.CONTRACT_REFUND, contract.acceptedPlayerId(),
-                contract.commodityId(), contract.requiredQuantity()));
+                balance, TransactionType.CONTRACT_REFUND,
+                contract.acceptedPlayerId() != null ? contract.acceptedPlayerId() : contract.acceptedCompanyId(),
+                contract.commodityId(), contract.remainingQuantity()));
         EconomySavedData.markDirty();
     }
 
@@ -189,6 +190,13 @@ public final class ContractManager {
         int count = 0;
         for (FinanceContract contract : CONTRACTS.values()) if (contract.status() == ContractStatus.ACCEPTED
                 && playerId.equals(contract.acceptedPlayerId())) count++;
+        return count;
+    }
+    public static int activeForCompanySupplier(UUID companyId) {
+        if (companyId == null) return 0;
+        int count = 0;
+        for (FinanceContract contract : CONTRACTS.values()) if (contract.status() == ContractStatus.ACCEPTED
+                && companyId.equals(contract.acceptedCompanyId())) count++;
         return count;
     }
     public static boolean hasLiveForCommodity(String commodityId) {
@@ -209,8 +217,8 @@ public final class ContractManager {
             if (!companyId.equals(contract.issuerId()) || contract.issuerType() != ContractIssuerType.COMPANY
                     || contract.status().terminal()) continue;
             Account escrow = AccountManager.getAccounts().get(contract.escrowAccountId());
-            if (escrow == null || escrow.getBalance() != contract.rewardAmount()) return false;
-            total = total.add(BigInteger.valueOf(contract.rewardAmount()));
+            if (escrow == null || escrow.getBalance() != contract.remainingReward()) return false;
+            total = total.add(BigInteger.valueOf(contract.remainingReward()));
         }
         if (total.compareTo(BigInteger.valueOf(Long.MAX_VALUE)) > 0 || total.signum() > 0
                 && !company.canDeposit(total.longValue())) return false;
@@ -218,8 +226,8 @@ public final class ContractManager {
             if (!companyId.equals(contract.issuerId()) || contract.issuerType() != ContractIssuerType.COMPANY
                     || contract.status().terminal()) continue;
             Account escrow = AccountManager.getAccounts().get(contract.escrowAccountId());
-            if (escrow != null && escrow.getBalance() == contract.rewardAmount()
-                    && refundToIssuer(contract, escrow, contract.rewardAmount())) contract.cancel();
+            if (escrow != null && escrow.getBalance() == contract.remainingReward()
+                    && refundToIssuer(contract, escrow, contract.remainingReward())) contract.cancel();
             else contract.setFailureReason("bankruptcy cancellation refund blocked");
         }
         EconomySavedData.markDirty();

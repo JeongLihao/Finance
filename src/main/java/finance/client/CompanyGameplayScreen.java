@@ -28,6 +28,7 @@ public final class CompanyGameplayScreen extends AbstractContainerScreen<Company
     private int memberOffset;
     private int facilityOffset;
     private int contractOffset;
+    private int selectedContract;
     private int selectedProject;
     private int projectOffset;
     private boolean capitalTab;
@@ -53,6 +54,7 @@ public final class CompanyGameplayScreen extends AbstractContainerScreen<Company
         memberOffset = clampOffset(memberOffset, menu.members().size(), MEMBER_ROWS);
         facilityOffset = clampOffset(facilityOffset, menu.facilities().size(), FACILITY_ROWS);
         contractOffset = clampOffset(contractOffset, menu.contracts().size(), CONTRACT_ROWS);
+        selectedContract = clampSelection(selectedContract, menu.contracts().size());
         selectedProject = clampSelection(selectedProject, menu.projects().size());
         projectOffset = clampOffset(projectOffset, menu.projects().size(), 9);
         capitalTab = menu.statusKey().startsWith("finance.capital_project.");
@@ -131,8 +133,12 @@ public final class CompanyGameplayScreen extends AbstractContainerScreen<Company
         int contractEnd = Math.min(menu.contracts().size(), contractOffset + CONTRACT_ROWS);
         for (int i = contractOffset; i < contractEnd; i++) {
             CompanyGameplayMenu.ContractRow row = menu.contracts().get(i);
-            drawClipped(graphics, row.commodity() + " x" + row.quantity() + " / " + row.reward()
-                    + " / " + row.status(), 12, y, 296, 0xFF202020);
+            if (i == selectedContract) graphics.fill(8, y - 2, 312, y + 10, 0xFFD5E3C7);
+            String side = menu.companyId().equals(row.issuerCompanyId()) ? "BUY"
+                    : menu.companyId().equals(row.acceptedCompanyId()) ? "SELL" : "OPEN";
+            drawClipped(graphics, side + " " + row.commodity() + " " + row.delivered() + "/" + row.quantity()
+                    + "  $" + row.reward() + "  D" + row.deadlineDay() + "  " + row.status(),
+                    12, y, 296, 0xFF202020);
             y += 12;
         }
 
@@ -147,7 +153,7 @@ public final class CompanyGameplayScreen extends AbstractContainerScreen<Company
         button(graphics, 238, 204, 72, "role");
         button(graphics, 10, 222, 72, "remove");
         button(graphics, 86, 222, 72, "upgrade");
-        button(graphics, 162, 222, 72, "procure");
+        contractButton(graphics, 162, 222, 72);
         button(graphics, 238, 222, 72, "advanced");
     }
 
@@ -238,6 +244,19 @@ public final class CompanyGameplayScreen extends AbstractContainerScreen<Company
                 enabled ? 0xFF202020 : 0xFF666666, false);
     }
 
+    private void contractButton(GuiGraphics graphics, int x, int y, int width) {
+        CompanyGameplayActionPacket.Action action = contractAction();
+        boolean enabled = !pending && can(action);
+        graphics.fill(x, y, x + width, y + 16, enabled ? 0xFFD0CAB8 : 0xFFAAA69A);
+        String suffix = action == CompanyGameplayActionPacket.Action.ACCEPT_SUPPLY_CONTRACT
+                ? "supply_accept" : action == CompanyGameplayActionPacket.Action.DELIVER_SUPPLY_CONTRACT
+                ? "supply_deliver" : "procure";
+        String label = clip(Component.translatable("screen.finance.company_gameplay.action." + suffix).getString(),
+                width - 6);
+        graphics.drawString(font, label, x + Math.max(3, (width - font.width(label)) / 2), y + 4,
+                enabled ? 0xFF202020 : 0xFF666666, false);
+    }
+
     private CompanyGameplayActionPacket.Action actionForKey(String key) {
         return switch (key) {
             case "mode" -> CompanyGameplayActionPacket.Action.MODE_NEXT;
@@ -249,7 +268,7 @@ public final class CompanyGameplayScreen extends AbstractContainerScreen<Company
             case "role" -> CompanyGameplayActionPacket.Action.ROLE_NEXT;
             case "remove" -> CompanyGameplayActionPacket.Action.REMOVE_MEMBER;
             case "upgrade" -> CompanyGameplayActionPacket.Action.UPGRADE_FACILITY;
-            case "procure" -> CompanyGameplayActionPacket.Action.PUBLISH_CONTRACT;
+            case "procure" -> contractAction();
             default -> CompanyGameplayActionPacket.Action.OPEN_ADVANCED;
         };
     }
@@ -271,6 +290,8 @@ public final class CompanyGameplayScreen extends AbstractContainerScreen<Company
             case LEAVE -> role != CompanyMemberRole.OWNER;
             case INVITE, ROLE_NEXT, REMOVE_MEMBER -> role.allows(CompanyPermission.MANAGE_MEMBERS);
             case PUBLISH_CONTRACT -> role.allows(CompanyPermission.PUBLISH_CONTRACT);
+            case ACCEPT_SUPPLY_CONTRACT, DELIVER_SUPPLY_CONTRACT ->
+                    role.allows(CompanyPermission.MANAGE_PRODUCTION);
             case OPEN_ADVANCED -> role.allows(CompanyPermission.OPEN_GOVERNANCE);
             case ACCEPT_INVITE, REJECT_INVITE -> false;
         };
@@ -301,6 +322,12 @@ public final class CompanyGameplayScreen extends AbstractContainerScreen<Company
         if (mx >= 266 && mx < 310 && my >= 184 && my < 200) {
             return send(CompanyGameplayActionPacket.Action.AUTO_SELL_NEXT);
         }
+        if (mx >= 8 && mx < 312 && my >= 144
+                && my < 144 + Math.min(CONTRACT_ROWS, Math.max(0, menu.contracts().size() - contractOffset)) * 12) {
+            selectedContract = Math.min(menu.contracts().size() - 1,
+                    contractOffset + Math.max(0, (my - 144) / 12));
+            return true;
+        }
         if (mx >= 10 && mx < 310 && (my >= 204 && my < 220 || my >= 222 && my < 238)) {
             int column = (mx - 10) / 76;
             if (column < 0 || column > 3) return true;
@@ -319,7 +346,7 @@ public final class CompanyGameplayScreen extends AbstractContainerScreen<Company
                 action = switch (column) {
                     case 0 -> CompanyGameplayActionPacket.Action.REMOVE_MEMBER;
                     case 1 -> CompanyGameplayActionPacket.Action.UPGRADE_FACILITY;
-                    case 2 -> CompanyGameplayActionPacket.Action.PUBLISH_CONTRACT;
+                    case 2 -> contractAction();
                     default -> CompanyGameplayActionPacket.Action.OPEN_ADVANCED;
                 };
             }
@@ -436,6 +463,9 @@ public final class CompanyGameplayScreen extends AbstractContainerScreen<Company
                 id = menu.members().get(member).playerId();
             } else if (action == CompanyGameplayActionPacket.Action.UPGRADE_FACILITY) {
                 id = menu.facilities().get(facility).id();
+            } else if (action == CompanyGameplayActionPacket.Action.ACCEPT_SUPPLY_CONTRACT
+                    || action == CompanyGameplayActionPacket.Action.DELIVER_SUPPLY_CONTRACT) {
+                id = menu.contracts().get(selectedContract).id();
             }
         } catch (RuntimeException ignored) {
             return true;
@@ -451,6 +481,17 @@ public final class CompanyGameplayScreen extends AbstractContainerScreen<Company
                 commodity.getValue(), requestedQuantity, requestedReward, UUID.randomUUID().toString()));
         pending = true;
         return true;
+    }
+
+    private CompanyGameplayActionPacket.Action contractAction() {
+        if (menu.contracts().isEmpty()) return CompanyGameplayActionPacket.Action.PUBLISH_CONTRACT;
+        CompanyGameplayMenu.ContractRow row = menu.contracts().get(clampSelection(selectedContract,
+                menu.contracts().size()));
+        if ("OPEN".equals(row.status()) && !menu.companyId().equals(row.issuerCompanyId()))
+            return CompanyGameplayActionPacket.Action.ACCEPT_SUPPLY_CONTRACT;
+        if ("ACCEPTED".equals(row.status()) && menu.companyId().equals(row.acceptedCompanyId()))
+            return CompanyGameplayActionPacket.Action.DELIVER_SUPPLY_CONTRACT;
+        return CompanyGameplayActionPacket.Action.PUBLISH_CONTRACT;
     }
 
     @Override

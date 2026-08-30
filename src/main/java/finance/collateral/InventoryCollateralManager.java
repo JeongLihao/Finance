@@ -21,6 +21,12 @@ public final class InventoryCollateralManager {
     public static synchronized boolean restore(InventoryCollateralAgreement value){return value!=null&&AGREEMENTS.size()<MAX_AGREEMENTS&&AGREEMENTS.putIfAbsent(value.id(),value)==null;}
     public static synchronized void removePending(UUID id){InventoryCollateralAgreement value=AGREEMENTS.get(id);if(value!=null&&value.status()==InventoryCollateralStatus.PENDING)AGREEMENTS.remove(id);}
     public static synchronized int pledged(UUID custody,String commodity){long total=0;for(var value:AGREEMENTS.values())if(value.reservesInventory()&&value.custodyId().equals(custody)&&value.commodityId().equals(commodity))total+=value.pledgedQuantity();for(var value:ORPHANS.values())if(value.custodyId().equals(custody)&&value.commodityId().equals(commodity))total+=value.quantity();return(int)Math.min(Integer.MAX_VALUE,total);}
+    public static synchronized boolean hasReservationsForCommodity(String commodity){
+        if(commodity==null||commodity.isBlank())return false;
+        for(var value:AGREEMENTS.values())if(value.dependsOnCommodity()&&value.commodityId().equals(commodity))return true;
+        for(var value:ORPHANS.values())if(value.commodityId().equals(commodity))return true;
+        return false;
+    }
     public static synchronized int available(UUID custody,String commodity){return Math.max(0,CommodityInventoryManager.getCommodityAmount(custody,commodity)-pledged(custody,commodity));}
     public static synchronized boolean canRemove(UUID custody,String commodity,int amount){return amount>0&&available(custody,commodity)>=amount;}
     public static synchronized boolean moveToLiquidation(InventoryCollateralAgreement value){

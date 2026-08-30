@@ -369,6 +369,10 @@ public class AdminActionPacket {
             GuiFeedbackPacket.send(player, "商品不存在: " + id);
             return;
         }
+        if (finance.collateral.InventoryCollateralManager.hasReservationsForCommodity(id)) {
+            GuiFeedbackPacket.send(player, "商品仍有有效质押或隔离保留，无法删除: " + id);
+            return;
+        }
 
         // 1. 检查依赖该商品的公司并强制退市
         int cancelledOrders = MarketManager.cancelOrdersForCommodity(id);
