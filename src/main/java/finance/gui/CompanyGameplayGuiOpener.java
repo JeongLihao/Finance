@@ -53,6 +53,24 @@ public final class CompanyGameplayGuiOpener {
                 .limit(CompanyGameplayMenu.MAX_CONTRACTS)
                 .map(contract -> new CompanyGameplayMenu.ContractRow(contract.id(), contract.commodityId(),
                         contract.requiredQuantity(), contract.rewardAmount(), contract.status().name())).toList();
+        List<CompanyGameplayMenu.ProjectRow> projects = invited ? List.of()
+                : finance.gameplay.company.capital.CapitalProjectManager.forCompany(companyId).stream()
+                .limit(CompanyGameplayMenu.MAX_PROJECTS)
+                .map(project -> new CompanyGameplayMenu.ProjectRow(project.projectId(), project.type().name(),
+                        project.targetId(), project.targetLevel(), project.budget(), project.fundedAmount(),
+                        project.fundingSource().name(), project.status().name(), project.governanceRequired(),
+                        project.proposalId(), project.failureKey())).toList();
+        CompanyOperatingSnapshot snapshot = CompanyOperatingSnapshotService.snapshot(company,
+                finance.cycle.EconomyCycleService.currentMcDay(player.server));
+        boolean showOperating = !invited && privateView && snapshot != null;
+        String operatingHealth = showOperating ? snapshot.health().name() : "RESTRICTED";
+        long inventoryValue = showOperating ? snapshot.inventoryValue() : 0;
+        boolean degraded = showOperating && snapshot.inventoryValuationDegraded();
+        long warehouseUsed = showOperating ? snapshot.warehouseUsed() : 0;
+        long warehouseCapacity = showOperating ? snapshot.warehouseCapacity() : 0;
+        int activeShipments = showOperating ? snapshot.activeShipmentCount() : 0;
+        long debtPrincipal = showOperating ? snapshot.totalDebtPrincipal() : 0;
+        long dueSoon = showOperating ? snapshot.amountDueWithinSevenDays() : 0;
         long cash = privateView ? company.getCash() : 0;
         String dimension = player.serverLevel().dimension().location().toString();
         MenuProvider provider = new MenuProvider() {
@@ -61,12 +79,16 @@ public final class CompanyGameplayGuiOpener {
                                                    net.minecraft.world.entity.player.Player ignored) {
                 return new CompanyGameplayMenu(id, companyId, company.getName(), cash, company.getAutoSellRatio(),
                         profile.operatingMode(), role, company.isBankruptcyRisk(), dimension, pos,
-                        members, warehouses, facilities, contracts, statusKey);
+                        members, warehouses, facilities, contracts, projects, statusKey, operatingHealth,
+                        inventoryValue, degraded, warehouseUsed, warehouseCapacity, activeShipments,
+                        debtPrincipal, dueSoon);
             }
         };
         NetworkHooks.openScreen(player, provider, buffer -> CompanyGameplayMenu.write(buffer, companyId,
                 company.getName(), cash, company.getAutoSellRatio(), profile.operatingMode(), role,
-                company.isBankruptcyRisk(), dimension, pos, members, warehouses, facilities, contracts, statusKey));
+                company.isBankruptcyRisk(), dimension, pos, members, warehouses, facilities, contracts, projects,
+                statusKey, operatingHealth, inventoryValue, degraded, warehouseUsed, warehouseCapacity,
+                activeShipments, debtPrincipal, dueSoon));
         return true;
     }
 }

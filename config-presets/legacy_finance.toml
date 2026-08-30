@@ -34,3 +34,12 @@ requestCooldownDays = 2
 maximumTargetDistance = 4096
 deadlineDays = 7
 reward = 250
+
+[gameplay.regionalRiskFinance]
+regionalHistoryDays = 120
+maxCollateralAgreements = 4096
+maxHedgeObjectives = 4096
+dailyCollateralBatch = 128
+collateralInitialLtvBasisPoints = 6000
+collateralMaintenanceLtvBasisPoints = 7500
+collateralLiquidationLtvBasisPoints = 9000

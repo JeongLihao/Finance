@@ -48,6 +48,6 @@ class TutorialStageTest {
         assertEquals(0, TutorialOptionalGoal.completedMask(Set.of()));
         assertEquals(TutorialOptionalGoal.LOGISTICS.bit() | TutorialOptionalGoal.EXPLORATION.bit(),
                 TutorialOptionalGoal.completedMask(Set.of("first_shipment", "field_survey", "unknown")));
-        assertEquals(15, TutorialOptionalGoal.validMask());
+        assertEquals(63, TutorialOptionalGoal.validMask());
     }
 }

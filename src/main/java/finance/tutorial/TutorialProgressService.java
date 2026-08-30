@@ -24,7 +24,8 @@ public final class TutorialProgressService {
             "has_ledger", "wallet_opened", "has_market_terminal", "warehouse_built",
             "warehouse_deposit", "first_trade", "first_contract", "company_member",
             "company_production", "first_shipment", "first_village_help", "field_survey",
-            "advanced_finance");
+            "advanced_finance", "capital_project_complete", "regional_risk_view", "collateral_active",
+            "collateral_repaid", "hedge_linked", "insured_risk", "risk_summary_view");
     private static final Map<String, List<String>> ADVANCEMENT_EVENTS = Map.ofEntries(
             Map.entry("first_coin", List.of("has_ledger")),
             Map.entry("portable_finance", List.of("wallet_opened", "has_market_terminal")),

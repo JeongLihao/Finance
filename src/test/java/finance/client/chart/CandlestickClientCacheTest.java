@@ -29,8 +29,10 @@ class CandlestickClientCacheTest {
         CandlestickClientCache.begin(3, MarketInstrumentType.COMMODITY, "iron", 60, 1_000);
         assertEquals(CandlestickClientCache.State.LOADING,
                 CandlestickClientCache.get(MarketInstrumentType.COMMODITY, "iron", 60, 3_999).state());
-        assertEquals(CandlestickClientCache.State.SLOW,
-                CandlestickClientCache.get(MarketInstrumentType.COMMODITY, "iron", 60, 4_000).state());
+        var slow = CandlestickClientCache.get(MarketInstrumentType.COMMODITY, "iron", 60, 4_000);
+        assertEquals(CandlestickClientCache.State.SLOW, slow.state());
+        assertSame(slow, CandlestickClientCache.get(MarketInstrumentType.COMMODITY, "iron", 60, 8_000),
+                "render polling must not allocate another timeout entry every frame");
     }
 
     @Test void emptyResponseIsDistinctFromNotRequested() {
@@ -40,5 +42,7 @@ class CandlestickClientCacheTest {
                 CandlestickClientCache.get(MarketInstrumentType.STOCK, "EMPTY", 30, 1).state());
         assertEquals(CandlestickClientCache.State.NOT_REQUESTED,
                 CandlestickClientCache.get(MarketInstrumentType.STOCK, "OTHER", 30, 1).state());
+        assertSame(CandlestickClientCache.get(MarketInstrumentType.STOCK, "OTHER", 30, 1),
+                CandlestickClientCache.get(MarketInstrumentType.STOCK, "OTHER", 30, 2));
     }
 }

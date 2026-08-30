@@ -17,6 +17,7 @@ public final class CompanyFacilityRecord {
     private int productionLevel;
     private CompanyFacilityStatus status;
     private long lastProcessedDay;
+    private long statusSinceDay;
     private UUID boundWarehouseId;
     private final LinkedHashSet<String> operationKeys = new LinkedHashSet<>();
 
@@ -29,6 +30,7 @@ public final class CompanyFacilityRecord {
         this.facilityId = facilityId; this.companyId = companyId; this.dimensionId = dimensionId;
         this.blockPos = blockPos.immutable(); this.type = type; this.productionLevel = productionLevel;
         this.status = status; this.lastProcessedDay = lastProcessedDay; this.boundWarehouseId = boundWarehouseId;
+        this.statusSinceDay = Math.max(-1,lastProcessedDay);
     }
     public UUID facilityId() { return facilityId; }
     public UUID companyId() { return companyId; }
@@ -38,9 +40,12 @@ public final class CompanyFacilityRecord {
     public int productionLevel() { return productionLevel; }
     public CompanyFacilityStatus status() { return status; }
     public long lastProcessedDay() { return lastProcessedDay; }
+    public long statusSinceDay() { return statusSinceDay; }
     public UUID boundWarehouseId() { return boundWarehouseId; }
     public Set<String> operationKeys() { return Set.copyOf(operationKeys); }
     public void setStatus(CompanyFacilityStatus value) { if (value != null) status = value; }
+    public void setStatus(CompanyFacilityStatus value,long day){if(value==null||day<0)return;if(status!=value)statusSinceDay=day;status=value;}
+    public void restoreStatusSinceDay(long value){statusSinceDay=Math.max(-1,Math.min(value,lastProcessedDay<0?value:lastProcessedDay));}
     public void setLastProcessedDay(long value) { if (value >= -1) lastProcessedDay = value; }
     public void bindWarehouse(UUID value) { boundWarehouseId = value; }
     public boolean upgrade() { if (productionLevel >= MAX_LEVEL) return false; productionLevel++; return true; }

@@ -49,6 +49,14 @@
 
 轻量菜单使用各自的有界数据负载，不复用完整 `FinanceMenu`。公司世界化应复用当前仓库事务与合同 escrow，不得建立第二套库存或无来源奖励。
 
+## 区域风险金融
+
+- 区域指数按 `dimension + settlement UUID + commodity` 日结，只读取真实需求创建、交付与到期事件；它修正后续新需求报价，不建立第二订单簿。
+- `InventoryCollateralManager` 是公司 custody 的 reservation 索引。所有普通商品移除最终经过 `CommodityInventoryManager` 的可用量检查；清算才发生商品端点迁移。
+- `CompanyHedgeService` 是现有期货引擎之上的只读解释层。首版关联个人仓位并标记 `personalAccount=true`，不创建 company UUID 保证金账户。
+- 保险证据来自 `CompanyInventoryFacade`、`CompanyFacilityRecord.statusSinceDay` 和抵押协议的累计回收额，不接受客户端价格、损失、LTV 或 recovered。
+- 高级风险网络摘要最多 128 行；质押写操作需要有效银行柜台，经营对冲需要高级证券会话。详见 [REGIONAL_RISK_FINANCE.md](REGIONAL_RISK_FINANCE.md)。
+
 ## 公司世界经营
 
 ```text
@@ -62,3 +70,19 @@
 - 每日顺序为设施预检与生产、可选自动销售、利润日结、融资/治理、破产检查、世界状态灯刷新。设施和 HYBRID 兜底共同使用每日标记防止重复调度。
 - 升级事务顺序为材料预检/扣除、公司现金扣除、等级提交；后两步失败时材料与现金按原端点恢复。采购合同取消先聚合预检公司现金容量，再批量退还 escrow。
 - 世界反馈只在日结后同步已加载的设施方块，并直接读取 `CompanyFacilityRecord.status()`、`lastProcessedDay()` 和 `CompanyFactoryControllerBlock.INDICATOR`，无需重新推导生产结果。
+
+## 公司实体资本项目
+
+```text
+治理授权 ─┐
+贷款/债券/增发/留存收益 ──> 项目 escrow ──┐
+公司 custody + 执行者背包 ────────────────┼──原子施工──> 仓库/工厂等级
+目标控制器会话、距离与方块身份 ───────────┘                 │
+                                                           └──> 下一期财报──> 平滑估值
+```
+
+- `CapitalProjectService` 是唯一状态写入口；packet、GUI和方块只发送意图。
+- 项目创建冻结预算、目标等级和材料快照，但不扣钱、不发债、不增发；融资必须由原贷款、债券和增发 manager 给出真实成功状态。
+- 施工先复核实体会话，再规划 custody/背包材料，随后扣 escrow 并调用现有升级提交接口；失败按相反顺序补偿。
+- `CompanyFundamentalBridge` 只读聚合经营快照。项目 escrow 是受限资金，不进入自由现金或设施资产，完成后的实际等级才进入财报资产。
+- 资本项目随 `CapitalProjectDataSerializer` 独立保存；坏记录逐条隔离为可恢复失败，不猜测退款归属，也不删除已成立债务。

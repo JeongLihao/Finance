@@ -4,6 +4,9 @@ import finance.gui.WarehouseMenu;
 import finance.network.ContractActionPacket;
 import finance.network.FinancePacketHandler;
 import finance.network.WarehouseActionPacket;
+import finance.network.CapitalProjectActionPacket;
+import finance.gameplay.company.capital.CapitalFundingSource;
+import finance.gameplay.company.capital.WorldCapitalProjectType;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
@@ -25,6 +28,7 @@ public final class WarehouseScreen extends AbstractContainerScreen<WarehouseMenu
     private int shipmentOffset;
     private boolean showShipments;
     private boolean pending;
+    private CapitalFundingSource capitalFundingSource = CapitalFundingSource.RETAINED_EARNINGS;
     private EditBox amount;
 
     public WarehouseScreen(WarehouseMenu menu, Inventory inventory, Component title) {
@@ -69,8 +73,9 @@ public final class WarehouseScreen extends AbstractContainerScreen<WarehouseMenu
         for (int i = rowOffset; i < end; i++) {
             WarehouseMenu.CommodityRow row = menu.rows().get(i);
             if (i == selected) graphics.fill(8, y - 2, 312, y + 10, 0xFFD5E3C7);
-            String text = row.name() + " [" + row.id() + "]   " + row.custodyAmount() + "   "
-                    + row.inventoryAmount() + (row.physical() ? "" : "  (虚拟)");
+            String text = row.name() + " [" + row.id() + "] 总" + row.custodyAmount()+" / 质"
+                    +row.pledgedAmount()+" / 可"+row.availableAmount()+" / 身"+row.inventoryAmount()
+                    + (row.physical() ? "" : "  (虚拟)");
             drawClipped(graphics, text, 12, y, 296, row.physical() ? 0xFF202020 : 0xFF8A6500);
             y += 12;
         }
@@ -100,18 +105,31 @@ public final class WarehouseScreen extends AbstractContainerScreen<WarehouseMenu
             }
         }
 
-        if (!menu.statusKey().isBlank()) {
+        if (!menu.statusKey().isBlank() && !menu.companyBound()) {
             drawClipped(graphics, Component.translatable(menu.statusKey(), menu.statusAmount()).getString(),
-                    10, 177, 300, menu.statusKey().contains("success") ? 0xFF2D7D32 : 0xFF9A2F2F);
+                    10, 177, 300,
+                    menu.statusKey().contains("success") || menu.statusKey().contains("completed")
+                            ? 0xFF2D7D32 : 0xFF9A2F2F);
         }
         drawClipped(graphics, Component.translatable("screen.finance.warehouse.tier", menu.tier(),
                 menu.transferLimit(), menu.upgradeMaterials()).getString(), 10, 189, 210, 0xFF555555);
+        if (menu.companyBound()) {
+            String project = !menu.statusKey().isBlank()
+                    ? Component.translatable(menu.statusKey(), menu.statusAmount()).getString()
+                    : menu.capitalProjectId() == null
+                    ? Component.translatable("screen.finance.warehouse.capital_new", shortSource()).getString()
+                    : Component.translatable("screen.finance.warehouse.capital_status", menu.capitalStatus(),
+                    menu.capitalFunded(), menu.capitalBudget()).getString();
+            drawClipped(graphics, project, 10, 177, 300, 0xFF6A5220);
+        }
 
         drawClipped(graphics, Component.translatable("screen.finance.warehouse.amount").getString(),
                 10, 206, 38, 0xFF555555);
         drawButton(graphics, 112, 202, 54, Component.translatable("screen.finance.warehouse.deposit"));
         drawButton(graphics, 170, 202, 54, Component.translatable("screen.finance.warehouse.withdraw"));
-        drawButton(graphics, 228, 202, 82, Component.translatable("screen.finance.warehouse.upgrade"));
+        drawButton(graphics, 228, 202, 82, Component.translatable(menu.companyBound()
+                ? menu.capitalProjectId() == null ? "screen.finance.warehouse.capital_create"
+                : "screen.finance.warehouse.capital_execute" : "screen.finance.warehouse.upgrade"));
         drawButton(graphics, 10, 221, 66, Component.translatable("screen.finance.warehouse.bind_company"));
         drawButton(graphics, 80, 221, 66, Component.translatable("screen.finance.warehouse.unbind_company"));
         drawButton(graphics, 170, 221, 54, Component.translatable("screen.finance.contract.accept"));
@@ -158,9 +176,23 @@ public final class WarehouseScreen extends AbstractContainerScreen<WarehouseMenu
             return true;
         }
         if (my >= 202 && my < 218 && mx >= 228 && mx < 310) {
-            FinancePacketHandler.CHANNEL.sendToServer(new WarehouseActionPacket(
-                    WarehouseActionPacket.Action.UPGRADE, menu.warehouseId(), "upgrade", 0,
-                    UUID.randomUUID().toString()));
+            if (menu.companyBound()) {
+                if (button == 1 && menu.capitalProjectId() == null) {
+                    CapitalFundingSource[] values = CapitalFundingSource.values();
+                    capitalFundingSource = values[(capitalFundingSource.ordinal() + 1) % values.length];
+                    return true;
+                }
+                CapitalProjectActionPacket.Action action = menu.capitalProjectId() == null
+                        ? CapitalProjectActionPacket.Action.CREATE : CapitalProjectActionPacket.Action.EXECUTE;
+                FinancePacketHandler.CHANNEL.sendToServer(new CapitalProjectActionPacket(action,
+                        menu.capitalProjectId(), menu.warehouseId(), null, null,
+                        menu.capitalProjectId() == null ? WorldCapitalProjectType.WAREHOUSE_UPGRADE : null,
+                        capitalFundingSource, UUID.randomUUID().toString()));
+            } else {
+                FinancePacketHandler.CHANNEL.sendToServer(new WarehouseActionPacket(
+                        WarehouseActionPacket.Action.UPGRADE, menu.warehouseId(), "upgrade", 0,
+                        UUID.randomUUID().toString()));
+            }
             pending = true;
             return true;
         }
@@ -202,6 +234,15 @@ public final class WarehouseScreen extends AbstractContainerScreen<WarehouseMenu
             return true;
         }
         return super.mouseClicked(mouseX, mouseY, button);
+    }
+
+    private String shortSource() {
+        return switch (capitalFundingSource) {
+            case RETAINED_EARNINGS -> "留存收益";
+            case COMMERCIAL_LOAN -> "银行贷款";
+            case CORPORATE_BOND -> "企业债";
+            case SHARE_ISSUE -> "增发";
+        };
     }
 
     @Override

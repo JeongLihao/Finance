@@ -42,6 +42,18 @@ public final class CompanyDataSerializer {
         }
         tag.put("CompanyFinancingProjects", financingProjectsTag);
 
+        ListTag finalizedFinancingTag = new ListTag();
+        for (CompanyFinancingManager.FinalizedFinancing record : CompanyFinancingManager.finalizedRecords()) {
+            CompoundTag row = new CompoundTag();
+            row.putUUID("ProjectId", record.projectId());
+            row.putUUID("CompanyId", record.companyId());
+            row.putLong("Raised", record.raisedAmount());
+            row.putLong("Shares", record.shares());
+            row.putLong("Day", record.day());
+            finalizedFinancingTag.add(row);
+        }
+        tag.put("CompanyFinalizedFinancing", finalizedFinancingTag);
+
         ListTag proposalsTag = new ListTag();
         for (CompanyProposal proposal : CompanyProposalManager.getProposals()) {
             CompoundTag proposalTag = new CompoundTag();
@@ -184,6 +196,21 @@ public final class CompanyDataSerializer {
                     }
                 }
                 CompanyFinancingManager.addProjectDirect(project);
+            }
+        }
+
+        if (tag.contains("CompanyFinalizedFinancing", Tag.TAG_LIST)) {
+            ListTag finalized = tag.getList("CompanyFinalizedFinancing", Tag.TAG_COMPOUND);
+            int start = Math.max(0, finalized.size() - CompanyFinancingManager.MAX_FINALIZED_RECORDS);
+            for (int i = start; i < finalized.size(); i++) {
+                CompoundTag row = finalized.getCompound(i);
+                UUID projectId = NbtDataSupport.readUuidOrNull(row, "ProjectId");
+                UUID companyId = NbtDataSupport.readUuidOrNull(row, "CompanyId");
+                long raised = row.getLong("Raised"), shares = row.getLong("Shares"), day = row.getLong("Day");
+                if (projectId != null && companyId != null && raised > 0 && shares > 0 && day >= 0) {
+                    CompanyFinancingManager.putFinalizedDirect(new CompanyFinancingManager.FinalizedFinancing(
+                            projectId, companyId, raised, shares, day));
+                }
             }
         }
 

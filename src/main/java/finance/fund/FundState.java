@@ -38,6 +38,7 @@ public final class FundState {
     boolean canAddShares(long amount) { return amount > 0 && totalShareUnits <= Long.MAX_VALUE - amount; }
     void addShares(long amount) { totalShareUnits = Math.addExact(totalShareUnits, amount); }
     boolean removeShares(long amount) { if (amount <= 0 || amount > totalShareUnits) return false; totalShareUnits -= amount; return true; }
+    boolean canAddFees(long amount) { return amount >= 0 && accruedFees <= Long.MAX_VALUE - amount; }
     void addFees(long amount) { if (amount > 0) accruedFees = Math.addExact(accruedFees, amount); }
     void addIncome(long amount) { if (amount > 0) realizedIncome = Math.addExact(realizedIncome, amount); }
     void markFeeDay(long day) { lastFeeDay = day; }

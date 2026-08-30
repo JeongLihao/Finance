@@ -94,7 +94,8 @@ public class CompanyFinancingPacket {
                     GuiFeedbackPacket.send(player, "认购数量必须为正。");
                     return;
                 }
-                result = CompanyFinancingManager.subscribe(player.getUUID(), packet.id, packet.subscribeQuantity);
+                result = CompanyFinancingManager.subscribe(player.getUUID(), packet.id, packet.subscribeQuantity,
+                        finance.cycle.EconomyCycleService.currentMcDay(player.server));
             }
             GuiFeedbackPacket.send(player, result.message());
         });

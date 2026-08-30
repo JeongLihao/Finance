@@ -24,6 +24,10 @@ public final class FinancePonderPlugin implements PonderPlugin {
         helper.addStoryBoard(finance("settlement_trade_station"), template, FinancePonderScenes::settlementHelp);
         helper.addStoryBoard(finance("survey_board"), template, FinancePonderScenes::fieldSurvey);
         helper.addStoryBoard(finance("securities_terminal"), template, FinancePonderScenes::advancedFinance);
+        helper.addStoryBoard(finance("survey_board"),template,FinancePonderScenes::regionalTradeFlow);
+        helper.addStoryBoard(finance("bank_counter"),template,FinancePonderScenes::inventoryCollateral);
+        helper.addStoryBoard(finance("securities_terminal"),template,FinancePonderScenes::companyHedge);
+        helper.addStoryBoard(finance("warehouse_controller"),template,FinancePonderScenes::insuranceEvidence);
     }
 
     private static ResourceLocation finance(String path) {

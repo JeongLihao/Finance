@@ -14,7 +14,7 @@ import java.util.Optional;
 public class FinancePacketHandler {
 
     // OpenFinanceGuiPacket 从空载荷升级为受校验的入口类型 + 界面模式。
-    private static final String PROTOCOL_VERSION = "10";
+    private static final String PROTOCOL_VERSION = "14";
 
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             ResourceLocation.fromNamespaceAndPath(FinanceMod.MOD_ID, "gui"),
@@ -26,6 +26,9 @@ public class FinancePacketHandler {
     private static int packetId = 0;
 
     public static void register() {
+        CHANNEL.registerMessage(packetId++, CapitalProjectActionPacket.class,
+                CapitalProjectActionPacket::encode, CapitalProjectActionPacket::decode,
+                CapitalProjectActionPacket::handle, Optional.of(NetworkDirection.PLAY_TO_SERVER));
         CHANNEL.registerMessage(packetId++, CompanyGameplayActionPacket.class,
                 CompanyGameplayActionPacket::encode, CompanyGameplayActionPacket::decode,
                 CompanyGameplayActionPacket::handle, Optional.of(NetworkDirection.PLAY_TO_SERVER));
@@ -195,6 +198,9 @@ public class FinancePacketHandler {
         CHANNEL.registerMessage(packetId++, SettlementActionPacket.class,
                 SettlementActionPacket::encode, SettlementActionPacket::decode, SettlementActionPacket::handle,
                 Optional.of(NetworkDirection.PLAY_TO_SERVER));
+        CHANNEL.registerMessage(packetId++,RegionalRiskRequestPacket.class,RegionalRiskRequestPacket::encode,RegionalRiskRequestPacket::decode,RegionalRiskRequestPacket::handle,Optional.of(NetworkDirection.PLAY_TO_SERVER));
+        CHANNEL.registerMessage(packetId++,RegionalRiskResponsePacket.class,RegionalRiskResponsePacket::encode,RegionalRiskResponsePacket::decode,RegionalRiskResponsePacket::handle,Optional.of(NetworkDirection.PLAY_TO_CLIENT));
+        CHANNEL.registerMessage(packetId++,RegionalRiskActionPacket.class,RegionalRiskActionPacket::encode,RegionalRiskActionPacket::decode,RegionalRiskActionPacket::handle,Optional.of(NetworkDirection.PLAY_TO_SERVER));
         CHANNEL.registerMessage(packetId++, TutorialProgressPacket.class,
                 TutorialProgressPacket::encode, TutorialProgressPacket::decode, TutorialProgressPacket::handle,
                 Optional.of(NetworkDirection.PLAY_TO_CLIENT));

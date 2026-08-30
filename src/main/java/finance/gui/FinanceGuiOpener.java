@@ -256,6 +256,18 @@ public class FinanceGuiOpener {
     private static FinanceMenu.CompanyInfo toCompanyInfo(Company company,boolean privateView) {
         boolean publicFinancials = company.isPublic();
         CompanyFinancialReport report = company.getLatestFinancialReport();
+        List<finance.gameplay.company.capital.WorldCapitalProject> capitalProjects =
+                finance.gameplay.company.capital.CapitalProjectManager.forCompany(company.getCompanyId()).stream()
+                        .filter(project -> !project.status().terminal())
+                        .toList();
+        long capitalCommitted = 0;
+        for (finance.gameplay.company.capital.WorldCapitalProject project : capitalProjects) {
+            try { capitalCommitted = Math.addExact(capitalCommitted, project.fundedAmount()); }
+            catch (ArithmeticException overflow) { capitalCommitted = Long.MAX_VALUE; break; }
+        }
+        String capitalSummary = capitalProjects.isEmpty() ? ""
+                : capitalProjects.get(0).type().name() + " " + capitalProjects.get(0).status().name()
+                + " " + capitalProjects.get(0).fundedAmount() + "/" + capitalProjects.get(0).budget();
         return new FinanceMenu.CompanyInfo(
                 company.getCompanyId(),
                 company.getName(), company.getType().getDisplayName(),
@@ -280,7 +292,8 @@ public class FinanceGuiOpener {
                 report != null ? report.assetChange() : 0,
                 report != null ? report.summary() : "暂无财报。",
                 company.isBankruptcyRisk(),
-                company.getBankruptcyRiskStartDay());
+                company.getBankruptcyRiskStartDay(),
+                capitalProjects.size(), capitalCommitted, capitalSummary);
     }
 
     private static List<Long> commodityHistory(MarketPrice price) {

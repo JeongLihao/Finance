@@ -19,7 +19,8 @@ public final class WarehouseMenu extends AbstractContainerMenu {
     public static final int MAX_ROWS = 128;
     public static final int MAX_CONTRACTS = 64;
     public static final int MAX_SHIPMENTS = 64;
-    public record CommodityRow(String id, String name, int custodyAmount, int inventoryAmount, boolean physical) {}
+    public record CommodityRow(String id, String name, int custodyAmount, int pledgedAmount,
+                               int availableAmount, int inventoryAmount, boolean physical) {}
     public record ContractRow(UUID id, String commodityId, int quantity, long reward, long deadlineDay,
                               String status, boolean acceptedByPlayer) {}
     public record ShipmentRow(UUID id, String commodityId, int quantity, String source, String destination,
@@ -36,6 +37,11 @@ public final class WarehouseMenu extends AbstractContainerMenu {
     private final long upgradeCash;
     private final String upgradeMaterials;
     private final WarehouseStatus status;
+    private final boolean companyBound;
+    private final UUID capitalProjectId;
+    private final String capitalStatus;
+    private final long capitalBudget;
+    private final long capitalFunded;
     private final List<CommodityRow> rows;
     private final List<ContractRow> contracts;
     private final List<ShipmentRow> shipments;
@@ -45,13 +51,16 @@ public final class WarehouseMenu extends AbstractContainerMenu {
     public WarehouseMenu(int containerId, Inventory inventory, FriendlyByteBuf buffer) {
         this(containerId, buffer.readUUID(), buffer.readUtf(64), buffer.readUtf(128), buffer.readBlockPos(),
                 buffer.readLong(), buffer.readLong(), buffer.readVarInt(), buffer.readVarInt(), buffer.readLong(),
-                buffer.readUtf(160), buffer.readEnum(WarehouseStatus.class), readRows(buffer),
+                buffer.readUtf(160), buffer.readEnum(WarehouseStatus.class), buffer.readBoolean(), readOptionalUuid(buffer),
+                buffer.readUtf(32), buffer.readLong(), buffer.readLong(), readRows(buffer),
                 readContracts(buffer), readShipments(buffer), buffer.readUtf(96), buffer.readVarInt());
     }
 
     public WarehouseMenu(int containerId, UUID warehouseId, String ownerName, String dimensionId,
                          BlockPos blockPos, long used, long capacity, int tier, int transferLimit,
                          long upgradeCash, String upgradeMaterials, WarehouseStatus status,
+                         boolean companyBound, UUID capitalProjectId, String capitalStatus,
+                         long capitalBudget, long capitalFunded,
                          List<CommodityRow> rows, List<ContractRow> contracts,
                          List<ShipmentRow> shipments,
                          String statusKey, int statusAmount) {
@@ -67,6 +76,11 @@ public final class WarehouseMenu extends AbstractContainerMenu {
         this.upgradeCash = Math.max(0, upgradeCash);
         this.upgradeMaterials = limit(upgradeMaterials, 160);
         this.status = status;
+        this.companyBound = companyBound;
+        this.capitalProjectId = capitalProjectId;
+        this.capitalStatus = limit(capitalStatus, 32);
+        this.capitalBudget = Math.max(0, capitalBudget);
+        this.capitalFunded = Math.max(0, Math.min(this.capitalBudget, capitalFunded));
         this.rows = List.copyOf(rows.subList(0, Math.min(MAX_ROWS, rows.size())));
         this.contracts = List.copyOf(contracts.subList(0, Math.min(MAX_CONTRACTS, contracts.size())));
         this.shipments = List.copyOf(shipments.subList(0, Math.min(MAX_SHIPMENTS, shipments.size())));
@@ -77,6 +91,8 @@ public final class WarehouseMenu extends AbstractContainerMenu {
     public static void write(FriendlyByteBuf buffer, UUID id, String ownerName, String dimensionId,
                              BlockPos pos, long used, long capacity, int tier, int transferLimit,
                              long upgradeCash, String upgradeMaterials, WarehouseStatus status,
+                             boolean companyBound, UUID capitalProjectId, String capitalStatus,
+                             long capitalBudget, long capitalFunded,
                              List<CommodityRow> rows, List<ContractRow> contracts,
                              List<ShipmentRow> shipments,
                              String statusKey, int statusAmount) {
@@ -91,6 +107,12 @@ public final class WarehouseMenu extends AbstractContainerMenu {
         buffer.writeLong(Math.max(0, upgradeCash));
         buffer.writeUtf(limit(upgradeMaterials, 160), 160);
         buffer.writeEnum(status);
+        buffer.writeBoolean(companyBound);
+        buffer.writeBoolean(capitalProjectId != null);
+        if (capitalProjectId != null) buffer.writeUUID(capitalProjectId);
+        buffer.writeUtf(limit(capitalStatus, 32), 32);
+        buffer.writeLong(Math.max(0, capitalBudget));
+        buffer.writeLong(Math.max(0, Math.min(capitalBudget, capitalFunded)));
         int size = Math.min(MAX_ROWS, rows.size());
         buffer.writeVarInt(size);
         for (int i = 0; i < size; i++) {
@@ -98,6 +120,8 @@ public final class WarehouseMenu extends AbstractContainerMenu {
             buffer.writeUtf(limit(row.id(), 64), 64);
             buffer.writeUtf(limit(row.name(), 64), 64);
             buffer.writeVarInt(Math.max(0, row.custodyAmount()));
+            buffer.writeVarInt(Math.max(0,row.pledgedAmount()));
+            buffer.writeVarInt(Math.max(0,row.availableAmount()));
             buffer.writeVarInt(Math.max(0, row.inventoryAmount()));
             buffer.writeBoolean(row.physical());
         }
@@ -138,6 +162,10 @@ public final class WarehouseMenu extends AbstractContainerMenu {
         return rows;
     }
 
+    private static UUID readOptionalUuid(FriendlyByteBuf buffer) {
+        return buffer.readBoolean() ? buffer.readUUID() : null;
+    }
+
     static List<ShipmentRow> readShipments(FriendlyByteBuf buffer) {
         int size = buffer.readVarInt();
         if (size < 0 || size > MAX_SHIPMENTS) throw new IllegalArgumentException("Invalid shipment row count: " + size);
@@ -161,7 +189,7 @@ public final class WarehouseMenu extends AbstractContainerMenu {
         if (size < 0 || size > MAX_ROWS) throw new IllegalArgumentException("Invalid warehouse row count: " + size);
         List<CommodityRow> rows = new ArrayList<>(size);
         for (int i = 0; i < size; i++) rows.add(new CommodityRow(buffer.readUtf(64), buffer.readUtf(64),
-                buffer.readVarInt(), buffer.readVarInt(), buffer.readBoolean()));
+                buffer.readVarInt(),buffer.readVarInt(),buffer.readVarInt(), buffer.readVarInt(), buffer.readBoolean()));
         return rows;
     }
 
@@ -179,6 +207,11 @@ public final class WarehouseMenu extends AbstractContainerMenu {
     public long upgradeCash() { return upgradeCash; }
     public String upgradeMaterials() { return upgradeMaterials; }
     public WarehouseStatus status() { return status; }
+    public boolean companyBound() { return companyBound; }
+    public UUID capitalProjectId() { return capitalProjectId; }
+    public String capitalStatus() { return capitalStatus; }
+    public long capitalBudget() { return capitalBudget; }
+    public long capitalFunded() { return capitalFunded; }
     public List<CommodityRow> rows() { return rows; }
     public List<ContractRow> contracts() { return contracts; }
     public List<ShipmentRow> shipments() { return shipments; }

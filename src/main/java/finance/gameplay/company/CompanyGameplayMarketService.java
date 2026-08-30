@@ -11,6 +11,7 @@ import finance.market.MarketPrice;
 import finance.market.NpcMarketMaker;
 import finance.util.MathUtil;
 
+import java.util.Map;
 import java.util.UUID;
 
 public final class CompanyGameplayMarketService {
@@ -53,5 +54,18 @@ public final class CompanyGameplayMarketService {
         CommodityTradeRecorder.recordCompletedTrade(NpcMarketMaker.NPC_UUID, company.getCompanyId(), commodityId,
                 price.getBidPrice(), quantity, CommodityTradeSource.COMPANY_NPC, true);
         return true;
+    }
+
+    /** Converts all remaining physical company custody into company cash before entity removal. */
+    public static synchronized boolean liquidateForBankruptcy(Company company) {
+        if (company == null) return false;
+        UUID custody = CompanyInventoryFacade.custodyId(company.getCompanyId());
+        Map<String, Integer> snapshot = Map.copyOf(CommodityInventoryManager.getInventory(custody).getAllCommodities());
+        for (var entry : snapshot.entrySet()) {
+            int available = finance.collateral.InventoryCollateralManager.available(custody, entry.getKey());
+            if (available > 0 && !sell(company, entry.getKey(), available)) return false;
+        }
+        return CommodityInventoryManager.getInventory(custody).getAllCommodities().values().stream()
+                .allMatch(v -> v == null || v <= 0);
     }
 }

@@ -22,7 +22,8 @@ import org.jetbrains.annotations.Nullable;
 
 public final class CompanyFactoryControllerBlock extends BaseEntityBlock {
     public enum Indicator implements StringRepresentable {
-        ACTIVE("active"), MISSING_INPUT("missing_input"), OUTPUT_FULL("output_full"), RISK("risk"), OFF("off");
+        ACTIVE("active"), MISSING_INPUT("missing_input"), OUTPUT_FULL("output_full"), RISK("risk"),
+        PROJECT_PENDING("project_pending"), OFF("off");
         private final String name; Indicator(String name){this.name=name;} @Override public String getSerializedName(){return name;}
     }
     public static final EnumProperty<Indicator> INDICATOR = EnumProperty.create("indicator", Indicator.class);
@@ -48,6 +49,23 @@ public final class CompanyFactoryControllerBlock extends BaseEntityBlock {
     }
     @Override public void playerWillDestroy(Level level, BlockPos pos, BlockState state, Player player) { if (!level.isClientSide && level.getBlockEntity(pos) instanceof CompanyFactoryControllerBlockEntity factory) CompanyFacilityManager.disable(factory.facilityId()); super.playerWillDestroy(level, pos, state, player); }
     @Override public RenderShape getRenderShape(BlockState state) { return RenderShape.MODEL; }
+    public static void updateIndicator(Level level, BlockPos pos, java.util.UUID facilityId) {
+        if (level == null || level.isClientSide || facilityId == null) return;
+        var facility = CompanyFacilityManager.get(facilityId);
+        if (facility == null) return;
+        boolean pending = finance.gameplay.company.capital.CapitalProjectManager.forCompany(facility.companyId())
+                .stream().anyMatch(project -> facilityId.equals(project.targetId()) && !project.status().terminal());
+        Indicator next = pending ? Indicator.PROJECT_PENDING : switch (facility.status()) {
+            case ACTIVE -> Indicator.ACTIVE;
+            case MISSING_INPUT -> Indicator.MISSING_INPUT;
+            case OUTPUT_FULL -> Indicator.OUTPUT_FULL;
+            case BANKRUPTCY_HOLD -> Indicator.RISK;
+            case DISABLED, ORPHANED -> Indicator.OFF;
+        };
+        BlockState state = level.getBlockState(pos);
+        if (state.getBlock() instanceof CompanyFactoryControllerBlock && state.getValue(INDICATOR) != next)
+            level.setBlock(pos, state.setValue(INDICATOR, next), 3);
+    }
     @Override protected void createBlockStateDefinition(StateDefinition.Builder<net.minecraft.world.level.block.Block, BlockState> builder) { builder.add(INDICATOR); }
     @Nullable @Override public BlockEntity newBlockEntity(BlockPos pos, BlockState state) { return new CompanyFactoryControllerBlockEntity(pos, state); }
 }

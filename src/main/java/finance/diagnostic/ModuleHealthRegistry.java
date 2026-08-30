@@ -5,7 +5,7 @@ import java.util.EnumMap;
 import java.util.Map;
 
 public final class ModuleHealthRegistry {
-    public enum Module { ACCOUNT, MARKET, WAREHOUSE, LOGISTICS, SETTLEMENT, EXPLORATION, CONTRACT, COMPANY_GAMEPLAY, STOCK, DEBT, BANKING, FUTURES, FUND, INSURANCE, HISTORY, CYCLE }
+    public enum Module { ACCOUNT, MARKET, WAREHOUSE, LOGISTICS, SETTLEMENT, REGIONAL_RISK, COLLATERAL, HEDGE, EXPLORATION, CONTRACT, COMPANY_GAMEPLAY, STOCK, DEBT, BANKING, FUTURES, FUND, INSURANCE, HISTORY, CYCLE }
     public record Status(ModuleRunState state, String reason, long sinceDay) { }
     private static final EnumMap<Module, Status> STATES = new EnumMap<>(Module.class);
     static { clear(); }

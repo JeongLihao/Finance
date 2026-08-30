@@ -25,6 +25,10 @@ public final class CandlestickClientCache {
     private static final Map<CacheKey, Entry> CACHE = new HashMap<>();
     private static final Map<MarketInstrumentKey, Long> LATEST_REQUESTS = new HashMap<>();
     private static final AtomicLong REQUEST_SEQUENCE = new AtomicLong();
+    private static final MarketRankingSnapshot EMPTY_RANKINGS = new MarketRankingSnapshot(
+            List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of());
+    private static final Entry EMPTY_ENTRY = new Entry(State.NOT_REQUESTED, List.of(), 0, false, 0,
+            new OrderBookSnapshot(List.of(), List.of()), List.of(), EMPTY_RANKINGS);
 
     private CandlestickClientCache() {}
 
@@ -79,9 +83,10 @@ public final class CandlestickClientCache {
         Entry entry = CACHE.get(key);
         if (entry == null) return emptyEntry();
         if (entry.state == State.LOADING && nowMillis - entry.requestedAtMillis >= SLOW_AFTER_MILLIS) {
-            return new Entry(State.SLOW, entry.bars, entry.serverCurrentMcDay,
+            entry = new Entry(State.SLOW, entry.bars, entry.serverCurrentMcDay,
                     entry.latestBarComplete, entry.requestedAtMillis, entry.orderBook, entry.recentTrades,
                     entry.rankings);
+            CACHE.put(key, entry);
         }
         return entry;
     }
@@ -92,12 +97,10 @@ public final class CandlestickClientCache {
     }
 
     private static Entry emptyEntry() {
-        return new Entry(State.NOT_REQUESTED, List.of(), 0, false, 0,
-                new OrderBookSnapshot(List.of(), List.of()), List.of(), emptyRankings());
+        return EMPTY_ENTRY;
     }
 
     private static MarketRankingSnapshot emptyRankings() {
-        return new MarketRankingSnapshot(List.of(), List.of(), List.of(), List.of(),
-                List.of(), List.of(), List.of());
+        return EMPTY_RANKINGS;
     }
 }

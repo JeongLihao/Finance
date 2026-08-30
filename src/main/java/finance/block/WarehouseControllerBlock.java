@@ -22,7 +22,7 @@ import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.EnumProperty;
 
 public final class WarehouseControllerBlock extends BaseEntityBlock {
-    public enum Indicator implements StringRepresentable { NORMAL("normal"),FULL("full"),OVER_CAPACITY("over_capacity");private final String name;Indicator(String name){this.name=name;}public String getSerializedName(){return name;}}
+    public enum Indicator implements StringRepresentable { NORMAL("normal"),FULL("full"),OVER_CAPACITY("over_capacity"),PROJECT_PENDING("project_pending");private final String name;Indicator(String name){this.name=name;}public String getSerializedName(){return name;}}
     public static final EnumProperty<Indicator> INDICATOR=EnumProperty.create("indicator",Indicator.class);
     public WarehouseControllerBlock(Properties properties) {
         super(properties);
@@ -58,7 +58,7 @@ public final class WarehouseControllerBlock extends BaseEntityBlock {
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
 
-    public static void updateIndicator(Level level,BlockPos pos,java.util.UUID warehouseId){if(level==null||level.isClientSide)return;var record=WarehouseManager.get(warehouseId);if(record==null)return;java.util.UUID custody=finance.warehouse.WarehouseService.custodyOwner(record);long used=WarehouseManager.usedCapacity(custody),capacity=WarehouseManager.totalCapacity(custody);Indicator indicator=used>capacity?Indicator.OVER_CAPACITY:used==capacity&&capacity>0?Indicator.FULL:Indicator.NORMAL;BlockState state=level.getBlockState(pos);if(state.getBlock() instanceof WarehouseControllerBlock&&state.getValue(INDICATOR)!=indicator)level.setBlock(pos,state.setValue(INDICATOR,indicator),3);}
+    public static void updateIndicator(Level level,BlockPos pos,java.util.UUID warehouseId){if(level==null||level.isClientSide)return;var record=WarehouseManager.get(warehouseId);if(record==null)return;boolean pending=record.companyId()!=null&&finance.gameplay.company.capital.CapitalProjectManager.forCompany(record.companyId()).stream().anyMatch(project->warehouseId.equals(project.targetId())&&!project.status().terminal());java.util.UUID custody=finance.warehouse.WarehouseService.custodyOwner(record);long used=WarehouseManager.usedCapacity(custody),capacity=WarehouseManager.totalCapacity(custody);Indicator indicator=pending?Indicator.PROJECT_PENDING:used>capacity?Indicator.OVER_CAPACITY:used==capacity&&capacity>0?Indicator.FULL:Indicator.NORMAL;BlockState state=level.getBlockState(pos);if(state.getBlock() instanceof WarehouseControllerBlock&&state.getValue(INDICATOR)!=indicator)level.setBlock(pos,state.setValue(INDICATOR,indicator),3);}
     @Override protected void createBlockStateDefinition(StateDefinition.Builder<net.minecraft.world.level.block.Block,BlockState> builder){builder.add(INDICATOR);}
 
     @Override

@@ -589,7 +589,7 @@ public class Company {
     }
 
     private void generateFinancialReport(long mcDay, long revenue, long expenses, long netProfit) {
-        long assets = getEstimatedValue();
+        long assets = finance.gameplay.company.CompanyFundamentalBridge.reportAssetValue(this, mcDay);
         long liabilities = finance.debt.CompanyCreditService.totalDebt(companyId);
         CompanyFinancialReport previous = getLatestFinancialReport();
         long assetChange = previous != null ? assets - previous.assets() : 0;

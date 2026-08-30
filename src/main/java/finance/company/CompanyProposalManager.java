@@ -170,6 +170,7 @@ public final class CompanyProposalManager {
             case TENDER_OFFER_RESPONSE,CONTROL_TRANSFER -> Result.ok("表决已通过；控制权仅在真实股份交割后更新");
             case EMERGENCY_RECAPITALIZATION -> Result.ok("紧急再融资授权已生效，等待真实出资人执行");
             case MAJOR_ASSET_PURCHASE -> Result.ok("重大资产交易授权已生效，等待卖方确认并原子交割");
+            case CAPITAL_PROJECT -> Result.ok("实体资本项目授权已生效，等待在设施旁创建项目并施工");
         };
     }
 
@@ -190,13 +191,16 @@ public final class CompanyProposalManager {
             case EMERGENCY_RECAPITALIZATION -> value1>0?Result.ok(""):Result.fail("紧急融资目标必须为正。");
             case MAJOR_ASSET_PURCHASE -> validAssetPurchase(textValue,value1,value2)
                     ?Result.ok(""):Result.fail("资产交易须使用“卖方公司UUID|商品ID”，且价格和数量必须为正。");
+            case CAPITAL_PROJECT -> value1 > 0 && value2 >= 0 && value2 <= 1
+                    && (textValue == null || textValue.length() <= 64)
+                    ? Result.ok("") : Result.fail("资本项目授权需要正预算和有效项目类型。");
         };
     }
 
     private static boolean executesImmediately(CompanyProposalType type) {
         return switch (type) {
             case DIVIDEND, SHARE_ISSUE, RENAME, FUND_USAGE, SHARE_BUYBACK, TREASURY_RETIREMENT -> true;
-            case TENDER_OFFER_RESPONSE, CONTROL_TRANSFER, EMERGENCY_RECAPITALIZATION, MAJOR_ASSET_PURCHASE -> false;
+            case TENDER_OFFER_RESPONSE, CONTROL_TRANSFER, EMERGENCY_RECAPITALIZATION, MAJOR_ASSET_PURCHASE, CAPITAL_PROJECT -> false;
         };
     }
 
@@ -289,6 +293,7 @@ public final class CompanyProposalManager {
             case CONTROL_TRANSFER -> "控制权事项";
             case EMERGENCY_RECAPITALIZATION -> "紧急再融资";
             case MAJOR_ASSET_PURCHASE -> "重大资产收购";
+            case CAPITAL_PROJECT -> "实体资本项目";
         };
     }
 

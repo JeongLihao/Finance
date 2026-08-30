@@ -27,15 +27,7 @@ public final class CompanyFacilityWorldFeedbackService {
                     || !facility.facilityId().equals(entity.facilityId())) continue;
             var state = level.getBlockState(facility.blockPos());
             if (!(state.getBlock() instanceof CompanyFactoryControllerBlock)) continue;
-            CompanyFactoryControllerBlock.Indicator indicator = switch (facility.status()) {
-                case ACTIVE -> CompanyFactoryControllerBlock.Indicator.ACTIVE;
-                case MISSING_INPUT -> CompanyFactoryControllerBlock.Indicator.MISSING_INPUT;
-                case OUTPUT_FULL -> CompanyFactoryControllerBlock.Indicator.OUTPUT_FULL;
-                case BANKRUPTCY_HOLD -> CompanyFactoryControllerBlock.Indicator.RISK;
-                case DISABLED, ORPHANED -> CompanyFactoryControllerBlock.Indicator.OFF;
-            };
-            if (state.getValue(CompanyFactoryControllerBlock.INDICATOR) != indicator)
-                level.setBlock(facility.blockPos(), state.setValue(CompanyFactoryControllerBlock.INDICATOR, indicator), 3);
+            CompanyFactoryControllerBlock.updateIndicator(level, facility.blockPos(), facility.facilityId());
             if (facility.status() == CompanyFacilityStatus.ACTIVE && facility.lastProcessedDay() == day) {
                 if(progressed.add(facility.companyId())){finance.company.Company company=finance.company.CompanyManager.getCompany(facility.companyId());if(company!=null){net.minecraft.server.level.ServerPlayer owner=server.getPlayerList().getPlayer(company.getOwnerId());if(owner!=null)finance.advancement.FinanceAdvancementTriggers.trigger(owner,"company_production");for(java.util.UUID member:CompanyGameplayManager.profileFor(company).members().keySet()){net.minecraft.server.level.ServerPlayer online=server.getPlayerList().getPlayer(member);if(online!=null)finance.advancement.FinanceAdvancementTriggers.trigger(online,"company_production");}}}
                 level.sendParticles(ParticleTypes.HAPPY_VILLAGER, facility.blockPos().getX() + .5,

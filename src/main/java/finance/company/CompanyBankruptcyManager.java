@@ -78,6 +78,16 @@ public final class CompanyBankruptcyManager {
                     "清算暂停：采购合同托管资金无法安全退回");
             return new LiquidationResult(false, 0, 0, 0, 0);
         }
+        if (!finance.collateral.InventoryCollateralService.prepareCompanyBankruptcy(company.getCompanyId(), currentMcDay)) {
+            record(company, TransactionType.COMPANY_BANKRUPTCY, 0, 0,
+                    "清算暂停：库存质押品或担保贷款尚未完成优先受偿");
+            return new LiquidationResult(false, 0, 0, 0, 0);
+        }
+        if (!finance.gameplay.company.CompanyGameplayMarketService.liquidateForBankruptcy(company)) {
+            record(company, TransactionType.COMPANY_BANKRUPTCY, 0, 0,
+                    "清算暂停：实体仓库库存尚未完成变现");
+            return new LiquidationResult(false, 0, 0, 0, 0);
+        }
         Stock stock = StockMarketManager.getStockByCompanyId(company.getCompanyId());
         String symbol = stock != null ? stock.getSymbol() : "";
         long liquidationValue = MathUtil.saturatedAddNonNegative(company.getCash(), company.inventoryValue());
