@@ -22,9 +22,31 @@ public final class CompanyInventoryFacade {
         CompanyOperatingMode mode = CompanyGameplayManager.profileFor(company).operatingMode();
         int legacy = mode == CompanyOperatingMode.PLAYER_DRIVEN ? 0 : company.getInventoryAmount(commodityId);
         int custody = mode == CompanyOperatingMode.LEGACY_AUTOMATIC ? 0
-                : CommodityInventoryManager.getCommodityAmount(custodyId(company.getCompanyId()), commodityId);
+                : finance.collateral.InventoryCollateralManager.available(custodyId(company.getCompanyId()), commodityId);
         long sum = (long) legacy + custody;
         return (int) Math.min(Integer.MAX_VALUE, Math.max(0, sum));
+    }
+    /** Total authority-visible inventory, including pledged custody that is not spendable. */
+    public static int totalInventory(Company company,String commodityId){
+        if(company==null||commodityId==null)return 0;CompanyGameplayProfile profile=CompanyGameplayManager.get(company.getCompanyId());
+        if(profile==null)return company.getInventoryAmount(commodityId);
+        int legacy=profile.operatingMode()==CompanyOperatingMode.PLAYER_DRIVEN?0:company.getInventoryAmount(commodityId);
+        int custody=profile.operatingMode()==CompanyOperatingMode.LEGACY_AUTOMATIC?0:CommodityInventoryManager.getCommodityAmount(custodyId(company.getCompanyId()),commodityId);
+        return (int)Math.min(Integer.MAX_VALUE,(long)legacy+custody);
+    }
+    public static int availableInsurableInventory(Company company,String commodityId){
+        if(company==null||commodityId==null)return 0;CompanyGameplayProfile profile=CompanyGameplayManager.get(company.getCompanyId());
+        if(profile==null)return company.getInventoryAmount(commodityId);
+        int legacy=profile.operatingMode()==CompanyOperatingMode.PLAYER_DRIVEN?0:company.getInventoryAmount(commodityId);
+        int custody=profile.operatingMode()==CompanyOperatingMode.LEGACY_AUTOMATIC?0:finance.collateral.InventoryCollateralManager.available(custodyId(company.getCompanyId()),commodityId);
+        return (int)Math.min(Integer.MAX_VALUE,(long)legacy+custody);
+    }
+    /** Removes only unpledged stock and returns a rollback token for event-level atomicity. */
+    public static Consumption consumeInsurableLoss(Company company,String commodityId,int quantity){
+        if(company==null||commodityId==null||commodityId.isBlank()||quantity<=0)return null;
+        CompanyGameplayProfile profile=CompanyGameplayManager.get(company.getCompanyId());
+        if(profile==null){if(!company.removeInventory(commodityId,quantity))return null;return new Consumption(Map.of(),Map.of(commodityId,quantity));}
+        return consumeInputAtomically(company,Map.of(commodityId,quantity));
     }
     public static Consumption consumeInputAtomically(Company company, Map<String, Integer> requirements) {
         if (company == null || requirements == null) return null;

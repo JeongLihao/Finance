@@ -42,6 +42,7 @@ public final class CompanyGameplayDataSerializer {
             tag.putString("Dimension", facility.dimensionId()); tag.putLong("Pos", facility.blockPos().asLong());
             tag.putString("Type", facility.type().name()); tag.putInt("Level", facility.productionLevel());
             tag.putString("Status", facility.status().name()); tag.putLong("LastDay", facility.lastProcessedDay());
+            tag.putLong("StatusSince",facility.statusSinceDay());
             if (facility.boundWarehouseId() != null) tag.putUUID("Warehouse", facility.boundWarehouseId());
             tag.put("Operations", stringList(facility.operationKeys())); facilities.add(tag);
         }
@@ -103,6 +104,7 @@ public final class CompanyGameplayDataSerializer {
                         || warehouse != null && (WarehouseManager.get(warehouse) == null || !company.equals(WarehouseManager.get(warehouse).companyId()))) continue;
                 CompanyFacilityRecord facility = new CompanyFacilityRecord(id, company, dimension, pos, type,
                         tag.getInt("Level"), status, tag.getLong("LastDay"), warehouse);
+                facility.restoreStatusSinceDay(tag.contains("StatusSince")?tag.getLong("StatusSince"):tag.getLong("LastDay"));
                 ListTag ops = tag.getList("Operations", Tag.TAG_STRING);
                 for (int op = Math.max(0, ops.size() - CompanyFacilityRecord.MAX_OPERATION_KEYS); op < ops.size(); op++) facility.recordOperation(ops.getString(op));
                 CompanyFacilityManager.restore(facility);

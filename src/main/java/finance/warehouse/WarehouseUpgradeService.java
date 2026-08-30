@@ -51,4 +51,38 @@ public final class WarehouseUpgradeService {
         EconomySavedData.markDirty();
         return WarehouseActionResult.success("finance.warehouse.upgrade_success", record.tier().level());
     }
+
+    /**
+     * Revalidates and commits only the physical tier mutation for a funded
+     * capital project. Money and materials are owned by the capital-project
+     * transaction and must already have been committed by its service.
+     */
+    public static synchronized boolean commitCapitalUpgrade(ServerPlayer player, UUID warehouseId,
+                                                             UUID companyId, int targetLevel,
+                                                             String operationKey) {
+        WarehouseRecord record = validCapitalTarget(player, warehouseId, companyId, targetLevel);
+        if (record == null || operationKey == null || operationKey.isBlank()
+                || operationKey.length() > 96 || record.hasOperation(operationKey)) return false;
+        WarehouseUpgradeRequirementService.Requirement requirement =
+                WarehouseUpgradeRequirementService.requirement(record.tier());
+        if (requirement == null || requirement.targetTier().level() != targetLevel
+                || !record.upgrade(requirement.targetTier(), requirement.targetTier().capacity())) return false;
+        record.recordOperation(operationKey);
+        WarehouseManager.refreshOwnerStatus(WarehouseService.custodyOwner(record));
+        finance.block.WarehouseControllerBlock.updateIndicator(player.serverLevel(), record.blockPos(), record.warehouseId());
+        EconomySavedData.markDirty();
+        return true;
+    }
+
+    public static WarehouseRecord validCapitalTarget(ServerPlayer player, UUID warehouseId,
+                                                      UUID companyId, int targetLevel) {
+        WarehouseRecord record = WarehouseService.validRecord(player, warehouseId, true);
+        if (record == null || companyId == null || !companyId.equals(record.companyId())
+                || record.status() == WarehouseStatus.DISABLED || record.status() == WarehouseStatus.ORPHANED
+                || !finance.gameplay.company.CompanyMembershipService.hasPermission(companyId, player.getUUID(),
+                finance.gameplay.company.CompanyPermission.MANAGE_PRODUCTION)) return null;
+        WarehouseUpgradeRequirementService.Requirement requirement =
+                WarehouseUpgradeRequirementService.requirement(record.tier());
+        return requirement != null && requirement.targetTier().level() == targetLevel ? record : null;
+    }
 }

@@ -60,8 +60,7 @@ public record FuturesRequestPacket(long requestId) {
                     return new FuturesResponsePacket.OrderRow(owned ? order.orderId() : PRIVATE_ORDER, order.contractId(),
                             order.side(), order.limitPrice(), order.remainingQuantity(), owned);
                 }).toList();
-        List<FuturesResponsePacket.SettlementRow> settlements = FuturesClearingService.history().stream()
-                .skip(Math.max(0, FuturesClearingService.history().size() - FuturesResponsePacket.MAX_ROWS))
+        List<FuturesResponsePacket.SettlementRow> settlements = FuturesClearingService.recentHistory(FuturesResponsePacket.MAX_ROWS).stream()
                 .map(row -> new FuturesResponsePacket.SettlementRow(row.contractId(), row.day(), row.settlementPrice(),
                         row.guaranteeFundUsed(), row.profitHaircut(), row.finalSettlement())).toList();
         long initial = MarginManager.initialRequirement(owner);

@@ -18,8 +18,18 @@ import java.util.UUID;
 public final class CompanyFinancingManager {
 
     private static final List<CompanyFinancingProject> PROJECTS = new ArrayList<>();
+    private static final List<FinalizedFinancing> FINALIZED = new ArrayList<>();
+    public static final int MAX_FINALIZED_RECORDS = 1_024;
     private static final int DEFAULT_DURATION_DAYS = 7;
     private static final long MAX_ISSUE_QUANTITY = 1_000_000L;
+
+    /**
+     * Bounded proof that a share issue completed and how much cash actually
+     * reached the company. Capital projects rely on this record because
+     * successful financing projects are removed from {@link #PROJECTS}.
+     */
+    public record FinalizedFinancing(UUID projectId, UUID companyId, long raisedAmount,
+                                     long shares, long day) {}
 
     private CompanyFinancingManager() {
     }
@@ -66,6 +76,10 @@ public final class CompanyFinancingManager {
     }
 
     public static Result subscribe(UUID playerId, UUID projectId, long shares) {
+        return subscribe(playerId, projectId, shares, 0);
+    }
+
+    public static Result subscribe(UUID playerId, UUID projectId, long shares, long currentMcDay) {
         if (playerId == null || projectId == null || shares <= 0 || shares > Integer.MAX_VALUE) {
             return Result.fail("认购参数无效。");
         }
@@ -98,7 +112,7 @@ public final class CompanyFinancingManager {
         addRecord(playerId, project.getCompanyId(), TransactionType.COMPANY_FINANCING_SUBSCRIBE,
                 cost, acceptedShares, company.getName() + "/" + project.getSymbol());
         if (project.isFunded()) {
-            if (!finalizeProject(project)) {
+            if (!finalizeProject(project, Math.max(0, currentMcDay))) {
                 return Result.fail("Financing settlement is pending; no partial issue was committed.");
             }
             return Result.ok("认购成功，融资目标已达成并完成增发。");
@@ -111,7 +125,7 @@ public final class CompanyFinancingManager {
         boolean changed = false;
         for (CompanyFinancingProject project : new ArrayList<>(PROJECTS)) {
             if (project.isFunded()) {
-                changed |= finalizeProject(project);
+                changed |= finalizeProject(project, currentMcDay);
                 continue;
             }
             if (currentMcDay >= project.getDeadlineMcDay()) {
@@ -166,6 +180,7 @@ public final class CompanyFinancingManager {
 
     public static void clearProjectsDirect() {
         PROJECTS.clear();
+        FINALIZED.clear();
     }
 
     public static int cancelProjectsForCompany(UUID companyId) {
@@ -185,7 +200,7 @@ public final class CompanyFinancingManager {
         return cancelled;
     }
 
-    private static boolean finalizeProject(CompanyFinancingProject project) {
+    private static boolean finalizeProject(CompanyFinancingProject project, long currentMcDay) {
         Company company = CompanyManager.getCompany(project.getCompanyId());
         Stock stock = StockMarketManager.getStock(project.getSymbol());
         if (company == null || stock == null) {
@@ -217,11 +232,39 @@ public final class CompanyFinancingManager {
             company.withdraw(raised);
             return false;
         }
+        addFinalized(new FinalizedFinancing(project.getProjectId(), project.getCompanyId(),
+                raised, subscribedShares, currentMcDay));
         addRecord(company.getOwnerId(), project.getCompanyId(), TransactionType.COMPANY_FINANCING_SUCCESS,
                 raised, subscribedShares, company.getName() + "/" + project.getSymbol());
         PROJECTS.remove(project);
         EconomySavedData.markDirty();
         return true;
+    }
+
+    private static void addFinalized(FinalizedFinancing record) {
+        if (record == null || record.projectId() == null) return;
+        FINALIZED.add(record);
+        while (FINALIZED.size() > MAX_FINALIZED_RECORDS) {
+            FINALIZED.remove(0);
+        }
+    }
+
+    public static List<FinalizedFinancing> finalizedRecords() {
+        return List.copyOf(FINALIZED);
+    }
+
+    public static FinalizedFinancing getFinalized(UUID financingProjectId) {
+        if (financingProjectId == null) return null;
+        for (FinalizedFinancing record : FINALIZED) {
+            if (financingProjectId.equals(record.projectId())) return record;
+        }
+        return null;
+    }
+
+    public static void putFinalizedDirect(FinalizedFinancing record) {
+        if (record != null && record.projectId() != null && FINALIZED.size() < MAX_FINALIZED_RECORDS) {
+            FINALIZED.add(record);
+        }
     }
 
     private static boolean refundProject(CompanyFinancingProject project) {

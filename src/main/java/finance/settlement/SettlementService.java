@@ -17,6 +17,7 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import java.util.*;
+import java.math.BigInteger;
 
 /** Event-driven settlement demand generation and atomic physical delivery. */
 public final class SettlementService {
@@ -70,6 +71,7 @@ public final class SettlementService {
             InventoryTransactionService.rollbackRemoval(player,plan);return SettlementActionResult.fail("finance.settlement.payment_failed");
         }
         if(!demand.complete(player.getUUID()))throw new IllegalStateException("Demand state changed during synchronized settlement");
+        finance.regional.RegionalCommodityMetricsService.recordDemandCompleted(settlement,demand,day(player.serverLevel()));
         demand.recordOperation(key);int points=settlement.addContribution(player.getUUID(),demand.theme().equals("rebuild")?25:10);
         if(demand.theme().equals("rebuild"))settlement.finishRebuild();
         AccountManager.addTransactionRecord(new TransactionRecord(demand.escrowAccountId(),player.getUUID(),demand.reward(),
@@ -112,19 +114,25 @@ public final class SettlementService {
         if(definition==null||net.minecraft.resources.ResourceLocation.tryParse(definition.getItemId())==null)return null;
         int quantity=16+(int)Math.floorMod(settlement.id().getMostSignificantBits()^day*31,3)*8;
         MarketPrice market=NpcMarketMaker.getMarketPrice(commodity);long unit=market==null?definition.getBasePrice():Math.max(1,market.getAskPrice());
-        long reward;try{reward=Math.multiplyExact(unit,quantity);reward=Math.max(1,Math.multiplyExact(reward,finance.config.FinanceConfig.settlementRewardBasisPoints())/10_000L);}catch(ArithmeticException ex){return null;}
+        int localMultiplier=finance.regional.RegionalCommodityMetricsService.quoteMultiplierBps(settlement,commodity);
+        BigInteger computed=BigInteger.valueOf(unit).multiply(BigInteger.valueOf(quantity))
+                .multiply(BigInteger.valueOf(finance.config.FinanceConfig.settlementRewardBasisPoints()))
+                .multiply(BigInteger.valueOf(localMultiplier)).divide(BigInteger.valueOf(100_000_000L));
+        if(computed.signum()<=0||computed.compareTo(BigInteger.valueOf(Long.MAX_VALUE))>0)return null;
+        long reward=computed.longValue();
         UUID escrow=UUID.randomUUID();AccountManager.getOrCreateSystemAccount(escrow);
         if(balance(NpcMarketMaker.NPC_UUID)<reward||!AccountManager.moveFunds(NpcMarketMaker.NPC_UUID,escrow,reward)){
             removeEmptyEscrow(escrow);return null;
         }
         LocalDemand demand=new LocalDemand(UUID.randomUUID(),settlement.id(),commodity,theme,quantity,reward,escrow,day,day+finance.config.FinanceConfig.settlementDeadlineDays(),DemandStatus.OPEN,null);
         if(!SettlementManager.addDemand(demand)){if(!AccountManager.moveFunds(escrow,NpcMarketMaker.NPC_UUID,reward))throw new IllegalStateException("demand escrow rollback failed");removeEmptyEscrow(escrow);return null;}
+        finance.regional.RegionalCommodityMetricsService.recordDemandOpened(settlement,demand);
         AccountManager.addTransactionRecord(new TransactionRecord(NpcMarketMaker.NPC_UUID,escrow,reward,TransactionType.SETTLEMENT_ESCROW));
         EconomySavedData.markDirty();return demand;
     }
 
     private static void expire(SettlementRecord settlement,long day){for(LocalDemand d:SettlementManager.forSettlement(settlement.id()))if(!d.status().terminal()&&day>d.deadlineDay()){
-        long balance=balance(d.escrowAccountId());if(balance==d.reward()&&AccountManager.moveFunds(d.escrowAccountId(),NpcMarketMaker.NPC_UUID,balance)){d.expire();d.refunded();AccountManager.addTransactionRecord(new TransactionRecord(d.escrowAccountId(),NpcMarketMaker.NPC_UUID,balance,TransactionType.SETTLEMENT_REFUND));}
+        long balance=balance(d.escrowAccountId());if(balance==d.reward()&&AccountManager.moveFunds(d.escrowAccountId(),NpcMarketMaker.NPC_UUID,balance)){d.expire();d.refunded();finance.regional.RegionalCommodityMetricsService.recordDemandExpired(settlement,d,day);AccountManager.addTransactionRecord(new TransactionRecord(d.escrowAccountId(),NpcMarketMaker.NPC_UUID,balance,TransactionType.SETTLEMENT_REFUND));}
         else {d.quarantine();ModuleHealthRegistry.restrict(ModuleHealthRegistry.Module.SETTLEMENT,finance.diagnostic.ModuleRunState.PAUSED,"settlement escrow mismatch",day);}EconomySavedData.markDirty();}}
 
     public static void raidEvent(ServerLevel level,BlockPos pos,boolean finished,String eventKey){long day=day(level);nearest(level,pos,96).ifPresent(s->{if(eventKey.equals(s.lastEventKey()))return;if(finished)s.rebuilding(day,eventKey);else s.raidAlert(day,eventKey);EconomySavedData.markDirty();});}

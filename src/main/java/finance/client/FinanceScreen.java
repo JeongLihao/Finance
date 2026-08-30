@@ -418,23 +418,25 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
 
     private void renderFinancialProductsTab(GuiGraphics g, int mouseX, int mouseY) {
         if (menu.getInitialMode() == FinanceScreenMode.BANK) {
-            financialSubTab = 7;
-            renderBankTab(g);
+            if(financialSubTab!=10)financialSubTab=7;
+            g.fill(10,CONTENT_Y-2,72,CONTENT_Y+13,financialSubTab==7?COL_ROW_SELECT:COL_BUTTON_BG);
+            g.fill(76,CONTENT_Y-2,138,CONTENT_Y+13,financialSubTab==10?COL_ROW_SELECT:COL_BUTTON_BG);
+            drawClippedString(g,"银行",28,CONTENT_Y+1,30,COL_TEXT);drawClippedString(g,"库存质押",82,CONTENT_Y+1,52,COL_TEXT);
+            if(financialSubTab==10)renderRegionalRiskTab(g);else renderBankTab(g);
             return;
         }
         FinancialProductClientCache.Entry data = FinancialProductClientCache.get();
-        String[] labels = {"指数", "发行", "债市", "持仓", "票据", "贷款", "期货", "银行", "基金"};
-        labels = Arrays.copyOf(labels, 10);
-        labels[9] = "保险";
+        String[] labels = {"指数", "发行", "债市", "持仓", "票据", "贷款", "期货", "银行", "基金","保险","区域"};
         for (int i = 0; i < labels.length; i++) {
-            int x = 10 + i * 38;
-            g.fill(x, CONTENT_Y - 2, x + 36, CONTENT_Y + 13, i == financialSubTab ? COL_ROW_SELECT : COL_BUTTON_BG);
-            drawClippedString(g, labels[i], x + 3, CONTENT_Y + 1, 30, COL_TEXT);
+            int x = 10 + i * 34;
+            g.fill(x, CONTENT_Y - 2, x + 32, CONTENT_Y + 13, i == financialSubTab ? COL_ROW_SELECT : COL_BUTTON_BG);
+            drawClippedString(g, labels[i], x + 3, CONTENT_Y + 1, 26, COL_TEXT);
         }
         if (financialSubTab == 6) { renderFuturesTab(g, mouseX, mouseY); return; }
         if (financialSubTab == 7) { renderBankTab(g); return; }
         if (financialSubTab == 8) { renderFundTab(g); return; }
         if (financialSubTab == 9) { renderInsuranceTab(g); return; }
+        if (financialSubTab == 10) { renderRegionalRiskTab(g); return; }
         if (data.state() == FinancialProductClientCache.State.NOT_REQUESTED) {
             requestFinancialProducts();
             drawClippedString(g, "正在请求服务端数据…", 12, CONTENT_Y + 28, 350, COL_TEXT_DIM); return;
@@ -498,6 +500,17 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
     private void requestFunds(){long requestId=FundClientCache.begin();FinancePacketHandler.CHANNEL.sendToServer(new FundRequestPacket(requestId));}
 
     private void requestInsurance(){long requestId=InsuranceClientCache.begin();FinancePacketHandler.CHANNEL.sendToServer(new InsuranceRequestPacket(requestId));}
+
+    private void requestRegionalRisk(){long requestId=RegionalRiskClientCache.begin();FinancePacketHandler.CHANNEL.sendToServer(new RegionalRiskRequestPacket(requestId));}
+
+    private void renderRegionalRiskTab(GuiGraphics g){
+        var entry=RegionalRiskClientCache.get();if(entry.state()==RegionalRiskClientCache.State.NOT_REQUESTED){requestRegionalRisk();drawClippedString(g,"正在请求区域风险数据…",12,CONTENT_Y+28,350,COL_TEXT_DIM);return;}if(entry.state()==RegionalRiskClientCache.State.LOADING||entry.state()==RegionalRiskClientCache.State.SLOW){drawClippedString(g,entry.state()==RegionalRiskClientCache.State.SLOW?"区域风险服务响应较慢":"正在加载区域风险数据…",12,CONTENT_Y+28,350,COL_TEXT_DIM);return;}var data=entry.data();int y=CONTENT_Y+20;
+        drawClippedString(g,"区域商品情报（不含玩家、仓库坐标与路线）",12,y,370,COL_ACCENT);y+=14;int shown=0;for(var row:data.regions()){if(shown++>=2)break;String trend=row.trend().isEmpty()?"-":row.trend().stream().map(String::valueOf).collect(java.util.stream.Collectors.joining("/"));drawClippedString(g,row.region()+" "+row.commodity()+" "+row.pressure()+" 缺"+row.shortageBps()/100+"% 溢"+(row.premiumBps()-10000)/100+"% "+(row.reliable()?"可信":"仅数量")+" ["+trend+"]",14,y,374,row.pressure()==finance.regional.RegionalSupplyPressure.SHORTAGE?COL_BAD:COL_TEXT);y+=14;}
+        drawClippedString(g,"库存质押",12,y,70,COL_TEXT_DIM);y+=13;shown=0;for(var row:data.collateral()){if(shown++>=1)break;drawClippedString(g,row.commodity()+" x"+row.quantity()+"  LTV "+row.ltvBps()/100.0+"%  "+row.status()+"  回收"+row.recovered(),14,y,374,row.status()==finance.collateral.InventoryCollateralStatus.MARGIN_CALL?COL_BAD:COL_TEXT);y+=14;}
+        drawClippedString(g,"经营对冲（个人保证金账户，仅作公司风险说明）",12,y,320,COL_TEXT_DIM);y+=13;shown=0;for(var row:data.hedges()){if(shown++>=1)break;drawClippedString(g,row.contractCode()+" "+row.type()+" 目标"+row.target()+" 覆盖"+row.coverageBps()/100.0+"% "+row.status()+" "+row.marginRisk(),14,y,374,row.marginRisk()==finance.futures.MarginRiskStatus.NORMAL?COL_TEXT:COL_WARN);y+=14;}
+        g.fill(8,185,imageWidth-8,232,COL_ROW_EVEN);drawClippedString(g,"金额",14,190,34,COL_TEXT_DIM);drawClippedString(g,"数量",126,190,34,COL_TEXT_DIM);drawClippedString(g,"截止天",238,190,45,COL_TEXT_DIM);
+        if(menu.getInitialMode()==FinanceScreenMode.BANK){drawButton(g,"质押",196,210,48,false);drawButton(g,"补押",248,210,48,false);drawButton(g,"还款",300,210,48,false);}else{drawButton(g,"采购险",184,210,54,false);drawButton(g,"售价险",242,210,54,false);drawButton(g,"取消",300,210,48,false);}
+    }
 
     private void renderInsuranceTab(GuiGraphics g){
         var entry=InsuranceClientCache.get();
@@ -1019,6 +1032,12 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
             drawFilledButton(g, "升级", 216, cardY + 82, 36, COL_GOOD);
             drawClippedString(g, "管理 Lv." + company.managementLevel(), 266, cardY + 86, 70, COL_TEXT_DIM);
             drawFilledButton(g, "升级", 336, cardY + 82, 36, COL_GOOD);
+
+            String capital = company.capitalProjectCount() == 0 ? "实体项目：无"
+                    : "实体项目 " + company.capitalProjectCount() + "  已投入 " + company.capitalCommitted()
+                    + "  " + company.capitalProjectSummary();
+            drawClippedString(g, capital, 12, cardY + 99, 360,
+                    company.capitalProjectCount() == 0 ? COL_TEXT_DIM : COL_ACCENT);
 
             g.drawString(font, "金额", 12, cardY + 110, COL_TEXT_DIM, false);
             drawFilledButton(g, "注资", 150, cardY + 106, 48, COL_GOOD);
@@ -1923,15 +1942,16 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
     // ================================================================
 
     private boolean handleFinancialProductsClick(int mx, int my) {
+        if(menu.getInitialMode()==FinanceScreenMode.BANK&&my>=CONTENT_Y-2&&my<=CONTENT_Y+14){if(mx>=10&&mx<=72)financialSubTab=7;else if(mx>=76&&mx<=138)financialSubTab=10;else return false;updateInputVisibility();if(financialSubTab==10)requestRegionalRisk();else requestBanks();return true;}
         if (menu.getInitialMode() != FinanceScreenMode.BANK
                 && my >= CONTENT_Y - 2 && my <= CONTENT_Y + 14) {
-            for (int i = 0; i < 10; i++) {
-                int x = 10 + i * 38;
-                if (mx >= x && mx <= x + 36) {
+            for (int i = 0; i < 11; i++) {
+                int x = 10 + i * 34;
+                if (mx >= x && mx <= x + 32) {
                     financialSubTab = i;
                     if(i!=6)futuresChartVisible=false;
                     updateInputVisibility();
-                    if(i==6)requestFutures();else if(i==7)requestBanks();else if(i==8)requestFunds();else if(i==9)requestInsurance();else requestFinancialProducts();
+                    if(i==6)requestFutures();else if(i==7)requestBanks();else if(i==8)requestFunds();else if(i==9)requestInsurance();else if(i==10)requestRegionalRisk();else requestFinancialProducts();
                     return true;
                 }
             }
@@ -1942,6 +1962,7 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         if(financialSubTab==7){var cache=BankClientCache.get();var data=cache.data();if(data==null)return false;var bank=data.banks().stream().filter(b->b.status()==finance.bank.BankStatus.ACTIVE||b.status()==finance.bank.BankStatus.WATCH).findFirst().orElse(null);var demands=data.accounts().stream().filter(a->a.ownerType()==finance.bank.CustomerType.PLAYER&&a.type()==finance.bank.BankAccountType.DEMAND_DEPOSIT).toList();var demand=demands.stream().findFirst().orElse(null);var transferTarget=demands.stream().filter(a->demand!=null&&!a.id().equals(demand.id())).findFirst().orElse(null);var matured=data.timeDeposits().stream().filter(t->t.status()==finance.bank.TimeDepositStatus.MATURED).findFirst().orElse(null);long amount=Math.max(1,parseLong(stockPriceBox.getValue()));int term=Math.max(2,parseInt(stockQuantityBox.getValue())),interval=Math.max(1,parseInt(companyAmountBox.getValue()));if(my>=208&&my<=230){BankActionPacket packet;if(mx>=54&&mx<90&&demand!=null&&transferTarget!=null)packet=new BankActionPacket(BankActionPacket.Action.TRANSFER,demand.id(),transferTarget.id(),amount,0,0);else if(mx>=94&&mx<130&&bank!=null)packet=new BankActionPacket(BankActionPacket.Action.DEPOSIT,bank.id(),null,amount,0,0);else if(mx>=134&&mx<170&&demand!=null)packet=new BankActionPacket(BankActionPacket.Action.WITHDRAW,demand.id(),null,amount,0,0);else if(mx>=174&&mx<210&&demand!=null)packet=new BankActionPacket(BankActionPacket.Action.OPEN_TIME,demand.id(),null,amount,term,0);else if(mx>=214&&mx<250&&matured!=null)packet=new BankActionPacket(BankActionPacket.Action.REDEEM_TIME,matured.id(),null,0,0,0);else if(mx>=254&&mx<290&&bank!=null)packet=new BankActionPacket(BankActionPacket.Action.APPLY_COMPANY_LOAN,bank.id(),null,amount,term,Math.min(interval,term-1));else if(mx>=294&&mx<336&&bank!=null)packet=new BankActionPacket(BankActionPacket.Action.WITHDRAW_COMPANY,bank.id(),null,amount,0,0);else if(mx>=340&&isAdmin){var target=data.banks().stream().filter(b->b.status()==finance.bank.BankStatus.RESOLUTION).findFirst().orElse(null);packet=target==null?new BankActionPacket(BankActionPacket.Action.ADMIN_STRESS_TEST,null,null,0,0,0):new BankActionPacket(BankActionPacket.Action.ADMIN_RESOLVE,target.id(),null,0,0,0);}else return false;FinancePacketHandler.CHANNEL.sendToServer(packet);requestBanks();return true;}}
         if(financialSubTab==8){var data=FundClientCache.get();if(data.state()!=FundClientCache.State.READY||data.funds().isEmpty())return false;var fund=data.funds().get(0);long amount=Math.max(1,parseLong(stockPriceBox.getValue())),shares=Math.max(100,parseLong(stockQuantityBox.getValue()));int interval=Math.max(1,parseInt(companyAmountBox.getValue()));if(my>=185&&my<=210){FundActionPacket packet;if(mx>=275&&mx<315)packet=new FundActionPacket(FundActionPacket.Action.SUBSCRIBE,fund.id(),null,amount,0,0,UUID.randomUUID().toString());else if(mx>=320&&mx<360)packet=new FundActionPacket(FundActionPacket.Action.REDEEM,fund.id(),null,0,shares,0,UUID.randomUUID().toString());else if(mx>=365)packet=new FundActionPacket(FundActionPacket.Action.CREATE_PLAN,fund.id(),null,amount,0,interval,UUID.randomUUID().toString());else return false;FinancePacketHandler.CHANNEL.sendToServer(packet);requestFunds();return true;}if(my>=210&&my<=232&&mx<270){FinancePacketHandler.CHANNEL.sendToServer(new FundActionPacket(FundActionPacket.Action.ACKNOWLEDGE_RISK,fund.id(),null,0,0,0,""));return true;}}
         if(financialSubTab==9&&my>=208&&my<=232){var entry=InsuranceClientCache.get();if(mx>=218&&mx<266&&entry.data()!=null&&!entry.data().policies().isEmpty()){var policy=entry.data().policies().get(0);FinancePacketHandler.CHANNEL.sendToServer(new InsuranceActionPacket(InsuranceActionPacket.Action.CANCEL,policy.product(),policy.id(),0,0,UUID.randomUUID().toString()));requestInsurance();return true;}var company=menu.getPlayerCompany();if(company==null)return false;finance.insurance.InsuranceProduct product=mx>=330?finance.insurance.InsuranceProduct.BUSINESS_INTERRUPTION:finance.insurance.InsuranceProduct.INVENTORY_DISASTER;long coverage=Math.max(1,parseLong(stockPriceBox.getValue()));int term=Math.max(2,Math.min(365,parseInt(stockQuantityBox.getValue())));FinancePacketHandler.CHANNEL.sendToServer(new InsuranceActionPacket(InsuranceActionPacket.Action.PURCHASE,product,company.companyId(),coverage,term,UUID.randomUUID().toString()));requestInsurance();return true;}
+        if(financialSubTab==10&&my>=208&&my<=232){var entry=RegionalRiskClientCache.get();var data=entry.data();if(data==null)return false;long amount=Math.max(1,parseLong(stockPriceBox.getValue())),quantity=Math.max(1,parseLong(stockQuantityBox.getValue()));int deadline=Math.max(1,Math.min(3650,parseInt(companyAmountBox.getValue())));RegionalRiskActionPacket packet;if(menu.getInitialMode()==FinanceScreenMode.BANK){var agreement=data.collateral().stream().findFirst().orElse(null);var call=data.collateral().stream().filter(v->v.status()==finance.collateral.InventoryCollateralStatus.MARGIN_CALL).findFirst().orElse(agreement);var bank=data.banks().stream().findFirst().orElse(null);if(mx>=196&&mx<244&&bank!=null)packet=new RegionalRiskActionPacket(RegionalRiskActionPacket.Action.APPLY_COLLATERAL,bank.id(),selectedCommodity,quantity,0,0,UUID.randomUUID().toString());else if(mx>=248&&mx<296&&call!=null)packet=new RegionalRiskActionPacket(RegionalRiskActionPacket.Action.SUPPLEMENT_COLLATERAL,call.id(),"",quantity,0,0,UUID.randomUUID().toString());else if(mx>=300&&mx<348&&agreement!=null)packet=new RegionalRiskActionPacket(RegionalRiskActionPacket.Action.REPAY_COLLATERAL,agreement.id(),"",0,amount,0,UUID.randomUUID().toString());else return false;}else{var contract=data.contracts().stream().filter(v->v.commodity().equals(selectedCommodity)).findFirst().orElse(data.contracts().stream().findFirst().orElse(null));var hedge=data.hedges().stream().findFirst().orElse(null);if(mx>=184&&mx<238&&contract!=null)packet=new RegionalRiskActionPacket(RegionalRiskActionPacket.Action.CREATE_INPUT_HEDGE,contract.id(),"",quantity,0,deadline,UUID.randomUUID().toString());else if(mx>=242&&mx<296&&contract!=null)packet=new RegionalRiskActionPacket(RegionalRiskActionPacket.Action.CREATE_OUTPUT_HEDGE,contract.id(),"",quantity,0,deadline,UUID.randomUUID().toString());else if(mx>=300&&mx<348&&hedge!=null)packet=new RegionalRiskActionPacket(RegionalRiskActionPacket.Action.CANCEL_HEDGE,hedge.id(),"",0,0,0,UUID.randomUUID().toString());else return false;}FinancePacketHandler.CHANNEL.sendToServer(packet);requestRegionalRisk();return true;}
         if (my >= 188 && my <= 208 && mx >= 365) {
             long amount = Math.max(1, parseLong(stockPriceBox.getValue()));
             long quantity = Math.max(1, parseLong(stockQuantityBox.getValue()));
@@ -2012,7 +2033,7 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
                     rememberUiState();
                     dropdownOpen = false;
                     updateInputVisibility();
-                    if (currentTab == 9) { if(financialSubTab==6)requestFutures();else if(financialSubTab==7)requestBanks();else if(financialSubTab==8)requestFunds();else requestFinancialProducts(); }
+                    if (currentTab == 9) { if(financialSubTab==6)requestFutures();else if(financialSubTab==7)requestBanks();else if(financialSubTab==8)requestFunds();else if(financialSubTab==9)requestInsurance();else if(financialSubTab==10)requestRegionalRisk();else requestFinancialProducts(); }
                     return true;
                 }
                 x += w + 3;
@@ -3069,9 +3090,9 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         ipoQuantityBox.setVisible(ipoCompany || companyDetails);
         boolean financial = currentTab == 9;
         stockPriceBox.setVisible(governance||(currentTab == 5 && !stockChartVisible)
-                || (financial && !futuresChartVisible && (financialSubTab == 1 || financialSubTab == 2 || financialSubTab == 4 || financialSubTab == 5 || financialSubTab == 6 || financialSubTab == 7 || financialSubTab == 8 || financialSubTab == 9)));
+                || (financial && !futuresChartVisible && (financialSubTab == 1 || financialSubTab == 2 || financialSubTab == 4 || financialSubTab == 5 || financialSubTab == 6 || financialSubTab == 7 || financialSubTab == 8 || financialSubTab == 9 || financialSubTab == 10)));
         stockQuantityBox.setVisible(governance||(currentTab == 5 && !stockChartVisible)
-                || (financial && !futuresChartVisible && (financialSubTab == 1 || financialSubTab == 2 || financialSubTab == 5 || financialSubTab == 6 || financialSubTab == 7 || financialSubTab == 8 || financialSubTab == 9)));
+                || (financial && !futuresChartVisible && (financialSubTab == 1 || financialSubTab == 2 || financialSubTab == 5 || financialSubTab == 6 || financialSubTab == 7 || financialSubTab == 8 || financialSubTab == 9 || financialSubTab == 10)));
         if(governance){
             stockPriceBox.setX(leftPos+48);stockPriceBox.setY(topPos+CONTENT_Y+164);
             stockQuantityBox.setX(leftPos+168);stockQuantityBox.setY(topPos+CONTENT_Y+164);
@@ -3311,6 +3332,7 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
             case "CONTROL_TRANSFER" -> "控制权";
             case "EMERGENCY_RECAPITALIZATION" -> "紧急再融资";
             case "MAJOR_ASSET_PURCHASE" -> "重大资产";
+            case "CAPITAL_PROJECT" -> "实体资本项目";
             default -> type;
         };
     }
@@ -3320,6 +3342,7 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
             case "DIVIDEND" -> row.value1() + "%";
             case "SHARE_ISSUE" -> row.value1() + "股@" + row.value2();
             case "RENAME", "FUND_USAGE" -> row.textValue();
+            case "CAPITAL_PROJECT" -> "预算" + row.value1() + "/" + (row.value2() == 0 ? "仓库" : "工厂");
             default -> "";
         };
     }

@@ -15,6 +15,8 @@ public final class FinanceConfig {
     private static final int MAX_CONDITIONAL_STOCK_ORDERS_PER_PLAYER_VALUE = 20;
     private static final double STOCK_MARKET_MAKER_SPREAD_VALUE = 0.02D;
     private static final long IPO_FEE_VALUE = 5_000L;
+    private static final long CAPITAL_PROJECT_GOVERNANCE_THRESHOLD_VALUE = 50_000L;
+    private static final int CAPITAL_PROJECT_MAX_DURATION_DAYS_VALUE = 60;
     private static final int DEFAULT_BENCHMARK_RATE_BPS_VALUE = 500;
     private static final int MIN_BENCHMARK_RATE_BPS_VALUE = 0;
     private static final int MAX_BENCHMARK_RATE_BPS_VALUE = 5_000;
@@ -83,6 +85,9 @@ public final class FinanceConfig {
     private static final int EXPLORATION_MAX_DISTANCE_VALUE = 4_096;
     private static final int EXPLORATION_DEADLINE_DAYS_VALUE = 7;
     private static final long EXPLORATION_REWARD_VALUE = 250L;
+    private static final int REGIONAL_HISTORY_DAYS_VALUE=120,COLLATERAL_MAX_ACTIVE_VALUE=4096,
+            HEDGE_MAX_OBJECTIVES_VALUE=4096,RISK_DAILY_BATCH_VALUE=128,COLLATERAL_INITIAL_LTV_BPS_VALUE=6000,
+            COLLATERAL_MAINTENANCE_LTV_BPS_VALUE=7500,COLLATERAL_LIQUIDATION_LTV_BPS_VALUE=9000;
 
     private static final ForgeConfigSpec.IntValue DEFAULT_DIVIDEND_CYCLE_DAYS;
     private static final ForgeConfigSpec.DoubleValue DEFAULT_DIVIDEND_RATIO;
@@ -93,6 +98,8 @@ public final class FinanceConfig {
     private static final ForgeConfigSpec.IntValue MAX_CONDITIONAL_STOCK_ORDERS_PER_PLAYER;
     private static final ForgeConfigSpec.DoubleValue STOCK_MARKET_MAKER_SPREAD;
     private static final ForgeConfigSpec.LongValue IPO_FEE;
+    private static final ForgeConfigSpec.LongValue CAPITAL_PROJECT_GOVERNANCE_THRESHOLD;
+    private static final ForgeConfigSpec.IntValue CAPITAL_PROJECT_MAX_DURATION_DAYS;
     private static final ForgeConfigSpec.IntValue DEFAULT_BENCHMARK_RATE_BPS;
     private static final ForgeConfigSpec.IntValue MAX_BONDS;
     private static final ForgeConfigSpec.IntValue MAX_LOANS;
@@ -143,6 +150,9 @@ public final class FinanceConfig {
     private static final ForgeConfigSpec.IntValue EXPLORATION_COOLDOWN_DAYS, EXPLORATION_MAX_DISTANCE,
             EXPLORATION_DEADLINE_DAYS;
     private static final ForgeConfigSpec.LongValue EXPLORATION_REWARD;
+    private static final ForgeConfigSpec.IntValue REGIONAL_HISTORY_DAYS,COLLATERAL_MAX_ACTIVE,
+            HEDGE_MAX_OBJECTIVES,RISK_DAILY_BATCH,COLLATERAL_INITIAL_LTV_BPS,
+            COLLATERAL_MAINTENANCE_LTV_BPS,COLLATERAL_LIQUIDATION_LTV_BPS;
 
     static {
         ForgeConfigSpec.Builder builder = new ForgeConfigSpec.Builder();
@@ -241,6 +251,22 @@ public final class FinanceConfig {
         EXPLORATION_REWARD = builder.comment("每次调查完成奖励；申请时从 NPC 市场账户转入独立托管。")
                 .defineInRange("reward", EXPLORATION_REWARD_VALUE, 1L, 100_000L);
         builder.pop();
+        builder.push("regionalRiskFinance");
+        REGIONAL_HISTORY_DAYS=builder.comment("区域商品指标保留天数。缩短后会在下一次日结逐步裁剪；修改配置后建议重启服务器。")
+                .defineInRange("regionalHistoryDays",REGIONAL_HISTORY_DAYS_VALUE,7,120);
+        COLLATERAL_MAX_ACTIVE=builder.comment("世界中库存质押记录的软上限；硬上限仍为 4096，降低上限不会删除既有质押。")
+                .defineInRange("maxCollateralAgreements",COLLATERAL_MAX_ACTIVE_VALUE,1,4096);
+        HEDGE_MAX_OBJECTIVES=builder.comment("世界中公司经营对冲目标的软上限；硬上限仍为 4096。")
+                .defineInRange("maxHedgeObjectives",HEDGE_MAX_OBJECTIVES_VALUE,1,4096);
+        RISK_DAILY_BATCH=builder.comment("每个 MC 日最多重估的质押协议数量；采用轮转游标，不会永久遗漏后排协议。")
+                .defineInRange("dailyCollateralBatch",RISK_DAILY_BATCH_VALUE,1,512);
+        COLLATERAL_INITIAL_LTV_BPS=builder.comment("新库存质押贷款的初始 LTV，基点。")
+                .defineInRange("collateralInitialLtvBasisPoints",COLLATERAL_INITIAL_LTV_BPS_VALUE,1000,6000);
+        COLLATERAL_MAINTENANCE_LTV_BPS=builder.comment("库存质押触发追保的 LTV，基点；运行时不低于初始 LTV。")
+                .defineInRange("collateralMaintenanceLtvBasisPoints",COLLATERAL_MAINTENANCE_LTV_BPS_VALUE,2000,9500);
+        COLLATERAL_LIQUIDATION_LTV_BPS=builder.comment("追保至少一个完整 MC 日后允许清算的 LTV，基点；运行时不低于维持线。")
+                .defineInRange("collateralLiquidationLtvBasisPoints",COLLATERAL_LIQUIDATION_LTV_BPS_VALUE,3000,10000);
+        builder.pop();
         builder.pop();
 
         builder.push("company");
@@ -259,6 +285,12 @@ public final class FinanceConfig {
         IPO_FEE = builder
                 .comment("公司发起 IPO 时向所有者收取的费用。")
                 .defineInRange("ipoFee", IPO_FEE_VALUE, 0L, Long.MAX_VALUE);
+        CAPITAL_PROJECT_GOVERNANCE_THRESHOLD = builder
+                .comment("资本项目预算达到或超过该金额时必须显式授权；上市公司走股东提案，非上市公司由所有者确认。")
+                .defineInRange("capitalProjectGovernanceThreshold", CAPITAL_PROJECT_GOVERNANCE_THRESHOLD_VALUE, 0L, Long.MAX_VALUE);
+        CAPITAL_PROJECT_MAX_DURATION_DAYS = builder
+                .comment("资本项目自创建到截止的最长 MC 天数。")
+                .defineInRange("capitalProjectMaxDurationDays", CAPITAL_PROJECT_MAX_DURATION_DAYS_VALUE, 7, 365);
         builder.pop();
 
         builder.push("banking");
@@ -466,6 +498,13 @@ public final class FinanceConfig {
     public static int explorationMaxDistance(){return getInt(EXPLORATION_MAX_DISTANCE,EXPLORATION_MAX_DISTANCE_VALUE);}
     public static int explorationDeadlineDays(){return getInt(EXPLORATION_DEADLINE_DAYS,EXPLORATION_DEADLINE_DAYS_VALUE);}
     public static long explorationReward(){return getLong(EXPLORATION_REWARD,EXPLORATION_REWARD_VALUE);}
+    public static int regionalHistoryDays(){return getInt(REGIONAL_HISTORY_DAYS,REGIONAL_HISTORY_DAYS_VALUE);}
+    public static int maxCollateralAgreements(){return Math.min(4096,getInt(COLLATERAL_MAX_ACTIVE,COLLATERAL_MAX_ACTIVE_VALUE));}
+    public static int maxHedgeObjectives(){return Math.min(4096,getInt(HEDGE_MAX_OBJECTIVES,HEDGE_MAX_OBJECTIVES_VALUE));}
+    public static int collateralDailyBatch(){return Math.min(512,getInt(RISK_DAILY_BATCH,RISK_DAILY_BATCH_VALUE));}
+    public static int collateralInitialLtvBps(){return Math.min(6000,getInt(COLLATERAL_INITIAL_LTV_BPS,COLLATERAL_INITIAL_LTV_BPS_VALUE));}
+    public static int collateralMaintenanceLtvBps(){return Math.max(collateralInitialLtvBps(),getInt(COLLATERAL_MAINTENANCE_LTV_BPS,COLLATERAL_MAINTENANCE_LTV_BPS_VALUE));}
+    public static int collateralLiquidationLtvBps(){return Math.max(collateralMaintenanceLtvBps(),getInt(COLLATERAL_LIQUIDATION_LTV_BPS,COLLATERAL_LIQUIDATION_LTV_BPS_VALUE));}
 
     public static int maxConditionalStockOrdersPerPlayer() {
         return getInt(MAX_CONDITIONAL_STOCK_ORDERS_PER_PLAYER, MAX_CONDITIONAL_STOCK_ORDERS_PER_PLAYER_VALUE);
@@ -477,6 +516,14 @@ public final class FinanceConfig {
 
     public static long ipoFee() {
         return getLong(IPO_FEE, IPO_FEE_VALUE);
+    }
+
+    public static long capitalProjectGovernanceThreshold() {
+        return getLong(CAPITAL_PROJECT_GOVERNANCE_THRESHOLD, CAPITAL_PROJECT_GOVERNANCE_THRESHOLD_VALUE);
+    }
+
+    public static int capitalProjectMaxDurationDays() {
+        return getInt(CAPITAL_PROJECT_MAX_DURATION_DAYS, CAPITAL_PROJECT_MAX_DURATION_DAYS_VALUE);
     }
 
     public static int defaultBenchmarkRateBasisPoints() {

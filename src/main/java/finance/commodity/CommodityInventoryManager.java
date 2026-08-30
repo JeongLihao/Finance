@@ -61,6 +61,10 @@ public class CommodityInventoryManager {
             int amount
     ) {
 
+        if (finance.collateral.InventoryCollateralManager.pledged(playerId, commodityId) > 0
+                && !finance.collateral.InventoryCollateralManager.canRemove(playerId, commodityId, amount)) {
+            return false;
+        }
         boolean success =
                 getInventory(playerId)
                         .removeCommodity(

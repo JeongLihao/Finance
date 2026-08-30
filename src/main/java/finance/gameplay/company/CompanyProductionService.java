@@ -45,15 +45,15 @@ public final class CompanyProductionService {
         if (company == null || facility == null || day < 0 || facility.lastProcessedDay() >= day
                 || facility.status() == CompanyFacilityStatus.DISABLED) return false;
         facility.setLastProcessedDay(day);
-        if (company.isBankruptcyRisk()) { facility.setStatus(CompanyFacilityStatus.BANKRUPTCY_HOLD); return false; }
+        if (company.isBankruptcyRisk()) { facility.setStatus(CompanyFacilityStatus.BANKRUPTCY_HOLD,day); return false; }
         if (facility.boundWarehouseId() == null || !CompanyGameplayManager.profileFor(company).warehouseIds()
-                .contains(facility.boundWarehouseId())) { facility.setStatus(CompanyFacilityStatus.OUTPUT_FULL); return false; }
+                .contains(facility.boundWarehouseId())) { facility.setStatus(CompanyFacilityStatus.OUTPUT_FULL,day); return false; }
         int throughput = finance.config.FinanceConfig.factoryThroughput(facility.productionLevel());
         Map<String, Integer> inputs = scaled(company.getType().getDailyConsumption(), throughput);
         Map<String, Integer> outputs = scaled(company.getType().getDailyProduction(), throughput);
-        if (!CompanyInventoryFacade.canAddOutput(company, outputs)) { facility.setStatus(CompanyFacilityStatus.OUTPUT_FULL); return false; }
+        if (!CompanyInventoryFacade.canAddOutput(company, outputs)) { facility.setStatus(CompanyFacilityStatus.OUTPUT_FULL,day); return false; }
         for (var e : inputs.entrySet()) if (CompanyInventoryFacade.availableInput(company, e.getKey()) < e.getValue()) {
-            facility.setStatus(CompanyFacilityStatus.MISSING_INPUT); return false;
+            facility.setStatus(CompanyFacilityStatus.MISSING_INPUT,day); return false;
         }
         long baseMaintenance = Math.max(1L, company.estimateDailyOperatingCost() / 4L);
         long maintenance = Math.max(1L, java.math.BigInteger.valueOf(baseMaintenance)
@@ -62,16 +62,16 @@ public final class CompanyProductionService {
                 .divide(java.math.BigInteger.valueOf(10_000L))
                 .min(java.math.BigInteger.valueOf(Long.MAX_VALUE)).longValue());
         if (company.getCash() < maintenance || !company.withdraw(maintenance)) {
-            facility.setStatus(CompanyFacilityStatus.BANKRUPTCY_HOLD); return false;
+            facility.setStatus(CompanyFacilityStatus.BANKRUPTCY_HOLD,day); return false;
         }
         CompanyInventoryFacade.Consumption consumed = CompanyInventoryFacade.consumeInputAtomically(company, inputs);
-        if (consumed == null) { company.deposit(maintenance); facility.setStatus(CompanyFacilityStatus.MISSING_INPUT); return false; }
+        if (consumed == null) { company.deposit(maintenance); facility.setStatus(CompanyFacilityStatus.MISSING_INPUT,day); return false; }
         if (!CompanyInventoryFacade.addOutputAtomically(company, outputs)) {
             if (!CompanyInventoryFacade.rollback(company, consumed) || !company.deposit(maintenance))
                 throw new IllegalStateException("company production compensation failed");
-            facility.setStatus(CompanyFacilityStatus.OUTPUT_FULL); return false;
+            facility.setStatus(CompanyFacilityStatus.OUTPUT_FULL,day); return false;
         }
-        facility.setStatus(CompanyFacilityStatus.ACTIVE);
+        facility.setStatus(CompanyFacilityStatus.ACTIVE,day);
         company.recordGameplayCost(maintenance);
         int total = outputs.values().stream().mapToInt(Integer::intValue).sum();
         AccountManager.addTransactionRecord(new TransactionRecord(company.getCompanyId(),

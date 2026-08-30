@@ -19,8 +19,10 @@ public final class TutorialHubScreen extends Screen {
     static final int PANEL_WIDTH = 310;
     static final int PANEL_HEIGHT = 236;
     private static final int ROW_HEIGHT = 15;
-    private static final int OPTIONAL_ROUTE_Y = 49;
-    private static final int OPTIONAL_ROW_HEIGHT = 35;
+    private static final int OPTIONAL_ROUTE_Y = 45;
+    private static final int OPTIONAL_ROW_HEIGHT = 45;
+    private static final int OPTIONAL_CARD_WIDTH = 145;
+    private static final int OPTIONAL_COLUMN_GAP = 4;
 
     private Button visibilityButton;
     private Button pageButton;
@@ -117,8 +119,11 @@ public final class TutorialHubScreen extends Screen {
             TutorialOptionalGoal goal = TutorialOptionalGoal.values()[index];
             boolean complete = TutorialClientState.optionalComplete(goal);
             boolean active = goal == activeGoal;
-            int rowY = routeY + index * OPTIONAL_ROW_HEIGHT;
-            graphics.fill(left + 8, rowY - 4, left + PANEL_WIDTH - 8, rowY + 27,
+            int column = index % 2;
+            int row = index / 2;
+            int cardX = left + 8 + column * (OPTIONAL_CARD_WIDTH + OPTIONAL_COLUMN_GAP);
+            int rowY = routeY + row * OPTIONAL_ROW_HEIGHT;
+            graphics.fill(cardX, rowY - 3, cardX + OPTIONAL_CARD_WIDTH, rowY + 35,
                     active ? 0xFFD9C98B : complete ? 0xFFD9E8D4 : 0xFFE1DCCF);
             Component state = Component.translatable(complete
                     ? "screen.finance.tutorial.done"
@@ -126,11 +131,13 @@ public final class TutorialHubScreen extends Screen {
             String base = "finance.tutorial.optional." + goal.translationId();
             Component title = Component.translatable(base + ".title");
             int color = complete ? 0xFF36743C : active ? 0xFF6C5200 : 0xFF77736A;
-            graphics.drawString(font, state.copy().append(" ").append(title), left + 13, rowY, color, false);
-            List<FormattedCharSequence> hint = font.split(Component.translatable(base + ".hint"), PANEL_WIDTH - 30);
-            if (!hint.isEmpty()) graphics.drawString(font, hint.get(0), left + 13, rowY + 13, 0xFF625D52, false);
-            if (mouseX >= left + 8 && mouseX < left + PANEL_WIDTH - 8
-                    && mouseY >= rowY - 4 && mouseY < rowY + 28) {
+            List<FormattedCharSequence> heading = font.split(state.copy().append(" ").append(title), OPTIONAL_CARD_WIDTH - 10);
+            if (!heading.isEmpty()) graphics.drawString(font, heading.get(0), cardX + 5, rowY, color, false);
+            List<FormattedCharSequence> hint = font.split(Component.translatable(base + ".hint"), OPTIONAL_CARD_WIDTH - 10);
+            for (int line = 0; line < Math.min(2, hint.size()); line++)
+                graphics.drawString(font, hint.get(line), cardX + 5, rowY + 11 + line * 10, 0xFF625D52, false);
+            if (mouseX >= cardX && mouseX < cardX + OPTIONAL_CARD_WIDTH
+                    && mouseY >= rowY - 3 && mouseY < rowY + 36) {
                 graphics.renderTooltip(font, Component.translatable(base + ".hint"), mouseX, mouseY);
             }
         }
@@ -157,12 +164,18 @@ public final class TutorialHubScreen extends Screen {
 
     static TutorialOptionalGoal optionalGoalAt(int relativeX, int relativeY) {
         if (relativeX < 8 || relativeX >= PANEL_WIDTH - 8) return null;
-        int firstRowTop = OPTIONAL_ROUTE_Y - 4;
+        int firstRowTop = OPTIONAL_ROUTE_Y - 3;
         int rowOffset = relativeY - firstRowTop;
         if (rowOffset < 0) return null;
-        int index = rowOffset / OPTIONAL_ROW_HEIGHT;
-        if (index >= TutorialOptionalGoal.values().length
-                || rowOffset % OPTIONAL_ROW_HEIGHT >= 32) return null;
+        int column;
+        if (relativeX >= 8 && relativeX < 8 + OPTIONAL_CARD_WIDTH) column = 0;
+        else if (relativeX >= 8 + OPTIONAL_CARD_WIDTH + OPTIONAL_COLUMN_GAP
+                && relativeX < 8 + OPTIONAL_CARD_WIDTH * 2 + OPTIONAL_COLUMN_GAP) column = 1;
+        else return null;
+        int row = rowOffset / OPTIONAL_ROW_HEIGHT;
+        if (rowOffset % OPTIONAL_ROW_HEIGHT >= 39) return null;
+        int index = row * 2 + column;
+        if (index >= TutorialOptionalGoal.values().length) return null;
         return TutorialOptionalGoal.values()[index];
     }
 

@@ -38,10 +38,14 @@ import finance.data.serializer.GovernanceDataSerializer;
 import finance.data.serializer.WarehouseDataSerializer;
 import finance.data.serializer.ContractDataSerializer;
 import finance.data.serializer.CompanyGameplayDataSerializer;
+import finance.data.serializer.CapitalProjectDataSerializer;
 import finance.data.serializer.WorldFeedbackDataSerializer;
 import finance.data.serializer.LogisticsDataSerializer;
 import finance.data.serializer.SettlementDataSerializer;
 import finance.data.serializer.ExplorationDataSerializer;
+import finance.data.serializer.RegionalCommodityDataSerializer;
+import finance.data.serializer.InventoryCollateralDataSerializer;
+import finance.data.serializer.CompanyHedgeDataSerializer;
 import finance.cycle.FinancialCycleService;
 import finance.metrics.EconomyMetricsService;
 import finance.marketdata.RecentTradeService;
@@ -73,7 +77,7 @@ import net.minecraft.world.level.storage.DimensionDataStorage;
 public class EconomySavedData extends SavedData {
 
     public static final String DATA_NAME = "finance_data";
-    private static final int DATA_VERSION = 33;
+    private static final int DATA_VERSION = 36;
     public static int currentDataVersion() { return DATA_VERSION; }
 
     // ================================================================
@@ -106,9 +110,13 @@ public class EconomySavedData extends SavedData {
         WarehouseDataSerializer.save(tag);
         LogisticsDataSerializer.save(tag);
         SettlementDataSerializer.save(tag);
+        RegionalCommodityDataSerializer.save(tag);
+        InventoryCollateralDataSerializer.save(tag);
+        CompanyHedgeDataSerializer.save(tag);
         ExplorationDataSerializer.save(tag);
         CompanyGameplayDataSerializer.save(tag);
         ContractDataSerializer.save(tag);
+        CapitalProjectDataSerializer.save(tag);
         WorldFeedbackDataSerializer.save(tag);
 
 
@@ -407,9 +415,13 @@ public class EconomySavedData extends SavedData {
         WarehouseDataSerializer.load(tag);
         LogisticsDataSerializer.load(tag);
         SettlementDataSerializer.load(tag);
+        RegionalCommodityDataSerializer.load(tag);
+        InventoryCollateralDataSerializer.load(tag);
+        CompanyHedgeDataSerializer.load(tag);
         ExplorationDataSerializer.load(tag);
         CompanyGameplayDataSerializer.load(tag);
         ContractDataSerializer.load(tag);
+        CapitalProjectDataSerializer.load(tag);
         WorldFeedbackDataSerializer.load(tag);
         RecentTradeService.rebuildFromHistories();
         return data;
@@ -433,6 +445,9 @@ public class EconomySavedData extends SavedData {
         PriceAlertManager.clearAlertsDirect();
         ConditionalStockOrderManager.clearOrdersDirect();
         CompanyFinancingManager.clearProjectsDirect();
+        finance.regional.RegionalCommodityMetricsManager.clearDirect();
+        finance.collateral.InventoryCollateralManager.clearDirect();
+        finance.hedge.CompanyHedgeManager.clearDirect();
         CompanyProposalManager.clearProposalsDirect();
         MarketManager.clearTradeHistory();
         MarketManager.clearOrders();
@@ -474,6 +489,7 @@ public class EconomySavedData extends SavedData {
         finance.exploration.ExplorationManager.clearDirect();
         finance.contract.ContractManager.clearDirect();
         finance.gameplay.company.CompanyGameplayManager.clearDirect();
+        finance.gameplay.company.capital.CapitalProjectManager.clearDirect();
         finance.feedback.WorldEconomyFeedbackService.clearDirect();
         finance.gameplay.WorldTerminalRegistry.clearDirect();
         finance.feedback.WorldTerminalStateService.clearDirect();

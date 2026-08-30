@@ -41,9 +41,10 @@ class CompactScreenLayoutTest {
     @Test
     void optionalTutorialCardsHaveCompactNonOverlappingClickAreas() {
         assertEquals(TutorialOptionalGoal.LOGISTICS, TutorialHubScreen.optionalGoalAt(8, 45));
-        assertEquals(TutorialOptionalGoal.SETTLEMENT, TutorialHubScreen.optionalGoalAt(20, 80));
-        assertEquals(TutorialOptionalGoal.ADVANCED_FINANCE, TutorialHubScreen.optionalGoalAt(301, 150));
-        assertEquals(null, TutorialHubScreen.optionalGoalAt(20, 77));
+        assertEquals(TutorialOptionalGoal.SETTLEMENT, TutorialHubScreen.optionalGoalAt(160, 45));
+        assertEquals(TutorialOptionalGoal.ADVANCED_FINANCE, TutorialHubScreen.optionalGoalAt(160, 90));
+        assertEquals(TutorialOptionalGoal.RISK_MANAGEMENT, TutorialHubScreen.optionalGoalAt(160, 135));
+        assertEquals(null, TutorialHubScreen.optionalGoalAt(154, 45));
         assertEquals(null, TutorialHubScreen.optionalGoalAt(307, 45));
         assertEquals(null, TutorialHubScreen.optionalGoalAt(20, 185));
     }

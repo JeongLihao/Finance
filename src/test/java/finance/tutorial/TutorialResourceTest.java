@@ -14,10 +14,11 @@ import static org.junit.jupiter.api.Assertions.*;
 class TutorialResourceTest {
     private static final String[] SCENES = {"getting_started", "warehouse_basics", "market_trading",
             "contract_delivery", "company_production", "logistics_delivery", "settlement_help",
-            "field_survey", "advanced_finance"};
+            "field_survey", "advanced_finance", "regional_trade_flow", "inventory_collateral",
+            "company_hedge", "insurance_evidence"};
 
     @Test
-    void allNinePonderScenesHaveEnglishAndChineseHeaders() throws Exception {
+    void allPonderScenesHaveEnglishAndChineseHeaders() throws Exception {
         JsonObject english = language("en_us");
         JsonObject chinese = language("zh_cn");
         for (String scene : SCENES) {
@@ -39,9 +40,20 @@ class TutorialResourceTest {
     }
 
     @Test
-    void pluginRegistersExactlyNineStoryboards() throws Exception {
+    void pluginRegistersExactlyThirteenStoryboards() throws Exception {
         String source = Files.readString(Path.of("src/main/java/finance/compat/ponder/FinancePonderPlugin.java"));
-        assertEquals(9, source.split("helper\\.addStoryBoard", -1).length - 1);
+        assertEquals(13, source.split("helper\\.addStoryBoard", -1).length - 1);
+    }
+
+    @Test
+    void storyboardsUseMotionAndItemFlowInsteadOfNarratedSlides() throws Exception {
+        String source = Files.readString(Path.of("src/main/java/finance/compat/ponder/FinancePonderScenes.java"));
+        assertTrue(source.contains("createItemEntity"));
+        assertTrue(source.contains("moveSection"));
+        assertTrue(source.contains("rotateCameraY"));
+        assertTrue(source.split("flow\\(scene", -1).length - 1 >= 20);
+        assertFalse(source.contains("Finance starts with places in the world"));
+        assertFalse(source.contains("The bank reserves real company custody"));
     }
 
     private JsonObject language(String code) throws Exception {

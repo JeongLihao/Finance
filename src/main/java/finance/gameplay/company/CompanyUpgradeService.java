@@ -57,6 +57,34 @@ public final class CompanyUpgradeService {
         return CompanyGameplayActionResult.ok("finance.company_gameplay.upgrade_success");
     }
 
+    /** Commits only the facility-level mutation after a capital project has paid its escrow and materials. */
+    public static synchronized boolean commitCapitalUpgrade(ServerPlayer player, UUID facilityId,
+                                                             UUID companyId, int targetLevel,
+                                                             String operationKey) {
+        CompanyFacilityRecord facility = validCapitalTarget(player, facilityId, companyId, targetLevel);
+        if (facility == null || operationKey == null || operationKey.isBlank()
+                || operationKey.length() > 96 || facility.hasOperation(operationKey)
+                || !facility.upgrade()) return false;
+        facility.recordOperation(operationKey);
+        finance.block.CompanyFactoryControllerBlock.updateIndicator(player.serverLevel(), facility.blockPos(),
+                facility.facilityId());
+        EconomySavedData.markDirty();
+        return true;
+    }
+
+    public static CompanyFacilityRecord validCapitalTarget(ServerPlayer player, UUID facilityId,
+                                                            UUID companyId, int targetLevel) {
+        CompanyFacilityRecord facility = CompanyFacilityManager.get(facilityId);
+        Company company = facility == null ? null : CompanyManager.getCompany(facility.companyId());
+        if (company == null || companyId == null || !companyId.equals(company.getCompanyId())
+                || !validPhysicalRequest(player, facility)
+                || !CompanyMembershipService.hasPermission(companyId, player.getUUID(),
+                CompanyPermission.MANAGE_PRODUCTION) || company.isBankruptcyRisk()) return null;
+        CompanyUpgradeRequirementService.Requirement requirement = CompanyUpgradeRequirementService.requirement(
+                company.getType(), facility.type(), facility.productionLevel());
+        return requirement != null && facility.productionLevel() + 1 == targetLevel ? facility : null;
+    }
+
     private static boolean validPhysicalRequest(ServerPlayer player, CompanyFacilityRecord facility) {
         if (player == null || facility == null || !player.isAlive()
                 || !player.serverLevel().dimension().location().toString().equals(facility.dimensionId())

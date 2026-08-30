@@ -1,1 +1,1 @@
-{"variants":{"indicator=normal":{"model":"finance:block/warehouse_controller"},"indicator=full":{"model":"finance:block/warehouse_controller_full"},"indicator=over_capacity":{"model":"finance:block/warehouse_controller_over_capacity"}}}
+{"variants":{"indicator=normal":{"model":"finance:block/warehouse_controller"},"indicator=full":{"model":"finance:block/warehouse_controller_full"},"indicator=over_capacity":{"model":"finance:block/warehouse_controller_over_capacity"},"indicator=project_pending":{"model":"finance:block/warehouse_controller_full"}}}

@@ -151,6 +151,26 @@ public final class CompanyLoanManager {
         if(loan.outstandingPrincipal()==0&&loan.accruedInterest()==0)loan.setStatus(LoanStatus.REPAID);
         EconomySavedData.markDirty();return true;
     }
+    public static synchronized boolean applyCollateralRecovery(UUID loanId,long amount,long day,UUID reference){
+        CompanyLoan loan=LOANS.get(loanId);
+        if(loan==null||loan.lenderType()!=LoanLenderType.COMMERCIAL_BANK||amount<=0
+                ||amount>loan.outstandingPrincipal()||reference==null)return false;
+        if(!BankingManager.canApplyLoanRecovery(loan.lenderId(),amount)
+                ||!BankingManager.applyLoanRecovery(loan.lenderId(),amount,day,reference))return false;
+        loan.setOutstandingPrincipal(loan.outstandingPrincipal()-amount);
+        if(loan.outstandingPrincipal()==0&&loan.accruedInterest()==0)loan.setStatus(LoanStatus.REPAID);
+        EconomySavedData.markDirty();return true;
+    }
+    public static synchronized boolean markCollateralDefault(UUID loanId,long day){
+        CompanyLoan loan=LOANS.get(loanId);
+        if(loan==null||loan.lenderType()!=LoanLenderType.COMMERCIAL_BANK
+                ||loan.status()==LoanStatus.REPAID||loan.status()==LoanStatus.CANCELLED)return false;
+        loan.setStatus(LoanStatus.DEFAULTED);
+        if(loan.delinquentSinceDay()<0)loan.setDelinquentSinceDay(Math.max(loan.issueDay(),day));
+        provisionCommercialDefault(loan,day);
+        EconomySavedData.markDirty();
+        return true;
+    }
     static void markBankruptcyDefault(UUID companyId) {
         for (CompanyLoan loan : LOANS.values()) if (loan.companyId().equals(companyId)
                 && loan.status() != LoanStatus.REPAID && loan.status() != LoanStatus.CANCELLED) {

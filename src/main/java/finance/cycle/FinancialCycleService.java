@@ -42,10 +42,14 @@ public final class FinancialCycleService {
         finance.fixedincome.CentralBankBillManager.processDay(day);
         if(finance.diagnostic.ModuleHealthRegistry.mayWrite(finance.diagnostic.ModuleHealthRegistry.Module.FUTURES))finance.futures.FuturesMarketManager.processDay(day);
         if(finance.diagnostic.ModuleHealthRegistry.mayWrite(finance.diagnostic.ModuleHealthRegistry.Module.BANKING))finance.bank.BankingManager.processDay(day);
+        if(finance.diagnostic.ModuleHealthRegistry.mayWrite(finance.diagnostic.ModuleHealthRegistry.Module.COLLATERAL))finance.collateral.InventoryCollateralService.processDay(day);
         if(finance.diagnostic.ModuleHealthRegistry.mayWrite(finance.diagnostic.ModuleHealthRegistry.Module.FUND))finance.fund.FundManager.processDay(day);
         if(finance.diagnostic.ModuleHealthRegistry.mayWrite(finance.diagnostic.ModuleHealthRegistry.Module.INSURANCE))finance.insurance.InsuranceManager.processDay(day);
         if(finance.diagnostic.ModuleHealthRegistry.mayWrite(finance.diagnostic.ModuleHealthRegistry.Module.STOCK))finance.governance.CorporateActionManager.processDay(day);
         finance.contract.ContractManager.processDay(day);
+        if (finance.diagnostic.ModuleHealthRegistry.mayWrite(
+                finance.diagnostic.ModuleHealthRegistry.Module.COMPANY_GAMEPLAY))
+            finance.gameplay.company.capital.CapitalProjectService.processDay(day);
     }
 
     /** Closes a fully completed market day before the new day's price reset. */
@@ -54,6 +58,7 @@ public final class FinancialCycleService {
         if(finance.diagnostic.ModuleHealthRegistry.mayWrite(finance.diagnostic.ModuleHealthRegistry.Module.FUTURES))finance.futures.FuturesClearingService.closeDay(completedMcDay);
         if(finance.diagnostic.ModuleHealthRegistry.mayWrite(finance.diagnostic.ModuleHealthRegistry.Module.HISTORY))MarketIndexService.closeDay(completedMcDay);
         if(finance.diagnostic.ModuleHealthRegistry.mayWrite(finance.diagnostic.ModuleHealthRegistry.Module.BANKING))finance.bank.BankingManager.closeDay(completedMcDay);
+        if(finance.diagnostic.ModuleHealthRegistry.mayWrite(finance.diagnostic.ModuleHealthRegistry.Module.REGIONAL_RISK))finance.regional.RegionalCommodityMetricsService.closeDay(completedMcDay);
         lastClosedMarketDay = completedMcDay;
         EconomySavedData.markDirty();
         return true;

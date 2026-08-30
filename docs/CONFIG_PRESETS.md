@@ -10,6 +10,21 @@ Finance 只注册 Forge `COMMON` 配置 `config/finance-common.toml`。它由服
 
 所有值都在 `FinanceConfig` 的安全范围内，并由自动化测试验证。配置关闭只拒绝新业务：已有合同、运输托管、聚落需求、探索 escrow、订单、债务和保单仍会加载并执行退款/到期流程。不要在运行中的结算周期修改利率、保证金、容量或生产倍率；生产服修改后应完整重启。
 
+区域风险金融配置位于 `[gameplay.regionalRiskFinance]`。默认值如下；这些值属于服务器权威配置，修改后建议完整重启，Forge `/reload` 不保证重建已加载的日结服务状态：
+
+```toml
+[gameplay.regionalRiskFinance]
+regionalHistoryDays = 120
+maxCollateralAgreements = 4096
+maxHedgeObjectives = 4096
+dailyCollateralBatch = 128
+collateralInitialLtvBasisPoints = 6000
+collateralMaintenanceLtvBasisPoints = 7500
+collateralLiquidationLtvBasisPoints = 9000
+```
+
+降低软上限不会删除既有质押或对冲目标。区域历史只在后续日结时裁剪；LTV 三条线在运行时强制满足“初始线 ≤ 维持线 ≤ 清算线”。
+
 `worldgenEnabled` 在当前安全 MVP 中必须保持 `false`。目前没有活动 structure set，不能通过把该值改为 `true` 获得经过验收的随机遗迹。
 
 当前限制：期货与银行有独立业务开关，但股票、基金和保险尚没有统一的“拒绝全部新业务”配置。它们可以通过场所化入口保持可选，却不能被本文档冒充为完整模块停用能力。

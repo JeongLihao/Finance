@@ -51,7 +51,9 @@ public class FinanceMenu extends AbstractContainerMenu {
                                long reportRevenue, long reportExpenses, long reportNetProfit,
                                long reportAssets, long reportLiabilities, long reportCash,
                                long reportProfitChange, long reportAssetChange, String reportSummary,
-                               boolean bankruptcyRisk, long bankruptcyRiskStartDay) {}
+                               boolean bankruptcyRisk, long bankruptcyRiskStartDay,
+                               int capitalProjectCount, long capitalCommitted,
+                               String capitalProjectSummary) {}
 
     public record StockRow(String symbol, String name, long lastPrice, double dayChange,
                            long dayVolume, long availableShares, long fairValue,
@@ -443,6 +445,9 @@ public class FinanceMenu extends AbstractContainerMenu {
             buffer.writeUtf(limitString(info.reportSummary(), 128), 128);
             buffer.writeBoolean(info.bankruptcyRisk());
             buffer.writeLong(info.bankruptcyRiskStartDay());
+            buffer.writeVarInt(Math.max(0, info.capitalProjectCount()));
+            buffer.writeLong(Math.max(0, info.capitalCommitted()));
+            buffer.writeUtf(limitString(info.capitalProjectSummary(), 128), 128);
         }
     }
 
@@ -456,7 +461,7 @@ public class FinanceMenu extends AbstractContainerMenu {
                 buffer.readLong(), buffer.readLong(), buffer.readLong(),
                 buffer.readLong(), buffer.readLong(), buffer.readLong(),
                 buffer.readLong(), buffer.readLong(), buffer.readUtf(128),
-                buffer.readBoolean(), buffer.readLong());
+                buffer.readBoolean(), buffer.readLong(), buffer.readVarInt(), buffer.readLong(), buffer.readUtf(128));
     }
 
     private static void writeCompanyInfoList(FriendlyByteBuf buffer, List<CompanyInfo> companies) {
