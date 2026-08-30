@@ -295,9 +295,12 @@ dependencies {
     // If the group id is "net.minecraft" and the artifact id is one of ["client", "server", "joined"],
     // then special handling is done to allow a setup of a vanilla dependency without the use of an external repository.
     minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
-    // Ponder publishes a Mojmap development artifact. It is compile-only:
-    // players who want animated scenes install Ponder as a separate client mod.
+    // Compile against Ponder's API and let ForgeGradle remap both runtime mods
+    // for the Mojmap userdev environment. Production jars placed directly in
+    // run/mods retain SRG mixin targets and crash the development client.
     compileOnly "net.createmod.ponder:Ponder-Forge-${minecraft_version}:${ponder_version}"
+    runtimeOnly fg.deobf("net.createmod.ponder:Ponder-Forge-${minecraft_version}:${ponder_version}")
+    runtimeOnly fg.deobf("dev.engine-room.flywheel:flywheel-forge-${minecraft_version}:${flywheel_version}")
     testImplementation platform('org.junit:junit-bom:5.10.2')
     testImplementation 'org.junit.jupiter:junit-jupiter'
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine'

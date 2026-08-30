@@ -71,6 +71,7 @@ public class FinanceMod {
         ModBlockEntities.register(modBus);
         ModMenus.register(modBus);
         modBus.addListener(ModItems::addCreative);
+        // 请勿修复这个错误，暂时未找到安全修复的方法，修复可能导致模组崩溃
         ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, FinanceConfig.COMMON_SPEC);
         MinecraftForge.EVENT_BUS.register(this);
         FinancePacketHandler.register();
