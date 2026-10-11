@@ -21,6 +21,14 @@ public final class FinanceConfig {
     private static final double TAKEOVER_PRICE_CAP_RATIO_VALUE = 1.5D; // 要约价上限 = 1.5 × fairValue
     private static final int TAKEOVER_MIN_DURATION_DAYS_VALUE = 3; // 要约期下限（MC 天）
     private static final int TAKEOVER_MAX_DURATION_DAYS_VALUE = 14; // 要约期上限（MC 天）
+    // ---- 融资融券（margin） ----
+    private static final int MARGIN_MAX_LEVERAGE_VALUE = 2; // 最大杠杆倍数 2x（初始保证金率 50%）
+    private static final int MARGIN_MAINTENANCE_BPS_VALUE = 13_000; // 维持保证金率 130%
+    private static final int MARGIN_WARNING_BPS_VALUE = 15_000; // 预警线 150%
+    private static final double MARGIN_FINANCE_ANNUAL_RATE_VALUE = 0.086D; // 融资年利率 8.6%
+    private static final double MARGIN_SHORT_ANNUAL_RATE_VALUE = 0.106D; // 融券年利率 10.6%
+    private static final double MARGIN_POOL_RATIO_VALUE = 0.05D; // 券池 = 流通股 5%
+    private static final double MARGIN_PER_PLAYER_BORROW_RATIO_VALUE = 0.20D; // 单人借券上限 = 券池 20%
     private static final long IPO_FEE_VALUE = 5_000L;
     private static final long CAPITAL_PROJECT_GOVERNANCE_THRESHOLD_VALUE = 50_000L;
     private static final int CAPITAL_PROJECT_MAX_DURATION_DAYS_VALUE = 60;
@@ -107,6 +115,9 @@ public final class FinanceConfig {
     private static final ForgeConfigSpec.IntValue TAKEOVER_MIN_HOLDING_BPS, TAKEOVER_SQUEEZE_OUT_BPS,
             TAKEOVER_MIN_DURATION_DAYS, TAKEOVER_MAX_DURATION_DAYS;
     private static final ForgeConfigSpec.DoubleValue TAKEOVER_PRICE_FLOOR_RATIO, TAKEOVER_PRICE_CAP_RATIO;
+    private static final ForgeConfigSpec.IntValue MARGIN_MAX_LEVERAGE, MARGIN_MAINTENANCE_BPS, MARGIN_WARNING_BPS;
+    private static final ForgeConfigSpec.DoubleValue MARGIN_FINANCE_ANNUAL_RATE, MARGIN_SHORT_ANNUAL_RATE,
+            MARGIN_POOL_RATIO, MARGIN_PER_PLAYER_BORROW_RATIO;
     private static final ForgeConfigSpec.LongValue IPO_FEE;
     private static final ForgeConfigSpec.LongValue CAPITAL_PROJECT_GOVERNANCE_THRESHOLD;
     private static final ForgeConfigSpec.IntValue CAPITAL_PROJECT_MAX_DURATION_DAYS;
@@ -444,6 +455,30 @@ public final class FinanceConfig {
                 .defineInRange("maxDurationDays", TAKEOVER_MAX_DURATION_DAYS_VALUE, 1, 90);
         builder.pop();
 
+        builder.push("margin");
+        MARGIN_MAX_LEVERAGE = builder
+                .comment("融资融券最大杠杆倍数。2 = 2x（初始保证金率 50%）。")
+                .defineInRange("maxLeverage", MARGIN_MAX_LEVERAGE_VALUE, 1, 10);
+        MARGIN_MAINTENANCE_BPS = builder
+                .comment("维持保证金率（基点）。13000 = 130%，跌破强制平仓。")
+                .defineInRange("maintenanceBps", MARGIN_MAINTENANCE_BPS_VALUE, 10_001, 100_000);
+        MARGIN_WARNING_BPS = builder
+                .comment("预警线（基点）。15000 = 150%，跌破仅预警不强平。")
+                .defineInRange("warningBps", MARGIN_WARNING_BPS_VALUE, 10_001, 100_000);
+        MARGIN_FINANCE_ANNUAL_RATE = builder
+                .comment("融资年利率。0.086 = 8.6%，按日单利计提。不可为负。")
+                .defineInRange("financeAnnualRate", MARGIN_FINANCE_ANNUAL_RATE_VALUE, 0.0D, 1.0D);
+        MARGIN_SHORT_ANNUAL_RATE = builder
+                .comment("融券年利率。0.106 = 10.6%，按借出时市值计提。不可为负。")
+                .defineInRange("shortAnnualRate", MARGIN_SHORT_ANNUAL_RATE_VALUE, 0.0D, 1.0D);
+        MARGIN_POOL_RATIO = builder
+                .comment("券池总额占流通股比例。0.05 = 5%，系统出借硬上限（防无限印钞）。")
+                .defineInRange("poolRatio", MARGIN_POOL_RATIO_VALUE, 0.0D, 1.0D);
+        MARGIN_PER_PLAYER_BORROW_RATIO = builder
+                .comment("单人借券上限占券池比例。0.20 = 20%。")
+                .defineInRange("perPlayerBorrowRatio", MARGIN_PER_PLAYER_BORROW_RATIO_VALUE, 0.0D, 1.0D);
+        builder.pop();
+
         COMMON_SPEC = builder.build();
     }
 
@@ -577,6 +612,41 @@ public final class FinanceConfig {
 
     public static long ipoFee() {
         return getLong(IPO_FEE, IPO_FEE_VALUE);
+    }
+
+    /** 融资融券最大杠杆倍数（如 2 = 2x） */
+    public static int marginMaxLeverage() {
+        return getInt(MARGIN_MAX_LEVERAGE, MARGIN_MAX_LEVERAGE_VALUE);
+    }
+
+    /** 维持保证金率（基点，如 13000 = 130%） */
+    public static int marginMaintenanceBps() {
+        return getInt(MARGIN_MAINTENANCE_BPS, MARGIN_MAINTENANCE_BPS_VALUE);
+    }
+
+    /** 预警线（基点，如 15000 = 150%） */
+    public static int marginWarningBps() {
+        return getInt(MARGIN_WARNING_BPS, MARGIN_WARNING_BPS_VALUE);
+    }
+
+    /** 融资年利率（0.086 = 8.6%） */
+    public static double marginFinanceAnnualRate() {
+        return getDouble(MARGIN_FINANCE_ANNUAL_RATE, MARGIN_FINANCE_ANNUAL_RATE_VALUE);
+    }
+
+    /** 融券年利率（0.106 = 10.6%） */
+    public static double marginShortAnnualRate() {
+        return getDouble(MARGIN_SHORT_ANNUAL_RATE, MARGIN_SHORT_ANNUAL_RATE_VALUE);
+    }
+
+    /** 券池总额占流通股比例（0.05 = 5%） */
+    public static double marginPoolRatio() {
+        return getDouble(MARGIN_POOL_RATIO, MARGIN_POOL_RATIO_VALUE);
+    }
+
+    /** 单人借券上限占券池比例（0.20 = 20%） */
+    public static double marginPerPlayerBorrowRatio() {
+        return getDouble(MARGIN_PER_PLAYER_BORROW_RATIO, MARGIN_PER_PLAYER_BORROW_RATIO_VALUE);
     }
 
     public static long capitalProjectGovernanceThreshold() {
