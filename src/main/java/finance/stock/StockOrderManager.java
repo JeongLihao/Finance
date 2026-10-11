@@ -5,6 +5,7 @@ import finance.account.TransactionRecord;
 import finance.account.TransactionType;
 import finance.config.FinanceConfig;
 import finance.data.EconomySavedData;
+import finance.governance.CorporateActionManager;
 import finance.metrics.EconomyMetricsService;
 import finance.marketdata.RecentTradeService;
 import finance.marketdata.TradeDirection;
@@ -68,6 +69,11 @@ public class StockOrderManager {
             return OrderResult.fail("未知股票: " + symbol);
         }
 
+        // 停牌期间不可挂新单（要约收购进行中）
+        if (stock.isTradingHalted()) {
+            return OrderResult.fail("该股票停牌中（要约收购进行中），不可挂单。");
+        }
+
         // 冻结资金
         long totalCost = MathUtil.multiplyExactOrNegative1(price, quantity);
         if (totalCost <= 0) {
@@ -97,6 +103,16 @@ public class StockOrderManager {
         Stock stock = StockMarketManager.getStock(symbol);
         if (stock == null) {
             return OrderResult.fail("未知股票: " + symbol);
+        }
+
+        // 停牌期间不可挂新单（要约收购进行中）
+        if (stock.isTradingHalted()) {
+            return OrderResult.fail("该股票停牌中（要约收购进行中），不可挂单。");
+        }
+
+        // 要约收购方在要约期内不得减持目标公司股份（防"边收购边出货"操纵接受率）
+        if (CorporateActionManager.isTenderBuyer(playerId, stock.getCompanyId())) {
+            return OrderResult.fail("您有进行中的要约收购，期间不得减持目标公司股份。");
         }
 
         // 创始人锁定期内不可卖出
@@ -205,6 +221,10 @@ public class StockOrderManager {
      * 做市商成交 —— 保底流动性，按 fairValue ± spread 报价。
      */
     private static OrderResult marketMakerTrade(StockOrder order, Stock stock) {
+        // 停牌期间做市商暂停报价（不消耗终身接盘额度）
+        if (stock.isTradingHalted()) {
+            return OrderResult.fail("该股票停牌中，做市商暂停报价。");
+        }
         long fairValue = stock.getFairValue();
         if (fairValue <= 0) {
             return refundOrderAssets(order)
