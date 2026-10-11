@@ -39,6 +39,14 @@ public class StockOrderManager {
 
     private static final UUID MARKET_MAKER_UUID = new UUID(0, 0); // nil UUID
 
+    /**
+     * 做市商单只股票终身接盘上限（股数）。
+     * 做市商提供保底流动性，而非无限印钞机；达到上限后不再接盘，
+     * 玩家仍可通过订单簿相互交易。配合发行价上限与创始人锁定期，
+     * 单只股票做市商印钞上限远低于一次攻击的固定成本。
+     */
+    public static final long MAX_MARKET_MAKER_BUY_SHARES = 200L;
+
     // ================================================================
     // 订单操作
     // ================================================================
@@ -89,6 +97,12 @@ public class StockOrderManager {
         Stock stock = StockMarketManager.getStock(symbol);
         if (stock == null) {
             return OrderResult.fail("未知股票: " + symbol);
+        }
+
+        // 创始人锁定期内不可卖出
+        if (stock.isFounderLocked(playerId)) {
+            return OrderResult.fail("创始人股份锁定期内不可卖出（剩余 "
+                    + stock.getFounderLockupDaysRemaining() + " 天）。");
         }
 
         // 检查玩家持股
@@ -211,10 +225,13 @@ public class StockOrderManager {
                 return OrderResult.fail("做市商报价未满足。");
             }
         } else {
-            // 卖单以 bidPrice 成交
+            // 卖单以 bidPrice 成交 —— 做市商接盘有终身深度上限
             tradePrice = bidPrice;
             if (order.getPrice() > tradePrice) {
                 return OrderResult.fail("做市商报价未满足。");
+            }
+            if (stock.getMarketMakerBoughtShares() + order.getQuantity() > MAX_MARKET_MAKER_BUY_SHARES) {
+                return OrderResult.fail("做市商接盘额度已用完。");
             }
         }
 
@@ -229,6 +246,7 @@ public class StockOrderManager {
                     tradePrice, order.getQuantity(), stock, tradePrice, false)) {
                 return OrderResult.fail("做市商成交结算失败。");
             }
+            stock.addMarketMakerBoughtShares(order.getQuantity());
         }
 
         EconomySavedData.markDirty();

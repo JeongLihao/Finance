@@ -19,6 +19,15 @@ public class CompanyIPOService {
     /** 上市费用默认值；实际费用从服务器配置读取。 */
     public static final long IPO_FEE = 5_000L;
 
+    /**
+     * 发行价上限 —— 单股发行价不得超过该值。
+     * 经济量级参考：新手初始资金 1,000；建公司 10,000；系统公司初始现金 50,000。
+     * 按最大发行量 100,000 股、总股本 250,000 股计，上限 100 对应总估值 2,500 万，
+     * 为系统公司初始规模的 500 倍，覆盖正常游戏内估值空间；同时把单次凭空铸造
+     * 从无上限（实测可达 ~9×10¹⁸）压到 1,000 万。
+     */
+    public static final long MAX_ISSUE_PRICE = 100L;
+
     /** 默认发行比例 —— 创始人保留 60%，发行 40% */
     public static final double DEFAULT_FLOAT_RATIO = 0.4;
 
@@ -56,6 +65,10 @@ public class CompanyIPOService {
 
         if (issueQuantity > 100_000L) {
             return fail("发行数量过多（最多 100,000）。");
+        }
+
+        if (issuePrice > MAX_ISSUE_PRICE) {
+            return fail("发行价过高（上限 " + MAX_ISSUE_PRICE + "）。");
         }
 
         long raisedCapital;
@@ -110,6 +123,9 @@ public class CompanyIPOService {
             AccountManager.deposit(requesterId, ipoFee);
             return fail("Founder share settlement failed.");
         }
+
+        // 创始人股份锁定期 —— 防止上市即抛售砸盘套现
+        stock.setFounderLockup(requesterId, Stock.FOUNDER_SHARE_LOCKUP_DAYS);
 
         // 标记公司为已上市
         company.setPublic(true);

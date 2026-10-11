@@ -123,6 +123,7 @@ public final class CompanyDataSerializer {
             companyTag.putDouble("AutoSellRatio", company.getAutoSellRatio());
             companyTag.putBoolean("BankruptcyRisk", company.isBankruptcyRisk());
             companyTag.putLong("BankruptcyRiskStartDay", company.getBankruptcyRiskStartDay());
+            companyTag.putLong("LastOwnerWithdrawTime", company.getLastOwnerWithdrawTime());
             ListTag recentProfitsTag = new ListTag();
             for (Long profit : company.getRecentProfits()) {
                 CompoundTag profitTag = new CompoundTag();
@@ -334,6 +335,9 @@ public final class CompanyDataSerializer {
                         companyTag.contains("CompanyDividendCycleDays")
                                 ? companyTag.getInt("CompanyDividendCycleDays")
                                 : -1);
+                if (companyTag.contains("LastOwnerWithdrawTime")) {
+                    company.setLastOwnerWithdrawTime(companyTag.getLong("LastOwnerWithdrawTime"));
+                }
                 if (companyTag.contains("FinancialReports")) {
                     ListTag reportsTag = companyTag.getList("FinancialReports", Tag.TAG_COMPOUND);
                     for (Tag reportRaw : reportsTag) {

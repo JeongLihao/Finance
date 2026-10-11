@@ -11,6 +11,20 @@ public final class CompanyManagementService {
     private CompanyManagementService() {
     }
 
+    /**
+     * 所有者单次提现上限。
+     * 经济量级参考：建公司 10,000；银行保险上限 100,000。
+     * 上限对标建公司成本，正常小额提取（发薪、周转）不受影响，
+     * 大额利润分配应走分红系统。
+     */
+    public static final long MAX_OWNER_WITHDRAW_PER_TX = 10_000L;
+
+    /**
+     * 所有者提现冷却（毫秒）—— 20 分钟 ≈ 1 MC 天。
+     * 采用真实时间而非 MC 天，避免被 /time 指令推进绕过。
+     */
+    public static final long OWNER_WITHDRAW_COOLDOWN_MILLIS = 20L * 60L * 1000L;
+
     public record Result(boolean success, String message) {
     }
 
@@ -117,6 +131,15 @@ public final class CompanyManagementService {
         if (amount <= 0) {
             return new Result(false, "提取金额必须大于 0。");
         }
+        if (amount > MAX_OWNER_WITHDRAW_PER_TX) {
+            return new Result(false, "单次提取上限为 " + MAX_OWNER_WITHDRAW_PER_TX + "。");
+        }
+        long nowMillis = System.currentTimeMillis();
+        long lastWithdrawMillis = company.getLastOwnerWithdrawTime();
+        if (lastWithdrawMillis > 0 && nowMillis - lastWithdrawMillis < OWNER_WITHDRAW_COOLDOWN_MILLIS) {
+            long waitSeconds = (OWNER_WITHDRAW_COOLDOWN_MILLIS - (nowMillis - lastWithdrawMillis) + 999) / 1000;
+            return new Result(false, "提取冷却中，请 " + waitSeconds + " 秒后再试。");
+        }
         if (!AccountManager.canDeposit(playerId, amount)) {
             return new Result(false, "Player account balance is at its limit.");
         }
@@ -128,6 +151,7 @@ public final class CompanyManagementService {
             company.deposit(amount);
             return new Result(false, "Withdrawal settlement failed.");
         }
+        company.setLastOwnerWithdrawTime(nowMillis);
         recordCompanyAction(playerId, company, amount, 0);
         return new Result(true, "已从公司提取 " + amount);
     }
