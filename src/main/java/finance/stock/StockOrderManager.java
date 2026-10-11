@@ -230,7 +230,7 @@ public class StockOrderManager {
             if (order.getPrice() > tradePrice) {
                 return OrderResult.fail("做市商报价未满足。");
             }
-            if (stock.getMarketMakerBoughtShares() + order.getQuantity() > MAX_MARKET_MAKER_BUY_SHARES) {
+            if (order.getQuantity() > MAX_MARKET_MAKER_BUY_SHARES - stock.getMarketMakerBoughtShares()) {
                 return OrderResult.fail("做市商接盘额度已用完。");
             }
         }
