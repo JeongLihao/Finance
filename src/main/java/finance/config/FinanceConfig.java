@@ -14,6 +14,13 @@ public final class FinanceConfig {
     private static final int MAX_PRICE_ALERTS_PER_PLAYER_VALUE = 20;
     private static final int MAX_CONDITIONAL_STOCK_ORDERS_PER_PLAYER_VALUE = 20;
     private static final double STOCK_MARKET_MAKER_SPREAD_VALUE = 0.02D;
+    // ---- 要约收购（takeover） ----
+    private static final int TAKEOVER_MIN_HOLDING_BPS_VALUE = 3_000; // 发起要约需事前持股 30%
+    private static final int TAKEOVER_SQUEEZE_OUT_BPS_VALUE = 9_000; // 强制私有化线 90%
+    private static final double TAKEOVER_PRICE_FLOOR_RATIO_VALUE = 0.8D; // 要约价下限 = 0.8 × fairValue
+    private static final double TAKEOVER_PRICE_CAP_RATIO_VALUE = 1.5D; // 要约价上限 = 1.5 × fairValue
+    private static final int TAKEOVER_MIN_DURATION_DAYS_VALUE = 3; // 要约期下限（MC 天）
+    private static final int TAKEOVER_MAX_DURATION_DAYS_VALUE = 14; // 要约期上限（MC 天）
     private static final long IPO_FEE_VALUE = 5_000L;
     private static final long CAPITAL_PROJECT_GOVERNANCE_THRESHOLD_VALUE = 50_000L;
     private static final int CAPITAL_PROJECT_MAX_DURATION_DAYS_VALUE = 60;
@@ -97,6 +104,9 @@ public final class FinanceConfig {
     private static final ForgeConfigSpec.IntValue MAX_PRICE_ALERTS_PER_PLAYER;
     private static final ForgeConfigSpec.IntValue MAX_CONDITIONAL_STOCK_ORDERS_PER_PLAYER;
     private static final ForgeConfigSpec.DoubleValue STOCK_MARKET_MAKER_SPREAD;
+    private static final ForgeConfigSpec.IntValue TAKEOVER_MIN_HOLDING_BPS, TAKEOVER_SQUEEZE_OUT_BPS,
+            TAKEOVER_MIN_DURATION_DAYS, TAKEOVER_MAX_DURATION_DAYS;
+    private static final ForgeConfigSpec.DoubleValue TAKEOVER_PRICE_FLOOR_RATIO, TAKEOVER_PRICE_CAP_RATIO;
     private static final ForgeConfigSpec.LongValue IPO_FEE;
     private static final ForgeConfigSpec.LongValue CAPITAL_PROJECT_GOVERNANCE_THRESHOLD;
     private static final ForgeConfigSpec.IntValue CAPITAL_PROJECT_MAX_DURATION_DAYS;
@@ -413,6 +423,27 @@ public final class FinanceConfig {
                 .defineInRange("spread", STOCK_MARKET_MAKER_SPREAD_VALUE, 0.0D, 1.0D);
         builder.pop();
 
+        builder.push("takeover");
+        TAKEOVER_MIN_HOLDING_BPS = builder
+                .comment("发起要约收购需事前持有的有表决权股份比例（基点）。3000 = 30%。")
+                .defineInRange("minHoldingBps", TAKEOVER_MIN_HOLDING_BPS_VALUE, 0, 10_000);
+        TAKEOVER_SQUEEZE_OUT_BPS = builder
+                .comment("强制私有化（挤出小股东）所需的持股比例（基点）。9000 = 90%。")
+                .defineInRange("squeezeOutBps", TAKEOVER_SQUEEZE_OUT_BPS_VALUE, 5_001, 10_000);
+        TAKEOVER_PRICE_FLOOR_RATIO = builder
+                .comment("要约价下限倍数（相对发起时 fairValue）。防恶意压价掠夺小股东。")
+                .defineInRange("priceFloorRatio", TAKEOVER_PRICE_FLOOR_RATIO_VALUE, 0.01D, 10.0D);
+        TAKEOVER_PRICE_CAP_RATIO = builder
+                .comment("要约价上限倍数（相对发起时 fairValue）。防拉高套现。")
+                .defineInRange("priceCapRatio", TAKEOVER_PRICE_CAP_RATIO_VALUE, 0.01D, 10.0D);
+        TAKEOVER_MIN_DURATION_DAYS = builder
+                .comment("要约期下限（MC 天）。")
+                .defineInRange("minDurationDays", TAKEOVER_MIN_DURATION_DAYS_VALUE, 1, 90);
+        TAKEOVER_MAX_DURATION_DAYS = builder
+                .comment("要约期上限（MC 天）。停牌是有代价的武器，不宜过长。")
+                .defineInRange("maxDurationDays", TAKEOVER_MAX_DURATION_DAYS_VALUE, 1, 90);
+        builder.pop();
+
         COMMON_SPEC = builder.build();
     }
 
@@ -512,6 +543,36 @@ public final class FinanceConfig {
 
     public static double stockMarketMakerSpread() {
         return getDouble(STOCK_MARKET_MAKER_SPREAD, STOCK_MARKET_MAKER_SPREAD_VALUE);
+    }
+
+    /** 发起要约需事前持股比例（基点，如 3000 = 30%） */
+    public static int takeoverMinHoldingBps() {
+        return getInt(TAKEOVER_MIN_HOLDING_BPS, TAKEOVER_MIN_HOLDING_BPS_VALUE);
+    }
+
+    /** 强制私有化所需持股比例（基点，如 9000 = 90%） */
+    public static int takeoverSqueezeOutBps() {
+        return getInt(TAKEOVER_SQUEEZE_OUT_BPS, TAKEOVER_SQUEEZE_OUT_BPS_VALUE);
+    }
+
+    /** 要约价下限倍数（相对 fairValue） */
+    public static double takeoverPriceFloorRatio() {
+        return getDouble(TAKEOVER_PRICE_FLOOR_RATIO, TAKEOVER_PRICE_FLOOR_RATIO_VALUE);
+    }
+
+    /** 要约价上限倍数（相对 fairValue） */
+    public static double takeoverPriceCapRatio() {
+        return getDouble(TAKEOVER_PRICE_CAP_RATIO, TAKEOVER_PRICE_CAP_RATIO_VALUE);
+    }
+
+    /** 要约期下限（MC 天） */
+    public static int takeoverMinDurationDays() {
+        return getInt(TAKEOVER_MIN_DURATION_DAYS, TAKEOVER_MIN_DURATION_DAYS_VALUE);
+    }
+
+    /** 要约期上限（MC 天） */
+    public static int takeoverMaxDurationDays() {
+        return getInt(TAKEOVER_MAX_DURATION_DAYS, TAKEOVER_MAX_DURATION_DAYS_VALUE);
     }
 
     public static long ipoFee() {

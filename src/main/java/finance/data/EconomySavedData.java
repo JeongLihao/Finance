@@ -152,6 +152,7 @@ public class EconomySavedData extends SavedData {
             }
             stockTag.putInt("FounderLockupDays", stock.getFounderLockupDaysRemaining());
             stockTag.putLong("MarketMakerBought", stock.getMarketMakerBoughtShares());
+            stockTag.putBoolean("TradingHalted", stock.isTradingHalted());
 
             // 新引擎字段
             stockTag.putLong("LastPrice", stock.getLastPrice());
@@ -308,6 +309,9 @@ public class EconomySavedData extends SavedData {
                         stockTag.contains("FounderLockupDays") ? stockTag.getInt("FounderLockupDays") : 0);
                 if (stockTag.contains("MarketMakerBought")) {
                     stock.restoreMarketMakerBoughtShares(stockTag.getLong("MarketMakerBought"));
+                }
+                if (stockTag.contains("TradingHalted")) {
+                    stock.setTradingHalted(stockTag.getBoolean("TradingHalted"));
                 }
                 Company company = CompanyManager.getCompany(companyUuid);
                 if (company == null || !company.isPublic()) {
