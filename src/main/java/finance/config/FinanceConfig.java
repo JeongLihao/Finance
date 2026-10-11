@@ -14,6 +14,24 @@ public final class FinanceConfig {
     private static final int MAX_PRICE_ALERTS_PER_PLAYER_VALUE = 20;
     private static final int MAX_CONDITIONAL_STOCK_ORDERS_PER_PLAYER_VALUE = 20;
     private static final double STOCK_MARKET_MAKER_SPREAD_VALUE = 0.02D;
+    private static final double STOCK_TARGET_INVENTORY_RATIO_VALUE = 0.05D;
+    private static final double STOCK_MAX_INVENTORY_MULTIPLIER_VALUE = 2.0D;
+    private static final double STOCK_MAX_TRADE_FLOAT_RATIO_VALUE = 0.01D;
+    private static final double IPO_MARKET_MAKER_RESERVE_RATIO_VALUE = 0.05D;
+    // Phase 2 做市商报价
+    private static final boolean MM_TARGET_PRICE_STRATEGY_ENABLED_VALUE = true;
+    private static final boolean MM_INVENTORY_SKEW_STRATEGY_ENABLED_VALUE = true;
+    private static final boolean MM_VOLATILITY_SPREAD_STRATEGY_ENABLED_VALUE = true;
+    private static final double MM_INVENTORY_SKEW_FACTOR_VALUE = 0.5D;
+    private static final double MM_VOLATILITY_SPREAD_FACTOR_VALUE = 0.5D;
+    private static final double MM_MAX_INVENTORY_SKEW_VALUE = 0.10D;
+    private static final double MM_MAX_VOLATILITY_ADJUST_VALUE = 0.10D;
+    private static final double MM_CIRCUIT_BREAKER_THRESHOLD_VALUE = 0.30D;
+    private static final double MM_TARGET_PRICE_DEVIATION_THRESHOLD_VALUE = 0.05D;
+    // Phase 4 央行联动
+    private static final boolean CB_MM_HEALTH_CHECK_ENABLED_VALUE = true;
+    private static final long CB_MM_EMERGENCY_LOAN_CAP_VALUE = 5_000_000L;
+    private static final int CB_MM_LOAN_REPAYMENT_BPS_VALUE = 2_000;
     private static final long IPO_FEE_VALUE = 5_000L;
     private static final long CAPITAL_PROJECT_GOVERNANCE_THRESHOLD_VALUE = 50_000L;
     private static final int CAPITAL_PROJECT_MAX_DURATION_DAYS_VALUE = 60;
@@ -47,6 +65,16 @@ public final class FinanceConfig {
     private static final int FUTURES_SETTLEMENT_WINDOW_VALUE = 3;
     private static final long FUTURES_MIN_SETTLEMENT_VOLUME_VALUE = 10L;
     private static final int FUTURES_MAX_SPOT_DEVIATION_BPS_VALUE = 2_000;
+    // Phase 3 期货做市商
+    private static final double FUTURES_MM_SPREAD_VALUE = 0.015D;
+    private static final double FUTURES_MM_NET_POSITION_RATIO_VALUE = 0.10D;
+    private static final int FUTURES_MM_WASH_TRADE_WINDOW_MINUTES_VALUE = 5;
+    private static final int FUTURES_MM_WASH_TRADE_MAX_TRADES_VALUE = 6;
+    private static final long FUTURES_MM_WASH_TRADE_MAX_NOTIONAL_VALUE = 50_000L;
+    private static final int FUTURES_MM_WASH_TRADE_COOLDOWN_MINUTES_VALUE = 30;
+    private static final boolean FUTURES_MM_CIRCUIT_BREAKER_ENABLED_VALUE = true;
+    private static final int FUTURES_MM_CIRCUIT_BREAKER_DEVIATION_BPS_VALUE = 3_000;
+    private static final long FUTURES_MM_INITIAL_CAPITAL_VALUE = 500_000L;
     private static final boolean BANKING_ENABLED_VALUE=true;private static final int DEFAULT_BANK_COUNT_VALUE=3;
     private static final long BANK_INITIAL_CAPITAL_VALUE=5_000_000L,BANK_MIN_RESERVE_VALUE=10_000L,BANK_INSURANCE_LIMIT_VALUE=100_000L;
     private static final int BANK_DEMAND_SPREAD_VALUE=150,BANK_TIME_SPREAD_VALUE=75,BANK_LOAN_SPREAD_VALUE=250,
@@ -97,6 +125,24 @@ public final class FinanceConfig {
     private static final ForgeConfigSpec.IntValue MAX_PRICE_ALERTS_PER_PLAYER;
     private static final ForgeConfigSpec.IntValue MAX_CONDITIONAL_STOCK_ORDERS_PER_PLAYER;
     private static final ForgeConfigSpec.DoubleValue STOCK_MARKET_MAKER_SPREAD;
+    private static final ForgeConfigSpec.DoubleValue STOCK_TARGET_INVENTORY_RATIO;
+    private static final ForgeConfigSpec.DoubleValue STOCK_MAX_INVENTORY_MULTIPLIER;
+    private static final ForgeConfigSpec.DoubleValue STOCK_MAX_TRADE_FLOAT_RATIO;
+    private static final ForgeConfigSpec.DoubleValue IPO_MARKET_MAKER_RESERVE_RATIO;
+    // Phase 2 做市商报价
+    private static final ForgeConfigSpec.BooleanValue MM_TARGET_PRICE_STRATEGY_ENABLED;
+    private static final ForgeConfigSpec.BooleanValue MM_INVENTORY_SKEW_STRATEGY_ENABLED;
+    private static final ForgeConfigSpec.BooleanValue MM_VOLATILITY_SPREAD_STRATEGY_ENABLED;
+    private static final ForgeConfigSpec.DoubleValue MM_INVENTORY_SKEW_FACTOR;
+    private static final ForgeConfigSpec.DoubleValue MM_VOLATILITY_SPREAD_FACTOR;
+    private static final ForgeConfigSpec.DoubleValue MM_MAX_INVENTORY_SKEW;
+    private static final ForgeConfigSpec.DoubleValue MM_MAX_VOLATILITY_ADJUST;
+    private static final ForgeConfigSpec.DoubleValue MM_CIRCUIT_BREAKER_THRESHOLD;
+    private static final ForgeConfigSpec.DoubleValue MM_TARGET_PRICE_DEVIATION_THRESHOLD;
+    // Phase 4 央行联动
+    private static final ForgeConfigSpec.BooleanValue CB_MM_HEALTH_CHECK_ENABLED;
+    private static final ForgeConfigSpec.LongValue CB_MM_EMERGENCY_LOAN_CAP;
+    private static final ForgeConfigSpec.IntValue CB_MM_LOAN_REPAYMENT_BPS;
     private static final ForgeConfigSpec.LongValue IPO_FEE;
     private static final ForgeConfigSpec.LongValue CAPITAL_PROJECT_GOVERNANCE_THRESHOLD;
     private static final ForgeConfigSpec.IntValue CAPITAL_PROJECT_MAX_DURATION_DAYS;
@@ -120,6 +166,12 @@ public final class FinanceConfig {
     private static final ForgeConfigSpec.IntValue FUTURES_INITIAL_MARGIN_BPS, FUTURES_MAINTENANCE_MARGIN_BPS,
             FUTURES_LIQUIDATION_MARGIN_BPS, FUTURES_MAX_ORDERS, FUTURES_LIQUIDATION_SLIPPAGE_BPS,
             FUTURES_SETTLEMENT_WINDOW, FUTURES_MAX_SPOT_DEVIATION_BPS;
+    // Phase 3 期货做市商
+    private static final ForgeConfigSpec.DoubleValue FUTURES_MM_SPREAD, FUTURES_MM_NET_POSITION_RATIO;
+    private static final ForgeConfigSpec.IntValue FUTURES_MM_WASH_TRADE_WINDOW_MINUTES, FUTURES_MM_WASH_TRADE_MAX_TRADES,
+            FUTURES_MM_WASH_TRADE_COOLDOWN_MINUTES, FUTURES_MM_CIRCUIT_BREAKER_DEVIATION_BPS;
+    private static final ForgeConfigSpec.LongValue FUTURES_MM_WASH_TRADE_MAX_NOTIONAL, FUTURES_MM_INITIAL_CAPITAL;
+    private static final ForgeConfigSpec.BooleanValue FUTURES_MM_CIRCUIT_BREAKER_ENABLED;
     private static final ForgeConfigSpec.BooleanValue BANKING_ENABLED;private static final ForgeConfigSpec.LongValue BANK_INITIAL_CAPITAL,BANK_MIN_RESERVE,BANK_INSURANCE_LIMIT;
     private static final ForgeConfigSpec.IntValue DEFAULT_BANK_COUNT,BANK_DEMAND_SPREAD,BANK_TIME_SPREAD,BANK_LOAN_SPREAD,BANK_DEMAND_RESERVE_BPS,BANK_TIME_RESERVE_BPS,BANK_MIN_CAPITAL_BPS,BANK_SINGLE_BORROWER_BPS,BANK_CB_PENALTY_BPS,BANK_INSURANCE_FEE_BPS,BANK_STRESS_ROUNDS;
     private static final ForgeConfigSpec.BooleanValue MINECRAFT_FIRST_MODE;
@@ -392,6 +444,37 @@ public final class FinanceConfig {
                 .defineInRange("maxSettlementSpotDeviationBasisPoints", FUTURES_MAX_SPOT_DEVIATION_BPS_VALUE, 0, 10_000);
         builder.pop();
 
+        // Phase 3 期货做市商
+        builder.push("futuresMarketMaker");
+        FUTURES_MM_SPREAD = builder
+                .comment("期货做市商基础价差。0.015 = 理论期货价上下 1.5% 形成 bid / ask。")
+                .defineInRange("spread", FUTURES_MM_SPREAD_VALUE, 0.0D, 1.0D);
+        FUTURES_MM_NET_POSITION_RATIO = builder
+                .comment("期货做市商净持仓上限比例：|净持仓| ≤ 合约持仓总量 × 该比例。超限后只提供减仓方向报价。")
+                .defineInRange("netPositionRatio", FUTURES_MM_NET_POSITION_RATIO_VALUE, 0.0D, 1.0D);
+        FUTURES_MM_WASH_TRADE_WINDOW_MINUTES = builder
+                .comment("对敲检测窗口（分钟）：同一玩家在窗口内与做市商双向成交超阈值则告警并临时只报单边。")
+                .defineInRange("washTradeWindowMinutes", FUTURES_MM_WASH_TRADE_WINDOW_MINUTES_VALUE, 1, 1440);
+        FUTURES_MM_WASH_TRADE_MAX_TRADES = builder
+                .comment("对敲检测触发笔数阈值：窗口内与做市商双向成交笔数超过此值触发告警。")
+                .defineInRange("washTradeMaxTrades", FUTURES_MM_WASH_TRADE_MAX_TRADES_VALUE, 1, 100_000);
+        FUTURES_MM_WASH_TRADE_MAX_NOTIONAL = builder
+                .comment("对敲检测触发名义金额阈值：窗口内与做市商双向成交名义金额超过此值触发告警。")
+                .defineInRange("washTradeMaxNotional", FUTURES_MM_WASH_TRADE_MAX_NOTIONAL_VALUE, 1L, Long.MAX_VALUE);
+        FUTURES_MM_WASH_TRADE_COOLDOWN_MINUTES = builder
+                .comment("对敲告警后单边报价冷却时长（分钟）。")
+                .defineInRange("washTradeCooldownMinutes", FUTURES_MM_WASH_TRADE_COOLDOWN_MINUTES_VALUE, 1, 10080);
+        FUTURES_MM_CIRCUIT_BREAKER_ENABLED = builder
+                .comment("期货做市商熔断开关：结算参考价偏离理论期货价超阈值时暂停报价。")
+                .define("circuitBreakerEnabled", FUTURES_MM_CIRCUIT_BREAKER_ENABLED_VALUE);
+        FUTURES_MM_CIRCUIT_BREAKER_DEVIATION_BPS = builder
+                .comment("期货做市商熔断偏离阈值，单位为基点。3000 = 偏离理论价 ±30% 熔断。")
+                .defineInRange("circuitBreakerDeviationBasisPoints", FUTURES_MM_CIRCUIT_BREAKER_DEVIATION_BPS_VALUE, 0, 100_000);
+        FUTURES_MM_INITIAL_CAPITAL = builder
+                .comment("期货做市商保证金账户目标注资额：从做市商总账户划转，绝不凭空印钱；总账户余额不足时按实际可划转额注资。")
+                .defineInRange("initialCapital", FUTURES_MM_INITIAL_CAPITAL_VALUE, 0L, Long.MAX_VALUE);
+        builder.pop();
+
         builder.push("proposal");
         MIN_PROPOSAL_PARTICIPATION_RATIO = builder
                 .comment("股东提案最低参与率。0.25 = 至少 25% 投票权参与，提案才可能通过。")
@@ -411,6 +494,60 @@ public final class FinanceConfig {
         STOCK_MARKET_MAKER_SPREAD = builder
                 .comment("股票做市商价差。0.02 = fairValue 上下 2% 形成 bid / ask。")
                 .defineInRange("spread", STOCK_MARKET_MAKER_SPREAD_VALUE, 0.0D, 1.0D);
+        STOCK_TARGET_INVENTORY_RATIO = builder
+                .comment("股票做市商目标库存比例：流通股 × 该比例。库存偏离目标时触发报价偏斜（Phase 2）。")
+                .defineInRange("targetInventoryRatio", STOCK_TARGET_INVENTORY_RATIO_VALUE, 0.0D, 1.0D);
+        STOCK_MAX_INVENTORY_MULTIPLIER = builder
+                .comment("股票做市商库存上限倍数：目标库存 × 该倍数。库存达上限后只卖不买。")
+                .defineInRange("maxInventoryMultiplier", STOCK_MAX_INVENTORY_MULTIPLIER_VALUE, 1.0D, 10.0D);
+        STOCK_MAX_TRADE_FLOAT_RATIO = builder
+                .comment("股票做市商单笔成交上限比例：流通股 × 该比例（另受目标库存 20% 与现金可支撑量约束）。")
+                .defineInRange("maxTradeFloatRatio", STOCK_MAX_TRADE_FLOAT_RATIO_VALUE, 0.0D, 1.0D);
+        IPO_MARKET_MAKER_RESERVE_RATIO = builder
+                .comment("IPO 做市商预留比例：发行量 × 该比例以发行价划入做市商库存，资金从做市商总账户支付给公司。")
+                .defineInRange("ipoMarketMakerReserveRatio", IPO_MARKET_MAKER_RESERVE_RATIO_VALUE, 0.0D, 1.0D);
+        builder.pop();
+
+        // Phase 2 做市商报价
+        builder.push("marketMakerQuotes");
+        MM_TARGET_PRICE_STRATEGY_ENABLED = builder
+                .comment("做市商均值回归策略（TargetPriceStrategy）开关：现价偏离中间价超阈值时把报价往回拉。")
+                .define("targetPriceStrategyEnabled", MM_TARGET_PRICE_STRATEGY_ENABLED_VALUE);
+        MM_INVENTORY_SKEW_STRATEGY_ENABLED = builder
+                .comment("做市商库存偏斜策略（InventorySkewStrategy）开关：库存高于目标下移报价，低于目标上移。")
+                .define("inventorySkewStrategyEnabled", MM_INVENTORY_SKEW_STRATEGY_ENABLED_VALUE);
+        MM_VOLATILITY_SPREAD_STRATEGY_ENABLED = builder
+                .comment("做市商波动率价差策略（VolatilitySpreadStrategy）开关：近期波动大时加宽价差自保。")
+                .define("volatilitySpreadStrategyEnabled", MM_VOLATILITY_SPREAD_STRATEGY_ENABLED_VALUE);
+        MM_INVENTORY_SKEW_FACTOR = builder
+                .comment("库存偏斜系数：skew = 该系数 × (库存/目标 - 1)，双边报价整体平移 mid × skew。")
+                .defineInRange("inventorySkewFactor", MM_INVENTORY_SKEW_FACTOR_VALUE, 0.0D, 5.0D);
+        MM_VOLATILITY_SPREAD_FACTOR = builder
+                .comment("波动率价差系数：volAdj = 该系数 × 近期波动率，双边各加宽 mid × volAdj。")
+                .defineInRange("volatilitySpreadFactor", MM_VOLATILITY_SPREAD_FACTOR_VALUE, 0.0D, 5.0D);
+        MM_MAX_INVENTORY_SKEW = builder
+                .comment("库存偏斜上限：|skew| 不超过该值，防止极端库存把报价推离中间价太远。")
+                .defineInRange("maxInventorySkew", MM_MAX_INVENTORY_SKEW_VALUE, 0.0D, 0.5D);
+        MM_MAX_VOLATILITY_ADJUST = builder
+                .comment("波动率价差上限：volAdj 不超过该值。")
+                .defineInRange("maxVolatilityAdjust", MM_MAX_VOLATILITY_ADJUST_VALUE, 0.0D, 0.5D);
+        MM_CIRCUIT_BREAKER_THRESHOLD = builder
+                .comment("熔断阈值：|现价 - 参考价| / 参考价超过该值时做市商暂停报价（商品参考价=基准价，股票参考价=fairValue），回归后自动恢复。")
+                .defineInRange("circuitBreakerThreshold", MM_CIRCUIT_BREAKER_THRESHOLD_VALUE, 0.0D, 2.0D);
+        MM_TARGET_PRICE_DEVIATION_THRESHOLD = builder
+                .comment("目标价偏离阈值：现价偏离中间价超过该比例时均值回归策略介入。")
+                .defineInRange("targetPriceDeviationThreshold", MM_TARGET_PRICE_DEVIATION_THRESHOLD_VALUE, 0.0D, 1.0D);
+        // Phase 4 央行联动
+        builder.push("centralBankMarketMaker");
+        CB_MM_HEALTH_CHECK_ENABLED = builder
+                .comment("央行跨市场做市商健康度检查总开关（随每日央行干预执行）。关闭后不再发放紧急贷款、扣回还款，也不再做库存触顶告警。")
+                .define("healthCheckEnabled", CB_MM_HEALTH_CHECK_ENABLED_VALUE);
+        CB_MM_EMERGENCY_LOAN_CAP = builder
+                .comment("央行对期货做市商单次紧急贷款上限。贷款记入央行紧急贷款账本；做市商总账户余额健康时按还款比例逐日扣回。")
+                .defineInRange("emergencyLoanCap", CB_MM_EMERGENCY_LOAN_CAP_VALUE, 0L, Long.MAX_VALUE);
+        CB_MM_LOAN_REPAYMENT_BPS = builder
+                .comment("紧急贷款每日还款比例（基点）：做市商总账户余额高于健康线时，按超出部分的该比例划扣还款。2000 = 20%。")
+                .defineInRange("loanRepaymentBasisPoints", CB_MM_LOAN_REPAYMENT_BPS_VALUE, 0, 10_000);
         builder.pop();
 
         COMMON_SPEC = builder.build();
@@ -514,6 +651,77 @@ public final class FinanceConfig {
         return getDouble(STOCK_MARKET_MAKER_SPREAD, STOCK_MARKET_MAKER_SPREAD_VALUE);
     }
 
+    public static double stockTargetInventoryRatio() {
+        return getDouble(STOCK_TARGET_INVENTORY_RATIO, STOCK_TARGET_INVENTORY_RATIO_VALUE);
+    }
+
+    public static double stockMaxInventoryMultiplier() {
+        return getDouble(STOCK_MAX_INVENTORY_MULTIPLIER, STOCK_MAX_INVENTORY_MULTIPLIER_VALUE);
+    }
+
+    public static double stockMaxTradeFloatRatio() {
+        return getDouble(STOCK_MAX_TRADE_FLOAT_RATIO, STOCK_MAX_TRADE_FLOAT_RATIO_VALUE);
+    }
+
+    public static double ipoMarketMakerReserveRatio() {
+        return getDouble(IPO_MARKET_MAKER_RESERVE_RATIO, IPO_MARKET_MAKER_RESERVE_RATIO_VALUE);
+    }
+
+    // Phase 2 做市商报价
+
+    public static boolean marketMakerTargetPriceEnabled() {
+        return getBoolean(MM_TARGET_PRICE_STRATEGY_ENABLED, MM_TARGET_PRICE_STRATEGY_ENABLED_VALUE);
+    }
+
+    public static boolean marketMakerInventorySkewEnabled() {
+        return getBoolean(MM_INVENTORY_SKEW_STRATEGY_ENABLED, MM_INVENTORY_SKEW_STRATEGY_ENABLED_VALUE);
+    }
+
+    public static boolean marketMakerVolatilitySpreadEnabled() {
+        return getBoolean(MM_VOLATILITY_SPREAD_STRATEGY_ENABLED, MM_VOLATILITY_SPREAD_STRATEGY_ENABLED_VALUE);
+    }
+
+    public static double marketMakerSkewFactor() {
+        return getDouble(MM_INVENTORY_SKEW_FACTOR, MM_INVENTORY_SKEW_FACTOR_VALUE);
+    }
+
+    public static double marketMakerVolatilityFactor() {
+        return getDouble(MM_VOLATILITY_SPREAD_FACTOR, MM_VOLATILITY_SPREAD_FACTOR_VALUE);
+    }
+
+    public static double marketMakerMaxSkew() {
+        return getDouble(MM_MAX_INVENTORY_SKEW, MM_MAX_INVENTORY_SKEW_VALUE);
+    }
+
+    public static double marketMakerMaxVolatilityAdjust() {
+        return getDouble(MM_MAX_VOLATILITY_ADJUST, MM_MAX_VOLATILITY_ADJUST_VALUE);
+    }
+
+    public static double marketMakerCircuitBreakerThreshold() {
+        return getDouble(MM_CIRCUIT_BREAKER_THRESHOLD, MM_CIRCUIT_BREAKER_THRESHOLD_VALUE);
+    }
+
+    public static double marketMakerTargetPriceDeviationThreshold() {
+        return getDouble(MM_TARGET_PRICE_DEVIATION_THRESHOLD, MM_TARGET_PRICE_DEVIATION_THRESHOLD_VALUE);
+    }
+
+    // ---- Phase 4 央行联动 ----
+
+    /** 央行跨市场做市商健康度检查总开关。 */
+    public static boolean cbMmHealthCheckEnabled() {
+        return getBoolean(CB_MM_HEALTH_CHECK_ENABLED, CB_MM_HEALTH_CHECK_ENABLED_VALUE);
+    }
+
+    /** 央行对期货做市商单次紧急贷款上限。 */
+    public static long cbMmEmergencyLoanCap() {
+        return getLong(CB_MM_EMERGENCY_LOAN_CAP, CB_MM_EMERGENCY_LOAN_CAP_VALUE);
+    }
+
+    /** 紧急贷款每日还款比例（基点）。 */
+    public static int cbMmLoanRepaymentBps() {
+        return getInt(CB_MM_LOAN_REPAYMENT_BPS, CB_MM_LOAN_REPAYMENT_BPS_VALUE);
+    }
+
     public static long ipoFee() {
         return getLong(IPO_FEE, IPO_FEE_VALUE);
     }
@@ -564,6 +772,17 @@ public final class FinanceConfig {
     public static int futuresFinalSettlementWindowDays() { return getInt(FUTURES_SETTLEMENT_WINDOW, FUTURES_SETTLEMENT_WINDOW_VALUE); }
     public static long futuresMinimumSettlementVolume() { return getLong(FUTURES_MIN_SETTLEMENT_VOLUME, FUTURES_MIN_SETTLEMENT_VOLUME_VALUE); }
     public static int futuresMaxSpotDeviationBps() { return getInt(FUTURES_MAX_SPOT_DEVIATION_BPS, FUTURES_MAX_SPOT_DEVIATION_BPS_VALUE); }
+
+    // Phase 3 期货做市商
+    public static double futuresMmSpread() { return getDouble(FUTURES_MM_SPREAD, FUTURES_MM_SPREAD_VALUE); }
+    public static double futuresMmNetPositionRatio() { return getDouble(FUTURES_MM_NET_POSITION_RATIO, FUTURES_MM_NET_POSITION_RATIO_VALUE); }
+    public static int futuresMmWashTradeWindowMinutes() { return getInt(FUTURES_MM_WASH_TRADE_WINDOW_MINUTES, FUTURES_MM_WASH_TRADE_WINDOW_MINUTES_VALUE); }
+    public static int futuresMmWashTradeMaxTrades() { return getInt(FUTURES_MM_WASH_TRADE_MAX_TRADES, FUTURES_MM_WASH_TRADE_MAX_TRADES_VALUE); }
+    public static long futuresMmWashTradeMaxNotional() { return getLong(FUTURES_MM_WASH_TRADE_MAX_NOTIONAL, FUTURES_MM_WASH_TRADE_MAX_NOTIONAL_VALUE); }
+    public static int futuresMmWashTradeCooldownMinutes() { return getInt(FUTURES_MM_WASH_TRADE_COOLDOWN_MINUTES, FUTURES_MM_WASH_TRADE_COOLDOWN_MINUTES_VALUE); }
+    public static boolean futuresMmCircuitBreakerEnabled() { try { return FUTURES_MM_CIRCUIT_BREAKER_ENABLED.get(); } catch (IllegalStateException ex) { return FUTURES_MM_CIRCUIT_BREAKER_ENABLED_VALUE; } }
+    public static int futuresMmCircuitBreakerDeviationBps() { return getInt(FUTURES_MM_CIRCUIT_BREAKER_DEVIATION_BPS, FUTURES_MM_CIRCUIT_BREAKER_DEVIATION_BPS_VALUE); }
+    public static long futuresMmInitialCapital() { return getLong(FUTURES_MM_INITIAL_CAPITAL, FUTURES_MM_INITIAL_CAPITAL_VALUE); }
     public static boolean bankingEnabled(){try{return BANKING_ENABLED.get();}catch(IllegalStateException e){return BANKING_ENABLED_VALUE;}}public static int defaultBankCount(){return getInt(DEFAULT_BANK_COUNT,DEFAULT_BANK_COUNT_VALUE);}public static long bankInitialCapital(){return getLong(BANK_INITIAL_CAPITAL,BANK_INITIAL_CAPITAL_VALUE);}public static int bankDemandSpreadBps(){return getInt(BANK_DEMAND_SPREAD,BANK_DEMAND_SPREAD_VALUE);}public static int bankTimeSpreadBps(){return getInt(BANK_TIME_SPREAD,BANK_TIME_SPREAD_VALUE);}public static int bankLoanSpreadBps(){return getInt(BANK_LOAN_SPREAD,BANK_LOAN_SPREAD_VALUE);}public static int bankDemandReserveBps(){return getInt(BANK_DEMAND_RESERVE_BPS,BANK_DEMAND_RESERVE_BPS_VALUE);}public static int bankTimeReserveBps(){return Math.min(bankDemandReserveBps(),getInt(BANK_TIME_RESERVE_BPS,BANK_TIME_RESERVE_BPS_VALUE));}public static long bankMinimumReserve(){return getLong(BANK_MIN_RESERVE,BANK_MIN_RESERVE_VALUE);}public static int bankMinimumCapitalBps(){return getInt(BANK_MIN_CAPITAL_BPS,BANK_MIN_CAPITAL_BPS_VALUE);}public static int bankSingleBorrowerLimitBps(){return getInt(BANK_SINGLE_BORROWER_BPS,BANK_SINGLE_BORROWER_BPS_VALUE);}public static int bankCentralPenaltyBps(){return getInt(BANK_CB_PENALTY_BPS,BANK_CB_PENALTY_BPS_VALUE);}public static int bankInsuranceFeeBps(){return getInt(BANK_INSURANCE_FEE_BPS,BANK_INSURANCE_FEE_BPS_VALUE);}public static long bankInsuranceLimit(){return getLong(BANK_INSURANCE_LIMIT,BANK_INSURANCE_LIMIT_VALUE);}public static int bankStressMaxRounds(){return getInt(BANK_STRESS_ROUNDS,BANK_STRESS_ROUNDS_VALUE);}
 
     private static int getInt(ForgeConfigSpec.IntValue value, int fallback) {
