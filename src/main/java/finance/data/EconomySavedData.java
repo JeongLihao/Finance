@@ -107,6 +107,7 @@ public class EconomySavedData extends SavedData {
         FundDataSerializer.save(tag);
         InsuranceDataSerializer.save(tag);
         GovernanceDataSerializer.save(tag);
+        finance.data.serializer.MarginDataSerializer.save(tag);
         WarehouseDataSerializer.save(tag);
         LogisticsDataSerializer.save(tag);
         SettlementDataSerializer.save(tag);
@@ -427,6 +428,7 @@ public class EconomySavedData extends SavedData {
         }
 
         GovernanceDataSerializer.load(tag);
+        finance.data.serializer.MarginDataSerializer.load(tag);
         WarehouseDataSerializer.load(tag);
         LogisticsDataSerializer.load(tag);
         SettlementDataSerializer.load(tag);
@@ -498,6 +500,7 @@ public class EconomySavedData extends SavedData {
         finance.fund.FundManager.clearDirect();
         finance.insurance.InsuranceManager.clearDirect();
         finance.governance.CorporateActionManager.clearDirect();
+        finance.margin.MarginPoolManager.clearDirect();
         finance.warehouse.WarehouseManager.clearDirect();
         finance.logistics.ShipmentManager.clearDirect();
         finance.settlement.SettlementManager.clearDirect();
