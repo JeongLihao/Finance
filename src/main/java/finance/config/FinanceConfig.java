@@ -88,6 +88,12 @@ public final class FinanceConfig {
     private static final int REGIONAL_HISTORY_DAYS_VALUE=120,COLLATERAL_MAX_ACTIVE_VALUE=4096,
             HEDGE_MAX_OBJECTIVES_VALUE=4096,RISK_DAILY_BATCH_VALUE=128,COLLATERAL_INITIAL_LTV_BPS_VALUE=6000,
             COLLATERAL_MAINTENANCE_LTV_BPS_VALUE=7500,COLLATERAL_LIQUIDATION_LTV_BPS_VALUE=9000;
+    private static final int VILLAGE_POPULATION_VALUE=30;
+    private static final long VILLAGE_PER_CAPITA_BUDGET_VALUE=100L;
+    private static final int VILLAGE_BUDGET_RESERVE_DAYS_VALUE=3;
+    private static final int VILLAGE_PREMIUM_MIN_BPS_VALUE=7500,VILLAGE_PREMIUM_MAX_BPS_VALUE=14000;
+    private static final int VILLAGE_FAIR_TOLERANCE_BPS_VALUE=12000,VILLAGE_GOUGE_TOLERANCE_BPS_VALUE=15000;
+    private static final int VILLAGE_BOYCOTT_FAVOR_VALUE=-50,VILLAGE_TRUST_FAVOR_VALUE=50;
 
     private static final ForgeConfigSpec.IntValue DEFAULT_DIVIDEND_CYCLE_DAYS;
     private static final ForgeConfigSpec.DoubleValue DEFAULT_DIVIDEND_RATIO;
@@ -153,6 +159,10 @@ public final class FinanceConfig {
     private static final ForgeConfigSpec.IntValue REGIONAL_HISTORY_DAYS,COLLATERAL_MAX_ACTIVE,
             HEDGE_MAX_OBJECTIVES,RISK_DAILY_BATCH,COLLATERAL_INITIAL_LTV_BPS,
             COLLATERAL_MAINTENANCE_LTV_BPS,COLLATERAL_LIQUIDATION_LTV_BPS;
+    private static final ForgeConfigSpec.IntValue VILLAGE_POPULATION,VILLAGE_BUDGET_RESERVE_DAYS,
+            VILLAGE_PREMIUM_MIN_BPS,VILLAGE_PREMIUM_MAX_BPS,VILLAGE_FAIR_TOLERANCE_BPS,
+            VILLAGE_GOUGE_TOLERANCE_BPS,VILLAGE_BOYCOTT_FAVOR,VILLAGE_TRUST_FAVOR;
+    private static final ForgeConfigSpec.LongValue VILLAGE_PER_CAPITA_BUDGET;
 
     static {
         ForgeConfigSpec.Builder builder = new ForgeConfigSpec.Builder();
@@ -413,6 +423,28 @@ public final class FinanceConfig {
                 .defineInRange("spread", STOCK_MARKET_MAKER_SPREAD_VALUE, 0.0D, 1.0D);
         builder.pop();
 
+        builder.push("villageEconomy");
+        VILLAGE_POPULATION = builder.comment("每聚落默认村庄人口。")
+                .defineInRange("villagePopulation", VILLAGE_POPULATION_VALUE, 1, 10_000);
+        VILLAGE_PER_CAPITA_BUDGET = builder.comment("村民人均日预算。")
+                .defineInRange("villagePerCapitaBudget", VILLAGE_PER_CAPITA_BUDGET_VALUE, 1L, 100_000L);
+        VILLAGE_BUDGET_RESERVE_DAYS = builder.comment("村庄预算上限 = 人均日预算 × 人口 × 天数。")
+                .defineInRange("villageBudgetReserveDays", VILLAGE_BUDGET_RESERVE_DAYS_VALUE, 1, 30);
+        VILLAGE_PREMIUM_MIN_BPS = builder.comment("村庄溢价下限，基点；7500 = 0.75x。")
+                .defineInRange("villagePremiumMinBps", VILLAGE_PREMIUM_MIN_BPS_VALUE, 1_000, 10_000);
+        VILLAGE_PREMIUM_MAX_BPS = builder.comment("村庄溢价上限，基点；14000 = 1.40x。")
+                .defineInRange("villagePremiumMaxBps", VILLAGE_PREMIUM_MAX_BPS_VALUE, 10_000, 30_000);
+        VILLAGE_FAIR_TOLERANCE_BPS = builder.comment("公允容忍，基点；12000 = 1.2x WTP。")
+                .defineInRange("villageFairToleranceBps", VILLAGE_FAIR_TOLERANCE_BPS_VALUE, 10_000, 20_000);
+        VILLAGE_GOUGE_TOLERANCE_BPS = builder.comment("宰客线，基点；15000 = 1.5x WTP。")
+                .defineInRange("villageGougeToleranceBps", VILLAGE_GOUGE_TOLERANCE_BPS_VALUE, 10_000, 30_000);
+        VILLAGE_BOYCOTT_FAVOR = builder.comment("抵制好感阈值：村民好感 ≤ 该值时拒绝该玩家全部摊位。"
+                        + " 注意：设为 0 会抵制所有新玩家（新玩家好感为 0，0 ≤ 0 恒成立）。")
+                .defineInRange("villageBoycottFavor", VILLAGE_BOYCOTT_FAVOR_VALUE, -100, 0);
+        VILLAGE_TRUST_FAVOR = builder.comment("信赖好感阈值。")
+                .defineInRange("villageTrustFavor", VILLAGE_TRUST_FAVOR_VALUE, 0, 100);
+        builder.pop();
+
         COMMON_SPEC = builder.build();
     }
 
@@ -512,6 +544,44 @@ public final class FinanceConfig {
 
     public static double stockMarketMakerSpread() {
         return getDouble(STOCK_MARKET_MAKER_SPREAD, STOCK_MARKET_MAKER_SPREAD_VALUE);
+    }
+
+    public static int villagePopulation() {
+        return getInt(VILLAGE_POPULATION, VILLAGE_POPULATION_VALUE);
+    }
+
+    public static long villagePerCapitaBudget() {
+        return getLong(VILLAGE_PER_CAPITA_BUDGET, VILLAGE_PER_CAPITA_BUDGET_VALUE);
+    }
+
+    public static int villageBudgetReserveDays() {
+        return getInt(VILLAGE_BUDGET_RESERVE_DAYS, VILLAGE_BUDGET_RESERVE_DAYS_VALUE);
+    }
+
+    public static int villagePremiumMinBps() {
+        return getInt(VILLAGE_PREMIUM_MIN_BPS, VILLAGE_PREMIUM_MIN_BPS_VALUE);
+    }
+
+    public static int villagePremiumMaxBps() {
+        return Math.max(villagePremiumMinBps(),
+                getInt(VILLAGE_PREMIUM_MAX_BPS, VILLAGE_PREMIUM_MAX_BPS_VALUE));
+    }
+
+    public static int villageFairToleranceBps() {
+        return getInt(VILLAGE_FAIR_TOLERANCE_BPS, VILLAGE_FAIR_TOLERANCE_BPS_VALUE);
+    }
+
+    public static int villageGougeToleranceBps() {
+        return Math.max(villageFairToleranceBps(),
+                getInt(VILLAGE_GOUGE_TOLERANCE_BPS, VILLAGE_GOUGE_TOLERANCE_BPS_VALUE));
+    }
+
+    public static int villageBoycottFavor() {
+        return getInt(VILLAGE_BOYCOTT_FAVOR, VILLAGE_BOYCOTT_FAVOR_VALUE);
+    }
+
+    public static int villageTrustFavor() {
+        return getInt(VILLAGE_TRUST_FAVOR, VILLAGE_TRUST_FAVOR_VALUE);
     }
 
     public static long ipoFee() {
