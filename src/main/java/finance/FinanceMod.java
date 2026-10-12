@@ -15,6 +15,7 @@ import finance.command.CommodityCommand;
 import finance.command.InventoryCommand;
 import finance.command.CompaniesCommand;
 import finance.command.CompanyCommand;
+import finance.command.PlayerBankCommand;
 import finance.company.SystemCompanyInitializer;
 import finance.config.FinanceConfig;
 import finance.cycle.EconomyCycleService;
@@ -127,6 +128,8 @@ public class FinanceMod {
         CompaniesCommand.register(event.getDispatcher());
 
         CompanyCommand.register(event.getDispatcher());
+
+        PlayerBankCommand.register(event.getDispatcher());
     }
 
     /** 服务器启动时加载持久化数据 */
