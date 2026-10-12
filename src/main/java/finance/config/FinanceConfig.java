@@ -2,6 +2,10 @@ package finance.config;
 
 import net.minecraftforge.common.ForgeConfigSpec;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
 public final class FinanceConfig {
 
     public static final ForgeConfigSpec COMMON_SPEC;
@@ -53,6 +57,7 @@ public final class FinanceConfig {
             BANK_DEMAND_RESERVE_BPS_VALUE=1_000,BANK_TIME_RESERVE_BPS_VALUE=500,BANK_MIN_CAPITAL_BPS_VALUE=800,
             BANK_SINGLE_BORROWER_BPS_VALUE=2_500,BANK_CB_PENALTY_BPS_VALUE=500,BANK_INSURANCE_FEE_BPS_VALUE=5,
             BANK_STRESS_ROUNDS_VALUE=8;
+    private static final String BANK_TIME_DEPOSIT_TERMS_VALUE="7,30,90";private static final long BANK_TIME_DEPOSIT_MIN_AMOUNT_VALUE=1_000L,BANK_TIME_DEPOSIT_MAX_PER_PLAYER_VALUE=1_000_000L,BANK_TIME_DEPOSIT_EARLY_FEE_VALUE=0L; // 定期存款
     private static final boolean MINECRAFT_FIRST_MODE_VALUE = true;
     private static final boolean REQUIRE_PHYSICAL_TERMINAL_VALUE = true;
     private static final boolean ENABLE_PORTABLE_LEDGER_VALUE = true;
@@ -122,6 +127,7 @@ public final class FinanceConfig {
             FUTURES_SETTLEMENT_WINDOW, FUTURES_MAX_SPOT_DEVIATION_BPS;
     private static final ForgeConfigSpec.BooleanValue BANKING_ENABLED;private static final ForgeConfigSpec.LongValue BANK_INITIAL_CAPITAL,BANK_MIN_RESERVE,BANK_INSURANCE_LIMIT;
     private static final ForgeConfigSpec.IntValue DEFAULT_BANK_COUNT,BANK_DEMAND_SPREAD,BANK_TIME_SPREAD,BANK_LOAN_SPREAD,BANK_DEMAND_RESERVE_BPS,BANK_TIME_RESERVE_BPS,BANK_MIN_CAPITAL_BPS,BANK_SINGLE_BORROWER_BPS,BANK_CB_PENALTY_BPS,BANK_INSURANCE_FEE_BPS,BANK_STRESS_ROUNDS;
+    private static final ForgeConfigSpec.ConfigValue<String> BANK_TIME_DEPOSIT_TERMS;private static final ForgeConfigSpec.LongValue BANK_TIME_DEPOSIT_MIN_AMOUNT,BANK_TIME_DEPOSIT_MAX_PER_PLAYER,BANK_TIME_DEPOSIT_EARLY_FEE; // 定期存款
     private static final ForgeConfigSpec.BooleanValue MINECRAFT_FIRST_MODE;
     private static final ForgeConfigSpec.BooleanValue REQUIRE_PHYSICAL_TERMINAL;
     private static final ForgeConfigSpec.BooleanValue ENABLE_PORTABLE_LEDGER;
@@ -309,6 +315,10 @@ public final class FinanceConfig {
         BANK_INSURANCE_FEE_BPS=builder.comment("银行每日按存款余额缴纳的保险费率，基点。").defineInRange("insuranceFeeBasisPoints",BANK_INSURANCE_FEE_BPS_VALUE,0,1_000);
         BANK_INSURANCE_LIMIT=builder.comment("每名客户在每家银行合并存款保险上限。").defineInRange("insuranceLimitPerCustomer",BANK_INSURANCE_LIMIT_VALUE,0L,Long.MAX_VALUE);
         BANK_STRESS_ROUNDS=builder.comment("压力测试同业传染最大轮数。").defineInRange("stressTestMaxRounds",BANK_STRESS_ROUNDS_VALUE,1,32);
+        BANK_TIME_DEPOSIT_TERMS=builder.comment("定期存款 定期存款允许的期限档，MC天，逗号分隔。").define("timeDepositTerms",BANK_TIME_DEPOSIT_TERMS_VALUE); // 定期存款
+        BANK_TIME_DEPOSIT_MIN_AMOUNT=builder.comment("定期存款 定期存款起存金额。").defineInRange("timeDepositMinAmount",BANK_TIME_DEPOSIT_MIN_AMOUNT_VALUE,0L,Long.MAX_VALUE); // 定期存款
+        BANK_TIME_DEPOSIT_MAX_PER_PLAYER=builder.comment("定期存款 单人跨所有银行ACTIVE定期存单本金合计上限。").defineInRange("timeDepositMaxPerPlayer",BANK_TIME_DEPOSIT_MAX_PER_PLAYER_VALUE,1L,Long.MAX_VALUE); // 定期存款
+        BANK_TIME_DEPOSIT_EARLY_FEE=builder.comment("定期存款 提前支取手续费，从返还本金中扣除，记手续费收入。").defineInRange("timeDepositEarlyFee",BANK_TIME_DEPOSIT_EARLY_FEE_VALUE,0L,Long.MAX_VALUE); // 定期存款
         builder.pop();
 
         builder.push("financialProducts");
@@ -565,6 +575,11 @@ public final class FinanceConfig {
     public static long futuresMinimumSettlementVolume() { return getLong(FUTURES_MIN_SETTLEMENT_VOLUME, FUTURES_MIN_SETTLEMENT_VOLUME_VALUE); }
     public static int futuresMaxSpotDeviationBps() { return getInt(FUTURES_MAX_SPOT_DEVIATION_BPS, FUTURES_MAX_SPOT_DEVIATION_BPS_VALUE); }
     public static boolean bankingEnabled(){try{return BANKING_ENABLED.get();}catch(IllegalStateException e){return BANKING_ENABLED_VALUE;}}public static int defaultBankCount(){return getInt(DEFAULT_BANK_COUNT,DEFAULT_BANK_COUNT_VALUE);}public static long bankInitialCapital(){return getLong(BANK_INITIAL_CAPITAL,BANK_INITIAL_CAPITAL_VALUE);}public static int bankDemandSpreadBps(){return getInt(BANK_DEMAND_SPREAD,BANK_DEMAND_SPREAD_VALUE);}public static int bankTimeSpreadBps(){return getInt(BANK_TIME_SPREAD,BANK_TIME_SPREAD_VALUE);}public static int bankLoanSpreadBps(){return getInt(BANK_LOAN_SPREAD,BANK_LOAN_SPREAD_VALUE);}public static int bankDemandReserveBps(){return getInt(BANK_DEMAND_RESERVE_BPS,BANK_DEMAND_RESERVE_BPS_VALUE);}public static int bankTimeReserveBps(){return Math.min(bankDemandReserveBps(),getInt(BANK_TIME_RESERVE_BPS,BANK_TIME_RESERVE_BPS_VALUE));}public static long bankMinimumReserve(){return getLong(BANK_MIN_RESERVE,BANK_MIN_RESERVE_VALUE);}public static int bankMinimumCapitalBps(){return getInt(BANK_MIN_CAPITAL_BPS,BANK_MIN_CAPITAL_BPS_VALUE);}public static int bankSingleBorrowerLimitBps(){return getInt(BANK_SINGLE_BORROWER_BPS,BANK_SINGLE_BORROWER_BPS_VALUE);}public static int bankCentralPenaltyBps(){return getInt(BANK_CB_PENALTY_BPS,BANK_CB_PENALTY_BPS_VALUE);}public static int bankInsuranceFeeBps(){return getInt(BANK_INSURANCE_FEE_BPS,BANK_INSURANCE_FEE_BPS_VALUE);}public static long bankInsuranceLimit(){return getLong(BANK_INSURANCE_LIMIT,BANK_INSURANCE_LIMIT_VALUE);}public static int bankStressMaxRounds(){return getInt(BANK_STRESS_ROUNDS,BANK_STRESS_ROUNDS_VALUE);}
+    // 定期存款
+    public static List<Integer> timeDepositTerms(){List<Integer> terms=new ArrayList<>();for(String part:getString(BANK_TIME_DEPOSIT_TERMS,BANK_TIME_DEPOSIT_TERMS_VALUE).split(",")){try{int t=Integer.parseInt(part.trim());if(t>=2&&t<=3_650&&!terms.contains(t))terms.add(t);}catch(NumberFormatException ignored){}}if(terms.isEmpty())terms.addAll(List.of(7,30,90));Collections.sort(terms);return List.copyOf(terms);}
+    public static long timeDepositMinAmount(){return getLong(BANK_TIME_DEPOSIT_MIN_AMOUNT,BANK_TIME_DEPOSIT_MIN_AMOUNT_VALUE);}
+    public static long timeDepositMaxPerPlayer(){return getLong(BANK_TIME_DEPOSIT_MAX_PER_PLAYER,BANK_TIME_DEPOSIT_MAX_PER_PLAYER_VALUE);}
+    public static long timeDepositEarlyFee(){return getLong(BANK_TIME_DEPOSIT_EARLY_FEE,BANK_TIME_DEPOSIT_EARLY_FEE_VALUE);}
 
     private static int getInt(ForgeConfigSpec.IntValue value, int fallback) {
         try {
@@ -593,6 +608,15 @@ public final class FinanceConfig {
     private static boolean getBoolean(ForgeConfigSpec.BooleanValue value, boolean fallback) {
         try {
             return value.get();
+        } catch (IllegalStateException ex) {
+            return fallback;
+        }
+    }
+
+    private static String getString(ForgeConfigSpec.ConfigValue<String> value, String fallback) {
+        try {
+            String v = value.get();
+            return v == null ? fallback : v;
         } catch (IllegalStateException ex) {
             return fallback;
         }

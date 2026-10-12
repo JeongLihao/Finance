@@ -18,7 +18,8 @@ public record BankActionPacket(Action action, UUID primaryId, UUID secondaryId,
                                long amount, int termDays, int intervalDays) {
     public enum Action {
         DEPOSIT, WITHDRAW, OPEN_TIME, REDEEM_TIME, TRANSFER,
-        APPLY_COMPANY_LOAN, WITHDRAW_COMPANY, ADMIN_RESOLVE, ADMIN_STRESS_TEST
+        APPLY_COMPANY_LOAN, WITHDRAW_COMPANY, ADMIN_RESOLVE, ADMIN_STRESS_TEST,
+        EARLY_REDEEM_TIME
     }
 
     public static void encode(BankActionPacket packet, FriendlyByteBuf buffer) {
@@ -73,6 +74,8 @@ public record BankActionPacket(Action action, UUID primaryId, UUID secondaryId,
                     : "定期参数无效";
             case REDEEM_TIME -> packet.primaryId != null
                     ? BankingManager.redeemTimeDeposit(owner, packet.primaryId, day).message() : "合同无效";
+            case EARLY_REDEEM_TIME -> packet.primaryId != null
+                    ? BankingManager.earlyRedeemTimeDeposit(owner, packet.primaryId, day).message() : "合同无效";
             case TRANSFER -> packet.primaryId != null && packet.secondaryId != null && packet.amount > 0
                     ? BankingManager.transfer(owner, packet.primaryId, packet.secondaryId, packet.amount, day).message()
                     : "转账参数无效";
