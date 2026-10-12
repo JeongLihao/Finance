@@ -185,6 +185,10 @@ public class CompanyManager {
         if (actuallyPaid > 0) {
             long perShare = totalShares > 0 ? actuallyPaid / totalShares : 0;
             company.addDividendRecord(currentMcDay, actuallyPaid, perShare);
+            // 财报季：分红除权 —— 按每股分红额下调股价（严谨定价，不 whitewash 分红收益）
+            if (perShare > 0 && FinanceConfig.earningsExDividend()) {
+                stock.applyExDividend(perShare);
+            }
         }
         if (actuallyPaid < totalDividend) {
             company.addDistributableProfit(totalDividend - actuallyPaid);

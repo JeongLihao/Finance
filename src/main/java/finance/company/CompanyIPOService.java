@@ -19,6 +19,25 @@ public class CompanyIPOService {
     /** 上市费用默认值；实际费用从服务器配置读取。 */
     public static final long IPO_FEE = 5_000L;
 
+    /**
+     * 发行价上限 —— 单股发行价不得超过该值。
+     * 经济量级参考：新手初始资金 1,000；建公司 10,000；系统公司初始现金 50,000。
+     * 按最大发行量 100,000 股、总股本 250,000 股计，上限 100 对应总估值 2,500 万，
+     * 为系统公司初始规模的 500 倍，覆盖正常游戏内估值空间。
+     * 注意：仅靠单价上限挡不住刷钱（100 × 100,000 股仍可铸造 1,000 万），
+     * 必须配合下方的募资总额上限。
+     */
+    public static final long MAX_ISSUE_PRICE = 100L;
+
+    /**
+     * 单次 IPO 募资总额上限 —— issuePrice × issueQuantity 不得超过该值。
+     * 这是 P0-1 的真正杀招：建公司 10,000 + 上市费 5,000 = 固定攻击成本 15,000，
+     * 而每人限建一家公司、不可重复收割；把单次铸造上限设为 10,000（2 倍上市费，
+     * 严格低于 15,000 攻击成本），则"建公司→IPO→提现"整条链净亏 5,000，
+     * 重复开小号同样每号净亏，无利可图。正常小额募资不受影响。
+     */
+    public static final long MAX_TOTAL_RAISE = 10_000L;
+
     /** 默认发行比例 —— 创始人保留 60%，发行 40% */
     public static final double DEFAULT_FLOAT_RATIO = 0.4;
 
@@ -58,11 +77,19 @@ public class CompanyIPOService {
             return fail("发行数量过多（最多 100,000）。");
         }
 
+        if (issuePrice > MAX_ISSUE_PRICE) {
+            return fail("发行价过高（上限 " + MAX_ISSUE_PRICE + "）。");
+        }
+
         long raisedCapital;
         try {
             raisedCapital = Math.multiplyExact(issuePrice, issueQuantity);
         } catch (ArithmeticException ex) {
             return fail("募资金额过大。");
+        }
+
+        if (raisedCapital > MAX_TOTAL_RAISE) {
+            return fail("募资总额超过上限 " + MAX_TOTAL_RAISE + "（请降低发行价或发行数量）。");
         }
 
         String symbol = generateUniqueSymbol(company.getName());
@@ -111,8 +138,14 @@ public class CompanyIPOService {
             return fail("Founder share settlement failed.");
         }
 
+        // 创始人股份锁定期 —— 防止上市即抛售砸盘套现
+        stock.setFounderLockup(requesterId, Stock.FOUNDER_SHARE_LOCKUP_DAYS);
+
         // 标记公司为已上市
         company.setPublic(true);
+
+        // 财报季：上市前累积的季度流水清零，避免 IPO 后首份季报混入上市前经营数据
+        company.drainQuarter();
 
         // 注册股票
         StockMarketManager.putStockDirect(stock);

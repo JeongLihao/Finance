@@ -127,6 +127,8 @@ public class FinanceMod {
         CompaniesCommand.register(event.getDispatcher());
 
         CompanyCommand.register(event.getDispatcher());
+
+        finance.command.EarningsCommand.register(event.getDispatcher());
     }
 
     /** 服务器启动时加载持久化数据 */
