@@ -9,6 +9,7 @@ import finance.company.CompanyManager;
 import finance.company.CompanyProposalManager;
 import finance.event.EventManager;
 import finance.market.MarketManager;
+import finance.market.MarketMakerLedger;
 import finance.market.NpcMarketMaker;
 import finance.stock.Stock;
 import finance.stock.ConditionalStockOrderManager;
@@ -77,7 +78,7 @@ import net.minecraft.world.level.storage.DimensionDataStorage;
 public class EconomySavedData extends SavedData {
 
     public static final String DATA_NAME = "finance_data";
-    private static final int DATA_VERSION = 36;
+    private static final int DATA_VERSION = 37;
     public static int currentDataVersion() { return DATA_VERSION; }
 
     // ================================================================
@@ -262,6 +263,7 @@ public class EconomySavedData extends SavedData {
         MarketDataSerializer.loadCommodityDefinitions(tag);
         CompanyDataSerializer.load(tag);
         MarketDataSerializer.loadMarketState(tag);
+        MarketDataSerializer.loadMarketMakerLedger(tag);
         MetricsDataSerializer.load(tag);
         CandlestickDataSerializer.load(tag);
         FinancialDataSerializer.load(tag);
@@ -465,6 +467,7 @@ public class EconomySavedData extends SavedData {
         CompanyManager.clearCompaniesDirect();
         CompanyManager.resetDividendPolicyDirect();
         NpcMarketMaker.clearMarketPrices();
+        MarketMakerLedger.clearDirect();
         EventManager.clearActiveEvents();
         StockMarketManager.clearStocks();
         StockMarketManager.clearStockOrders();
@@ -484,6 +487,7 @@ public class EconomySavedData extends SavedData {
         finance.futures.FuturesMarketManager.clearDirect();
         finance.futures.MarginManager.clearDirect();
         finance.futures.FuturesClearingService.clearDirect();
+        finance.futures.FuturesMarketMaker.resetDirect();
         finance.bank.BankingManager.clearDirect();
         finance.bank.InterbankMarketService.clearDirect();
         finance.bank.CentralBankLiquidityService.clearDirect();
