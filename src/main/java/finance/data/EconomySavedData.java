@@ -29,6 +29,7 @@ import finance.data.serializer.FinancialDataSerializer;
 import finance.data.serializer.DebtDataSerializer;
 import finance.data.serializer.BondMarketDataSerializer;
 import finance.data.serializer.CentralBankBillDataSerializer;
+import finance.data.serializer.TreasuryBondDataSerializer;
 import finance.data.serializer.FuturesDataSerializer;
 import finance.data.serializer.BankingDataSerializer;
 import finance.data.serializer.DiagnosticDataSerializer;
@@ -101,6 +102,7 @@ public class EconomySavedData extends SavedData {
         DebtDataSerializer.save(tag);
         BondMarketDataSerializer.save(tag);
         CentralBankBillDataSerializer.save(tag);
+        TreasuryBondDataSerializer.save(tag);
         FuturesDataSerializer.save(tag);
         BankingDataSerializer.save(tag);
         DiagnosticDataSerializer.save(tag);
@@ -147,6 +149,11 @@ public class EconomySavedData extends SavedData {
             stockTag.putLong("FloatShares", stock.getFloatShares());
             stockTag.putLong("OwnerShares", stock.getOwnerShares());
             stockTag.putLong("TreasuryShares",stock.getTreasuryShares());
+            if (stock.getFounderId() != null) {
+                stockTag.putUUID("FounderId", stock.getFounderId());
+            }
+            stockTag.putInt("FounderLockupDays", stock.getFounderLockupDaysRemaining());
+            stockTag.putLong("MarketMakerBought", stock.getMarketMakerBoughtShares());
 
             // 新引擎字段
             stockTag.putLong("LastPrice", stock.getLastPrice());
@@ -264,6 +271,7 @@ public class EconomySavedData extends SavedData {
         DebtDataSerializer.load(tag);
         BondMarketDataSerializer.load(tag);
         CentralBankBillDataSerializer.load(tag);
+        TreasuryBondDataSerializer.load(tag);
         FuturesDataSerializer.load(tag);
         DiagnosticDataSerializer.load(tag);
         FundDataSerializer.load(tag);
@@ -298,6 +306,12 @@ public class EconomySavedData extends SavedData {
                 Stock stock = new Stock(symbol, name, companyUuid, totalShares,
                         floatShares, ownerShares, currentPrice, fairValue);
                 if(stockTag.contains("TreasuryShares"))stock.restoreTreasuryShares(stockTag.getLong("TreasuryShares"));
+                stock.restoreFounderLockup(
+                        readUuidOrNull(stockTag, "FounderId"),
+                        stockTag.contains("FounderLockupDays") ? stockTag.getInt("FounderLockupDays") : 0);
+                if (stockTag.contains("MarketMakerBought")) {
+                    stock.restoreMarketMakerBoughtShares(stockTag.getLong("MarketMakerBought"));
+                }
                 Company company = CompanyManager.getCompany(companyUuid);
                 if (company == null || !company.isPublic()) {
                     continue;
@@ -470,6 +484,7 @@ public class EconomySavedData extends SavedData {
         finance.bondmarket.BondMarketManager.clearDirect();
         finance.bondmarket.BondPortfolioManager.clearDirect();
         finance.fixedincome.CentralBankBillManager.clearDirect();
+        finance.fixedincome.TreasuryBondManager.clearDirect();
         finance.futures.FuturesMarketManager.clearDirect();
         finance.futures.MarginManager.clearDirect();
         finance.futures.FuturesClearingService.clearDirect();

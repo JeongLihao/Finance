@@ -21,6 +21,10 @@ public final class FinanceConfig {
     private static final int MIN_BENCHMARK_RATE_BPS_VALUE = 0;
     private static final int MAX_BENCHMARK_RATE_BPS_VALUE = 5_000;
     private static final int MAX_BONDS_VALUE = 256;
+    private static final long TREASURY_BOND_MIN_AMOUNT_VALUE = 1_000L;
+    private static final long TREASURY_BOND_MAX_PER_PLAYER_VALUE = 2_000_000L;
+    private static final long TREASURY_BOND_MAX_ISSUE_PER_TERM_VALUE = 10_000_000L;
+    private static final long TREASURY_BOND_EARLY_FEE_VALUE = 0L;
     private static final int MAX_LOANS_VALUE = 256;
     private static final int LOAN_GRACE_DAYS_VALUE = 3;
     private static final int INDEX_BASE_POINTS_VALUE = 1_000;
@@ -102,6 +106,10 @@ public final class FinanceConfig {
     private static final ForgeConfigSpec.IntValue CAPITAL_PROJECT_MAX_DURATION_DAYS;
     private static final ForgeConfigSpec.IntValue DEFAULT_BENCHMARK_RATE_BPS;
     private static final ForgeConfigSpec.IntValue MAX_BONDS;
+    private static final ForgeConfigSpec.LongValue TREASURY_BOND_MIN_AMOUNT;
+    private static final ForgeConfigSpec.LongValue TREASURY_BOND_MAX_PER_PLAYER;
+    private static final ForgeConfigSpec.LongValue TREASURY_BOND_MAX_ISSUE_PER_TERM;
+    private static final ForgeConfigSpec.LongValue TREASURY_BOND_EARLY_FEE;
     private static final ForgeConfigSpec.IntValue MAX_LOANS;
     private static final ForgeConfigSpec.IntValue LOAN_GRACE_DAYS;
     private static final ForgeConfigSpec.IntValue INDEX_BASE_POINTS;
@@ -319,6 +327,18 @@ public final class FinanceConfig {
         MAX_BONDS = builder
                 .comment("单个世界最多保留的公司债券合约数量，超过上限时拒绝新发行。")
                 .defineInRange("maxCorporateBonds", MAX_BONDS_VALUE, 1, 10_000);
+        TREASURY_BOND_MIN_AMOUNT = builder
+                .comment("国债起认金额。")
+                .defineInRange("treasuryBondMinAmount", TREASURY_BOND_MIN_AMOUNT_VALUE, 1L, Long.MAX_VALUE);
+        TREASURY_BOND_MAX_PER_PLAYER = builder
+                .comment("单名玩家国债 ACTIVE 本金合计上限。")
+                .defineInRange("treasuryBondMaxPerPlayer", TREASURY_BOND_MAX_PER_PLAYER_VALUE, 0L, Long.MAX_VALUE);
+        TREASURY_BOND_MAX_ISSUE_PER_TERM = builder
+                .comment("每期限档国债未到期发行余额上限。")
+                .defineInRange("treasuryBondMaxIssuePerTerm", TREASURY_BOND_MAX_ISSUE_PER_TERM_VALUE, 0L, Long.MAX_VALUE);
+        TREASURY_BOND_EARLY_FEE = builder
+                .comment("国债提前赎回手续费，从本金扣除且不超过本金。")
+                .defineInRange("treasuryBondEarlyFee", TREASURY_BOND_EARLY_FEE_VALUE, 0L, Long.MAX_VALUE);
         MAX_LOANS = builder
                 .comment("单个世界最多保留的公司贷款合约数量，超过上限时拒绝新贷款。")
                 .defineInRange("maxCompanyLoans", MAX_LOANS_VALUE, 1, 10_000);
@@ -533,6 +553,10 @@ public final class FinanceConfig {
     public static int minBenchmarkRateBasisPoints() { return MIN_BENCHMARK_RATE_BPS_VALUE; }
     public static int maxBenchmarkRateBasisPoints() { return MAX_BENCHMARK_RATE_BPS_VALUE; }
     public static int maxCorporateBonds() { return getInt(MAX_BONDS, MAX_BONDS_VALUE); }
+    public static long treasuryBondMinAmount() { return getLong(TREASURY_BOND_MIN_AMOUNT, TREASURY_BOND_MIN_AMOUNT_VALUE); }
+    public static long treasuryBondMaxPerPlayer() { return getLong(TREASURY_BOND_MAX_PER_PLAYER, TREASURY_BOND_MAX_PER_PLAYER_VALUE); }
+    public static long treasuryBondMaxIssuePerTerm() { return getLong(TREASURY_BOND_MAX_ISSUE_PER_TERM, TREASURY_BOND_MAX_ISSUE_PER_TERM_VALUE); }
+    public static long treasuryBondEarlyFee() { return getLong(TREASURY_BOND_EARLY_FEE, TREASURY_BOND_EARLY_FEE_VALUE); }
     public static int maxCompanyLoans() { return getInt(MAX_LOANS, MAX_LOANS_VALUE); }
     public static int loanGraceDays() { return getInt(LOAN_GRACE_DAYS, LOAN_GRACE_DAYS_VALUE); }
     public static int indexBasePoints() { return getInt(INDEX_BASE_POINTS, INDEX_BASE_POINTS_VALUE); }
