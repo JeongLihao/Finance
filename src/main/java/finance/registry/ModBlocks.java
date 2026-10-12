@@ -2,6 +2,7 @@ package finance.registry;
 
 import finance.FinanceMod;
 import finance.block.FinanceTerminalBlock;
+import finance.block.FactoryBlock;
 import finance.block.WarehouseControllerBlock;
 import finance.block.CompanyDeskBlock;
 import finance.block.CompanyFactoryControllerBlock;
@@ -50,6 +51,9 @@ public final class ModBlocks {
     public static final RegistryObject<Block> SURVEY_BOARD = BLOCKS.register("survey_board",
             () -> new SurveyBoardBlock(BlockBehaviour.Properties.of().mapColor(MapColor.WOOD)
                     .strength(2.0F).sound(SoundType.WOOD)));
+    public static final RegistryObject<Block> FACTORY = BLOCKS.register("factory",
+            () -> new FactoryBlock(BlockBehaviour.Properties.of().mapColor(MapColor.METAL)
+                    .strength(3.5F).sound(SoundType.METAL).requiresCorrectToolForDrops()));
 
     private ModBlocks() {}
 

@@ -2,6 +2,7 @@ package finance.registry;
 
 import finance.FinanceMod;
 import finance.gui.FinanceMenu;
+import finance.gui.FactoryMenu;
 import finance.gui.MarketOverviewMenu;
 import finance.gui.WalletMenu;
 import finance.gui.WarehouseMenu;
@@ -33,6 +34,8 @@ public class ModMenus {
             MENUS.register("company_gameplay", () -> IForgeMenuType.create(CompanyGameplayMenu::new));
     public static final RegistryObject<MenuType<SettlementMenu>> SETTLEMENT =
             MENUS.register("settlement", () -> IForgeMenuType.create(SettlementMenu::new));
+    public static final RegistryObject<MenuType<FactoryMenu>> FACTORY =
+            MENUS.register("factory", () -> IForgeMenuType.create(FactoryMenu::new));
 
     public static void register(IEventBus eventBus) {
         MENUS.register(eventBus);

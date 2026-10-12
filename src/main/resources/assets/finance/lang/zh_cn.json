@@ -503,5 +503,11 @@
   "finance.company_supply.delivery_failed": "商品划转失败，操作已回滚",
   "finance.company_supply.payment_failed": "托管付款失败，交货已回滚",
   "finance.company_supply.partial": "分批交货成功，托管资金已按进度结算",
-  "finance.company_supply.completed": "公司间供应合同已完成"
+  "finance.company_supply.completed": "公司间供应合同已完成",
+  "block.finance.factory": "工厂",
+  "screen.finance.factory.input": "输入",
+  "screen.finance.factory.output": "输出",
+  "screen.finance.factory.working": "工作中",
+  "screen.finance.factory.idle": "缺料待机",
+  "screen.finance.factory.output_full": "输出已满"
 }

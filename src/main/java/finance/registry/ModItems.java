@@ -36,6 +36,8 @@ public final class ModItems {
             () -> new finance.item.SettlementTradeStationItem(ModBlocks.SETTLEMENT_TRADE_STATION.get(), new Item.Properties()));
     public static final RegistryObject<Item> SURVEY_BOARD = ITEMS.register("survey_board",
             () -> new BlockItem(ModBlocks.SURVEY_BOARD.get(),new Item.Properties()));
+    public static final RegistryObject<Item> FACTORY = ITEMS.register("factory",
+            () -> new BlockItem(ModBlocks.FACTORY.get(), new Item.Properties()));
     public static final RegistryObject<Item> SURVEY_NOTE = ITEMS.register("survey_note",
             () -> new finance.item.SurveyNoteItem(new Item.Properties().stacksTo(1)));
 
@@ -66,6 +68,7 @@ public final class ModItems {
             event.accept(SETTLEMENT_TRADE_STATION);
             event.accept(SURVEY_BOARD);
             event.accept(SURVEY_NOTE);
+            event.accept(FACTORY);
         }
     }
 }
