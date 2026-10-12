@@ -31,4 +31,19 @@ public final class PublicBankViewService {
                                  long assets, long reserves, long requiredReserves, long deposits,
                                  long equity, int capitalBps, int liquidityBps,
                                  int demandRateBps, int timeRateBps, long centralBorrowing) {}
+
+    /** 恐慌信息发布面：档位/恐慌值/排队金额/是否限提/最新谣言（网络与 GUI 接线记二期）。 */
+    public static BankPanicView panicView(CommercialBank bank) {
+        if (bank == null) throw new IllegalArgumentException("bank");
+        var state = BankRunService.stateOf(bank.id());
+        var tier = BankPanicTier.of(state.panic(),
+                finance.config.FinanceConfig.bankRunCapPanicThreshold(),
+                finance.config.FinanceConfig.bankRunFailPanicThreshold());
+        return new BankPanicView(bank.id(), bank.code(), tier, state.panic(), state.queued(),
+                BankRunService.withdrawalCapped(bank.id()),
+                state.lastRumorDay() >= 0 ? state.lastRumorText() : "");
+    }
+
+    public record BankPanicView(java.util.UUID id, String code, BankPanicTier tier,
+                                int panic, long queuedAmount, boolean withdrawalCapped, String rumor) {}
 }
