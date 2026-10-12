@@ -204,5 +204,12 @@ public class FinancePacketHandler {
         CHANNEL.registerMessage(packetId++, TutorialProgressPacket.class,
                 TutorialProgressPacket::encode, TutorialProgressPacket::decode, TutorialProgressPacket::handle,
                 Optional.of(NetworkDirection.PLAY_TO_CLIENT));
+        // Phase 4：做市商总览（管理后台）
+        CHANNEL.registerMessage(packetId++, MarketMakerOverviewRequestPacket.class,
+                MarketMakerOverviewRequestPacket::encode, MarketMakerOverviewRequestPacket::decode,
+                MarketMakerOverviewRequestPacket::handle, Optional.of(NetworkDirection.PLAY_TO_SERVER));
+        CHANNEL.registerMessage(packetId++, MarketMakerOverviewResponsePacket.class,
+                MarketMakerOverviewResponsePacket::encode, MarketMakerOverviewResponsePacket::decode,
+                MarketMakerOverviewResponsePacket::handle, Optional.of(NetworkDirection.PLAY_TO_CLIENT));
     }
 }

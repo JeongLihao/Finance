@@ -10,6 +10,8 @@ import finance.commodity.CommodityInventoryManager;
 import finance.commodity.CommodityRegistry;
 import finance.commodity.Commodity;
 import finance.data.EconomySavedData;
+import finance.market.liquidity.MarketMakerQuotes;
+import finance.market.liquidity.QuoteView;
 import finance.metrics.EconomyMetricsService;
 import finance.chart.CandlestickService;
 import finance.chart.MarketInstrumentType;
@@ -66,6 +68,10 @@ public class NpcMarketMaker {
     /**
      * 国际市场向玩家购买商品（玩家卖出商品并获得资金）。
      *
+     * <p>Phase 2 动态报价：bid 走 QuoteEngine（mid = MarketPrice 中间价，
+     * 库存水位 = NPC 实际库存 / REFERENCE_STOCK），熔断时暂停报价返回 false。
+     * MarketPrice 的定价参数与原 spread 报价保持不动。</p>
+     *
      * @return 成功返回 true
      */
     public static boolean npcBuy(UUID playerId, String commodityId, int quantity) {
@@ -74,11 +80,11 @@ public class NpcMarketMaker {
             return false;
         }
 
-        MarketPrice price = getMarketPrice(commodityId);
-        if (price == null) {
+        QuoteView quote = MarketMakerQuotes.getQuote(MarketMakerQuotes.MARKET_COMMODITY, commodityId);
+        if (quote == null || quote.halted()) {
             return false;
         }
-        long bidPrice = price.getBidPrice();
+        long bidPrice = quote.bid();
         int acceptedQuantity = Math.min(quantity, getMaxNpcBuyQuantity(commodityId, bidPrice));
         if (acceptedQuantity <= 0) {
             return false;
@@ -128,6 +134,8 @@ public class NpcMarketMaker {
     /**
      * 国际市场向玩家出售商品（玩家买入商品并支付资金）。
      *
+     * <p>Phase 2 动态报价：ask 走 QuoteEngine，熔断时暂停报价返回 false。</p>
+     *
      * @return 成功返回 true
      */
     public static boolean npcSell(UUID playerId, String commodityId, int quantity) {
@@ -136,11 +144,11 @@ public class NpcMarketMaker {
             return false;
         }
 
-        MarketPrice price = getMarketPrice(commodityId);
-        if (price == null) {
+        QuoteView quote = MarketMakerQuotes.getQuote(MarketMakerQuotes.MARKET_COMMODITY, commodityId);
+        if (quote == null || quote.halted()) {
             return false;
         }
-        long askPrice = price.getAskPrice();
+        long askPrice = quote.ask();
         int acceptedQuantity = Math.min(quantity, getMaxNpcSellQuantity(commodityId));
         if (acceptedQuantity <= 0) {
             return false;
