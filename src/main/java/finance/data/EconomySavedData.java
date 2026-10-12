@@ -147,6 +147,11 @@ public class EconomySavedData extends SavedData {
             stockTag.putLong("FloatShares", stock.getFloatShares());
             stockTag.putLong("OwnerShares", stock.getOwnerShares());
             stockTag.putLong("TreasuryShares",stock.getTreasuryShares());
+            if (stock.getFounderId() != null) {
+                stockTag.putUUID("FounderId", stock.getFounderId());
+            }
+            stockTag.putInt("FounderLockupDays", stock.getFounderLockupDaysRemaining());
+            stockTag.putLong("MarketMakerBought", stock.getMarketMakerBoughtShares());
 
             // 新引擎字段
             stockTag.putLong("LastPrice", stock.getLastPrice());
@@ -298,6 +303,12 @@ public class EconomySavedData extends SavedData {
                 Stock stock = new Stock(symbol, name, companyUuid, totalShares,
                         floatShares, ownerShares, currentPrice, fairValue);
                 if(stockTag.contains("TreasuryShares"))stock.restoreTreasuryShares(stockTag.getLong("TreasuryShares"));
+                stock.restoreFounderLockup(
+                        readUuidOrNull(stockTag, "FounderId"),
+                        stockTag.contains("FounderLockupDays") ? stockTag.getInt("FounderLockupDays") : 0);
+                if (stockTag.contains("MarketMakerBought")) {
+                    stock.restoreMarketMakerBoughtShares(stockTag.getLong("MarketMakerBought"));
+                }
                 Company company = CompanyManager.getCompany(companyUuid);
                 if (company == null || !company.isPublic()) {
                     continue;
@@ -465,6 +476,7 @@ public class EconomySavedData extends SavedData {
         FinancialCycleService.clearDirect();
         finance.index.MarketIndexService.clearDirect();
         finance.policy.MonetaryPolicyService.clearDirect();
+        finance.policy.PolicyMeetingService.clearDirect();
         finance.debt.CorporateBondManager.clearDirect();
         finance.debt.CompanyLoanManager.clearDirect();
         finance.bondmarket.BondMarketManager.clearDirect();

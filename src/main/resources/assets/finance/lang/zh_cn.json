@@ -503,5 +503,8 @@
   "finance.company_supply.delivery_failed": "商品划转失败，操作已回滚",
   "finance.company_supply.payment_failed": "托管付款失败，交货已回滚",
   "finance.company_supply.partial": "分批交货成功，托管资金已按进度结算",
-  "finance.company_supply.completed": "公司间供应合同已完成"
+  "finance.company_supply.completed": "公司间供应合同已完成",
+  "finance.feedback.policy_guidance": "【央行议息前瞻】%s 天后议息（第 %s 天），当前政策倾向：%s，基准利率现为 %s",
+  "finance.feedback.policy_decision": "【央行议息决议】基准利率 %s → %s（%s）。%s",
+  "finance.feedback.policy_decision_manual": "【央行议息】检测到人工干预，维持现行基准利率 %s（%s）"
 }

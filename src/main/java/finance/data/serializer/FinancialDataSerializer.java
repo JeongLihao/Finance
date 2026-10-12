@@ -27,6 +27,11 @@ public final class FinancialDataSerializer {
         tag.putLong("LastClosedMarketDay", FinancialCycleService.lastClosedMarketDay());
         tag.putLong("ObservedMarketDay", FinancialCycleService.observedMarketDay());
         tag.putInt("BenchmarkRateBps", MonetaryPolicyService.benchmarkRateBasisPoints());
+        tag.putLong("PolicyLastMeetingDay", finance.policy.PolicyMeetingService.lastMeetingDay());
+        tag.putLong("PolicyNextMeetingDay", finance.policy.PolicyMeetingService.nextMeetingDay());
+        tag.putLong("PolicyGuidanceFor", finance.policy.PolicyMeetingService.guidanceSentForMeeting());
+        tag.putInt("PolicyGuidanceBaselineBps", finance.policy.PolicyMeetingService.guidanceBaselineBps());
+        tag.putInt("PolicyCycleBaselineBps", finance.policy.PolicyMeetingService.cycleBaselineBps());
         ListTag rates = new ListTag();
         for (PolicyRateRecord rate : MonetaryPolicyService.history()) {
             CompoundTag item = new CompoundTag();
@@ -67,6 +72,12 @@ public final class FinancialDataSerializer {
         }
         MonetaryPolicyService.restore(tag.contains("BenchmarkRateBps") ? tag.getInt("BenchmarkRateBps")
                 : finance.config.FinanceConfig.defaultBenchmarkRateBasisPoints(), rates);
+        finance.policy.PolicyMeetingService.restore(
+                tag.contains("PolicyLastMeetingDay") ? tag.getLong("PolicyLastMeetingDay") : -1,
+                tag.contains("PolicyNextMeetingDay") ? tag.getLong("PolicyNextMeetingDay") : -1,
+                tag.contains("PolicyGuidanceFor") ? tag.getLong("PolicyGuidanceFor") : -1,
+                tag.contains("PolicyGuidanceBaselineBps") ? tag.getInt("PolicyGuidanceBaselineBps") : -1,
+                tag.contains("PolicyCycleBaselineBps") ? tag.getInt("PolicyCycleBaselineBps") : -1);
         int count = 0;
         for (Tag raw : tag.getList("Indices", Tag.TAG_COMPOUND)) {
             if (++count > MAX_STATES) break;
