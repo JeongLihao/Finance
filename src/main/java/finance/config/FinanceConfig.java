@@ -14,6 +14,9 @@ public final class FinanceConfig {
     private static final int MAX_PRICE_ALERTS_PER_PLAYER_VALUE = 20;
     private static final int MAX_CONDITIONAL_STOCK_ORDERS_PER_PLAYER_VALUE = 20;
     private static final double STOCK_MARKET_MAKER_SPREAD_VALUE = 0.02D;
+    private static final int FACTORY_COOK_TIME_BREAD_VALUE = 200;
+    private static final int FACTORY_COOK_TIME_IRON_VALUE = 200;
+    private static final int FACTORY_COOK_TIME_PLANKS_VALUE = 100;
     private static final long IPO_FEE_VALUE = 5_000L;
     private static final long CAPITAL_PROJECT_GOVERNANCE_THRESHOLD_VALUE = 50_000L;
     private static final int CAPITAL_PROJECT_MAX_DURATION_DAYS_VALUE = 60;
@@ -97,6 +100,9 @@ public final class FinanceConfig {
     private static final ForgeConfigSpec.IntValue MAX_PRICE_ALERTS_PER_PLAYER;
     private static final ForgeConfigSpec.IntValue MAX_CONDITIONAL_STOCK_ORDERS_PER_PLAYER;
     private static final ForgeConfigSpec.DoubleValue STOCK_MARKET_MAKER_SPREAD;
+    private static final ForgeConfigSpec.IntValue FACTORY_COOK_TIME_BREAD;
+    private static final ForgeConfigSpec.IntValue FACTORY_COOK_TIME_IRON;
+    private static final ForgeConfigSpec.IntValue FACTORY_COOK_TIME_PLANKS;
     private static final ForgeConfigSpec.LongValue IPO_FEE;
     private static final ForgeConfigSpec.LongValue CAPITAL_PROJECT_GOVERNANCE_THRESHOLD;
     private static final ForgeConfigSpec.IntValue CAPITAL_PROJECT_MAX_DURATION_DAYS;
@@ -413,6 +419,18 @@ public final class FinanceConfig {
                 .defineInRange("spread", STOCK_MARKET_MAKER_SPREAD_VALUE, 0.0D, 1.0D);
         builder.pop();
 
+        builder.push("factory");
+        FACTORY_COOK_TIME_BREAD = builder
+                .comment("工厂方块：小麦→面包耗时（tick）。")
+                .defineInRange("breadCookTime", FACTORY_COOK_TIME_BREAD_VALUE, 1, 72_000);
+        FACTORY_COOK_TIME_IRON = builder
+                .comment("工厂方块：铁矿石→铁锭耗时（tick）。")
+                .defineInRange("ironCookTime", FACTORY_COOK_TIME_IRON_VALUE, 1, 72_000);
+        FACTORY_COOK_TIME_PLANKS = builder
+                .comment("工厂方块：原木→木板耗时（tick）。")
+                .defineInRange("planksCookTime", FACTORY_COOK_TIME_PLANKS_VALUE, 1, 72_000);
+        builder.pop();
+
         COMMON_SPEC = builder.build();
     }
 
@@ -512,6 +530,20 @@ public final class FinanceConfig {
 
     public static double stockMarketMakerSpread() {
         return getDouble(STOCK_MARKET_MAKER_SPREAD, STOCK_MARKET_MAKER_SPREAD_VALUE);
+    }
+
+    /**
+     * 工厂方块配方耗时（tick）。未知配方 id 返回 fallback。
+     */
+    public static int factoryCookTime(String recipeId, int fallback) {
+        int safeFallback = Math.max(1, Math.min(72_000, fallback));
+        if (recipeId == null) return safeFallback;
+        return switch (recipeId) {
+            case "wheat_to_bread" -> getInt(FACTORY_COOK_TIME_BREAD, safeFallback);
+            case "iron_ore_to_ingot" -> getInt(FACTORY_COOK_TIME_IRON, safeFallback);
+            case "oak_log_to_planks" -> getInt(FACTORY_COOK_TIME_PLANKS, safeFallback);
+            default -> safeFallback;
+        };
     }
 
     public static long ipoFee() {
