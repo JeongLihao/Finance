@@ -69,7 +69,7 @@ public final class EconomyCycleService {
         NpcMarketMaker.centralBankIntervention();
         CompanyManager.tickAll(mcDay);
         CompanyManager.settleDailyProfits(mcDay);
-        StockMarketManager.updateFairValuesAndResetDay();
+        StockMarketManager.tickNewDay();
         CompanyManager.tryDividends(mcDay);
         CompanyFinancingManager.tick(mcDay);
         CompanyProposalManager.tick(mcDay);
