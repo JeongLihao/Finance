@@ -40,6 +40,7 @@ public final class FinancialCycleService {
             finance.debt.CompanyLoanManager.processDay(day);
         }
         finance.fixedincome.CentralBankBillManager.processDay(day);
+        finance.fixedincome.TreasuryBondManager.processDay(day);
         if(finance.diagnostic.ModuleHealthRegistry.mayWrite(finance.diagnostic.ModuleHealthRegistry.Module.FUTURES))finance.futures.FuturesMarketManager.processDay(day);
         if(finance.diagnostic.ModuleHealthRegistry.mayWrite(finance.diagnostic.ModuleHealthRegistry.Module.BANKING))finance.bank.BankingManager.processDay(day);
         if(finance.diagnostic.ModuleHealthRegistry.mayWrite(finance.diagnostic.ModuleHealthRegistry.Module.COLLATERAL))finance.collateral.InventoryCollateralService.processDay(day);
