@@ -47,6 +47,25 @@ public final class FinanceConfig {
     private static final int FUTURES_SETTLEMENT_WINDOW_VALUE = 3;
     private static final long FUTURES_MIN_SETTLEMENT_VOLUME_VALUE = 10L;
     private static final int FUTURES_MAX_SPOT_DEVIATION_BPS_VALUE = 2_000;
+    // ---- 商队商路 ----
+    private static final int CARAVAN_MAX_ROUTES_PER_PLAYER_VALUE = 8;
+    private static final int CARAVAN_MAX_QTY_PER_TRIP_VALUE = 1_024;
+    private static final long CARAVAN_BLOCKS_PER_DAY_VALUE = 5_000L;
+    private static final int CARAVAN_RAID_BASE_BPS_VALUE = 800;
+    private static final int CARAVAN_RAID_MIN_BPS_VALUE = 100;
+    private static final int CARAVAN_RAID_MAX_BPS_VALUE = 3_000;
+    private static final int CARAVAN_RAID_PER_KM_BPS_VALUE = 20;
+    private static final int CARAVAN_RAID_PER_KM_CAP_BPS_VALUE = 2_000;
+    private static final int CARAVAN_RAID_ALERT_BONUS_BPS_VALUE = 3_000;
+    private static final int CARAVAN_GUARD_REDUCE_BPS_VALUE = 2_000;
+    private static final long CARAVAN_GUARD_WAGE_1_VALUE = 500L;
+    private static final long CARAVAN_GUARD_WAGE_2_VALUE = 1_500L;
+    private static final long CARAVAN_GUARD_WAGE_3_VALUE = 4_000L;
+    private static final int CARAVAN_RAID_LOSS_RATIO_BPS_VALUE = 3_000;
+    private static final int CARAVAN_INSURE_MARGIN_BPS_VALUE = 12_000;
+    private static final int CARAVAN_SATURATION_PER_UNIT_BPS_VALUE = 2;
+    private static final int CARAVAN_SATURATION_DECAY_BPS_VALUE = 1_500;
+    private static final int CARAVAN_SELL_PRICE_CAP_MULTIPLIER_VALUE = 3;
     private static final boolean BANKING_ENABLED_VALUE=true;private static final int DEFAULT_BANK_COUNT_VALUE=3;
     private static final long BANK_INITIAL_CAPITAL_VALUE=5_000_000L,BANK_MIN_RESERVE_VALUE=10_000L,BANK_INSURANCE_LIMIT_VALUE=100_000L;
     private static final int BANK_DEMAND_SPREAD_VALUE=150,BANK_TIME_SPREAD_VALUE=75,BANK_LOAN_SPREAD_VALUE=250,
@@ -97,6 +116,24 @@ public final class FinanceConfig {
     private static final ForgeConfigSpec.IntValue MAX_PRICE_ALERTS_PER_PLAYER;
     private static final ForgeConfigSpec.IntValue MAX_CONDITIONAL_STOCK_ORDERS_PER_PLAYER;
     private static final ForgeConfigSpec.DoubleValue STOCK_MARKET_MAKER_SPREAD;
+    private static final ForgeConfigSpec.IntValue CARAVAN_MAX_ROUTES_PER_PLAYER;
+    private static final ForgeConfigSpec.IntValue CARAVAN_MAX_QTY_PER_TRIP;
+    private static final ForgeConfigSpec.LongValue CARAVAN_BLOCKS_PER_DAY;
+    private static final ForgeConfigSpec.IntValue CARAVAN_RAID_BASE_BPS;
+    private static final ForgeConfigSpec.IntValue CARAVAN_RAID_MIN_BPS;
+    private static final ForgeConfigSpec.IntValue CARAVAN_RAID_MAX_BPS;
+    private static final ForgeConfigSpec.IntValue CARAVAN_RAID_PER_KM_BPS;
+    private static final ForgeConfigSpec.IntValue CARAVAN_RAID_PER_KM_CAP_BPS;
+    private static final ForgeConfigSpec.IntValue CARAVAN_RAID_ALERT_BONUS_BPS;
+    private static final ForgeConfigSpec.IntValue CARAVAN_GUARD_REDUCE_BPS;
+    private static final ForgeConfigSpec.LongValue CARAVAN_GUARD_WAGE_1;
+    private static final ForgeConfigSpec.LongValue CARAVAN_GUARD_WAGE_2;
+    private static final ForgeConfigSpec.LongValue CARAVAN_GUARD_WAGE_3;
+    private static final ForgeConfigSpec.IntValue CARAVAN_RAID_LOSS_RATIO_BPS;
+    private static final ForgeConfigSpec.IntValue CARAVAN_INSURE_MARGIN_BPS;
+    private static final ForgeConfigSpec.IntValue CARAVAN_SATURATION_PER_UNIT_BPS;
+    private static final ForgeConfigSpec.IntValue CARAVAN_SATURATION_DECAY_BPS;
+    private static final ForgeConfigSpec.IntValue CARAVAN_SELL_PRICE_CAP_MULTIPLIER;
     private static final ForgeConfigSpec.LongValue IPO_FEE;
     private static final ForgeConfigSpec.LongValue CAPITAL_PROJECT_GOVERNANCE_THRESHOLD;
     private static final ForgeConfigSpec.IntValue CAPITAL_PROJECT_MAX_DURATION_DAYS;
@@ -413,6 +450,63 @@ public final class FinanceConfig {
                 .defineInRange("spread", STOCK_MARKET_MAKER_SPREAD_VALUE, 0.0D, 1.0D);
         builder.pop();
 
+        builder.push("caravan");
+        CARAVAN_MAX_ROUTES_PER_PLAYER = builder
+                .comment("每名玩家商队路线上限。")
+                .defineInRange("maxRoutesPerPlayer", CARAVAN_MAX_ROUTES_PER_PLAYER_VALUE, 1, 64);
+        CARAVAN_MAX_QTY_PER_TRIP = builder
+                .comment("商队每趟货物数量上限。")
+                .defineInRange("maxQtyPerTrip", CARAVAN_MAX_QTY_PER_TRIP_VALUE, 1, 1_000_000);
+        CARAVAN_BLOCKS_PER_DAY = builder
+                .comment("商队每日行进格数（运输天数 = 1 + 距离/该值）。")
+                .defineInRange("blocksPerDay", CARAVAN_BLOCKS_PER_DAY_VALUE, 100L, 1_000_000L);
+        CARAVAN_RAID_BASE_BPS = builder
+                .comment("被劫基础概率（基点）。")
+                .defineInRange("raidBaseBps", CARAVAN_RAID_BASE_BPS_VALUE, 0, 10_000);
+        CARAVAN_RAID_MIN_BPS = builder
+                .comment("被劫概率下限（基点）。")
+                .defineInRange("raidMinBps", CARAVAN_RAID_MIN_BPS_VALUE, 0, 10_000);
+        CARAVAN_RAID_MAX_BPS = builder
+                .comment("被劫概率上限（基点）。")
+                .defineInRange("raidMaxBps", CARAVAN_RAID_MAX_BPS_VALUE, 0, 10_000);
+        CARAVAN_RAID_PER_KM_BPS = builder
+                .comment("每公里增加的被劫概率（基点）。")
+                .defineInRange("raidPerKmBps", CARAVAN_RAID_PER_KM_BPS_VALUE, 0, 10_000);
+        CARAVAN_RAID_PER_KM_CAP_BPS = builder
+                .comment("距离带来的被劫概率上限（基点）。")
+                .defineInRange("raidPerKmCapBps", CARAVAN_RAID_PER_KM_CAP_BPS_VALUE, 0, 10_000);
+        CARAVAN_RAID_ALERT_BONUS_BPS = builder
+                .comment("任一端点处于 RAID_ALERT 时的被劫加成（基点）。")
+                .defineInRange("raidAlertBonusBps", CARAVAN_RAID_ALERT_BONUS_BPS_VALUE, 0, 10_000);
+        CARAVAN_GUARD_REDUCE_BPS = builder
+                .comment("每级保镖降低的被劫概率（基点）。")
+                .defineInRange("guardReduceBps", CARAVAN_GUARD_REDUCE_BPS_VALUE, 0, 10_000);
+        CARAVAN_GUARD_WAGE_1 = builder
+                .comment("1 级保镖每趟工资。")
+                .defineInRange("guardWage1", CARAVAN_GUARD_WAGE_1_VALUE, 0L, 1_000_000L);
+        CARAVAN_GUARD_WAGE_2 = builder
+                .comment("2 级保镖每趟工资。")
+                .defineInRange("guardWage2", CARAVAN_GUARD_WAGE_2_VALUE, 0L, 1_000_000L);
+        CARAVAN_GUARD_WAGE_3 = builder
+                .comment("3 级保镖每趟工资。")
+                .defineInRange("guardWage3", CARAVAN_GUARD_WAGE_3_VALUE, 0L, 1_000_000L);
+        CARAVAN_RAID_LOSS_RATIO_BPS = builder
+                .comment("被劫时丢失货物的比例（基点），默认 3000 = 30%。")
+                .defineInRange("raidLossRatioBps", CARAVAN_RAID_LOSS_RATIO_BPS_VALUE, 0, 10_000);
+        CARAVAN_INSURE_MARGIN_BPS = builder
+                .comment("保费边际（基点）：保费 = 期望赔付 × 该值/10000，须 > 10000 保证系统不亏。")
+                .defineInRange("insureMarginBps", CARAVAN_INSURE_MARGIN_BPS_VALUE, 10_000, 100_000);
+        CARAVAN_SATURATION_PER_UNIT_BPS = builder
+                .comment("每单位到货增加的路线饱和度（基点）。")
+                .defineInRange("saturationPerUnitBps", CARAVAN_SATURATION_PER_UNIT_BPS_VALUE, 0, 10_000);
+        CARAVAN_SATURATION_DECAY_BPS = builder
+                .comment("路线饱和度每日衰减（基点）。")
+                .defineInRange("saturationDecayBps", CARAVAN_SATURATION_DECAY_BPS_VALUE, 0, 10_000);
+        CARAVAN_SELL_PRICE_CAP_MULTIPLIER = builder
+                .comment("商队买卖价相对 basePrice 的上限倍数。")
+                .defineInRange("sellPriceCapMultiplier", CARAVAN_SELL_PRICE_CAP_MULTIPLIER_VALUE, 1, 100);
+        builder.pop();
+
         COMMON_SPEC = builder.build();
     }
 
@@ -512,6 +606,79 @@ public final class FinanceConfig {
 
     public static double stockMarketMakerSpread() {
         return getDouble(STOCK_MARKET_MAKER_SPREAD, STOCK_MARKET_MAKER_SPREAD_VALUE);
+    }
+
+    // ---- 商队商路 ----
+    public static int caravanMaxRoutesPerPlayer() {
+        return getInt(CARAVAN_MAX_ROUTES_PER_PLAYER, CARAVAN_MAX_ROUTES_PER_PLAYER_VALUE);
+    }
+
+    public static int caravanMaxQtyPerTrip() {
+        return getInt(CARAVAN_MAX_QTY_PER_TRIP, CARAVAN_MAX_QTY_PER_TRIP_VALUE);
+    }
+
+    public static long caravanBlocksPerDay() {
+        return getLong(CARAVAN_BLOCKS_PER_DAY, CARAVAN_BLOCKS_PER_DAY_VALUE);
+    }
+
+    public static int caravanRaidBaseBps() {
+        return getInt(CARAVAN_RAID_BASE_BPS, CARAVAN_RAID_BASE_BPS_VALUE);
+    }
+
+    public static int caravanRaidMinBps() {
+        return getInt(CARAVAN_RAID_MIN_BPS, CARAVAN_RAID_MIN_BPS_VALUE);
+    }
+
+    public static int caravanRaidMaxBps() {
+        return getInt(CARAVAN_RAID_MAX_BPS, CARAVAN_RAID_MAX_BPS_VALUE);
+    }
+
+    public static int caravanRaidPerKmBps() {
+        return getInt(CARAVAN_RAID_PER_KM_BPS, CARAVAN_RAID_PER_KM_BPS_VALUE);
+    }
+
+    public static int caravanRaidPerKmCapBps() {
+        return getInt(CARAVAN_RAID_PER_KM_CAP_BPS, CARAVAN_RAID_PER_KM_CAP_BPS_VALUE);
+    }
+
+    public static int caravanRaidAlertBonusBps() {
+        return getInt(CARAVAN_RAID_ALERT_BONUS_BPS, CARAVAN_RAID_ALERT_BONUS_BPS_VALUE);
+    }
+
+    public static int caravanGuardReduceBps() {
+        return getInt(CARAVAN_GUARD_REDUCE_BPS, CARAVAN_GUARD_REDUCE_BPS_VALUE);
+    }
+
+    public static long caravanGuardWage1() {
+        return getLong(CARAVAN_GUARD_WAGE_1, CARAVAN_GUARD_WAGE_1_VALUE);
+    }
+
+    public static long caravanGuardWage2() {
+        return getLong(CARAVAN_GUARD_WAGE_2, CARAVAN_GUARD_WAGE_2_VALUE);
+    }
+
+    public static long caravanGuardWage3() {
+        return getLong(CARAVAN_GUARD_WAGE_3, CARAVAN_GUARD_WAGE_3_VALUE);
+    }
+
+    public static int caravanRaidLossRatioBps() {
+        return getInt(CARAVAN_RAID_LOSS_RATIO_BPS, CARAVAN_RAID_LOSS_RATIO_BPS_VALUE);
+    }
+
+    public static int caravanInsureMarginBps() {
+        return getInt(CARAVAN_INSURE_MARGIN_BPS, CARAVAN_INSURE_MARGIN_BPS_VALUE);
+    }
+
+    public static int caravanSaturationPerUnitBps() {
+        return getInt(CARAVAN_SATURATION_PER_UNIT_BPS, CARAVAN_SATURATION_PER_UNIT_BPS_VALUE);
+    }
+
+    public static int caravanSaturationDecayBps() {
+        return getInt(CARAVAN_SATURATION_DECAY_BPS, CARAVAN_SATURATION_DECAY_BPS_VALUE);
+    }
+
+    public static int caravanSellPriceCapMultiplier() {
+        return getInt(CARAVAN_SELL_PRICE_CAP_MULTIPLIER, CARAVAN_SELL_PRICE_CAP_MULTIPLIER_VALUE);
     }
 
     public static long ipoFee() {

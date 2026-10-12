@@ -54,6 +54,7 @@ public final class EconomyConsistencyService {
             case STOCK -> { checkInventories(issues); checkOrders(issues); checkGovernance(issues); }
             case DEBT -> checkBondsAndLoans(issues);
             case BANKING -> checkBanking(issues);
+            case CARAVAN -> checkCaravan(issues);
             case FUTURES -> checkFutures(issues);
             case FUND -> checkFunds(issues, mcDay);
             case INSURANCE -> checkInsurance(issues);
@@ -369,6 +370,42 @@ public final class EconomyConsistencyService {
         long observed = finance.cycle.FinancialCycleService.observedMarketDay();
         if (closed > observed && observed >= 0) add(out, DiagnosticSeverity.ERROR, "CYCLE", "CLOSED_AFTER_OBSERVED", "financial-cycle", "Closed market day is later than observed market day");
         if (mcDay >= 0 && (processed > mcDay || observed > mcDay)) add(out, DiagnosticSeverity.WARN, "CYCLE", "CLOCK_ROLLBACK", "financial-cycle", "Stored cycle day is ahead of current world day");
+    }
+
+    private static void checkCaravan(List<DiagnosticIssue> out) {
+        // P1-6：商队模块熔断后的恢复路径——校验 routes/shipments 基本完整性，
+        // 仿其他模块（损坏条目在 load 期已跳过＋计数，这里只做一致性核查）。
+        Set<UUID> routeIds = new HashSet<>();
+        for (finance.caravan.CaravanRoute r : finance.caravan.CaravanManager.routes()) {
+            String id = r.id() == null ? "null" : r.id().toString();
+            if (r.id() == null || !routeIds.add(r.id()) || r.ownerId() == null
+                    || r.sourceSettlementId() == null || r.destSettlementId() == null
+                    || r.sourceSettlementId().equals(r.destSettlementId())
+                    || r.commodityId() == null || r.commodityId().isBlank()
+                    || r.qtyPerTrip() <= 0
+                    || r.guardLevel() < finance.caravan.CaravanRoute.MIN_GUARD_LEVEL
+                    || r.guardLevel() > finance.caravan.CaravanRoute.MAX_GUARD_LEVEL
+                    || r.status() == null || r.saturationBps() < 0 || r.createdDay() < 0)
+                add(out, DiagnosticSeverity.ERROR, "CARAVAN", "INVALID_ROUTE", id,
+                        "Caravan route has invalid identity, endpoints, quantity, guard level, or state");
+        }
+        Set<UUID> shipIds = new HashSet<>();
+        for (finance.caravan.CaravanShipment s : finance.caravan.CaravanManager.allInTransit()) {
+            String id = s.id() == null ? "null" : s.id().toString();
+            if (s.id() == null || !shipIds.add(s.id()) || s.routeId() == null || s.ownerId() == null
+                    || s.commodityId() == null || s.commodityId().isBlank()
+                    || s.qty() <= 0 || s.buyUnitPrice() <= 0
+                    || s.arriveDay() <= s.departDay() || s.departDay() < 0
+                    || s.guardLevel() < finance.caravan.CaravanRoute.MIN_GUARD_LEVEL
+                    || s.guardLevel() > finance.caravan.CaravanRoute.MAX_GUARD_LEVEL
+                    || s.raidBpsSnapshot() < 0 || s.insuredValuePerUnit() < 0
+                    || s.dispatchCost() < 0 || s.status() == null)
+                add(out, DiagnosticSeverity.ERROR, "CARAVAN", "INVALID_SHIPMENT", id,
+                        "In-transit shipment has invalid identity, pricing, raid snapshot, dates, or state");
+            else if (!routeIds.contains(s.routeId()))
+                add(out, DiagnosticSeverity.ERROR, "CARAVAN", "ORPHAN_SHIPMENT", id,
+                        "In-transit shipment references a missing route");
+        }
     }
 
     private static void add(List<DiagnosticIssue> out, DiagnosticSeverity severity, String module,
