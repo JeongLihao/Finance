@@ -53,6 +53,12 @@ public final class FinanceConfig {
             BANK_DEMAND_RESERVE_BPS_VALUE=1_000,BANK_TIME_RESERVE_BPS_VALUE=500,BANK_MIN_CAPITAL_BPS_VALUE=800,
             BANK_SINGLE_BORROWER_BPS_VALUE=2_500,BANK_CB_PENALTY_BPS_VALUE=500,BANK_INSURANCE_FEE_BPS_VALUE=5,
             BANK_STRESS_ROUNDS_VALUE=8;
+    private static final boolean BANK_RUN_ENABLED_VALUE=true,BANK_RUN_AUTO_RESOLVE_VALUE=true;
+    private static final int BANK_RUN_PANIC_DECAY_VALUE=6,BANK_RUN_MAX_SHARE_BPS_VALUE=2_000,
+            BANK_RUN_DAILY_CAP_BPS_VALUE=1_000,BANK_RUN_CAP_PANIC_VALUE=60,BANK_RUN_FREEZE_PANIC_VALUE=70,
+            BANK_RUN_FAIL_PANIC_VALUE=85,BANK_RUN_NPC_SEED_BPS_VALUE=4_000,BANK_RUN_NPC_TIME_BPS_VALUE=3_000,
+            BANK_RUN_NPC_DEFAULT_BPS_VALUE=800,BANK_RUN_RUMOR_COOLDOWN_VALUE=3,BANK_RUN_ILLIQUID_DAYS_VALUE=3;
+    private static final double BANK_RUN_RUMOR_CHANCE_VALUE=0.25;
     private static final boolean MINECRAFT_FIRST_MODE_VALUE = true;
     private static final boolean REQUIRE_PHYSICAL_TERMINAL_VALUE = true;
     private static final boolean ENABLE_PORTABLE_LEDGER_VALUE = true;
@@ -122,6 +128,9 @@ public final class FinanceConfig {
             FUTURES_SETTLEMENT_WINDOW, FUTURES_MAX_SPOT_DEVIATION_BPS;
     private static final ForgeConfigSpec.BooleanValue BANKING_ENABLED;private static final ForgeConfigSpec.LongValue BANK_INITIAL_CAPITAL,BANK_MIN_RESERVE,BANK_INSURANCE_LIMIT;
     private static final ForgeConfigSpec.IntValue DEFAULT_BANK_COUNT,BANK_DEMAND_SPREAD,BANK_TIME_SPREAD,BANK_LOAN_SPREAD,BANK_DEMAND_RESERVE_BPS,BANK_TIME_RESERVE_BPS,BANK_MIN_CAPITAL_BPS,BANK_SINGLE_BORROWER_BPS,BANK_CB_PENALTY_BPS,BANK_INSURANCE_FEE_BPS,BANK_STRESS_ROUNDS;
+    private static final ForgeConfigSpec.BooleanValue BANK_RUN_ENABLED,BANK_RUN_AUTO_RESOLVE;
+    private static final ForgeConfigSpec.IntValue BANK_RUN_PANIC_DECAY,BANK_RUN_MAX_SHARE_BPS,BANK_RUN_DAILY_CAP_BPS,BANK_RUN_CAP_PANIC,BANK_RUN_FREEZE_PANIC,BANK_RUN_FAIL_PANIC,BANK_RUN_NPC_SEED_BPS,BANK_RUN_NPC_TIME_BPS,BANK_RUN_NPC_DEFAULT_BPS,BANK_RUN_RUMOR_COOLDOWN,BANK_RUN_ILLIQUID_DAYS;
+    private static final ForgeConfigSpec.DoubleValue BANK_RUN_RUMOR_CHANCE;
     private static final ForgeConfigSpec.BooleanValue MINECRAFT_FIRST_MODE;
     private static final ForgeConfigSpec.BooleanValue REQUIRE_PHYSICAL_TERMINAL;
     private static final ForgeConfigSpec.BooleanValue ENABLE_PORTABLE_LEDGER;
@@ -309,6 +318,20 @@ public final class FinanceConfig {
         BANK_INSURANCE_FEE_BPS=builder.comment("银行每日按存款余额缴纳的保险费率，基点。").defineInRange("insuranceFeeBasisPoints",BANK_INSURANCE_FEE_BPS_VALUE,0,1_000);
         BANK_INSURANCE_LIMIT=builder.comment("每名客户在每家银行合并存款保险上限。").defineInRange("insuranceLimitPerCustomer",BANK_INSURANCE_LIMIT_VALUE,0L,Long.MAX_VALUE);
         BANK_STRESS_ROUNDS=builder.comment("压力测试同业传染最大轮数。").defineInRange("stressTestMaxRounds",BANK_STRESS_ROUNDS_VALUE,1,32);
+        BANK_RUN_ENABLED=builder.comment("是否启用银行挤兑玩法（恐慌度→挤兑动态→处置）；关闭则恐慌冻结、不再产生挤兑。").define("runEnabled",BANK_RUN_ENABLED_VALUE);
+        BANK_RUN_AUTO_RESOLVE=builder.comment("银行进入处置状态后是否在日终自动触发桥接银行处置；关闭则只走管理手动处置。").define("runAutoResolve",BANK_RUN_AUTO_RESOLVE_VALUE);
+        BANK_RUN_PANIC_DECAY=builder.comment("无压力信号时恐慌度每日衰减。").defineInRange("runPanicDecayPerDay",BANK_RUN_PANIC_DECAY_VALUE,0,100);
+        BANK_RUN_MAX_SHARE_BPS=builder.comment("恐慌度100时NPC零售池单日最大流出比例，基点。").defineInRange("runMaxDailyShareBasisPoints",BANK_RUN_MAX_SHARE_BPS_VALUE,0,10_000);
+        BANK_RUN_DAILY_CAP_BPS=builder.comment("挤兑档位下全行单日提现预算占存款比例，基点。").defineInRange("runDailyCapBasisPoints",BANK_RUN_DAILY_CAP_BPS_VALUE,1,10_000);
+        BANK_RUN_CAP_PANIC=builder.comment("启动排队限提的恐慌度阈值。").defineInRange("runCapPanicThreshold",BANK_RUN_CAP_PANIC_VALUE,0,100);
+        BANK_RUN_FREEZE_PANIC=builder.comment("同业市场冻结对该银行放贷的恐慌度阈值。").defineInRange("runFreezePanicThreshold",BANK_RUN_FREEZE_PANIC_VALUE,0,100);
+        BANK_RUN_FAIL_PANIC=builder.comment("非流动性死亡判定的恐慌度阈值。").defineInRange("runFailPanicThreshold",BANK_RUN_FAIL_PANIC_VALUE,0,100);
+        BANK_RUN_NPC_SEED_BPS=builder.comment("NPC零售池播种规模占银行初始资本比例，基点。").defineInRange("runNpcSeedBasisPoints",BANK_RUN_NPC_SEED_BPS_VALUE,0,10_000);
+        BANK_RUN_NPC_TIME_BPS=builder.comment("NPC零售池中定期占比，基点。").defineInRange("runNpcTimeShareBasisPoints",BANK_RUN_NPC_TIME_BPS_VALUE,0,10_000);
+        BANK_RUN_NPC_DEFAULT_BPS=builder.comment("恐慌度100时NPC贷款单日违约率上限，基点。").defineInRange("runNpcDefaultBasisPoints",BANK_RUN_NPC_DEFAULT_BPS_VALUE,0,10_000);
+        BANK_RUN_RUMOR_COOLDOWN=builder.comment("同一银行两次谣言事件最小间隔天数。").defineInRange("runRumorCooldownDays",BANK_RUN_RUMOR_COOLDOWN_VALUE,0,30);
+        BANK_RUN_ILLIQUID_DAYS=builder.comment("非流动性死亡所需连续天数。").defineInRange("runIlliquidDays",BANK_RUN_ILLIQUID_DAYS_VALUE,1,30);
+        BANK_RUN_RUMOR_CHANCE=builder.comment("谣言事件触发概率（0~1）；仅在真实风险存在时掷骰。").defineInRange("runRumorChance",BANK_RUN_RUMOR_CHANCE_VALUE,0.0,1.0);
         builder.pop();
 
         builder.push("financialProducts");
@@ -565,6 +588,20 @@ public final class FinanceConfig {
     public static long futuresMinimumSettlementVolume() { return getLong(FUTURES_MIN_SETTLEMENT_VOLUME, FUTURES_MIN_SETTLEMENT_VOLUME_VALUE); }
     public static int futuresMaxSpotDeviationBps() { return getInt(FUTURES_MAX_SPOT_DEVIATION_BPS, FUTURES_MAX_SPOT_DEVIATION_BPS_VALUE); }
     public static boolean bankingEnabled(){try{return BANKING_ENABLED.get();}catch(IllegalStateException e){return BANKING_ENABLED_VALUE;}}public static int defaultBankCount(){return getInt(DEFAULT_BANK_COUNT,DEFAULT_BANK_COUNT_VALUE);}public static long bankInitialCapital(){return getLong(BANK_INITIAL_CAPITAL,BANK_INITIAL_CAPITAL_VALUE);}public static int bankDemandSpreadBps(){return getInt(BANK_DEMAND_SPREAD,BANK_DEMAND_SPREAD_VALUE);}public static int bankTimeSpreadBps(){return getInt(BANK_TIME_SPREAD,BANK_TIME_SPREAD_VALUE);}public static int bankLoanSpreadBps(){return getInt(BANK_LOAN_SPREAD,BANK_LOAN_SPREAD_VALUE);}public static int bankDemandReserveBps(){return getInt(BANK_DEMAND_RESERVE_BPS,BANK_DEMAND_RESERVE_BPS_VALUE);}public static int bankTimeReserveBps(){return Math.min(bankDemandReserveBps(),getInt(BANK_TIME_RESERVE_BPS,BANK_TIME_RESERVE_BPS_VALUE));}public static long bankMinimumReserve(){return getLong(BANK_MIN_RESERVE,BANK_MIN_RESERVE_VALUE);}public static int bankMinimumCapitalBps(){return getInt(BANK_MIN_CAPITAL_BPS,BANK_MIN_CAPITAL_BPS_VALUE);}public static int bankSingleBorrowerLimitBps(){return getInt(BANK_SINGLE_BORROWER_BPS,BANK_SINGLE_BORROWER_BPS_VALUE);}public static int bankCentralPenaltyBps(){return getInt(BANK_CB_PENALTY_BPS,BANK_CB_PENALTY_BPS_VALUE);}public static int bankInsuranceFeeBps(){return getInt(BANK_INSURANCE_FEE_BPS,BANK_INSURANCE_FEE_BPS_VALUE);}public static long bankInsuranceLimit(){return getLong(BANK_INSURANCE_LIMIT,BANK_INSURANCE_LIMIT_VALUE);}public static int bankStressMaxRounds(){return getInt(BANK_STRESS_ROUNDS,BANK_STRESS_ROUNDS_VALUE);}
+    public static boolean bankRunEnabled(){try{return BANK_RUN_ENABLED.get();}catch(IllegalStateException e){return BANK_RUN_ENABLED_VALUE;}}
+    public static boolean bankRunAutoResolve(){try{return BANK_RUN_AUTO_RESOLVE.get();}catch(IllegalStateException e){return BANK_RUN_AUTO_RESOLVE_VALUE;}}
+    public static int bankRunPanicDecay(){return getInt(BANK_RUN_PANIC_DECAY,BANK_RUN_PANIC_DECAY_VALUE);}
+    public static int bankRunMaxDailyShareBps(){return getInt(BANK_RUN_MAX_SHARE_BPS,BANK_RUN_MAX_SHARE_BPS_VALUE);}
+    public static int bankRunDailyCapBps(){return getInt(BANK_RUN_DAILY_CAP_BPS,BANK_RUN_DAILY_CAP_BPS_VALUE);}
+    public static int bankRunCapPanicThreshold(){return getInt(BANK_RUN_CAP_PANIC,BANK_RUN_CAP_PANIC_VALUE);}
+    public static int bankRunFreezePanicThreshold(){return getInt(BANK_RUN_FREEZE_PANIC,BANK_RUN_FREEZE_PANIC_VALUE);}
+    public static int bankRunFailPanicThreshold(){return getInt(BANK_RUN_FAIL_PANIC,BANK_RUN_FAIL_PANIC_VALUE);}
+    public static int bankRunNpcSeedBps(){return getInt(BANK_RUN_NPC_SEED_BPS,BANK_RUN_NPC_SEED_BPS_VALUE);}
+    public static int bankRunNpcTimeShareBps(){return getInt(BANK_RUN_NPC_TIME_BPS,BANK_RUN_NPC_TIME_BPS_VALUE);}
+    public static int bankRunNpcDefaultBps(){return getInt(BANK_RUN_NPC_DEFAULT_BPS,BANK_RUN_NPC_DEFAULT_BPS_VALUE);}
+    public static int bankRunRumorCooldownDays(){return getInt(BANK_RUN_RUMOR_COOLDOWN,BANK_RUN_RUMOR_COOLDOWN_VALUE);}
+    public static int bankRunIlliquidDays(){return getInt(BANK_RUN_ILLIQUID_DAYS,BANK_RUN_ILLIQUID_DAYS_VALUE);}
+    public static double bankRunRumorChance(){return getDouble(BANK_RUN_RUMOR_CHANCE,BANK_RUN_RUMOR_CHANCE_VALUE);}
 
     private static int getInt(ForgeConfigSpec.IntValue value, int fallback) {
         try {
