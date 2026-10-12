@@ -53,6 +53,10 @@ public final class FinanceConfig {
             BANK_DEMAND_RESERVE_BPS_VALUE=1_000,BANK_TIME_RESERVE_BPS_VALUE=500,BANK_MIN_CAPITAL_BPS_VALUE=800,
             BANK_SINGLE_BORROWER_BPS_VALUE=2_500,BANK_CB_PENALTY_BPS_VALUE=500,BANK_INSURANCE_FEE_BPS_VALUE=5,
             BANK_STRESS_ROUNDS_VALUE=8;
+    private static final long PLAYER_BANK_CHARTER_FEE_VALUE=1_000_000L,PLAYER_BANK_MIN_CAPITAL_VALUE=10_000_000L,
+            PLAYER_BANK_DAILY_FINE_VALUE=50_000L;
+    private static final int PLAYER_BANK_MAX_PER_PLAYER_VALUE=1,PLAYER_BANK_RELATED_PARTY_LIMIT_BPS_VALUE=0,
+            PLAYER_BANK_DIVIDEND_LEVERAGE_BPS_VALUE=800;
     private static final boolean MINECRAFT_FIRST_MODE_VALUE = true;
     private static final boolean REQUIRE_PHYSICAL_TERMINAL_VALUE = true;
     private static final boolean ENABLE_PORTABLE_LEDGER_VALUE = true;
@@ -122,6 +126,8 @@ public final class FinanceConfig {
             FUTURES_SETTLEMENT_WINDOW, FUTURES_MAX_SPOT_DEVIATION_BPS;
     private static final ForgeConfigSpec.BooleanValue BANKING_ENABLED;private static final ForgeConfigSpec.LongValue BANK_INITIAL_CAPITAL,BANK_MIN_RESERVE,BANK_INSURANCE_LIMIT;
     private static final ForgeConfigSpec.IntValue DEFAULT_BANK_COUNT,BANK_DEMAND_SPREAD,BANK_TIME_SPREAD,BANK_LOAN_SPREAD,BANK_DEMAND_RESERVE_BPS,BANK_TIME_RESERVE_BPS,BANK_MIN_CAPITAL_BPS,BANK_SINGLE_BORROWER_BPS,BANK_CB_PENALTY_BPS,BANK_INSURANCE_FEE_BPS,BANK_STRESS_ROUNDS;
+    private static final ForgeConfigSpec.LongValue PLAYER_BANK_CHARTER_FEE,PLAYER_BANK_MIN_CAPITAL,PLAYER_BANK_DAILY_FINE;
+    private static final ForgeConfigSpec.IntValue PLAYER_BANK_MAX_PER_PLAYER,PLAYER_BANK_RELATED_PARTY_LIMIT_BPS,PLAYER_BANK_DIVIDEND_LEVERAGE_BPS;
     private static final ForgeConfigSpec.BooleanValue MINECRAFT_FIRST_MODE;
     private static final ForgeConfigSpec.BooleanValue REQUIRE_PHYSICAL_TERMINAL;
     private static final ForgeConfigSpec.BooleanValue ENABLE_PORTABLE_LEDGER;
@@ -309,6 +315,15 @@ public final class FinanceConfig {
         BANK_INSURANCE_FEE_BPS=builder.comment("银行每日按存款余额缴纳的保险费率，基点。").defineInRange("insuranceFeeBasisPoints",BANK_INSURANCE_FEE_BPS_VALUE,0,1_000);
         BANK_INSURANCE_LIMIT=builder.comment("每名客户在每家银行合并存款保险上限。").defineInRange("insuranceLimitPerCustomer",BANK_INSURANCE_LIMIT_VALUE,0L,Long.MAX_VALUE);
         BANK_STRESS_ROUNDS=builder.comment("压力测试同业传染最大轮数。").defineInRange("stressTestMaxRounds",BANK_STRESS_ROUNDS_VALUE,1,32);
+        builder.pop();
+
+        builder.push("playerBank");
+        PLAYER_BANK_CHARTER_FEE=builder.comment("玩家申请银行牌照费用（一次性，从钱包扣除并销毁）。").defineInRange("charterFee",PLAYER_BANK_CHARTER_FEE_VALUE,0L,Long.MAX_VALUE);
+        PLAYER_BANK_MIN_CAPITAL=builder.comment("玩家银行最低实缴资本金。").defineInRange("minCapital",PLAYER_BANK_MIN_CAPITAL_VALUE,1L,Long.MAX_VALUE);
+        PLAYER_BANK_MAX_PER_PLAYER=builder.comment("每名玩家最多可开设的银行数量。").defineInRange("maxPerPlayer",PLAYER_BANK_MAX_PER_PLAYER_VALUE,1,8);
+        PLAYER_BANK_RELATED_PARTY_LIMIT_BPS=builder.comment("玩家银行向所有者关联公司贷款上限（基点 / 银行权益）；0 为硬拒绝。").defineInRange("relatedPartyLimitBasisPoints",PLAYER_BANK_RELATED_PARTY_LIMIT_BPS_VALUE,0,10_000);
+        PLAYER_BANK_DAILY_FINE=builder.comment("玩家银行处于 RESTRICTED 状态时的每日监管罚金。").defineInRange("restrictedDailyFine",PLAYER_BANK_DAILY_FINE_VALUE,0L,Long.MAX_VALUE);
+        PLAYER_BANK_DIVIDEND_LEVERAGE_BPS=builder.comment("玩家银行分红后权益不得低于存款总额的比例（基点，默认 800=8%）；防范分红掏空后破产转嫁保险基金。").defineInRange("dividendLeverageBasisPoints",PLAYER_BANK_DIVIDEND_LEVERAGE_BPS_VALUE,0,10_000);
         builder.pop();
 
         builder.push("financialProducts");
@@ -564,7 +579,7 @@ public final class FinanceConfig {
     public static int futuresFinalSettlementWindowDays() { return getInt(FUTURES_SETTLEMENT_WINDOW, FUTURES_SETTLEMENT_WINDOW_VALUE); }
     public static long futuresMinimumSettlementVolume() { return getLong(FUTURES_MIN_SETTLEMENT_VOLUME, FUTURES_MIN_SETTLEMENT_VOLUME_VALUE); }
     public static int futuresMaxSpotDeviationBps() { return getInt(FUTURES_MAX_SPOT_DEVIATION_BPS, FUTURES_MAX_SPOT_DEVIATION_BPS_VALUE); }
-    public static boolean bankingEnabled(){try{return BANKING_ENABLED.get();}catch(IllegalStateException e){return BANKING_ENABLED_VALUE;}}public static int defaultBankCount(){return getInt(DEFAULT_BANK_COUNT,DEFAULT_BANK_COUNT_VALUE);}public static long bankInitialCapital(){return getLong(BANK_INITIAL_CAPITAL,BANK_INITIAL_CAPITAL_VALUE);}public static int bankDemandSpreadBps(){return getInt(BANK_DEMAND_SPREAD,BANK_DEMAND_SPREAD_VALUE);}public static int bankTimeSpreadBps(){return getInt(BANK_TIME_SPREAD,BANK_TIME_SPREAD_VALUE);}public static int bankLoanSpreadBps(){return getInt(BANK_LOAN_SPREAD,BANK_LOAN_SPREAD_VALUE);}public static int bankDemandReserveBps(){return getInt(BANK_DEMAND_RESERVE_BPS,BANK_DEMAND_RESERVE_BPS_VALUE);}public static int bankTimeReserveBps(){return Math.min(bankDemandReserveBps(),getInt(BANK_TIME_RESERVE_BPS,BANK_TIME_RESERVE_BPS_VALUE));}public static long bankMinimumReserve(){return getLong(BANK_MIN_RESERVE,BANK_MIN_RESERVE_VALUE);}public static int bankMinimumCapitalBps(){return getInt(BANK_MIN_CAPITAL_BPS,BANK_MIN_CAPITAL_BPS_VALUE);}public static int bankSingleBorrowerLimitBps(){return getInt(BANK_SINGLE_BORROWER_BPS,BANK_SINGLE_BORROWER_BPS_VALUE);}public static int bankCentralPenaltyBps(){return getInt(BANK_CB_PENALTY_BPS,BANK_CB_PENALTY_BPS_VALUE);}public static int bankInsuranceFeeBps(){return getInt(BANK_INSURANCE_FEE_BPS,BANK_INSURANCE_FEE_BPS_VALUE);}public static long bankInsuranceLimit(){return getLong(BANK_INSURANCE_LIMIT,BANK_INSURANCE_LIMIT_VALUE);}public static int bankStressMaxRounds(){return getInt(BANK_STRESS_ROUNDS,BANK_STRESS_ROUNDS_VALUE);}
+    public static boolean bankingEnabled(){try{return BANKING_ENABLED.get();}catch(IllegalStateException e){return BANKING_ENABLED_VALUE;}}public static int defaultBankCount(){return getInt(DEFAULT_BANK_COUNT,DEFAULT_BANK_COUNT_VALUE);}public static long bankInitialCapital(){return getLong(BANK_INITIAL_CAPITAL,BANK_INITIAL_CAPITAL_VALUE);}public static int bankDemandSpreadBps(){return getInt(BANK_DEMAND_SPREAD,BANK_DEMAND_SPREAD_VALUE);}public static int bankTimeSpreadBps(){return getInt(BANK_TIME_SPREAD,BANK_TIME_SPREAD_VALUE);}public static int bankLoanSpreadBps(){return getInt(BANK_LOAN_SPREAD,BANK_LOAN_SPREAD_VALUE);}public static int bankDemandReserveBps(){return getInt(BANK_DEMAND_RESERVE_BPS,BANK_DEMAND_RESERVE_BPS_VALUE);}public static int bankTimeReserveBps(){return Math.min(bankDemandReserveBps(),getInt(BANK_TIME_RESERVE_BPS,BANK_TIME_RESERVE_BPS_VALUE));}public static long bankMinimumReserve(){return getLong(BANK_MIN_RESERVE,BANK_MIN_RESERVE_VALUE);}public static int bankMinimumCapitalBps(){return getInt(BANK_MIN_CAPITAL_BPS,BANK_MIN_CAPITAL_BPS_VALUE);}public static int bankSingleBorrowerLimitBps(){return getInt(BANK_SINGLE_BORROWER_BPS,BANK_SINGLE_BORROWER_BPS_VALUE);}public static int bankCentralPenaltyBps(){return getInt(BANK_CB_PENALTY_BPS,BANK_CB_PENALTY_BPS_VALUE);}public static int bankInsuranceFeeBps(){return getInt(BANK_INSURANCE_FEE_BPS,BANK_INSURANCE_FEE_BPS_VALUE);}public static long bankInsuranceLimit(){return getLong(BANK_INSURANCE_LIMIT,BANK_INSURANCE_LIMIT_VALUE);}public static int bankStressMaxRounds(){return getInt(BANK_STRESS_ROUNDS,BANK_STRESS_ROUNDS_VALUE);}public static long playerBankCharterFee(){return getLong(PLAYER_BANK_CHARTER_FEE,PLAYER_BANK_CHARTER_FEE_VALUE);}public static long playerBankMinCapital(){return getLong(PLAYER_BANK_MIN_CAPITAL,PLAYER_BANK_MIN_CAPITAL_VALUE);}public static int playerBankMaxPerPlayer(){return getInt(PLAYER_BANK_MAX_PER_PLAYER,PLAYER_BANK_MAX_PER_PLAYER_VALUE);}public static int playerBankRelatedPartyLimitBps(){return getInt(PLAYER_BANK_RELATED_PARTY_LIMIT_BPS,PLAYER_BANK_RELATED_PARTY_LIMIT_BPS_VALUE);}public static long playerBankDailyFine(){return getLong(PLAYER_BANK_DAILY_FINE,PLAYER_BANK_DAILY_FINE_VALUE);}public static int playerBankDividendLeverageBps(){return getInt(PLAYER_BANK_DIVIDEND_LEVERAGE_BPS,PLAYER_BANK_DIVIDEND_LEVERAGE_BPS_VALUE);}
 
     private static int getInt(ForgeConfigSpec.IntValue value, int fallback) {
         try {
