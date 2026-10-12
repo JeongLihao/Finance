@@ -22,6 +22,12 @@ public final class EconomyCycleService {
     private EconomyCycleService() {
     }
 
+    /**
+     * 最近一次执行过 tickDay 的 mcDay。/time set 回拨会让同一天的 tickDay 被重复调用，
+     * 幂等跳过可防止重复发布零季报等副作用（只防"同一天重复"，跨天回拨仍属时间旅行，另案处理）。
+     */
+    private static long lastTickDayProcessed = Long.MIN_VALUE;
+
     public static long currentMcDay(MinecraftServer server) {
         if (server == null) {
             return 0;
@@ -56,6 +62,10 @@ public final class EconomyCycleService {
     }
 
     private static void tickDay(MinecraftServer server, long mcDay) {
+        if (mcDay == lastTickDayProcessed) {
+            return; // 同一天重复调用（/time set 回拨）直接跳过
+        }
+        lastTickDayProcessed = mcDay;
         // At the first tick of a new MC day, the previous day's counters are
         // still intact. Persist them before individual price engines reset.
         EconomyMetricsService.closeDay(mcDay - 1);
@@ -69,6 +79,7 @@ public final class EconomyCycleService {
         NpcMarketMaker.centralBankIntervention();
         CompanyManager.tickAll(mcDay);
         CompanyManager.settleDailyProfits(mcDay);
+        finance.earnings.EarningsSeasonService.processDay(server, mcDay);
         StockMarketManager.updateFairValuesAndResetDay();
         CompanyManager.tryDividends(mcDay);
         CompanyFinancingManager.tick(mcDay);

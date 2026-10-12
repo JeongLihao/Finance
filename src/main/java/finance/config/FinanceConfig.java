@@ -67,6 +67,14 @@ public final class FinanceConfig {
     private static final boolean ADMIN_CONSOLE_REQUIRES_PERMISSION_VALUE = true;
     private static final double TERMINAL_INTERACTION_DISTANCE_VALUE = 8.0D;
     private static final boolean WORLD_ECONOMY_GLOBAL_BROADCASTS_VALUE = true;
+    private static final int EARNINGS_QUARTER_DAYS_VALUE = 30;
+    private static final int EARNINGS_EXPECTATION_QUARTERS_VALUE = 3;
+    private static final int EARNINGS_SURPRISE_CAP_BPS_VALUE = 5_000;
+    private static final int EARNINGS_REACTION_BPS_VALUE = 30;
+    private static final int EARNINGS_MAX_SHOCK_BPS_VALUE = 2_000;
+    private static final int EARNINGS_FV_PASS_THROUGH_BPS_VALUE = 5_000;
+    private static final int EARNINGS_HISTORY_KEPT_VALUE = 8;
+    private static final boolean EARNINGS_EX_DIVIDEND_VALUE = true;
     private static final int[] WAREHOUSE_CAPACITY_VALUES = {1_024, 4_096, 16_384};
     private static final int[] WAREHOUSE_TRANSFER_VALUES = {64, 256, 1_024};
     private static final int[] FACTORY_THROUGHPUT_VALUES = {1, 2, 4};
@@ -97,6 +105,10 @@ public final class FinanceConfig {
     private static final ForgeConfigSpec.IntValue MAX_PRICE_ALERTS_PER_PLAYER;
     private static final ForgeConfigSpec.IntValue MAX_CONDITIONAL_STOCK_ORDERS_PER_PLAYER;
     private static final ForgeConfigSpec.DoubleValue STOCK_MARKET_MAKER_SPREAD;
+    private static final ForgeConfigSpec.IntValue EARNINGS_QUARTER_DAYS, EARNINGS_EXPECTATION_QUARTERS,
+            EARNINGS_SURPRISE_CAP_BPS, EARNINGS_REACTION_BPS, EARNINGS_MAX_SHOCK_BPS,
+            EARNINGS_FV_PASS_THROUGH_BPS, EARNINGS_HISTORY_KEPT;
+    private static final ForgeConfigSpec.BooleanValue EARNINGS_EX_DIVIDEND;
     private static final ForgeConfigSpec.LongValue IPO_FEE;
     private static final ForgeConfigSpec.LongValue CAPITAL_PROJECT_GOVERNANCE_THRESHOLD;
     private static final ForgeConfigSpec.IntValue CAPITAL_PROJECT_MAX_DURATION_DAYS;
@@ -413,6 +425,34 @@ public final class FinanceConfig {
                 .defineInRange("spread", STOCK_MARKET_MAKER_SPREAD_VALUE, 0.0D, 1.0D);
         builder.pop();
 
+        builder.push("earnings");
+        EARNINGS_QUARTER_DAYS = builder
+                .comment("财报季：季度天数；每家上市公司每季度发布一次季报。")
+                .defineInRange("quarterDays", EARNINGS_QUARTER_DAYS_VALUE, 1, 365);
+        EARNINGS_EXPECTATION_QUARTERS = builder
+                .comment("财报季：分析师预期的外推窗口（期数），线性外推最近 N 期净利润。")
+                .defineInRange("expectationQuarters", EARNINGS_EXPECTATION_QUARTERS_VALUE, 1, 12);
+        EARNINGS_SURPRISE_CAP_BPS = builder
+                .comment("财报季：预期差钳制（bps），5000 = ±50%。")
+                .defineInRange("surpriseCapBps", EARNINGS_SURPRISE_CAP_BPS_VALUE, 100, 100_000);
+        EARNINGS_REACTION_BPS = builder
+                .comment("财报季：每 10000bps 预期差对应的股价冲击 bps，30 = 10% 超预期 → +0.3% 股价。")
+                .defineInRange("reactionBps", EARNINGS_REACTION_BPS_VALUE, 0, 10_000);
+        EARNINGS_MAX_SHOCK_BPS = builder
+                .comment("财报季：单次财报股价冲击上限（bps），2000 = ±20%，防闪崩。"
+                        + "引擎对 shockBps 另有 ±50% 硬钳制，超过 5000 的配置本就无效，故上限设为 5000。")
+                .defineInRange("maxShockBps", EARNINGS_MAX_SHOCK_BPS_VALUE, 0, 5_000);
+        EARNINGS_FV_PASS_THROUGH_BPS = builder
+                .comment("财报季：冲击传导至 fairValue 的比例（bps），5000 = 50%。")
+                .defineInRange("fvPassThroughBps", EARNINGS_FV_PASS_THROUGH_BPS_VALUE, 0, 10_000);
+        EARNINGS_HISTORY_KEPT = builder
+                .comment("财报季：每家公司保留的季报期数。")
+                .defineInRange("historyKept", EARNINGS_HISTORY_KEPT_VALUE, 1, 40);
+        EARNINGS_EX_DIVIDEND = builder
+                .comment("财报季：分红后是否按每股分红额除权下调股价。")
+                .define("exDividend", EARNINGS_EX_DIVIDEND_VALUE);
+        builder.pop();
+
         COMMON_SPEC = builder.build();
     }
 
@@ -565,6 +605,14 @@ public final class FinanceConfig {
     public static long futuresMinimumSettlementVolume() { return getLong(FUTURES_MIN_SETTLEMENT_VOLUME, FUTURES_MIN_SETTLEMENT_VOLUME_VALUE); }
     public static int futuresMaxSpotDeviationBps() { return getInt(FUTURES_MAX_SPOT_DEVIATION_BPS, FUTURES_MAX_SPOT_DEVIATION_BPS_VALUE); }
     public static boolean bankingEnabled(){try{return BANKING_ENABLED.get();}catch(IllegalStateException e){return BANKING_ENABLED_VALUE;}}public static int defaultBankCount(){return getInt(DEFAULT_BANK_COUNT,DEFAULT_BANK_COUNT_VALUE);}public static long bankInitialCapital(){return getLong(BANK_INITIAL_CAPITAL,BANK_INITIAL_CAPITAL_VALUE);}public static int bankDemandSpreadBps(){return getInt(BANK_DEMAND_SPREAD,BANK_DEMAND_SPREAD_VALUE);}public static int bankTimeSpreadBps(){return getInt(BANK_TIME_SPREAD,BANK_TIME_SPREAD_VALUE);}public static int bankLoanSpreadBps(){return getInt(BANK_LOAN_SPREAD,BANK_LOAN_SPREAD_VALUE);}public static int bankDemandReserveBps(){return getInt(BANK_DEMAND_RESERVE_BPS,BANK_DEMAND_RESERVE_BPS_VALUE);}public static int bankTimeReserveBps(){return Math.min(bankDemandReserveBps(),getInt(BANK_TIME_RESERVE_BPS,BANK_TIME_RESERVE_BPS_VALUE));}public static long bankMinimumReserve(){return getLong(BANK_MIN_RESERVE,BANK_MIN_RESERVE_VALUE);}public static int bankMinimumCapitalBps(){return getInt(BANK_MIN_CAPITAL_BPS,BANK_MIN_CAPITAL_BPS_VALUE);}public static int bankSingleBorrowerLimitBps(){return getInt(BANK_SINGLE_BORROWER_BPS,BANK_SINGLE_BORROWER_BPS_VALUE);}public static int bankCentralPenaltyBps(){return getInt(BANK_CB_PENALTY_BPS,BANK_CB_PENALTY_BPS_VALUE);}public static int bankInsuranceFeeBps(){return getInt(BANK_INSURANCE_FEE_BPS,BANK_INSURANCE_FEE_BPS_VALUE);}public static long bankInsuranceLimit(){return getLong(BANK_INSURANCE_LIMIT,BANK_INSURANCE_LIMIT_VALUE);}public static int bankStressMaxRounds(){return getInt(BANK_STRESS_ROUNDS,BANK_STRESS_ROUNDS_VALUE);}
+    public static int earningsQuarterDays() { return getInt(EARNINGS_QUARTER_DAYS, EARNINGS_QUARTER_DAYS_VALUE); }
+    public static int earningsExpectationQuarters() { return getInt(EARNINGS_EXPECTATION_QUARTERS, EARNINGS_EXPECTATION_QUARTERS_VALUE); }
+    public static int earningsSurpriseCapBps() { return getInt(EARNINGS_SURPRISE_CAP_BPS, EARNINGS_SURPRISE_CAP_BPS_VALUE); }
+    public static int earningsReactionBps() { return getInt(EARNINGS_REACTION_BPS, EARNINGS_REACTION_BPS_VALUE); }
+    public static int earningsMaxShockBps() { return getInt(EARNINGS_MAX_SHOCK_BPS, EARNINGS_MAX_SHOCK_BPS_VALUE); }
+    public static int earningsFvPassThroughBps() { return getInt(EARNINGS_FV_PASS_THROUGH_BPS, EARNINGS_FV_PASS_THROUGH_BPS_VALUE); }
+    public static int earningsHistoryKept() { return getInt(EARNINGS_HISTORY_KEPT, EARNINGS_HISTORY_KEPT_VALUE); }
+    public static boolean earningsExDividend() { return getBoolean(EARNINGS_EX_DIVIDEND, EARNINGS_EX_DIVIDEND_VALUE); }
 
     private static int getInt(ForgeConfigSpec.IntValue value, int fallback) {
         try {
