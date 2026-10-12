@@ -64,6 +64,7 @@ public final class EconomyCycleService {
         EventManager.onDayTick(server);
         finance.event.EventContractService.processDay(server,mcDay);
         finance.settlement.SettlementService.processDay(server, mcDay);
+        finance.village.VillageService.processDay(server, mcDay);
         finance.exploration.ExplorationService.processDay(mcDay);
         NpcMarketMaker.naturalConsumeAll();
         NpcMarketMaker.centralBankIntervention();
