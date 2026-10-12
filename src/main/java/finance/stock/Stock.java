@@ -21,6 +21,22 @@ public class Stock {
     private long ownerShares;
     private long treasuryShares;
 
+    /**
+     * 创始人股份锁定期（MC 天）—— IPO 后创始人 N 天内不可卖出。
+     * 与模组内"周"概念一致（分红周期、7 天利润平滑窗口），给每日基本面
+     * 重定价足够时间把操纵价格打回原形。
+     */
+    public static final int FOUNDER_SHARE_LOCKUP_DAYS = 7;
+
+    /** IPO 创始人（玩家 IPO 时设置；系统股票为 null） */
+    private UUID founderId;
+
+    /** 创始人股份锁定期剩余天数（0 = 无锁定） */
+    private int founderLockupDaysRemaining;
+
+    /** 做市商累计接盘股数（终身），防止无限印钞 */
+    private long marketMakerBoughtShares;
+
     /** 新定价引擎 */
     private final StockPriceEngine priceEngine;
 
@@ -72,6 +88,45 @@ public class Stock {
     public boolean retireTreasuryShares(long quantity){if(quantity<=0||quantity>treasuryShares||quantity>totalShares)return false;treasuryShares-=quantity;totalShares-=quantity;floatShares=Math.min(floatShares,totalShares);availableShares=floatShares;return true;}
     public void restoreTreasuryShares(long quantity){if(quantity>=0&&quantity<=totalShares)treasuryShares=quantity;}
 
+    // ---- 创始人锁定与做市商深度 ----
+
+    public UUID getFounderId() { return founderId; }
+
+    public int getFounderLockupDaysRemaining() { return founderLockupDaysRemaining; }
+
+    public long getMarketMakerBoughtShares() { return marketMakerBoughtShares; }
+
+    /** IPO 时设置创始人锁定 */
+    public void setFounderLockup(UUID founderId, int lockupDays) {
+        this.founderId = founderId;
+        this.founderLockupDaysRemaining = Math.max(0, lockupDays);
+    }
+
+    /** 加载存档时恢复创始人锁定状态（向后兼容旧存档） */
+    public void restoreFounderLockup(UUID founderId, int lockupDaysRemaining) {
+        this.founderId = founderId;
+        this.founderLockupDaysRemaining = Math.max(0, lockupDaysRemaining);
+    }
+
+    /** 指定玩家是否处于创始人锁定期 */
+    public boolean isFounderLocked(UUID playerId) {
+        return founderId != null && founderId.equals(playerId) && founderLockupDaysRemaining > 0;
+    }
+
+    /** 做市商接盘计数（终身累计） */
+    public void addMarketMakerBoughtShares(long quantity) {
+        if (quantity > 0 && marketMakerBoughtShares <= Long.MAX_VALUE - quantity) {
+            marketMakerBoughtShares += quantity;
+        }
+    }
+
+    /** 加载存档时恢复做市商接盘计数 */
+    public void restoreMarketMakerBoughtShares(long shares) {
+        if (shares >= 0) {
+            marketMakerBoughtShares = shares;
+        }
+    }
+
     /** 兼容旧 API：availableShares = floatShares */
     public long getAvailableShares() { return floatShares; }
 
@@ -89,6 +144,16 @@ public class Stock {
     public long getDayHigh() { return priceEngine.getDayHigh(); }
     public long getDayLow() { return priceEngine.getDayLow(); }
     public List<StockPriceEngine.PriceSnapshot> getSnapshots() { return priceEngine.getSnapshots(); }
+
+    /** 财报季：按预期差冲击股价（委托价格引擎，带钳制）。 */
+    public void applyEarningsShock(double shockBps, double fvPassThrough) {
+        priceEngine.applyEarningsShock(shockBps, fvPassThrough);
+    }
+
+    /** 分红除权：按每股分红额下调现价与 fairValue。 */
+    public void applyExDividend(long perShare) {
+        priceEngine.applyExDividend(perShare);
+    }
 
     // ---- 交易相关（旧 API 兼容） ----
 
@@ -189,6 +254,10 @@ public class Stock {
                                            long smoothedDailyProfit, double industrySentiment) {
         priceEngine.updateFairValue(companyAssetValue, totalShares, smoothedDailyProfit, industrySentiment);
         priceEngine.newDayReset();
+        // 创始人锁定期按天递减（每日调用一次）
+        if (founderLockupDaysRemaining > 0) {
+            founderLockupDaysRemaining--;
+        }
     }
 
     public void newDayReset() {

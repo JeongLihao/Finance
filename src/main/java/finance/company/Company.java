@@ -4,6 +4,7 @@ import finance.account.AccountManager;
 import finance.account.TransactionRecord;
 import finance.account.TransactionType;
 import finance.commodity.CommodityInventoryManager;
+import finance.earnings.QuarterlyEarningsReport;
 import finance.market.MarketPrice;
 import finance.market.NpcMarketMaker;
 import finance.util.MathUtil;
@@ -60,6 +61,9 @@ public class Company {
     /** 上次分红的 MC 天数（用于判断是否需要分红） */
     private long lastDividendDay;
 
+    /** 所有者上次提现的真实时间戳（毫秒），用于提现冷却；0 = 从未提现 */
+    private long lastOwnerWithdrawTime;
+
     /** 最近分红历史 */
     private final List<DividendRecord> dividendHistory = new ArrayList<>();
 
@@ -74,6 +78,16 @@ public class Company {
 
     /** 最近周期财报 */
     private final List<CompanyFinancialReport> financialReports = new ArrayList<>();
+
+    // ---- 财报季：季度累加器（只读聚合自密封的日度流水） ----
+    /** 本季度累计营收 */
+    private long quarterRevenue;
+    /** 本季度累计成本 */
+    private long quarterExpenses;
+    /** 本季度覆盖的经营天数 */
+    private int quarterDays;
+    /** 已发布季报历史（只增不改） */
+    private final List<QuarterlyEarningsReport> earningsHistory = new ArrayList<>();
 
     // ---- P4：IPO ----
     /** 是否已上市 */
@@ -326,6 +340,10 @@ public class Company {
         }
         addRecentProfit(dailyProfit);
         generateFinancialReport(mcDay, revenue, expenses, dailyProfit);
+        // 财报季：同步累加季度流水（与现金在同一方法内更新，无时间差可钻）
+        quarterRevenue = MathUtil.saturatedAddNonNegative(quarterRevenue, revenue);
+        quarterExpenses = MathUtil.saturatedAddNonNegative(quarterExpenses, expenses);
+        quarterDays++;
         dailyRevenue = 0;
         dailyCost = 0;
     }
@@ -382,6 +400,12 @@ public class Company {
     public long getRetainedEarnings() { return retainedEarnings; }
     public long getDistributableProfit() { return distributableProfit; }
     public long getLastDividendDay() { return lastDividendDay; }
+
+    public long getLastOwnerWithdrawTime() { return lastOwnerWithdrawTime; }
+
+    public void setLastOwnerWithdrawTime(long timeMillis) {
+        this.lastOwnerWithdrawTime = Math.max(0, timeMillis);
+    }
     public double getDividendRatio() { return dividendRatio; }
     public int getDividendCycleDays() { return dividendCycleDays; }
     public double effectiveDividendRatio(double globalDefault) {
@@ -403,6 +427,50 @@ public class Company {
     public List<CompanyFinancialReport> getFinancialReports() { return new ArrayList<>(financialReports); }
     public CompanyFinancialReport getLatestFinancialReport() {
         return financialReports.isEmpty() ? null : financialReports.get(financialReports.size() - 1);
+    }
+
+    // ---- 财报季 ----
+    /** 季度累加器快照（返回后清零，由 EarningsSeasonService 在财报日调用）。 */
+    public record QuarterAccumulator(long revenue, long expenses, int days) {
+    }
+
+    public QuarterAccumulator drainQuarter() {
+        QuarterAccumulator acc = new QuarterAccumulator(quarterRevenue, quarterExpenses, quarterDays);
+        quarterRevenue = 0;
+        quarterExpenses = 0;
+        quarterDays = 0;
+        return acc;
+    }
+
+    /** 季度累加器快照（不清空，供序列化用）。 */
+    public QuarterAccumulator getQuarterAccumulator() {
+        return new QuarterAccumulator(quarterRevenue, quarterExpenses, quarterDays);
+    }
+
+    public List<QuarterlyEarningsReport> getEarningsHistory() {
+        return new ArrayList<>(earningsHistory);
+    }
+
+    public void addEarningsReportDirect(QuarterlyEarningsReport report, int keep) {
+        if (report == null) {
+            return;
+        }
+        earningsHistory.add(report);
+        int maxKeep = Math.max(1, keep);
+        while (earningsHistory.size() > maxKeep) {
+            earningsHistory.remove(0);
+        }
+    }
+
+    public void restoreQuarterly(long quarterRevenue, long quarterExpenses, int quarterDays,
+                                  List<QuarterlyEarningsReport> history) {
+        this.quarterRevenue = Math.max(0, quarterRevenue);
+        this.quarterExpenses = Math.max(0, quarterExpenses);
+        this.quarterDays = Math.max(0, quarterDays);
+        this.earningsHistory.clear();
+        if (history != null) {
+            this.earningsHistory.addAll(history);
+        }
     }
     public long getSmoothedDailyProfit() {
         if (!financialReports.isEmpty()) {
