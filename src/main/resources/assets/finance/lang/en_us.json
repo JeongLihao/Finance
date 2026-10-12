@@ -503,5 +503,8 @@
   "finance.company_supply.delivery_failed": "The goods transfer failed and was rolled back",
   "finance.company_supply.payment_failed": "The escrow payment failed and the delivery was rolled back",
   "finance.company_supply.partial": "Partial delivery settled from escrow",
-  "finance.company_supply.completed": "Company supply contract completed"
+  "finance.company_supply.completed": "Company supply contract completed",
+  "finance.feedback.policy_guidance": "[Central Bank Guidance] Meeting in %s days (day %s); current lean: %s; benchmark rate now %s",
+  "finance.feedback.policy_decision": "[Central Bank Decision] Benchmark rate %s -> %s (%s). %s",
+  "finance.feedback.policy_decision_manual": "[Central Bank] Manual intervention detected; keeping benchmark rate at %s (%s)"
 }

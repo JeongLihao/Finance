@@ -76,6 +76,7 @@ public final class EconomyCycleService {
         CompanyBankruptcyManager.tick(server, mcDay);
         finance.gameplay.company.CompanyFacilityWorldFeedbackService.refresh(server, mcDay);
         finance.feedback.WorldTerminalStateService.auditDay(server, mcDay);
+        finance.policy.PolicyMeetingService.onDayTick(server, mcDay);
     }
 
     private static void tickNoiseAndMomentum(MinecraftServer server) {

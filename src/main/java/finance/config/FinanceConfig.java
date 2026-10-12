@@ -101,6 +101,14 @@ public final class FinanceConfig {
     private static final ForgeConfigSpec.LongValue CAPITAL_PROJECT_GOVERNANCE_THRESHOLD;
     private static final ForgeConfigSpec.IntValue CAPITAL_PROJECT_MAX_DURATION_DAYS;
     private static final ForgeConfigSpec.IntValue DEFAULT_BENCHMARK_RATE_BPS;
+    private static final ForgeConfigSpec.ConfigValue<String> POLICY_RATE_MODE;
+    private static final ForgeConfigSpec.IntValue POLICY_NEUTRAL_RATE_BPS;
+    private static final ForgeConfigSpec.IntValue POLICY_MEETING_INTERVAL_DAYS;
+    private static final ForgeConfigSpec.IntValue POLICY_GUIDANCE_LEAD_DAYS;
+    private static final ForgeConfigSpec.IntValue POLICY_MAX_STEP_BPS;
+    private static final ForgeConfigSpec.IntValue POLICY_MIN_STEP_BPS;
+    private static final ForgeConfigSpec.DoubleValue POLICY_INFLATION_RESPONSE;
+    private static final ForgeConfigSpec.DoubleValue POLICY_SLACK_RESPONSE;
     private static final ForgeConfigSpec.IntValue MAX_BONDS;
     private static final ForgeConfigSpec.IntValue MAX_LOANS;
     private static final ForgeConfigSpec.IntValue LOAN_GRACE_DAYS;
@@ -316,6 +324,30 @@ public final class FinanceConfig {
                 .comment("基准年利率，单位为基点；500 表示 5%。修改后只影响新债券和新贷款。")
                 .defineInRange("defaultBenchmarkRateBasisPoints", DEFAULT_BENCHMARK_RATE_BPS_VALUE,
                         MIN_BENCHMARK_RATE_BPS_VALUE, MAX_BENCHMARK_RATE_BPS_VALUE);
+        POLICY_RATE_MODE = builder
+                .comment("基准利率政策模式：AUTO=议息日按规则自动调息；ADVISORY=规则只给建议，需管理员确认；MANUAL=纯手动。")
+                .define("policyRateMode", "AUTO");
+        POLICY_NEUTRAL_RATE_BPS = builder
+                .comment("政策规则中的中性利率（基点），经济处于均衡时利率向其回归。")
+                .defineInRange("policyNeutralRateBps", 500, MIN_BENCHMARK_RATE_BPS_VALUE, MAX_BENCHMARK_RATE_BPS_VALUE);
+        POLICY_MEETING_INTERVAL_DAYS = builder
+                .comment("议息周期，单位为 MC 天。")
+                .defineInRange("policyMeetingIntervalDays", 30, 1, 3650);
+        POLICY_GUIDANCE_LEAD_DAYS = builder
+                .comment("议息日前瞻指引提前天数（只给方向，不承诺幅度）。")
+                .defineInRange("policyGuidanceLeadDays", 3, 0, 30);
+        POLICY_MAX_STEP_BPS = builder
+                .comment("单次议息最大调整幅度（基点），防规则抽风。")
+                .defineInRange("policyMaxStepBps", 100, 1, 2000);
+        POLICY_MIN_STEP_BPS = builder
+                .comment("小于此幅度的建议视为噪音，不调息。")
+                .defineInRange("policyMinStepBps", 25, 1, 500);
+        POLICY_INFLATION_RESPONSE = builder
+                .comment("通胀缺口反应系数（类 Taylor 规则，经典值 1.5）。")
+                .defineInRange("policyInflationResponse", 1.5D, 0.0D, 5.0D);
+        POLICY_SLACK_RESPONSE = builder
+                .comment("衰退指标反应系数。")
+                .defineInRange("policySlackResponse", 0.5D, 0.0D, 5.0D);
         MAX_BONDS = builder
                 .comment("单个世界最多保留的公司债券合约数量，超过上限时拒绝新发行。")
                 .defineInRange("maxCorporateBonds", MAX_BONDS_VALUE, 1, 10_000);
@@ -541,6 +573,24 @@ public final class FinanceConfig {
     public static double maxBondFinancingRatio() { return getDouble(MAX_BOND_FINANCING_RATIO, MAX_BOND_FINANCING_RATIO_VALUE); }
     public static int maxLoanTermDays() { return getInt(MAX_LOAN_TERM_DAYS, MAX_LOAN_TERM_DAYS_VALUE); }
     public static int maxContractRateBasisPoints() { return getInt(MAX_CONTRACT_RATE_BPS, MAX_CONTRACT_RATE_BPS_VALUE); }
+    public static String policyRateMode() {
+        String mode;
+        try {
+            mode = POLICY_RATE_MODE.get();
+        } catch (IllegalStateException e) {
+            return "AUTO";
+        }
+        if (mode == null) return "AUTO";
+        String upper = mode.trim().toUpperCase(java.util.Locale.ROOT);
+        return (upper.equals("AUTO") || upper.equals("ADVISORY") || upper.equals("MANUAL")) ? upper : "AUTO";
+    }
+    public static int policyNeutralRateBps() { return getInt(POLICY_NEUTRAL_RATE_BPS, 500); }
+    public static int policyMeetingIntervalDays() { return getInt(POLICY_MEETING_INTERVAL_DAYS, 30); }
+    public static int policyGuidanceLeadDays() { return getInt(POLICY_GUIDANCE_LEAD_DAYS, 3); }
+    public static int policyMaxStepBps() { return getInt(POLICY_MAX_STEP_BPS, 100); }
+    public static int policyMinStepBps() { return getInt(POLICY_MIN_STEP_BPS, 25); }
+    public static double policyInflationResponse() { return getDouble(POLICY_INFLATION_RESPONSE, 1.5D); }
+    public static double policySlackResponse() { return getDouble(POLICY_SLACK_RESPONSE, 0.5D); }
     public static double mediumDefaultRatePercent() { return getDouble(MEDIUM_DEFAULT_RATE, MEDIUM_DEFAULT_RATE_VALUE); }
     public static double highDefaultRatePercent() { return getDouble(HIGH_DEFAULT_RATE, HIGH_DEFAULT_RATE_VALUE); }
     public static int creditAaaMinimumScore() { return getInt(CREDIT_AAA_SCORE, CREDIT_AAA_SCORE_VALUE); }

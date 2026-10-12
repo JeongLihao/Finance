@@ -15,6 +15,8 @@ import net.minecraft.server.level.ServerPlayer;
 import finance.cycle.EconomyCycleService;
 import finance.data.EconomySavedData;
 import finance.diagnostic.*;
+import finance.policy.MonetaryPolicyService;
+import finance.policy.PolicyMeetingService;
 
 /**
  * /finance give ＜target＞ ＜amount＞ —— 管理员命令，凭空创造货币发给玩家（需要 OP 2 级权限）。
@@ -146,6 +148,36 @@ public class FinanceCommand {
                                 .then(Commands.literal("insurance").executes(c -> resume(c.getSource(), ModuleHealthRegistry.Module.INSURANCE)))
                                 .then(Commands.literal("history").executes(c -> resume(c.getSource(), ModuleHealthRegistry.Module.HISTORY)))
                                 .then(Commands.literal("cycle").executes(c -> resume(c.getSource(), ModuleHealthRegistry.Module.CYCLE))))
+
+                        .then(Commands.literal("policy")
+                                .requires(source -> source.hasPermission(2))
+                                .then(Commands.literal("confirm").executes(context -> {
+                                    // ADVISORY 确认路径：必须走 confirmAdvisory（含评估＋基线记账），
+                                    // 不得绕过直调 MonetaryPolicyService.setBenchmarkRate。
+                                    long day = EconomyCycleService.currentMcDay(context.getSource().getServer());
+                                    boolean ok = PolicyMeetingService.confirmAdvisory(day);
+                                    if (ok) {
+                                        context.getSource().sendSuccess(() -> Component.literal(
+                                                        "已确认议息建议，基准利率现为 "
+                                                                + PolicyMeetingService.formatBps(
+                                                                        MonetaryPolicyService.benchmarkRateBasisPoints())),
+                                                true);
+                                        return 1;
+                                    }
+                                    context.getSource().sendFailure(Component.literal(
+                                            "确认失败：可能已是建议值，或当前无可用经济数据"));
+                                    return 0;
+                                }))
+                                .then(Commands.literal("outlook").executes(context -> {
+                                    PolicyMeetingService.PolicyOutlook o = PolicyMeetingService.outlook();
+                                    context.getSource().sendSuccess(() -> Component.literal(
+                                            "下次议息：第 " + o.nextMeetingDay() + " 天｜模式 " + o.mode()
+                                                    + "｜倾向 " + o.guidanceDirection()
+                                                    + "｜现行 " + PolicyMeetingService.formatBps(o.currentBps())
+                                                    + "｜建议 " + PolicyMeetingService.formatBps(o.recommendedBps())),
+                                            false);
+                                    return 1;
+                                })))
         );
     }
 
