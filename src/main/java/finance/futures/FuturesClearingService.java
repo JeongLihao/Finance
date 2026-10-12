@@ -40,7 +40,7 @@ public final class FuturesClearingService {
         long price=finalPrice(c);if(price<=0)return false;
         if(!FuturesMarketManager.cancelForContract(c.id()))return false;
         if(!settle(c,price,day,true))return false;
-        MarginManager.closeContractPositions(c.id());c.setFinalSettlementPrice(price);c.setStatus(FuturesContractStatus.SETTLED);
+        MarginManager.closeContractPositions(c.id());FuturesMarketMaker.onContractSettled(c.id());c.setFinalSettlementPrice(price);c.setStatus(FuturesContractStatus.SETTLED);
         AccountManager.addTransactionRecord(new TransactionRecord(CLEARING_MEMBER_ID,CLEARING_MEMBER_ID,0,TransactionType.FUTURES_EXPIRY,CLEARING_MEMBER_ID,c.code(),FuturesMarketManager.openInterest(c.id())));
         EconomySavedData.markDirty();return true;
     }

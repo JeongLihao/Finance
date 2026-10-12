@@ -23,6 +23,7 @@ import net.minecraftforge.event.server.ServerStoppedEvent;
 import finance.data.EconomySavedData;
 import finance.data.CommodityInventorySavedData;
 import finance.market.NpcMarketMaker;
+import finance.market.MarketMakerLedger;
 import finance.network.FinancePacketHandler;
 import finance.network.MarketDataRequestLimiter;
 import finance.chart.CandlestickService;
@@ -31,6 +32,7 @@ import finance.registry.ModBlocks;
 import finance.registry.ModItems;
 import finance.registry.ModBlockEntities;
 import finance.stock.StockMarketManager;
+import finance.stock.Stock;
 import finance.diagnostic.StartupSelfCheckService;
 import net.minecraftforge.event.TickEvent.Phase;
 import net.minecraftforge.event.TickEvent.ServerTickEvent;
@@ -157,6 +159,13 @@ public class FinanceMod {
         // 初始化系统公司股票
         StockMarketManager.seedSystemStocksIfNeeded();
         StockMarketManager.updateFairValuesAndResetDay();
+
+        // 股票做市商建仓：已上市但子账本无库存的股票，按 fairValue 从做市商总账户
+        // 拨款建仓至目标库存（幂等；余额不足时跳过，不阻断启动）
+        for (Stock stock : StockMarketManager.getStocks()) {
+            MarketMakerLedger.seedStockInventory(stock);
+        }
+
         StartupSelfCheckService.schedule(EconomyCycleService.currentMcDay(event.getServer()));
     }
 

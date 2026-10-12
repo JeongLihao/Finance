@@ -5,6 +5,7 @@ import finance.account.TransactionRecord;
 import finance.account.TransactionType;
 import finance.config.FinanceConfig;
 import finance.data.EconomySavedData;
+import finance.market.MarketMakerLedger;
 import finance.stock.Stock;
 import finance.stock.StockMarketManager;
 import finance.stock.StockPortfolioManager;
@@ -146,6 +147,11 @@ public class CompanyIPOService {
 
         // 注册股票
         StockMarketManager.putStockDirect(stock);
+
+        // 做市商 IPO 预留：发行量 × 预留比例以发行价划入做市商库存。
+        // 余额不足则跳过预留，不阻断 IPO。
+        reserveForMarketMaker(company, stock, issuePrice, issueQuantity);
+
         AccountManager.addTransactionRecord(
                 new TransactionRecord(
                         requesterId,
@@ -194,6 +200,56 @@ public class CompanyIPOService {
             symbol = base.substring(0, Math.min(prefixLength, base.length())) + suffixText;
         }
         return symbol;
+    }
+
+    /**
+     * 做市商 IPO 预留 —— 发行量 × {@link FinanceConfig#ipoMarketMakerReserveRatio()}
+     * 以发行价认购，资金从做市商总账户（nil UUID）真实支付给公司，
+     * 股份记入做市商股票子账本库存。
+     *
+     * <p>这是做市商初始库存的正规来源（一级市场联动），区别于二级市场的
+     * 终身接盘计数（{@code marketMakerBoughtShares}），不计入 200 股熔断。</p>
+     *
+     * <p>做市商总账户余额不足时跳过预留，不阻断 IPO。</p>
+     */
+    private static void reserveForMarketMaker(Company company, Stock stock, long issuePrice, long issueQuantity) {
+        double ratio = FinanceConfig.ipoMarketMakerReserveRatio();
+        if (ratio <= 0) {
+            return;
+        }
+        long reserveQty = (long) Math.floor(issueQuantity * ratio);
+        if (reserveQty <= 0) {
+            return;
+        }
+        long reserveCost;
+        try {
+            reserveCost = Math.multiplyExact(issuePrice, reserveQty);
+        } catch (ArithmeticException ex) {
+            return;
+        }
+        if (reserveCost <= 0) {
+            return;
+        }
+        if (!AccountManager.withdraw(MarketMakerLedger.MASTER_UUID, reserveCost)) {
+            return; // 余额不足：跳过预留
+        }
+        if (!company.deposit(reserveCost)) {
+            AccountManager.deposit(MarketMakerLedger.MASTER_UUID, reserveCost);
+            return;
+        }
+        MarketMakerLedger.addInventory(MarketMakerLedger.SubMarket.STOCK, stock.getSymbol(), reserveQty);
+        AccountManager.addTransactionRecord(
+                new TransactionRecord(
+                        MarketMakerLedger.MASTER_UUID,
+                        company.getCompanyId(),
+                        reserveCost,
+                        TransactionType.MARKET_MAKER_BUY,
+                        MarketMakerLedger.MASTER_UUID,
+                        stock.getSymbol(),
+                        reserveQty
+                )
+        );
+        EconomySavedData.markDirty();
     }
 
     private static IPOResult fail(String message) {
