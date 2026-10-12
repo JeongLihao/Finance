@@ -127,6 +127,9 @@ public class StockMarketManager {
      * 每 MC 天调用 —— 基本面更新（新引擎）。
      * 根据公司最新估值，重新计算每只股票的 fairValue，驱动价格均值回归。
      * P3：传递日利润到 PE 系数计算。
+     *
+     * 注意：本方法不递减创始人锁仓（开服初始化也复用它，见 FinanceMod）。
+     * 日结算请用 {@link #tickNewDay()}，它在基本面更新之外再递减锁仓。
      */
     public static void updateFairValuesAndResetDay() {
         boolean changed = false;
@@ -141,6 +144,27 @@ public class StockMarketManager {
             double industrySentiment = company.getIndustrySentiment();
 
             stock.updateFairValueAndResetDay(companyValue, stock.getTotalShares(), smoothedDailyProfit, industrySentiment);
+            changed = true;
+        }
+        if (changed) {
+            EconomySavedData.markDirty();
+        }
+    }
+
+    /**
+     * 日结算入口 —— 基本面更新 + 创始人锁仓按天递减（P1-2）。
+     * 锁仓递减只发生在这里；开服初始化调用 {@link #updateFairValuesAndResetDay()}
+     * 不再偷减锁仓天数。
+     */
+    public static void tickNewDay() {
+        updateFairValuesAndResetDay();
+        boolean changed = false;
+        for (Stock stock : STOCKS.values()) {
+            Company company = CompanyManager.getCompany(stock.getCompanyId());
+            if (company == null || stock.getTotalShares() <= 0) {
+                continue;
+            }
+            stock.tickFounderLockupDay();
             changed = true;
         }
         if (changed) {

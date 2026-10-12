@@ -303,9 +303,15 @@ public class EconomySavedData extends SavedData {
                 Stock stock = new Stock(symbol, name, companyUuid, totalShares,
                         floatShares, ownerShares, currentPrice, fairValue);
                 if(stockTag.contains("TreasuryShares"))stock.restoreTreasuryShares(stockTag.getLong("TreasuryShares"));
-                stock.restoreFounderLockup(
-                        readUuidOrNull(stockTag, "FounderId"),
-                        stockTag.contains("FounderLockupDays") ? stockTag.getInt("FounderLockupDays") : 0);
+                UUID founderId = readUuidOrNull(stockTag, "FounderId");
+                if (stockTag.contains("FounderLockupDays")) {
+                    stock.restoreFounderLockup(founderId, stockTag.getInt("FounderLockupDays"));
+                } else if (founderId != null) {
+                    // P2 迁移缺口：旧存档有创始人但无锁仓字段时，补满整期锁仓而非默认 0 天
+                    stock.restoreFounderLockup(founderId, Stock.FOUNDER_SHARE_LOCKUP_DAYS);
+                } else {
+                    stock.restoreFounderLockup(null, 0);
+                }
                 if (stockTag.contains("MarketMakerBought")) {
                     stock.restoreMarketMakerBoughtShares(stockTag.getLong("MarketMakerBought"));
                 }
