@@ -37,6 +37,12 @@ public class Stock {
     /** 做市商累计接盘股数（终身），防止无限印钞 */
     private long marketMakerBoughtShares;
 
+    /**
+     * 停牌标志 —— 要约收购期间目标公司股票停牌。
+     * 停牌期间不可挂新单（可撤单）、做市商暂停报价，但基本面定价照常。
+     */
+    private boolean tradingHalted;
+
     /** 新定价引擎 */
     private final StockPriceEngine priceEngine;
 
@@ -127,6 +133,12 @@ public class Stock {
         }
     }
 
+    /** 是否停牌中（要约收购期间） */
+    public boolean isTradingHalted() { return tradingHalted; }
+
+    /** 设置停牌状态 */
+    public void setTradingHalted(boolean halted) { this.tradingHalted = halted; }
+
     /** 兼容旧 API：availableShares = floatShares */
     public long getAvailableShares() { return floatShares; }
 
@@ -144,6 +156,16 @@ public class Stock {
     public long getDayHigh() { return priceEngine.getDayHigh(); }
     public long getDayLow() { return priceEngine.getDayLow(); }
     public List<StockPriceEngine.PriceSnapshot> getSnapshots() { return priceEngine.getSnapshots(); }
+
+    /** 财报季：按预期差冲击股价（委托价格引擎，带钳制）。 */
+    public void applyEarningsShock(double shockBps, double fvPassThrough) {
+        priceEngine.applyEarningsShock(shockBps, fvPassThrough);
+    }
+
+    /** 分红除权：按每股分红额下调现价与 fairValue。 */
+    public void applyExDividend(long perShare) {
+        priceEngine.applyExDividend(perShare);
+    }
 
     // ---- 交易相关（旧 API 兼容） ----
 

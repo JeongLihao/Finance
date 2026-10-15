@@ -3,8 +3,11 @@ package finance.stock;
 import finance.account.AccountManager;
 import finance.account.TransactionRecord;
 import finance.account.TransactionType;
-import finance.config.FinanceConfig;
 import finance.data.EconomySavedData;
+import finance.governance.CorporateActionManager;
+import finance.market.MarketMakerLedger;
+import finance.market.liquidity.MarketMakerQuotes;
+import finance.market.liquidity.QuoteView;
 import finance.metrics.EconomyMetricsService;
 import finance.marketdata.RecentTradeService;
 import finance.marketdata.TradeDirection;
@@ -68,6 +71,11 @@ public class StockOrderManager {
             return OrderResult.fail("未知股票: " + symbol);
         }
 
+        // 停牌期间不可挂新单（要约收购进行中）
+        if (stock.isTradingHalted()) {
+            return OrderResult.fail("该股票停牌中（要约收购进行中），不可挂单。");
+        }
+
         // 冻结资金
         long totalCost = MathUtil.multiplyExactOrNegative1(price, quantity);
         if (totalCost <= 0) {
@@ -97,6 +105,16 @@ public class StockOrderManager {
         Stock stock = StockMarketManager.getStock(symbol);
         if (stock == null) {
             return OrderResult.fail("未知股票: " + symbol);
+        }
+
+        // 停牌期间不可挂新单（要约收购进行中）
+        if (stock.isTradingHalted()) {
+            return OrderResult.fail("该股票停牌中（要约收购进行中），不可挂单。");
+        }
+
+        // 要约收购方在要约期内不得减持目标公司股份（防"边收购边出货"操纵接受率）
+        if (CorporateActionManager.isTenderBuyer(playerId, stock.getCompanyId())) {
+            return OrderResult.fail("您有进行中的要约收购，期间不得减持目标公司股份。");
         }
 
         // 创始人锁定期内不可卖出
@@ -202,9 +220,26 @@ public class StockOrderManager {
     }
 
     /**
-     * 做市商成交 —— 保底流动性，按 fairValue ± spread 报价。
+     * 做市商成交 —— 保底流动性，Phase 2 动态报价（mid = fairValue，经策略链调整）。
+     *
+     * <p>Phase 1 正规化：做市商是"有独立资金账户、不能印钱"的对手方 ——</p>
+     * <ul>
+     *   <li>做市商买入（玩家卖出）：从 nil UUID 总账户真实扣款，库存记入股票子账本；
+     *       余额不足或库存将超上限 → 拒绝，转订单簿；</li>
+     *   <li>做市商卖出（玩家买入）：子账本库存必须足够，成交款真实进入总账户；
+     *       库存不足 → 拒绝，转订单簿；</li>
+     *   <li>单笔上限 = min(流通股 × 1%，目标库存 × 20%，现金可支撑量），
+     *       超限部分转订单簿；</li>
+     *   <li>MAX_MARKET_MAKER_BUY_SHARES（200 股）保留为终身熔断兜底；</li>
+     *   <li>Phase 2：报价走 QuoteEngine（均值回归/库存偏斜/波动率价差），
+     *       熔断时暂停报价 → 拒绝，转订单簿，偏离回归后自动恢复。</li>
+     * </ul>
      */
     private static OrderResult marketMakerTrade(StockOrder order, Stock stock) {
+        // 停牌期间做市商暂停报价（不消耗终身接盘额度）
+        if (stock.isTradingHalted()) {
+            return OrderResult.fail("该股票停牌中，做市商暂停报价。");
+        }
         long fairValue = stock.getFairValue();
         if (fairValue <= 0) {
             return refundOrderAssets(order)
@@ -212,49 +247,96 @@ public class StockOrderManager {
                     : OrderResult.fail("市场行情异常，资产仍保持锁定并已保留订单。");
         }
 
-        // 做市商报价
-        double spread = FinanceConfig.stockMarketMakerSpread();
-        long bidPrice = Math.max(1, Math.round(fairValue * (1 - spread)));
-        long askPrice = Math.round(fairValue * (1 + spread));
+        // Phase 2 做市商动态报价：mid=fairValue，库存=股票子账本，波动率=价格快照滚动估计
+        String symbol = order.getSymbol();
+        QuoteView quote = MarketMakerQuotes.getQuote(MarketMakerQuotes.MARKET_STOCK, symbol);
+        if (quote == null || quote.halted()) {
+            return OrderResult.fail("做市商暂停报价（市场熔断），已转入订单簿。");
+        }
+        long bidPrice = quote.bid();
+        long askPrice = quote.ask();
+        long floatShares = stock.getFloatShares();
 
-        long tradePrice;
         if (order.getType() == StockOrderType.BUY) {
-            // 买单以 askPrice 成交
-            tradePrice = askPrice;
+            // 玩家从做市商买入 —— 做市商是卖方：子账本库存必须足够，成交款进入总账户
+            long tradePrice = askPrice;
             if (order.getPrice() < tradePrice) {
                 return OrderResult.fail("做市商报价未满足。");
             }
-        } else {
-            // 卖单以 bidPrice 成交 —— 做市商接盘有终身深度上限
-            tradePrice = bidPrice;
-            if (order.getPrice() > tradePrice) {
-                return OrderResult.fail("做市商报价未满足。");
+            long inventory = MarketMakerLedger.getStockInventory(symbol);
+            if (inventory <= 0) {
+                return OrderResult.fail("做市商库存不足，已转入订单簿。");
             }
-            if (order.getQuantity() > MAX_MARKET_MAKER_BUY_SHARES - stock.getMarketMakerBoughtShares()) {
-                return OrderResult.fail("做市商接盘额度已用完。");
+            long cap = Math.min(MarketMakerLedger.maxSingleTradeQty(floatShares), inventory);
+            if (cap <= 0) {
+                return OrderResult.fail("超过做市商单笔成交上限，已转入订单簿。");
             }
-        }
-
-        // 执行成交
-        if (order.getType() == StockOrderType.BUY) {
-            if (!executeTrade(order.getPlayerId(), MARKET_MAKER_UUID, order.getSymbol(),
-                    tradePrice, order.getQuantity(), stock, order.getPrice(), true)) {
+            long fillQty = Math.min(order.getQuantity(), cap);
+            MarketMakerLedger.ReserveResult check = MarketMakerLedger.checkSellable(symbol, fillQty);
+            if (!check.success()) {
+                return OrderResult.fail(check.reason());
+            }
+            if (!executeTrade(order.getPlayerId(), MARKET_MAKER_UUID, symbol,
+                    tradePrice, (int) fillQty, stock, order.getPrice(), true)) {
                 return OrderResult.fail("做市商成交结算失败。");
             }
-        } else {
-            if (!executeTrade(MARKET_MAKER_UUID, order.getPlayerId(), order.getSymbol(),
-                    tradePrice, order.getQuantity(), stock, tradePrice, false)) {
-                return OrderResult.fail("做市商成交结算失败。");
-            }
-            stock.addMarketMakerBoughtShares(order.getQuantity());
+            return finishMarketMakerFill(order, fillQty, tradePrice);
         }
 
+        // 玩家卖给做市商 —— 做市商是买方：总账户真实扣款，库存记入子账本
+        long tradePrice = bidPrice;
+        if (order.getPrice() > tradePrice) {
+            return OrderResult.fail("做市商报价未满足。");
+        }
+        // 终身熔断兜底保留：单只股票做市商累计接盘达上限后不再接盘
+        long lifetimeRemaining = MAX_MARKET_MAKER_BUY_SHARES - stock.getMarketMakerBoughtShares();
+        if (lifetimeRemaining <= 0) {
+            return OrderResult.fail("做市商接盘额度已用完。");
+        }
+        long cashCap = AccountManager.getBalance(MARKET_MAKER_UUID) / tradePrice;
+        long headroom = MarketMakerLedger.maxInventory(floatShares) - MarketMakerLedger.getStockInventory(symbol);
+        long cap = Math.min(MarketMakerLedger.maxSingleTradeQty(floatShares),
+                Math.min(cashCap, Math.min(lifetimeRemaining, headroom)));
+        if (cap <= 0) {
+            return OrderResult.fail("做市商暂无接盘额度（资金/库存/终身上限），已转入订单簿。");
+        }
+        long fillQty = Math.min(order.getQuantity(), cap);
+        MarketMakerLedger.ReserveResult check =
+                MarketMakerLedger.checkBuyable(symbol, fillQty, tradePrice, floatShares);
+        if (!check.success()) {
+            return OrderResult.fail(check.reason());
+        }
+        if (!executeTrade(MARKET_MAKER_UUID, order.getPlayerId(), symbol,
+                tradePrice, (int) fillQty, stock, tradePrice, false)) {
+            return OrderResult.fail("做市商成交结算失败。");
+        }
+        stock.addMarketMakerBoughtShares(fillQty);
+        return finishMarketMakerFill(order, fillQty, tradePrice);
+    }
+
+    /**
+     * 做市商部分成交收尾：成交部分已在 executeTrade 内结算，
+     * 剩余数量挂回订单簿（挂单时冻结的资产与剩余数量天然对应，
+     * 沿用订单簿部分成交的记账方式）。
+     */
+    private static OrderResult finishMarketMakerFill(StockOrder order, long fillQty, long tradePrice) {
+        long remaining = (long) order.getQuantity() - fillQty;
         EconomySavedData.markDirty();
+        if (remaining > 0) {
+            order.setQuantity((int) remaining);
+            addOrderDirect(order);
+            return OrderResult.ok("做市商部分成交 " + fillQty + " 股（成交价 " + tradePrice
+                    + "），剩余 " + remaining + " 股已挂入订单簿。");
+        }
         return OrderResult.ok("订单已与做市商成交，成交价: " + tradePrice);
     }
 
     /**
      * 执行成交 —— 更新账户、持仓、价格、交易记录。
+     *
+     * <p>做市商参与时：做市商买入从总账户真实扣款并记入子账本库存；
+     * 做市商卖出从子账本扣减库存、成交款进入总账户。任一环节失败则整体回滚，
+     * 绝不出现"玩家收钱但做市商未扣款"或"玩家得股但库存未扣减"的半成功状态。</p>
      */
     private static boolean executeTrade(UUID buyerId, UUID sellerId, String symbol,
                                       long tradePrice, int tradeQty, Stock stock,
@@ -266,31 +348,62 @@ public class StockOrderManager {
         long reservedValue = MathUtil.multiplyExactOrNegative1(buyerLimitPrice, tradeQty);
         if (reservedValue <= 0 || reservedValue < totalValue) return false;
 
-        boolean playerBuyer = !buyerId.equals(MARKET_MAKER_UUID);
-        boolean playerSeller = !sellerId.equals(MARKET_MAKER_UUID);
+        boolean mmBuyer = buyerId.equals(MARKET_MAKER_UUID);
+        boolean mmSeller = sellerId.equals(MARKET_MAKER_UUID);
+        boolean playerBuyer = !mmBuyer;
+        boolean playerSeller = !mmSeller;
         long buyerRefund = playerBuyer ? reservedValue - totalValue : 0;
         if (buyerRefund > 0 && !AccountManager.canDeposit(buyerId, buyerRefund)) return false;
         if (playerSeller && !AccountManager.canDeposit(sellerId, totalValue)) return false;
-        if (!buyerId.equals(MARKET_MAKER_UUID)
-                && !StockPortfolioManager.canAddHolding(buyerId, symbol, tradeQty)) return false;
+        if (mmSeller && !AccountManager.canDeposit(MARKET_MAKER_UUID, totalValue)) return false;
+        if (playerBuyer && !StockPortfolioManager.canAddHolding(buyerId, symbol, tradeQty)) return false;
+        // 做市商侧预检：余额/库存不足直接失败（真正扣减在提交阶段原子完成）
+        if (mmBuyer && !MarketMakerLedger.checkBuyable(symbol, tradeQty, tradePrice, stock.getFloatShares()).success()) {
+            return false;
+        }
+        if (mmSeller && !MarketMakerLedger.checkSellable(symbol, tradeQty).success()) {
+            return false;
+        }
 
         // 更新账户：卖方收钱，买方已在挂单时冻结
         if (buyerRefund > 0 && !AccountManager.deposit(buyerId, buyerRefund)) return false;
+
+        // 做市商买入：子账本库存预留 + 总账户真实扣款
+        if (mmBuyer) {
+            MarketMakerLedger.ReserveResult reserve =
+                    MarketMakerLedger.tryReserveBuy(symbol, tradeQty, tradePrice, stock.getFloatShares());
+            if (!reserve.success() || !AccountManager.withdraw(MARKET_MAKER_UUID, totalValue)) {
+                if (reserve.success()) {
+                    MarketMakerLedger.releaseBuy(symbol, tradeQty);
+                }
+                if (buyerRefund > 0) AccountManager.withdraw(buyerId, buyerRefund);
+                return false;
+            }
+        }
+        // 做市商卖出：子账本库存预留 + 成交款真实进入总账户
+        if (mmSeller) {
+            MarketMakerLedger.ReserveResult reserve = MarketMakerLedger.tryReserveSell(symbol, tradeQty);
+            if (!reserve.success() || !AccountManager.deposit(MARKET_MAKER_UUID, totalValue)) {
+                if (reserve.success()) {
+                    MarketMakerLedger.releaseSell(symbol, tradeQty);
+                }
+                if (buyerRefund > 0) AccountManager.withdraw(buyerId, buyerRefund);
+                return false;
+            }
+        }
+
         if (playerSeller && !AccountManager.deposit(sellerId, totalValue)) {
+            rollbackMarketMakerLeg(mmBuyer, mmSeller, symbol, tradeQty, totalValue);
             if (buyerRefund > 0) AccountManager.withdraw(buyerId, buyerRefund);
             return false;
         }
 
-        // 更新持仓
-        if (!buyerId.equals(MARKET_MAKER_UUID)) {
-            if (!StockPortfolioManager.addHolding(buyerId, symbol, tradeQty, tradePrice)) {
-                if (buyerRefund > 0) AccountManager.withdraw(buyerId, buyerRefund);
-                if (playerSeller) AccountManager.withdraw(sellerId, totalValue);
-                return false;
-            }
-        }
-        if (!sellerId.equals(MARKET_MAKER_UUID)) {
-            // 玩家卖方的股票已在挂单时扣除，这里无需操作
+        // 更新持仓（玩家卖方的股票已在挂单时扣除，这里无需操作）
+        if (playerBuyer && !StockPortfolioManager.addHolding(buyerId, symbol, tradeQty, tradePrice)) {
+            if (buyerRefund > 0) AccountManager.withdraw(buyerId, buyerRefund);
+            if (playerSeller) AccountManager.withdraw(sellerId, totalValue);
+            rollbackMarketMakerLeg(mmBuyer, mmSeller, symbol, tradeQty, totalValue);
+            return false;
         }
 
         // 通知定价引擎（推动价格）
@@ -303,7 +416,7 @@ public class StockOrderManager {
         CandlestickService.recordTrade(MarketInstrumentType.STOCK, symbol, tradePrice, tradeQty);
         RecentTradeService.record(MarketInstrumentType.STOCK, symbol, tradePrice, tradeQty,
                 buyInitiated ? TradeDirection.BUY : TradeDirection.SELL);
-        if (!buyerId.equals(MARKET_MAKER_UUID)) {
+        if (playerBuyer) {
             AccountManager.addTransactionRecord(
                     new TransactionRecord(
                             buyerId,
@@ -316,7 +429,7 @@ public class StockOrderManager {
                     )
             );
         }
-        if (!sellerId.equals(MARKET_MAKER_UUID)) {
+        if (playerSeller) {
             AccountManager.addTransactionRecord(
                     new TransactionRecord(
                             buyerId,
@@ -329,9 +442,39 @@ public class StockOrderManager {
                     )
             );
         }
+        // 做市商成交单独记一笔（MARKET_MAKER_BUY/SELL），管理后台可审计做市商 P&L
+        if (mmBuyer || mmSeller) {
+            AccountManager.addTransactionRecord(
+                    new TransactionRecord(
+                            buyerId,
+                            sellerId,
+                            totalValue,
+                            mmBuyer ? TransactionType.MARKET_MAKER_BUY : TransactionType.MARKET_MAKER_SELL,
+                            playerBuyer ? buyerId : sellerId,
+                            symbol,
+                            tradeQty
+                    )
+            );
+        }
 
         EconomySavedData.markDirty();
         return true;
+    }
+
+    /**
+     * 回滚做市商侧已提交的资金/库存变动（玩家侧结算失败时调用）。
+     * 回滚本身的存取款理论上不会失败（资金刚经手），忽略返回值以保持原有回滚风格。
+     */
+    private static void rollbackMarketMakerLeg(boolean mmBuyer, boolean mmSeller,
+                                               String symbol, long tradeQty, long totalValue) {
+        if (mmBuyer) {
+            AccountManager.deposit(MARKET_MAKER_UUID, totalValue);
+            MarketMakerLedger.releaseBuy(symbol, tradeQty);
+        }
+        if (mmSeller) {
+            AccountManager.withdraw(MARKET_MAKER_UUID, totalValue);
+            MarketMakerLedger.releaseSell(symbol, tradeQty);
+        }
     }
 
     /**

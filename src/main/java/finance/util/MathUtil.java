@@ -11,6 +11,18 @@ public class MathUtil {
         return safeLeft > Long.MAX_VALUE - safeRight ? Long.MAX_VALUE : safeLeft + safeRight;
     }
 
+    /**
+     * 保留符号的饱和加法：溢出时按增量符号钳制到 Long.MAX_VALUE / Long.MIN_VALUE，
+     * 不回绕。适用于"累计盈亏"这类可为负的累加器（NonNegative 变体会吞掉负增量）。
+     */
+    public static long saturatedAdd(long left, long right) {
+        try {
+            return Math.addExact(left, right);
+        } catch (ArithmeticException e) {
+            return right >= 0 ? Long.MAX_VALUE : Long.MIN_VALUE;
+        }
+    }
+
     public static long saturatedMultiplyNonNegative(long left, long right) {
         if (left <= 0 || right <= 0) {
             return 0;
