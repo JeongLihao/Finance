@@ -15,6 +15,9 @@ import finance.command.CommodityCommand;
 import finance.command.InventoryCommand;
 import finance.command.CompaniesCommand;
 import finance.command.CompanyCommand;
+import finance.command.TakeoverCommand;
+import finance.command.MarginCommand;
+import finance.command.PlayerBankCommand;
 import finance.company.SystemCompanyInitializer;
 import finance.config.FinanceConfig;
 import finance.cycle.EconomyCycleService;
@@ -23,6 +26,7 @@ import net.minecraftforge.event.server.ServerStoppedEvent;
 import finance.data.EconomySavedData;
 import finance.data.CommodityInventorySavedData;
 import finance.market.NpcMarketMaker;
+import finance.market.MarketMakerLedger;
 import finance.network.FinancePacketHandler;
 import finance.network.MarketDataRequestLimiter;
 import finance.chart.CandlestickService;
@@ -31,6 +35,7 @@ import finance.registry.ModBlocks;
 import finance.registry.ModItems;
 import finance.registry.ModBlockEntities;
 import finance.stock.StockMarketManager;
+import finance.stock.Stock;
 import finance.diagnostic.StartupSelfCheckService;
 import net.minecraftforge.event.TickEvent.Phase;
 import net.minecraftforge.event.TickEvent.ServerTickEvent;
@@ -127,6 +132,13 @@ public class FinanceMod {
         CompaniesCommand.register(event.getDispatcher());
 
         CompanyCommand.register(event.getDispatcher());
+
+        TakeoverCommand.register(event.getDispatcher());
+
+        MarginCommand.register(event.getDispatcher());
+        finance.caravan.CaravanCommand.register(event.getDispatcher());
+        finance.command.EarningsCommand.register(event.getDispatcher());
+        PlayerBankCommand.register(event.getDispatcher());
     }
 
     /** 服务器启动时加载持久化数据 */
@@ -158,6 +170,13 @@ public class FinanceMod {
         StockMarketManager.seedSystemStocksIfNeeded();
         // 开服初始化只刷新公允价值，不递减创始人锁仓（P1-2：锁仓递减仅由日结算 tickNewDay 驱动）
         StockMarketManager.updateFairValuesAndResetDay();
+
+        // 股票做市商建仓：已上市但子账本无库存的股票，按 fairValue 从做市商总账户
+        // 拨款建仓至目标库存（幂等；余额不足时跳过，不阻断启动）
+        for (Stock stock : StockMarketManager.getStocks()) {
+            MarketMakerLedger.seedStockInventory(stock);
+        }
+
         StartupSelfCheckService.schedule(EconomyCycleService.currentMcDay(event.getServer()));
     }
 
