@@ -40,7 +40,7 @@ public final class FinanceFormat {
     private FinanceFormat() {}
 
     public static String companyName(FinanceScreen screen, UUID companyId){
-        for(FinanceMenu.CompanyInfo company:screen.menu.getAllCompanies())if(company.companyId().equals(companyId))return company.name();
+        for(FinanceMenu.CompanyInfo company:screen.menu().getAllCompanies())if(company.companyId().equals(companyId))return company.name();
         return companyId==null?"未知公司":companyId.toString().substring(0,8);
     }
 
@@ -166,9 +166,9 @@ public final class FinanceFormat {
         };
     }
 
-    public static List<FinanceMenu.AssetRow> sortedAssetRows() {
-        List<FinanceMenu.AssetRow> rows = new ArrayList<>(screen.menu.getAssetRows());
-        if (assetSortMode == 1) {
+    public static List<FinanceMenu.AssetRow> sortedAssetRows(FinanceScreen screen) {
+        List<FinanceMenu.AssetRow> rows = new ArrayList<>(screen.menu().getAssetRows());
+        if (screen.assetSortMode == 1) {
             rows.sort(Comparator.comparingLong(FinanceMenu.AssetRow::floatingProfit).reversed()
                     .thenComparing(Comparator.comparingLong(FinanceMenu.AssetRow::value).reversed()));
         } else {
@@ -189,7 +189,7 @@ public final class FinanceFormat {
         return String.format(Locale.ROOT, "%.1f%%", (double) value / total * 100.0);
     }
 
-    public static int parseInventoryAmount(FinanceScreen screen, ) {
+    public static int parseInventoryAmount(FinanceScreen screen) {
         return Math.max(64, FinanceFormat.parseInt(screen.inventoryQuantityBox.getValue()));
     }
 
