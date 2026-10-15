@@ -230,6 +230,51 @@ public class StockPriceEngine {
         recalculate();
     }
 
+    /**
+     * 财报季：按预期差冲击股价。
+     *
+     * <p>fairValue 按 {@code shockBps × fvPassThrough} 永久修正（预期差意味着未来盈利预期真的变了），
+     * currentPrice 按 shockBps 即时冲击；最后走 recalculate() 夹逼在 fairValue × [0.45, 1.85]，
+     * 单次财报不可能闪崩归零。
+     *
+     * @param shockBps      最终股价冲击（bps，可正可负；调用方已做钳制）
+     * @param fvPassThrough fairValue 透传比例 [0, 1]
+     */
+    public void applyEarningsShock(double shockBps, double fvPassThrough) {
+        if (fairValue <= 0) {
+            return;
+        }
+        double shockPct = Math.max(-0.5, Math.min(0.5, shockBps / 10000.0));
+        if (shockPct == 0) {
+            return;
+        }
+        double pass = Math.max(0.0, Math.min(1.0, fvPassThrough));
+        fairValue = Math.max(1, Math.round(fairValue * (1.0 + shockPct * pass)));
+        currentPrice = Math.max(1, Math.round(currentPrice * (1.0 + shockPct)));
+        recalculate();
+        recordSnapshot(0);
+    }
+
+    /**
+     * 分红除权：按每股分红额下调现价与 fairValue（不低于 1），走 recalculate() 夹逼。
+     *
+     * <p>fairValue 必须同步下调：分红是真实现金流出，公司价值确实减少。
+     * 若只降现价不降 fairValue，钉在 0.45×fairValue 下限的股票会被夹逼完整推回，
+     * 股东拿了分红现金、股价一分没降，形成永久分红漏损（且下限只随 fairValue
+     * 下降 0.45 倍，漏损不会自我修复）；同时均值回归会在除权瞬间收回约 8% 的下调。
+     * fairValue 同步下调后，(fairValue − currentPrice) 不变，均值回归不再吞除权，
+     * 夹逼下限同步下移，次日 updateFairValue 会按基本面重算，自愈。
+     */
+    public void applyExDividend(long perShare) {
+        if (perShare <= 0 || fairValue <= 0) {
+            return;
+        }
+        fairValue = Math.max(1, fairValue - perShare);
+        currentPrice = Math.max(1, currentPrice - perShare);
+        recalculate();
+        recordSnapshot(0); // 与 applyEarningsShock 一致：除权也在 K 线留点
+    }
+
     public void recordSnapshot(long volume) {
         snapshots.add(new PriceSnapshot(LocalDateTime.now(), currentPrice, volume));
         trimSnapshots();
