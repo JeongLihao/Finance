@@ -164,6 +164,11 @@
   "finance.feedback.market_recovery": "Market supply is recovering: %s (%s available)",
   "finance.feedback.company_risk": "Company entered financial risk status: %s",
   "finance.feedback.company_recovery": "Company recovered from financial risk: %s",
+  "finance.feedback.earnings_beat": "📈 %s %s earnings beat! Revenue %s, net profit %s, EPS %s, surprise +%s",
+  "finance.feedback.earnings_miss": "📉 %s %s earnings miss: revenue %s, net profit %s, EPS %s, surprise %s",
+  "finance.feedback.earnings_inline": "📰 %s %s earnings released: revenue %s, net profit %s, EPS %s (in line)",
+  "finance.feedback.earnings_first": "📰 %s published its first quarterly report: revenue %s, net profit %s, EPS %s",
+  "finance.feedback.earnings_nodata": "📰 %s %s earnings: no operating data this quarter",
   "finance.feedback.bank_restricted": "Banking restrictions are active; see a counter for public risk information",
   "finance.feedback.bank_resolution": "A bank resolution is active; existing deposits continue under settlement rules",
   "finance.feedback.market_event": "%s%s: %s (%s for %s)",
@@ -503,5 +508,14 @@
   "finance.company_supply.delivery_failed": "The goods transfer failed and was rolled back",
   "finance.company_supply.payment_failed": "The escrow payment failed and the delivery was rolled back",
   "finance.company_supply.partial": "Partial delivery settled from escrow",
-  "finance.company_supply.completed": "Company supply contract completed"
+  "finance.company_supply.completed": "Company supply contract completed",
+  "finance.feedback.policy_guidance": "[Central Bank Guidance] Meeting in %s days (day %s); current lean: %s; benchmark rate now %s",
+  "finance.feedback.policy_decision": "[Central Bank Decision] Benchmark rate %s -> %s (%s). %s",
+  "finance.feedback.policy_decision_manual": "[Central Bank] Manual intervention detected; keeping benchmark rate at %s (%s)",
+  "block.finance.factory": "Factory",
+  "screen.finance.factory.input": "Input",
+  "screen.finance.factory.output": "Output",
+  "screen.finance.factory.working": "Working",
+  "screen.finance.factory.idle": "Idle - awaiting input",
+  "screen.finance.factory.output_full": "Output full"
 }
