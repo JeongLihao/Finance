@@ -55,6 +55,7 @@ public final class EconomyConsistencyService {
             case DEBT -> checkBondsAndLoans(issues);
             case BANKING -> checkBanking(issues);
             case CARAVAN -> checkCaravan(issues);
+            case NPC_ECONOMY -> checkNpcEconomy(issues);
             case FUTURES -> checkFutures(issues);
             case FUND -> checkFunds(issues, mcDay);
             case INSURANCE -> checkInsurance(issues);
@@ -370,6 +371,25 @@ public final class EconomyConsistencyService {
         long observed = finance.cycle.FinancialCycleService.observedMarketDay();
         if (closed > observed && observed >= 0) add(out, DiagnosticSeverity.ERROR, "CYCLE", "CLOSED_AFTER_OBSERVED", "financial-cycle", "Closed market day is later than observed market day");
         if (mcDay >= 0 && (processed > mcDay || observed > mcDay)) add(out, DiagnosticSeverity.WARN, "CYCLE", "CLOCK_ROLLBACK", "financial-cycle", "Stored cycle day is ahead of current world day");
+    }
+
+    private static void checkNpcEconomy(List<DiagnosticIssue> out) {
+        // NPC 投资者：账户不能为负，持股不能让单股合计超过有表决权股份（股本核对由 STOCK 模块负责）。
+        for (finance.npcinvestor.NpcInvestorArchetype a : finance.npcinvestor.NpcInvestorArchetype.values()) {
+            finance.account.Account account = AccountManager.getAccounts().get(a.accountId());
+            if (account != null && (account.getBalance() < 0 || account.getFrozenBalance() < 0)) {
+                add(out, DiagnosticSeverity.ERROR, "NPC_ECONOMY", "NEGATIVE_BALANCE", a.name(), "NPC investor balance is negative");
+            }
+            var portfolio = StockPortfolioManager.getPortfolios().get(a.accountId());
+            if (portfolio == null) continue;
+            for (var entry : portfolio.entrySet()) {
+                finance.stock.Stock stock = finance.stock.StockMarketManager.getStock(entry.getKey());
+                if (stock == null || entry.getValue().getQuantity() > stock.getVotingShares()) {
+                    add(out, DiagnosticSeverity.ERROR, "NPC_ECONOMY", "HOLDING_INVALID", a.name() + "/" + entry.getKey(),
+                            "NPC investor holds shares of a missing stock or more than issued voting shares");
+                }
+            }
+        }
     }
 
     private static void checkCaravan(List<DiagnosticIssue> out) {

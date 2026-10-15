@@ -146,6 +146,8 @@ public final class FinanceFormat {
             case "COMPANY_LIQUIDATION" -> "清算分配";
             case "ADMIN_GIVE" -> "管理员";
             case "ADMIN_COMMODITY" -> "商品管理";
+            case "NPC_INVESTOR_FUNDING" -> "NPC 投资者注资";
+            case "NPC_FLOAT_PLACEMENT" -> "NPC 残差配售";
             default -> type;
         };
     }

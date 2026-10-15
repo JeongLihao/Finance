@@ -100,6 +100,14 @@ public final class FinanceConfig {
     private static final boolean FUTURES_MM_CIRCUIT_BREAKER_ENABLED_VALUE = true;
     private static final int FUTURES_MM_CIRCUIT_BREAKER_DEVIATION_BPS_VALUE = 3_000;
     private static final long FUTURES_MM_INITIAL_CAPITAL_VALUE = 500_000L;
+    // ---- 单人经济：NPC 投资者 ----
+    private static final boolean NPC_INVESTORS_ENABLED_VALUE = true;
+    private static final long NPC_INITIAL_CAPITAL_EACH_VALUE = 50_000L;
+    private static final long NPC_DAILY_BUDGET_VALUE = 5_000L;
+    private static final long NPC_POOL_RESERVE_FLOOR_VALUE = 1_000_000L;
+    private static final int NPC_MAX_HOLDING_PERCENT_EACH_VALUE = 20;
+    private static final int NPC_MAX_COMBINED_HOLDING_PERCENT_VALUE = 49;
+    private static final int NPC_MAX_FLOAT_PERCENT_PER_DAY_VALUE = 2;
     // ---- 商队商路 ----
     private static final int CARAVAN_MAX_ROUTES_PER_PLAYER_VALUE = 8;
     private static final int CARAVAN_MAX_QTY_PER_TRIP_VALUE = 1_024;
@@ -221,6 +229,13 @@ public final class FinanceConfig {
     private static final ForgeConfigSpec.IntValue FACTORY_COOK_TIME_BREAD;
     private static final ForgeConfigSpec.IntValue FACTORY_COOK_TIME_IRON;
     private static final ForgeConfigSpec.IntValue FACTORY_COOK_TIME_PLANKS;
+    private static final ForgeConfigSpec.BooleanValue NPC_INVESTORS_ENABLED;
+    private static final ForgeConfigSpec.LongValue NPC_INITIAL_CAPITAL_EACH;
+    private static final ForgeConfigSpec.LongValue NPC_DAILY_BUDGET;
+    private static final ForgeConfigSpec.LongValue NPC_POOL_RESERVE_FLOOR;
+    private static final ForgeConfigSpec.IntValue NPC_MAX_HOLDING_PERCENT_EACH;
+    private static final ForgeConfigSpec.IntValue NPC_MAX_COMBINED_HOLDING_PERCENT;
+    private static final ForgeConfigSpec.IntValue NPC_MAX_FLOAT_PERCENT_PER_DAY;
     private static final ForgeConfigSpec.IntValue CARAVAN_MAX_ROUTES_PER_PLAYER;
     private static final ForgeConfigSpec.IntValue CARAVAN_MAX_QTY_PER_TRIP;
     private static final ForgeConfigSpec.LongValue CARAVAN_BLOCKS_PER_DAY;
@@ -900,6 +915,30 @@ public final class FinanceConfig {
                 .define("exDividend", EARNINGS_EX_DIVIDEND_VALUE);
         builder.pop();
 
+        builder.push("npcEconomy");
+        NPC_INVESTORS_ENABLED = builder
+                .comment("NPC 投资者：关闭后 NPC 不交易不投票，已有持仓保留，仍可被交易、分红和交割。")
+                .define("npcInvestorsEnabled", NPC_INVESTORS_ENABLED_VALUE);
+        NPC_INITIAL_CAPITAL_EACH = builder
+                .comment("每个 NPC 投资者原型首次启用时从 NPC 资金池转入的初始资本。")
+                .defineInRange("initialCapitalEach", NPC_INITIAL_CAPITAL_EACH_VALUE, 0L, 100_000_000L);
+        NPC_DAILY_BUDGET = builder
+                .comment("NPC 投资者现金低于该值时，每天从 NPC 资金池补足到该值。")
+                .defineInRange("dailyBudget", NPC_DAILY_BUDGET_VALUE, 0L, 10_000_000L);
+        NPC_POOL_RESERVE_FLOOR = builder
+                .comment("NPC 资金池低于该值时不再注资或补足，避免把资金池拉到央行托底线以下、间接触发增发。")
+                .defineInRange("poolReserveFloor", NPC_POOL_RESERVE_FLOOR_VALUE, 0L, Long.MAX_VALUE);
+        NPC_MAX_HOLDING_PERCENT_EACH = builder
+                .comment("单个 NPC 原型对单家公司的持股上限（占有表决权股份 %）。短线派按一半计。")
+                .defineInRange("maxHoldingPercentEach", NPC_MAX_HOLDING_PERCENT_EACH_VALUE, 0, 49);
+        NPC_MAX_COMBINED_HOLDING_PERCENT = builder
+                .comment("全部 NPC 投资者对单家公司的合计持股上限（%），低于 50% 以免 NPC 自动取得控制权。")
+                .defineInRange("maxCombinedHoldingPercent", NPC_MAX_COMBINED_HOLDING_PERCENT_VALUE, 0, 49);
+        NPC_MAX_FLOAT_PERCENT_PER_DAY = builder
+                .comment("全部 NPC 投资者每天对单只股票的成交量上限（占流通股 %）。")
+                .defineInRange("maxFloatPercentPerDay", NPC_MAX_FLOAT_PERCENT_PER_DAY_VALUE, 0, 100);
+        builder.pop();
+
         COMMON_SPEC = builder.build();
     }
 
@@ -1146,6 +1185,35 @@ public final class FinanceConfig {
             case "oak_log_to_planks" -> getInt(FACTORY_COOK_TIME_PLANKS, safeFallback);
             default -> safeFallback;
         };}
+    // ---- 单人经济：NPC 投资者 ----
+    public static boolean npcInvestorsEnabled() {
+        return getBoolean(NPC_INVESTORS_ENABLED, NPC_INVESTORS_ENABLED_VALUE);
+    }
+
+    public static long npcInitialCapitalEach() {
+        return getLong(NPC_INITIAL_CAPITAL_EACH, NPC_INITIAL_CAPITAL_EACH_VALUE);
+    }
+
+    public static long npcDailyBudget() {
+        return getLong(NPC_DAILY_BUDGET, NPC_DAILY_BUDGET_VALUE);
+    }
+
+    public static long npcPoolReserveFloor() {
+        return getLong(NPC_POOL_RESERVE_FLOOR, NPC_POOL_RESERVE_FLOOR_VALUE);
+    }
+
+    public static int npcMaxHoldingPercentEach() {
+        return getInt(NPC_MAX_HOLDING_PERCENT_EACH, NPC_MAX_HOLDING_PERCENT_EACH_VALUE);
+    }
+
+    public static int npcMaxCombinedHoldingPercent() {
+        return getInt(NPC_MAX_COMBINED_HOLDING_PERCENT, NPC_MAX_COMBINED_HOLDING_PERCENT_VALUE);
+    }
+
+    public static int npcMaxFloatPercentPerDay() {
+        return getInt(NPC_MAX_FLOAT_PERCENT_PER_DAY, NPC_MAX_FLOAT_PERCENT_PER_DAY_VALUE);
+    }
+
     // ---- 商队商路 ----
     public static int caravanMaxRoutesPerPlayer() {
         return getInt(CARAVAN_MAX_ROUTES_PER_PLAYER, CARAVAN_MAX_ROUTES_PER_PLAYER_VALUE);

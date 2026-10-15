@@ -86,6 +86,7 @@ public final class EconomyCycleService {
         CompanyManager.tickAll(mcDay);
         CompanyManager.settleDailyProfits(mcDay);
         finance.earnings.EarningsSeasonService.processDay(server, mcDay);
+        finance.npcinvestor.NpcInvestorService.processDay(mcDay);
         StockMarketManager.tickNewDay();
         CompanyManager.tryDividends(mcDay);
         CompanyFinancingManager.tick(mcDay);
