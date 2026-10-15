@@ -19,6 +19,30 @@ public class CompanyIPOService {
     /** 上市费用默认值；实际费用从服务器配置读取。 */
     public static final long IPO_FEE = 5_000L;
 
+    /**
+     * 发行价上限 —— 单股发行价不得超过该值。
+     * 经济量级参考：新手初始资金 1,000；建公司 10,000；系统公司初始现金 50,000。
+     * 按最大发行量 100,000 股、总股本 250,000 股计，上限 100 对应总估值 2,500 万，
+     * 为系统公司初始规模的 500 倍，覆盖正常游戏内估值空间。
+     * 注意：仅靠单价上限挡不住刷钱（100 × 100,000 股仍可铸造 1,000 万），
+     * 必须配合下方的募资总额上限。
+     */
+    public static final long MAX_ISSUE_PRICE = 100L;
+
+    /**
+     * 单次 IPO 募资总额上限 —— issuePrice × issueQuantity 不得超过该值。
+     * 真实账本（P0-1 修正版，旧注释称"净亏 5000"是错的）：
+     * 成本侧：建公司 10,000（玩家余额扣除）＋ 上市费 ipoFee（配置下限钳制 ≥5,000）＝ ≥15,000；
+     * 收入侧：新公司自带 5,000 种子现金（INITIAL_PLAYER_COMPANY_CASH）＋ 本次募资 raisedCapital
+     * （≤10,000，本上限卡死；IPO 资金为发行铸造，直接进公司现金）＝ ≤15,000；
+     * 提现侧：公司现金提现对种子现金无限制，募资部分经所有者提现通道也可全额取出。
+     * 因此 ipoFee=5,000 且募资拉满时，"建公司→IPO→提现"整条链净损益为 0——不亏，但也无利可图。
+     * 安全边际真正来自两点：(1) ipoFee 下限钳制 ≥5000——旧下限允许配 0，此时成本只剩 10,000、
+     * 可提 15,000，每小号净赚 5,000；(2) 每人限建一家公司，重复开小号也只能打平，时间成本下无利可图。
+     * 正常小额募资不受影响。
+     */
+    public static final long MAX_TOTAL_RAISE = 10_000L;
+
     /** 默认发行比例 —— 创始人保留 60%，发行 40% */
     public static final double DEFAULT_FLOAT_RATIO = 0.4;
 
@@ -58,11 +82,19 @@ public class CompanyIPOService {
             return fail("发行数量过多（最多 100,000）。");
         }
 
+        if (issuePrice > MAX_ISSUE_PRICE) {
+            return fail("发行价过高（上限 " + MAX_ISSUE_PRICE + "）。");
+        }
+
         long raisedCapital;
         try {
             raisedCapital = Math.multiplyExact(issuePrice, issueQuantity);
         } catch (ArithmeticException ex) {
             return fail("募资金额过大。");
+        }
+
+        if (raisedCapital > MAX_TOTAL_RAISE) {
+            return fail("募资总额超过上限 " + MAX_TOTAL_RAISE + "（请降低发行价或发行数量）。");
         }
 
         String symbol = generateUniqueSymbol(company.getName());
@@ -110,6 +142,9 @@ public class CompanyIPOService {
             AccountManager.deposit(requesterId, ipoFee);
             return fail("Founder share settlement failed.");
         }
+
+        // 创始人股份锁定期 —— 防止上市即抛售砸盘套现
+        stock.setFounderLockup(requesterId, Stock.FOUNDER_SHARE_LOCKUP_DAYS);
 
         // 标记公司为已上市
         company.setPublic(true);
