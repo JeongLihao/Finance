@@ -21,6 +21,7 @@ import finance.chart.MarketSummary;
 import finance.client.chart.CandlestickChart;
 import finance.client.chart.CandlestickClientCache;
 import finance.client.chart.TechnicalIndicatorChart;
+import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;

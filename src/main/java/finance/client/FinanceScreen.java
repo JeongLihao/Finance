@@ -21,6 +21,7 @@ import finance.chart.MarketSummary;
 import finance.client.chart.CandlestickChart;
 import finance.client.chart.CandlestickClientCache;
 import finance.client.chart.TechnicalIndicatorChart;
+import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
@@ -53,7 +54,7 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
     boolean isAdmin = false;
     String statusMessage = "";
     String companyStrategyOverride = null;
-    private int assetSortMode = 0; // 0=价值, 1=收益
+    int assetSortMode = 0; // 0=价值, 1=收益
     boolean commodityChartVisible;
     boolean stockChartVisible;
     boolean futuresChartVisible;
@@ -95,7 +96,7 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
     EditBox adminDisplayNameBox;
     EditBox adminBasePriceBox;
     CommodityCategory adminCategory = CommodityCategory.RAW_MATERIALS;
-    private int adminSubTab = 0; // 0=从手中添加, 1=常用物品, 2=已注册商品
+    int adminSubTab = 0; // 0=从手中添加, 1=常用物品, 2=已注册商品
 
     // ---- 商品下拉菜单（交易标签 + 行情标签） ----
     boolean dropdownOpen = false;
@@ -125,6 +126,15 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
     final ServiceTabs serviceTabs = new ServiceTabs(this);
     final RecordTabs recordTabs = new RecordTabs(this);
     final AdminTabs adminTabs = new AdminTabs(this);
+
+    // ---- 供同包 *Tabs 类访问的 protected 继承成员（font/menu 等声明在 MC 包内，跨包子类外不可见） ----
+    Font font() { return font; }
+    FinanceMenu menu() { return menu; }
+    int imageWidth() { return imageWidth; }
+    int imageHeight() { return imageHeight; }
+    int leftPos() { return leftPos; }
+    int topPos() { return topPos; }
+
     public FinanceScreen(FinanceMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
         imageWidth = FinanceGui.PANEL_WIDTH;

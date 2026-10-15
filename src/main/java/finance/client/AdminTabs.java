@@ -72,19 +72,19 @@ public final class AdminTabs {
         int subX = 10;
         for (int i = 0; i < ADMIN_SUB_TABS.length; i++) {
             int w = adminSubTabWidth();
-            boolean active = (i == adminSubTab);
+            boolean active = (i == screen.adminSubTab);
             if (active) {
                 g.fill(subX, y - 1, subX + w, y + 13, 0xFFECE6D5);
                 g.fill(subX + 2, y + 12, subX + w - 2, y + 13, FinanceGui.COL_ACCENT);
             }
-            FinanceGui.drawCenteredClippedString(screen.font, g, ADMIN_SUB_TABS[i], subX, y + 2, w, active ? FinanceGui.COL_TEXT : FinanceGui.COL_TEXT_DIM);
+            FinanceGui.drawCenteredClippedString(screen.font(), g, ADMIN_SUB_TABS[i], subX, y + 2, w, active ? FinanceGui.COL_TEXT : FinanceGui.COL_TEXT_DIM);
             subX += w + 3;
         }
         y += 16;
-        FinanceGui.drawSimpleSeparator(g, 8, y, screen.imageWidth - 16);
+        FinanceGui.drawSimpleSeparator(g, 8, y, screen.imageWidth() - 16);
         y += 6;
 
-        switch (adminSubTab) {
+        switch (screen.adminSubTab) {
             case 0 -> renderAdminHandTab(g, y);
             case 1 -> renderAdminQuickTab(g, y);
             case 2 -> renderAdminRegisteredTab(g, y);
@@ -98,67 +98,67 @@ public final class AdminTabs {
 
     /** 子页 0：从手中添加 + 手动添加 */
     public void renderAdminHandTab(GuiGraphics g, int y) {
-        g.fill(8, y - 4, screen.imageWidth - 8, screen.imageHeight - 8, 0xFFF1ECDD);
-        FinanceGui.drawSimpleBorder(g, 8, y - 4, screen.imageWidth - 16, screen.imageHeight - y - 4, FinanceGui.COL_PANEL_BORDER);
-        FinanceGui.drawSectionTitle(screen.font, g, "从手中添加", 10, y);
-        FinanceGui.drawFilledButton(screen.font, g, "添加手持物品", 100, y - 2, 90, FinanceGui.COL_GOOD);
+        g.fill(8, y - 4, screen.imageWidth() - 8, screen.imageHeight() - 8, 0xFFF1ECDD);
+        FinanceGui.drawSimpleBorder(g, 8, y - 4, screen.imageWidth() - 16, screen.imageHeight() - y - 4, FinanceGui.COL_PANEL_BORDER);
+        FinanceGui.drawSectionTitle(screen.font(), g, "从手中添加", 10, y);
+        FinanceGui.drawFilledButton(screen.font(), g, "添加手持物品", 100, y - 2, 90, FinanceGui.COL_GOOD);
         // screen.adminBasePriceBox 在 localY=88 (FinanceGui.CONTENT_Y+88=46+88=134 但 localY=88)
-        g.drawString(screen.font, "价格:", 200, y + 20, FinanceGui.COL_TEXT_DIM, false);
+        g.drawString(screen.font(), "价格:", 200, y + 20, FinanceGui.COL_TEXT_DIM, false);
         y += 18;
 
-        FinanceGui.drawSimpleSeparator(g, 8, y, screen.imageWidth - 16);
+        FinanceGui.drawSimpleSeparator(g, 8, y, screen.imageWidth() - 16);
         y += 6;
 
-        FinanceGui.drawSectionTitle(screen.font, g, "手动添加", 10, y);
+        FinanceGui.drawSectionTitle(screen.font(), g, "手动添加", 10, y);
         y += 14;
 
         // 输入框与标签共用 localY=144，避免输入框掉到说明文字下方。
-        g.drawString(screen.font, "ID:", 10, y + 38, FinanceGui.COL_TEXT_DIM, false);
-        g.drawString(screen.font, "物品:", 120, y + 38, FinanceGui.COL_TEXT_DIM, false);
-        g.drawString(screen.font, "名称:", 270, y + 38, FinanceGui.COL_TEXT_DIM, false);
+        g.drawString(screen.font(), "ID:", 10, y + 38, FinanceGui.COL_TEXT_DIM, false);
+        g.drawString(screen.font(), "物品:", 120, y + 38, FinanceGui.COL_TEXT_DIM, false);
+        g.drawString(screen.font(), "名称:", 270, y + 38, FinanceGui.COL_TEXT_DIM, false);
         y += 56;
 
-        FinanceGui.drawClippedString(screen.font, g, "价格使用上方设置", 10, y + 2, 100, FinanceGui.COL_TEXT_DIM);
-        g.drawString(screen.font, "分类:", 120, y + 2, FinanceGui.COL_TEXT_DIM, false);
-        FinanceGui.drawButton(screen.font, g, "< " + screen.adminCategory.getDisplayName() + " >", 152, y, 80, true);
-        FinanceGui.drawFilledButton(screen.font, g, "添加", 244, y, 44, FinanceGui.COL_GOOD);
+        FinanceGui.drawClippedString(screen.font(), g, "价格使用上方设置", 10, y + 2, 100, FinanceGui.COL_TEXT_DIM);
+        g.drawString(screen.font(), "分类:", 120, y + 2, FinanceGui.COL_TEXT_DIM, false);
+        FinanceGui.drawButton(screen.font(), g, "< " + screen.adminCategory.getDisplayName() + " >", 152, y, 80, true);
+        FinanceGui.drawFilledButton(screen.font(), g, "添加", 244, y, 44, FinanceGui.COL_GOOD);
     }
     public void renderAdminPriceHistoryTab(GuiGraphics g, int y) {
-        g.fill(8, y - 4, screen.imageWidth - 8, screen.imageHeight - 8, 0xFFF1ECDD);
-        FinanceGui.drawSimpleBorder(g, 8, y - 4, screen.imageWidth - 16, screen.imageHeight - y - 4, FinanceGui.COL_PANEL_BORDER);
-        FinanceGui.drawSectionTitle(screen.font, g, "价格历史清理", 10, y);
-        FinanceGui.drawClippedString(screen.font, g, "清理只删除趋势图历史点，不会修改当前价格、高低价或持仓。", 10, y + 18, 310, FinanceGui.COL_TEXT_DIM);
-        FinanceGui.drawFilledButton(screen.font, g, "清理商品历史", 20, y + 44, 90, FinanceGui.COL_WARN);
-        FinanceGui.drawFilledButton(screen.font, g, "清理股票历史", 126, y + 44, 90, FinanceGui.COL_WARN);
-        FinanceGui.drawFilledButton(screen.font, g, "全部清理", 232, y + 44, 76, FinanceGui.COL_BAD);
+        g.fill(8, y - 4, screen.imageWidth() - 8, screen.imageHeight() - 8, 0xFFF1ECDD);
+        FinanceGui.drawSimpleBorder(g, 8, y - 4, screen.imageWidth() - 16, screen.imageHeight() - y - 4, FinanceGui.COL_PANEL_BORDER);
+        FinanceGui.drawSectionTitle(screen.font(), g, "价格历史清理", 10, y);
+        FinanceGui.drawClippedString(screen.font(), g, "清理只删除趋势图历史点，不会修改当前价格、高低价或持仓。", 10, y + 18, 310, FinanceGui.COL_TEXT_DIM);
+        FinanceGui.drawFilledButton(screen.font(), g, "清理商品历史", 20, y + 44, 90, FinanceGui.COL_WARN);
+        FinanceGui.drawFilledButton(screen.font(), g, "清理股票历史", 126, y + 44, 90, FinanceGui.COL_WARN);
+        FinanceGui.drawFilledButton(screen.font(), g, "全部清理", 232, y + 44, 76, FinanceGui.COL_BAD);
     }
     public void renderAdminDividendTab(GuiGraphics g, int y) {
-        g.fill(8, y - 4, screen.imageWidth - 8, screen.imageHeight - 8, 0xFFF1ECDD);
-        FinanceGui.drawSimpleBorder(g, 8, y - 4, screen.imageWidth - 16, screen.imageHeight - y - 4, FinanceGui.COL_PANEL_BORDER);
-        FinanceGui.drawSectionTitle(screen.font, g, "公司分红设置", 10, y);
-        FinanceGui.drawClippedString(screen.font, g, "分红比例: " + Math.round(screen.menu.getDividendRatio() * 100) + "%", 16, y + 24, 110, FinanceGui.COL_TEXT);
-        FinanceGui.drawButton(screen.font, g, "-10%", 134, y + 20, 44, false);
-        FinanceGui.drawButton(screen.font, g, "+10%", 184, y + 20, 44, false);
-        FinanceGui.drawClippedString(screen.font, g, "分红周期: " + screen.menu.getDividendCycleDays() + " 天", 16, y + 50, 120, FinanceGui.COL_TEXT);
-        FinanceGui.drawButton(screen.font, g, "-1天", 134, y + 46, 44, false);
-        FinanceGui.drawButton(screen.font, g, "+1天", 184, y + 46, 44, false);
-        FinanceGui.drawClippedString(screen.font, g, "到期后，上市公司会按股东持股比例自动分红。", 16, y + 80, 280, FinanceGui.COL_TEXT_DIM);
+        g.fill(8, y - 4, screen.imageWidth() - 8, screen.imageHeight() - 8, 0xFFF1ECDD);
+        FinanceGui.drawSimpleBorder(g, 8, y - 4, screen.imageWidth() - 16, screen.imageHeight() - y - 4, FinanceGui.COL_PANEL_BORDER);
+        FinanceGui.drawSectionTitle(screen.font(), g, "公司分红设置", 10, y);
+        FinanceGui.drawClippedString(screen.font(), g, "分红比例: " + Math.round(screen.menu().getDividendRatio() * 100) + "%", 16, y + 24, 110, FinanceGui.COL_TEXT);
+        FinanceGui.drawButton(screen.font(), g, "-10%", 134, y + 20, 44, false);
+        FinanceGui.drawButton(screen.font(), g, "+10%", 184, y + 20, 44, false);
+        FinanceGui.drawClippedString(screen.font(), g, "分红周期: " + screen.menu().getDividendCycleDays() + " 天", 16, y + 50, 120, FinanceGui.COL_TEXT);
+        FinanceGui.drawButton(screen.font(), g, "-1天", 134, y + 46, 44, false);
+        FinanceGui.drawButton(screen.font(), g, "+1天", 184, y + 46, 44, false);
+        FinanceGui.drawClippedString(screen.font(), g, "到期后，上市公司会按股东持股比例自动分红。", 16, y + 80, 280, FinanceGui.COL_TEXT_DIM);
     }
 
     /** 子页 1：常用物品分类列表（带图标） */
     public void renderAdminQuickTab(GuiGraphics g, int y) {
-        FinanceGui.drawSectionTitle(screen.font, g, "常用物品（点击添加，灰色已注册）", 10, y);
+        FinanceGui.drawSectionTitle(screen.font(), g, "常用物品（点击添加，灰色已注册）", 10, y);
         int perPage = quickItemsPerPage();
         int maxPage = Math.max(0, (QUICK_ITEMS.length - 1) / perPage);
         screen.adminQuickPage = Math.min(screen.adminQuickPage, maxPage);
-        FinanceGui.drawButton(screen.font, g, "上一页", screen.imageWidth - 110, y - 2, 48, false);
-        FinanceGui.drawButton(screen.font, g, "下一页", screen.imageWidth - 56, y - 2, 48, false);
-        FinanceGui.drawClippedString(screen.font, g, (screen.adminQuickPage + 1) + "/" + (maxPage + 1), screen.imageWidth - 158, y + 1, 42, FinanceGui.COL_TEXT_DIM);
+        FinanceGui.drawButton(screen.font(), g, "上一页", screen.imageWidth() - 110, y - 2, 48, false);
+        FinanceGui.drawButton(screen.font(), g, "下一页", screen.imageWidth() - 56, y - 2, 48, false);
+        FinanceGui.drawClippedString(screen.font(), g, (screen.adminQuickPage + 1) + "/" + (maxPage + 1), screen.imageWidth() - 158, y + 1, 42, FinanceGui.COL_TEXT_DIM);
         y += 14;
 
         int listX = 10;
-        int listW = screen.imageWidth - 20;
-        int maxYY = screen.imageHeight - 4;
+        int listW = screen.imageWidth() - 20;
+        int maxYY = screen.imageHeight() - 4;
 
         int start = screen.adminQuickPage * perPage;
         int end = Math.min(QUICK_ITEMS.length, start + perPage);
@@ -170,7 +170,7 @@ public final class AdminTabs {
             if (cat != lastCat) {
                 // 分类标题
                 g.fill(listX, y, listX + listW, y + 12, FinanceGui.COL_CATEGORY);
-                g.drawString(screen.font, "▸ " + cat.getDisplayName(), listX + 4, y + 2, FinanceGui.COL_TEXT, false);
+                g.drawString(screen.font(), "▸ " + cat.getDisplayName(), listX + 4, y + 2, FinanceGui.COL_TEXT, false);
                 y += 14;
                 lastCat = cat;
                 if (y + 14 > maxYY) break;
@@ -184,12 +184,12 @@ public final class AdminTabs {
             Item item = BuiltInRegistries.ITEM.get(ResourceLocation.tryParse(QUICK_ITEMS[i][1]));
             FinanceGui.renderItemIcon(g, item, listX + 4, y + 2);
 
-            FinanceGui.drawClippedString(screen.font, g, QUICK_ITEMS[i][2], listX + 22, y + 3, 80, registered ? FinanceGui.COL_TEXT_DIM : FinanceGui.COL_TEXT);
-            FinanceGui.drawClippedString(screen.font, g, "基础价: " + QUICK_ITEMS[i][3], listX + 110, y + 3, 80, FinanceGui.COL_TEXT_DIM);
+            FinanceGui.drawClippedString(screen.font(), g, QUICK_ITEMS[i][2], listX + 22, y + 3, 80, registered ? FinanceGui.COL_TEXT_DIM : FinanceGui.COL_TEXT);
+            FinanceGui.drawClippedString(screen.font(), g, "基础价: " + QUICK_ITEMS[i][3], listX + 110, y + 3, 80, FinanceGui.COL_TEXT_DIM);
             if (registered) {
-                FinanceGui.drawClippedString(screen.font, g, "已注册", listX + listW - 46, y + 3, 40, FinanceGui.COL_TEXT_DIM);
+                FinanceGui.drawClippedString(screen.font(), g, "已注册", listX + listW - 46, y + 3, 40, FinanceGui.COL_TEXT_DIM);
             } else {
-                FinanceGui.drawFilledButton(screen.font, g, "添加", listX + listW - 44, y, 36, FinanceGui.COL_GOOD);
+                FinanceGui.drawFilledButton(screen.font(), g, "添加", listX + listW - 44, y, 36, FinanceGui.COL_GOOD);
             }
             y += 16;
         }
@@ -197,21 +197,21 @@ public final class AdminTabs {
 
     /** 子页 2：已注册商品列表 */
     public void renderAdminRegisteredTab(GuiGraphics g, int y) {
-        FinanceGui.drawSectionTitle(screen.font, g, "已注册商品", 10, y);
+        FinanceGui.drawSectionTitle(screen.font(), g, "已注册商品", 10, y);
         screen.ensureCommodityCache();
         int perPage = registeredItemsPerPage();
         int maxPage = Math.max(0, (screen.cachedCommodities.size() - 1) / perPage);
         screen.adminRegisteredPage = Math.min(screen.adminRegisteredPage, maxPage);
-        FinanceGui.drawButton(screen.font, g, "上一页", screen.imageWidth - 110, y - 2, 48, false);
-        FinanceGui.drawButton(screen.font, g, "下一页", screen.imageWidth - 56, y - 2, 48, false);
-        FinanceGui.drawClippedString(screen.font, g, (screen.adminRegisteredPage + 1) + "/" + (maxPage + 1), screen.imageWidth - 158, y + 1, 42, FinanceGui.COL_TEXT_DIM);
+        FinanceGui.drawButton(screen.font(), g, "上一页", screen.imageWidth() - 110, y - 2, 48, false);
+        FinanceGui.drawButton(screen.font(), g, "下一页", screen.imageWidth() - 56, y - 2, 48, false);
+        FinanceGui.drawClippedString(screen.font(), g, (screen.adminRegisteredPage + 1) + "/" + (maxPage + 1), screen.imageWidth() - 158, y + 1, 42, FinanceGui.COL_TEXT_DIM);
         y += 14;
 
-        FinanceGui.drawHeader(screen.font, g, "显示名", 10, y);
-        FinanceGui.drawHeader(screen.font, g, "物品ID", 86, y);
-        FinanceGui.drawHeader(screen.font, g, "价格", 222, y);
-        FinanceGui.drawHeader(screen.font, g, "分类", 262, y);
-        FinanceGui.drawHeader(screen.font, g, "操作", 328, y);
+        FinanceGui.drawHeader(screen.font(), g, "显示名", 10, y);
+        FinanceGui.drawHeader(screen.font(), g, "物品ID", 86, y);
+        FinanceGui.drawHeader(screen.font(), g, "价格", 222, y);
+        FinanceGui.drawHeader(screen.font(), g, "分类", 262, y);
+        FinanceGui.drawHeader(screen.font(), g, "操作", 328, y);
         y += 12;
 
         int start = screen.adminRegisteredPage * perPage;
@@ -219,13 +219,13 @@ public final class AdminTabs {
         for (int i = start; i < end; i++) {
             Commodity c = screen.cachedCommodities.get(i);
             int rowY = y + (i - start) * FinanceGui.ROW_HEIGHT;
-            g.fill(8, rowY, screen.imageWidth - 8, rowY + FinanceGui.ROW_HEIGHT, (i % 2 == 0) ? FinanceGui.COL_ROW_EVEN : FinanceGui.COL_ROW_ODD);
-            FinanceGui.drawClippedString(screen.font, g, c.getDisplayName(), 10, rowY + 3, 70, FinanceGui.COL_TEXT);
+            g.fill(8, rowY, screen.imageWidth() - 8, rowY + FinanceGui.ROW_HEIGHT, (i % 2 == 0) ? FinanceGui.COL_ROW_EVEN : FinanceGui.COL_ROW_ODD);
+            FinanceGui.drawClippedString(screen.font(), g, c.getDisplayName(), 10, rowY + 3, 70, FinanceGui.COL_TEXT);
             String itemId = c.getItemId();
-            FinanceGui.drawClippedString(screen.font, g, itemId != null ? itemId : c.getId(), 86, rowY + 3, 130, FinanceGui.COL_TEXT_DIM);
-            FinanceGui.drawClippedString(screen.font, g, Long.toString(c.getBasePrice()), 222, rowY + 3, 36, FinanceGui.COL_GOOD);
-            FinanceGui.drawClippedString(screen.font, g, c.getCategory().getDisplayName(), 262, rowY + 3, 60, FinanceGui.COL_TEXT_DIM);
-            FinanceGui.drawButton(screen.font, g, "删除", 328, rowY + 1, 42, false);
+            FinanceGui.drawClippedString(screen.font(), g, itemId != null ? itemId : c.getId(), 86, rowY + 3, 130, FinanceGui.COL_TEXT_DIM);
+            FinanceGui.drawClippedString(screen.font(), g, Long.toString(c.getBasePrice()), 222, rowY + 3, 36, FinanceGui.COL_GOOD);
+            FinanceGui.drawClippedString(screen.font(), g, c.getCategory().getDisplayName(), 262, rowY + 3, 60, FinanceGui.COL_TEXT_DIM);
+            FinanceGui.drawButton(screen.font(), g, "删除", 328, rowY + 1, 42, false);
         }
     }
 
@@ -243,7 +243,7 @@ public final class AdminTabs {
         for (int i = 0; i < ADMIN_SUB_TABS.length; i++) {
             int w = adminSubTabWidth();
             if (mx >= subX && mx < subX + w && my >= y && my < y + 14) {
-                adminSubTab = i;
+                screen.adminSubTab = i;
                 screen.rememberUiState();
                 screen.updateInputVisibility();
                 return true;
@@ -252,7 +252,7 @@ public final class AdminTabs {
         }
         y += 16 + 6;
 
-        return switch (adminSubTab) {
+        return switch (screen.adminSubTab) {
             case 0 -> handleAdminHandClick(mx, my, y);
             case 1 -> handleAdminQuickClick(mx, my, y);
             case 2 -> handleAdminRegisteredClick(mx, my, y);
@@ -264,13 +264,13 @@ public final class AdminTabs {
     public boolean handleAdminDividendClick(int mx, int my, int y) {
         if (my >= y + 20 && my < y + 33) {
             if (mx >= 134 && mx < 178) {
-                double next = Math.max(0.0, screen.menu.getDividendRatio() - 0.10);
+                double next = Math.max(0.0, screen.menu().getDividendRatio() - 0.10);
                 screen.setStatus("已提交分红比例调整");
                 FinancePacketHandler.CHANNEL.sendToServer(AdminActionPacket.setDividendRatio(next));
                 return true;
             }
             if (mx >= 184 && mx < 228) {
-                double next = Math.min(1.0, screen.menu.getDividendRatio() + 0.10);
+                double next = Math.min(1.0, screen.menu().getDividendRatio() + 0.10);
                 screen.setStatus("已提交分红比例调整");
                 FinancePacketHandler.CHANNEL.sendToServer(AdminActionPacket.setDividendRatio(next));
                 return true;
@@ -278,13 +278,13 @@ public final class AdminTabs {
         }
         if (my >= y + 46 && my < y + 59) {
             if (mx >= 134 && mx < 178) {
-                int next = Math.max(1, screen.menu.getDividendCycleDays() - 1);
+                int next = Math.max(1, screen.menu().getDividendCycleDays() - 1);
                 screen.setStatus("已提交分红周期调整");
                 FinancePacketHandler.CHANNEL.sendToServer(AdminActionPacket.setDividendCycle(next));
                 return true;
             }
             if (mx >= 184 && mx < 228) {
-                int next = Math.min(365, screen.menu.getDividendCycleDays() + 1);
+                int next = Math.min(365, screen.menu().getDividendCycleDays() + 1);
                 screen.setStatus("已提交分红周期调整");
                 FinancePacketHandler.CHANNEL.sendToServer(AdminActionPacket.setDividendCycle(next));
                 return true;
@@ -364,19 +364,19 @@ public final class AdminTabs {
     public boolean handleAdminQuickClick(int mx, int my, int startY) {
         if (my >= startY - 2 && my < startY + 11) {
             int maxPage = Math.max(0, (QUICK_ITEMS.length - 1) / quickItemsPerPage());
-            if (mx >= screen.imageWidth - 110 && mx < screen.imageWidth - 62) {
+            if (mx >= screen.imageWidth() - 110 && mx < screen.imageWidth() - 62) {
                 screen.adminQuickPage = Math.max(0, screen.adminQuickPage - 1);
                 return true;
             }
-            if (mx >= screen.imageWidth - 56 && mx < screen.imageWidth - 8) {
+            if (mx >= screen.imageWidth() - 56 && mx < screen.imageWidth() - 8) {
                 screen.adminQuickPage = Math.min(maxPage, screen.adminQuickPage + 1);
                 return true;
             }
         }
         int y = startY + 14; // 跳过标题
         int listX = 10;
-        int listW = screen.imageWidth - 20;
-        int maxYY = screen.imageHeight - 4;
+        int listW = screen.imageWidth() - 20;
+        int maxYY = screen.imageHeight() - 4;
 
         int perPage = quickItemsPerPage();
         int start = screen.adminQuickPage * perPage;
@@ -417,11 +417,11 @@ public final class AdminTabs {
         if (my >= y - 2 && my < y + 11) {
             screen.ensureCommodityCache();
             int maxPage = Math.max(0, (screen.cachedCommodities.size() - 1) / registeredItemsPerPage());
-            if (mx >= screen.imageWidth - 110 && mx < screen.imageWidth - 62) {
+            if (mx >= screen.imageWidth() - 110 && mx < screen.imageWidth() - 62) {
                 screen.adminRegisteredPage = Math.max(0, screen.adminRegisteredPage - 1);
                 return true;
             }
-            if (mx >= screen.imageWidth - 56 && mx < screen.imageWidth - 8) {
+            if (mx >= screen.imageWidth() - 56 && mx < screen.imageWidth() - 8) {
                 screen.adminRegisteredPage = Math.min(maxPage, screen.adminRegisteredPage + 1);
                 return true;
             }
@@ -447,6 +447,6 @@ public final class AdminTabs {
         return 7;
     }
     public int registeredItemsPerPage() {
-        return Math.max(1, (screen.imageHeight - (FinanceGui.CONTENT_Y + 22 + 26) - 4) / FinanceGui.ROW_HEIGHT);
+        return Math.max(1, (screen.imageHeight() - (FinanceGui.CONTENT_Y + 22 + 26) - 4) / FinanceGui.ROW_HEIGHT);
     }
 }
