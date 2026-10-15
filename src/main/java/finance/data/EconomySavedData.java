@@ -9,6 +9,7 @@ import finance.company.CompanyManager;
 import finance.company.CompanyProposalManager;
 import finance.event.EventManager;
 import finance.market.MarketManager;
+import finance.market.MarketMakerLedger;
 import finance.market.NpcMarketMaker;
 import finance.stock.Stock;
 import finance.stock.ConditionalStockOrderManager;
@@ -29,6 +30,7 @@ import finance.data.serializer.FinancialDataSerializer;
 import finance.data.serializer.DebtDataSerializer;
 import finance.data.serializer.BondMarketDataSerializer;
 import finance.data.serializer.CentralBankBillDataSerializer;
+import finance.data.serializer.TreasuryBondDataSerializer;
 import finance.data.serializer.FuturesDataSerializer;
 import finance.data.serializer.BankingDataSerializer;
 import finance.data.serializer.DiagnosticDataSerializer;
@@ -39,9 +41,11 @@ import finance.data.serializer.WarehouseDataSerializer;
 import finance.data.serializer.ContractDataSerializer;
 import finance.data.serializer.CompanyGameplayDataSerializer;
 import finance.data.serializer.CapitalProjectDataSerializer;
+import finance.data.serializer.CaravanDataSerializer;
 import finance.data.serializer.WorldFeedbackDataSerializer;
 import finance.data.serializer.LogisticsDataSerializer;
 import finance.data.serializer.SettlementDataSerializer;
+import finance.data.serializer.VillageDataSerializer;
 import finance.data.serializer.ExplorationDataSerializer;
 import finance.data.serializer.RegionalCommodityDataSerializer;
 import finance.data.serializer.InventoryCollateralDataSerializer;
@@ -77,7 +81,7 @@ import net.minecraft.world.level.storage.DimensionDataStorage;
 public class EconomySavedData extends SavedData {
 
     public static final String DATA_NAME = "finance_data";
-    private static final int DATA_VERSION = 36;
+    private static final int DATA_VERSION = 37;
     public static int currentDataVersion() { return DATA_VERSION; }
 
     // ================================================================
@@ -101,15 +105,18 @@ public class EconomySavedData extends SavedData {
         DebtDataSerializer.save(tag);
         BondMarketDataSerializer.save(tag);
         CentralBankBillDataSerializer.save(tag);
+        TreasuryBondDataSerializer.save(tag);
         FuturesDataSerializer.save(tag);
         BankingDataSerializer.save(tag);
         DiagnosticDataSerializer.save(tag);
         FundDataSerializer.save(tag);
         InsuranceDataSerializer.save(tag);
         GovernanceDataSerializer.save(tag);
+        finance.data.serializer.MarginDataSerializer.save(tag);
         WarehouseDataSerializer.save(tag);
         LogisticsDataSerializer.save(tag);
         SettlementDataSerializer.save(tag);
+        VillageDataSerializer.save(tag);
         RegionalCommodityDataSerializer.save(tag);
         InventoryCollateralDataSerializer.save(tag);
         CompanyHedgeDataSerializer.save(tag);
@@ -118,6 +125,7 @@ public class EconomySavedData extends SavedData {
         ContractDataSerializer.save(tag);
         CapitalProjectDataSerializer.save(tag);
         WorldFeedbackDataSerializer.save(tag);
+        CaravanDataSerializer.save(tag);
 
 
 
@@ -152,6 +160,7 @@ public class EconomySavedData extends SavedData {
             }
             stockTag.putInt("FounderLockupDays", stock.getFounderLockupDaysRemaining());
             stockTag.putLong("MarketMakerBought", stock.getMarketMakerBoughtShares());
+            stockTag.putBoolean("TradingHalted", stock.isTradingHalted());
 
             // 新引擎字段
             stockTag.putLong("LastPrice", stock.getLastPrice());
@@ -262,6 +271,7 @@ public class EconomySavedData extends SavedData {
         MarketDataSerializer.loadCommodityDefinitions(tag);
         CompanyDataSerializer.load(tag);
         MarketDataSerializer.loadMarketState(tag);
+        MarketDataSerializer.loadMarketMakerLedger(tag);
         MetricsDataSerializer.load(tag);
         CandlestickDataSerializer.load(tag);
         FinancialDataSerializer.load(tag);
@@ -269,6 +279,7 @@ public class EconomySavedData extends SavedData {
         DebtDataSerializer.load(tag);
         BondMarketDataSerializer.load(tag);
         CentralBankBillDataSerializer.load(tag);
+        TreasuryBondDataSerializer.load(tag);
         FuturesDataSerializer.load(tag);
         DiagnosticDataSerializer.load(tag);
         FundDataSerializer.load(tag);
@@ -314,6 +325,9 @@ public class EconomySavedData extends SavedData {
                 }
                 if (stockTag.contains("MarketMakerBought")) {
                     stock.restoreMarketMakerBoughtShares(stockTag.getLong("MarketMakerBought"));
+                }
+                if (stockTag.contains("TradingHalted")) {
+                    stock.setTradingHalted(stockTag.getBoolean("TradingHalted"));
                 }
                 Company company = CompanyManager.getCompany(companyUuid);
                 if (company == null || !company.isPublic()) {
@@ -429,9 +443,11 @@ public class EconomySavedData extends SavedData {
         }
 
         GovernanceDataSerializer.load(tag);
+        finance.data.serializer.MarginDataSerializer.load(tag);
         WarehouseDataSerializer.load(tag);
         LogisticsDataSerializer.load(tag);
         SettlementDataSerializer.load(tag);
+        VillageDataSerializer.load(tag);
         RegionalCommodityDataSerializer.load(tag);
         InventoryCollateralDataSerializer.load(tag);
         CompanyHedgeDataSerializer.load(tag);
@@ -440,6 +456,7 @@ public class EconomySavedData extends SavedData {
         ContractDataSerializer.load(tag);
         CapitalProjectDataSerializer.load(tag);
         WorldFeedbackDataSerializer.load(tag);
+        CaravanDataSerializer.load(tag);
         RecentTradeService.rebuildFromHistories();
         return data;
     }
@@ -471,7 +488,11 @@ public class EconomySavedData extends SavedData {
         CompanyManager.clearCompaniesDirect();
         CompanyManager.resetDividendPolicyDirect();
         NpcMarketMaker.clearMarketPrices();
+        MarketMakerLedger.clearDirect();
         EventManager.clearActiveEvents();
+        EventManager.resetTimersDirect();
+        finance.cycle.EconomyCycleService.resetDirect();
+        finance.market.MarketOpportunityService.invalidate();
         StockMarketManager.clearStocks();
         StockMarketManager.clearStockOrders();
         StockMarketManager.clearStockTradeHistory();
@@ -482,27 +503,36 @@ public class EconomySavedData extends SavedData {
         FinancialCycleService.clearDirect();
         finance.index.MarketIndexService.clearDirect();
         finance.policy.MonetaryPolicyService.clearDirect();
+        finance.policy.PolicyMeetingService.clearDirect();
         finance.debt.CorporateBondManager.clearDirect();
         finance.debt.CompanyLoanManager.clearDirect();
         finance.bondmarket.BondMarketManager.clearDirect();
         finance.bondmarket.BondPortfolioManager.clearDirect();
         finance.fixedincome.CentralBankBillManager.clearDirect();
+        finance.fixedincome.TreasuryBondManager.clearDirect();
         finance.futures.FuturesMarketManager.clearDirect();
         finance.futures.MarginManager.clearDirect();
         finance.futures.FuturesClearingService.clearDirect();
+        finance.futures.FuturesMarketMaker.resetDirect();
         finance.bank.BankingManager.clearDirect();
+        finance.bank.PlayerBankService.clearDirect();
         finance.bank.InterbankMarketService.clearDirect();
         finance.bank.CentralBankLiquidityService.clearDirect();
         finance.bank.DepositInsuranceService.clearDirect();
+        finance.bank.BankRunService.clearDirect();
         finance.diagnostic.DiagnosticManager.clear();
         finance.diagnostic.ModuleHealthRegistry.clear();
         finance.diagnostic.StartupSelfCheckService.clear();
         finance.fund.FundManager.clearDirect();
         finance.insurance.InsuranceManager.clearDirect();
         finance.governance.CorporateActionManager.clearDirect();
+        finance.margin.MarginPoolManager.clearDirect();
         finance.warehouse.WarehouseManager.clearDirect();
         finance.logistics.ShipmentManager.clearDirect();
         finance.settlement.SettlementManager.clearDirect();
+        finance.village.VillageManager.clearDirect();
+        finance.village.VillageService.clearRuntimeDirect();
+        finance.caravan.CaravanManager.clearDirect();
         finance.exploration.ExplorationManager.clearDirect();
         finance.contract.ContractManager.clearDirect();
         finance.gameplay.company.CompanyGameplayManager.clearDirect();
