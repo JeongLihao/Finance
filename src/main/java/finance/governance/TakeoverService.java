@@ -312,7 +312,11 @@ public final class TakeoverService {
         var snapshot = ShareholderRegistryService.snapshot(companyId, day);
         for (var holder : snapshot.holders()) {
             if (holder.id().equals(playerId)) {
-                return holder.votingPercent();
+                // 融资买入的股份是"借钱买的"，不计入有表决权股份 —— 防"借钱举牌"操纵并购
+                long financed = finance.margin.MarginService.financedSharesOf(playerId, snapshot.symbol());
+                long voting = Math.max(0, holder.total() - financed);
+                long votingShares = snapshot.votingShares();
+                return votingShares <= 0 ? 0 : voting * 100.0 / votingShares;
             }
         }
         return 0.0;

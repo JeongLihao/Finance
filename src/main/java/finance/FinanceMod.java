@@ -16,6 +16,7 @@ import finance.command.InventoryCommand;
 import finance.command.CompaniesCommand;
 import finance.command.CompanyCommand;
 import finance.command.TakeoverCommand;
+import finance.command.MarginCommand;
 import finance.company.SystemCompanyInitializer;
 import finance.config.FinanceConfig;
 import finance.cycle.EconomyCycleService;
@@ -130,6 +131,8 @@ public class FinanceMod {
         CompanyCommand.register(event.getDispatcher());
 
         TakeoverCommand.register(event.getDispatcher());
+
+        MarginCommand.register(event.getDispatcher());
     }
 
     /** 服务器启动时加载持久化数据 */
