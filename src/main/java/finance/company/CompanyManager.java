@@ -148,9 +148,23 @@ public class CompanyManager {
         String symbol = stock.getSymbol();
         long totalShares = stock.getVotingShares();
 
-        // 获取所有持有该公司股票的玩家
+        // 获取所有持有该公司股票的玩家（自由持仓）
         java.util.Map<java.util.UUID, Long> holdings = StockPortfolioManager.getHoldingsForCompany(symbol);
-        finance.governance.CorporateActionManager.lockedShares(symbol).forEach((holder,quantity)->holdings.merge(holder,quantity,(a,b)->a>Long.MAX_VALUE-b?Long.MAX_VALUE:a+b));
+        // 回购锁定的份额：沿用旧口径，分红归股东本人
+        finance.governance.CorporateActionManager.buybackLockedShares(symbol).forEach((holder,quantity)->holdings.merge(holder,quantity,(a,b)->a>Long.MAX_VALUE-b?Long.MAX_VALUE:a+b));
+        // 要约锁定的份额：经济权利已让渡，分红计入要约托管账户（escrow）——
+        // 交割成功归收购方，失败/撤销则随份额一并返还股东。以 escrow 为伪持有人参与分配。
+        java.util.Map<java.util.UUID, java.util.UUID> escrowToOffer = new java.util.HashMap<>();
+        for (java.util.Map.Entry<java.util.UUID, java.util.Map<java.util.UUID, Long>> oe
+                : finance.governance.CorporateActionManager.tenderLockedByOffer(symbol).entrySet()) {
+            finance.governance.TenderOffer offer = finance.governance.CorporateActionManager.tenders().get(oe.getKey());
+            if (offer == null || offer.status() != finance.governance.CapitalActionStatus.OPEN) continue;
+            long locked = 0L;
+            for (long qq : oe.getValue().values()) locked = locked > Long.MAX_VALUE - qq ? Long.MAX_VALUE : locked + qq;
+            if (locked <= 0) continue;
+            holdings.put(offer.escrowId(), locked);
+            escrowToOffer.put(offer.escrowId(), offer.id());
+        }
 
         if (holdings.isEmpty()) {
             return; // 无股东，无处分红
@@ -163,7 +177,16 @@ public class CompanyManager {
             UUID playerId = share.id();
             long shareholding = share.weight();
             long payout = share.amount();
-            if (payout > 0 && AccountManager.canDeposit(playerId, payout) && company.withdraw(payout)) {
+            if (payout <= 0) {
+                continue;
+            }
+            java.util.UUID tenderId = escrowToOffer.get(playerId);
+            if (tenderId != null) {
+                // 要约锁定份额的分红 → escrow 托管，按接受比例记到各股东名下
+                actuallyPaid += payTenderDividend(company, symbol, tenderId, payout, shareholding, currentMcDay);
+                continue;
+            }
+            if (AccountManager.canDeposit(playerId, payout) && company.withdraw(payout)) {
                 if (!AccountManager.deposit(playerId, payout)) {
                     company.deposit(payout);
                     continue;
@@ -185,10 +208,61 @@ public class CompanyManager {
         if (actuallyPaid > 0) {
             long perShare = totalShares > 0 ? actuallyPaid / totalShares : 0;
             company.addDividendRecord(currentMcDay, actuallyPaid, perShare);
+            // 财报季：分红除权 —— 按每股分红额下调股价（严谨定价，不 whitewash 分红收益）
+            if (perShare > 0 && FinanceConfig.earningsExDividend()) {
+                stock.applyExDividend(perShare);
+            }
         }
         if (actuallyPaid < totalDividend) {
             company.addDistributableProfit(totalDividend - actuallyPaid);
         }
+    }
+
+    /**
+     * 要约锁定份额的分红 → 计入要约 escrow，并按接受份额比例记到各股东名下。
+     * 交割成功时归收购方，失败/撤销时随份额原路返还。返回实际支付金额。
+     */
+    private static long payTenderDividend(Company company, String symbol, java.util.UUID tenderId,
+                                          long payout, long shareholding, long currentMcDay) {
+        finance.governance.TenderOffer offer =
+                finance.governance.CorporateActionManager.tenders().get(tenderId);
+        if (offer == null || offer.status() != finance.governance.CapitalActionStatus.OPEN) {
+            return 0L; // 要约已不在进行中，分红留在公司可分配利润
+        }
+        if (!AccountManager.canDeposit(offer.escrowId(), payout) || !company.withdraw(payout)) {
+            return 0L;
+        }
+        if (!AccountManager.deposit(offer.escrowId(), payout)) {
+            company.deposit(payout);
+            return 0L;
+        }
+        // 按接受份额比例把分红记到各股东名下（余数尘埃留在 escrow，随结算退给收购方）
+        long totalAccepted = 0L;
+        for (long qq : offer.accepted().values()) {
+            totalAccepted = totalAccepted > Long.MAX_VALUE - qq ? Long.MAX_VALUE : totalAccepted + qq;
+        }
+        if (totalAccepted > 0) {
+            java.math.BigInteger total = java.math.BigInteger.valueOf(payout);
+            java.math.BigInteger denom = java.math.BigInteger.valueOf(totalAccepted);
+            for (java.util.Map.Entry<java.util.UUID, Long> e : offer.accepted().entrySet()) {
+                long div = total.multiply(java.math.BigInteger.valueOf(e.getValue())).divide(denom).longValue();
+                if (div > 0) {
+                    offer.addDividend(e.getKey(), div);
+                }
+            }
+        }
+        AccountManager.addTransactionRecord(
+                new TransactionRecord(
+                        company.getCompanyId(),
+                        offer.escrowId(),
+                        payout,
+                        TransactionType.DIVIDEND,
+                        offer.buyerId(),
+                        company.getName() + "/" + symbol + "[tender-escrow]",
+                        shareholding
+                )
+        );
+        return payout;
     }
 
     public static double getDividendRatio() {
