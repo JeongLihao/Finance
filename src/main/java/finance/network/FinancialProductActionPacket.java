@@ -9,6 +9,7 @@ import finance.debt.CorporateBondManager;
 import finance.policy.MonetaryPolicyService;
 import finance.bondmarket.BondMarketManager;
 import finance.fixedincome.CentralBankBillManager;
+import finance.fixedincome.TreasuryBondManager;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.network.NetworkEvent;
@@ -19,7 +20,8 @@ import java.util.function.Supplier;
 public record FinancialProductActionPacket(Action action, UUID targetId, long amount, long quantity,
                                            int rateBasisPoints, int termDays, int intervalDays) {
     public enum Action { ISSUE_BOND, SUBSCRIBE_BOND, APPLY_LOAN, REPAY_LOAN, SET_BENCHMARK_RATE,
-        PLACE_BOND_BUY, PLACE_BOND_SELL, CANCEL_BOND_ORDER, SUBSCRIBE_CENTRAL_BANK_BILL }
+        PLACE_BOND_BUY, PLACE_BOND_SELL, CANCEL_BOND_ORDER, SUBSCRIBE_CENTRAL_BANK_BILL,
+        SUBSCRIBE_TREASURY_BOND, EARLY_REDEEM_TREASURY_BOND }
     public static void encode(FinancialProductActionPacket p, FriendlyByteBuf b) { b.writeEnum(p.action); b.writeBoolean(p.targetId!=null); if(p.targetId!=null)b.writeUUID(p.targetId); b.writeLong(p.amount); b.writeLong(p.quantity); b.writeVarInt(p.rateBasisPoints); b.writeVarInt(p.termDays); b.writeVarInt(p.intervalDays); }
     public static FinancialProductActionPacket decode(FriendlyByteBuf b) { Action a=b.readEnum(Action.class); UUID id=b.readBoolean()?b.readUUID():null; var p=new FinancialProductActionPacket(a,id,b.readLong(),b.readLong(),b.readVarInt(),b.readVarInt(),b.readVarInt());if(p.rateBasisPoints<0||p.rateBasisPoints>20_000||p.termDays<0||p.termDays>3_650||p.intervalDays<0||p.intervalDays>3_650)throw new IllegalArgumentException("financial action range");return p; }
     public static void handle(FinancialProductActionPacket p, Supplier<NetworkEvent.Context> supplier) {
@@ -46,6 +48,8 @@ public record FinancialProductActionPacket(Action action, UUID targetId, long am
                 case PLACE_BOND_SELL -> message=p.targetId==null||p.amount<=0||p.quantity<=0?"债券卖单参数无效":BondMarketManager.placeSell(player.getUUID(),p.targetId,p.amount,p.quantity).message();
                 case CANCEL_BOND_ORDER -> message=p.targetId!=null&&BondMarketManager.cancel(player.getUUID(),p.targetId)?"债券订单已撤销":"订单不存在、无权撤销或资产无法释放";
                 case SUBSCRIBE_CENTRAL_BANK_BILL -> message=p.amount<=0?"票据认购参数无效":CentralBankBillManager.subscribe(player.getUUID(),p.termDays,p.amount,day).message();
+                case SUBSCRIBE_TREASURY_BOND -> message=p.amount<=0?"国债认购参数无效":TreasuryBondManager.subscribe(player.getUUID(),p.termDays,p.amount,day).message();
+                case EARLY_REDEEM_TREASURY_BOND -> message=p.targetId==null?"国债赎回参数无效":TreasuryBondManager.earlyRedeem(player.getUUID(),p.targetId,day).message();
                 default -> message="未知金融操作";
             }
             GuiFeedbackPacket.send(player,message);
