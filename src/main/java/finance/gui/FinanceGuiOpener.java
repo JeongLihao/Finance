@@ -125,7 +125,12 @@ public class FinanceGuiOpener {
                     stockHistory(stock),
                     dividendSummary.expectedPerShare(),
                     dividendSummary.lastPerShare(),
-                    dividendSummary.lastTotal()));
+                    dividendSummary.lastTotal(),
+                    // Phase 4：做市商状态（Phase 2 约定访问器：market.liquidity.QuoteEngine）
+                    marketMakerBid(stock),
+                    marketMakerAsk(stock),
+                    marketMakerHalted(stock),
+                    marketMakerInventoryLevel(stock)));
         }
 
         List<FinanceMenu.StockHoldingRow> stockHoldingRows = new ArrayList<>();
@@ -320,6 +325,39 @@ public class FinanceGuiOpener {
             history.add(stock.getLastPrice());
         }
         return history;
+    }
+
+    /**
+     * Phase 4：股票做市商状态（服务端取数，客户端只展示）。
+     * 取数走 Phase 2 约定访问器 {@code market.liquidity.QuoteEngine#isHalted/#getQuote}，
+     * 库存水位走 Phase 1 的 {@link finance.market.MarketMakerLedger}。
+     * 水位：0=充足，1=紧张（≥80% 上限），2=熔断。
+     */
+    private static long marketMakerBid(Stock stock) {
+        var quote = finance.market.liquidity.QuoteEngine.getQuote("stock", stock.getSymbol());
+        return quote == null ? 0 : Math.max(0, quote.bid());
+    }
+
+    private static long marketMakerAsk(Stock stock) {
+        var quote = finance.market.liquidity.QuoteEngine.getQuote("stock", stock.getSymbol());
+        return quote == null ? 0 : Math.max(0, quote.ask());
+    }
+
+    private static boolean marketMakerHalted(Stock stock) {
+        return finance.market.liquidity.QuoteEngine.isHalted("stock", stock.getSymbol());
+    }
+
+    private static int marketMakerInventoryLevel(Stock stock) {
+        if (marketMakerHalted(stock)) {
+            return 2;
+        }
+        long max = finance.market.MarketMakerLedger.maxInventory(stock.getFloatShares());
+        if (max <= 0) {
+            return 0;
+        }
+        long inventory = finance.market.MarketMakerLedger.getStockInventory(stock.getSymbol());
+        // 库存 ≥80% 上限视为紧张（触顶后做市商只卖不买）。
+        return inventory * 5 >= max * 4 ? 1 : 0;
     }
 
     private static DividendSummary dividendSummary(Company company, Stock stock) {
