@@ -380,7 +380,7 @@ public class MarketManager {
             }
             if (!CommodityInventoryManager.addCommodity(buyer, target.getCommodityId(), qty)) {
                 AccountManager.moveFunds(seller, buyer, total);
-                return TakeOrderResult.fail("Commodity delivery failed; funds were rolled back.");
+                return TakeOrderResult.fail("商品交付失败，资金已回滚。");
             }
         } else {
             buyer = target.getPlayerId();
@@ -393,16 +393,16 @@ public class MarketManager {
                 return TakeOrderResult.fail("买单资金结算失败。");
             }
             if (!CommodityInventoryManager.removeCommodity(seller, target.getCommodityId(), qty)) {
-                return TakeOrderResult.fail("Seller inventory changed before settlement.");
+                return TakeOrderResult.fail("结算前卖方库存已变化。");
             }
             if (!AccountManager.settleFrozenTransfer(buyer, seller, total, total)) {
                 CommodityInventoryManager.addCommodity(seller, target.getCommodityId(), qty);
-                return TakeOrderResult.fail("Funds settlement failed; inventory was rolled back.");
+                return TakeOrderResult.fail("资金结算失败，库存已回滚。");
             }
             if (!CommodityInventoryManager.addCommodity(buyer, target.getCommodityId(), qty)) {
                 AccountManager.rollbackSettledFrozenTransfer(buyer, seller, total, total);
                 CommodityInventoryManager.addCommodity(seller, target.getCommodityId(), qty);
-                return TakeOrderResult.fail("Commodity delivery failed; settlement was rolled back.");
+                return TakeOrderResult.fail("商品交付失败，结算已回滚。");
             }
         }
 
