@@ -92,7 +92,7 @@ public class InventoryActionPacket {
             return;
         }
         if (!CommodityInventoryManager.canAddCommodity(player.getUUID(), commodityId, amount)) {
-            GuiFeedbackPacket.send(player, "Virtual commodity inventory is full.");
+            GuiFeedbackPacket.send(player, "虚拟商品库存已满。");
             return;
         }
 
@@ -100,7 +100,7 @@ public class InventoryActionPacket {
         if (removed > 0) {
             if (!CommodityInventoryManager.addCommodity(player.getUUID(), commodityId, removed)) {
                 InventoryUtil.addToInventory(player, itemId, removed);
-                GuiFeedbackPacket.send(player, "Deposit failed; removed items were returned.");
+                GuiFeedbackPacket.send(player, "存入失败，已退还取出的物品。");
                 return;
             }
             GuiFeedbackPacket.send(player, "§a已存入 " + removed + " 个「" + commodity.getDisplayName() + "」到商品库存。");

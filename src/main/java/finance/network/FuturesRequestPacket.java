@@ -65,11 +65,23 @@ public record FuturesRequestPacket(long requestId) {
                         row.guaranteeFundUsed(), row.profitHaircut(), row.finalSettlement())).toList();
         long initial = MarginManager.initialRequirement(owner);
         long available = Math.max(0, account.cashBalance() - account.frozenForOrders() - Math.max(0, initial));
+        // Phase 4：做市商报价（Phase 3 约定访问器：futures.FuturesMarketMaker#getQuote/getNetPosition/isPaused）。
+        // OrderBookService 只聚合玩家订单，做市商报价在此单独下发，不混入订单簿。
+        List<FuturesResponsePacket.MmQuoteRow> mmQuotes = FuturesMarketManager.contracts().values().stream()
+                .limit(FuturesResponsePacket.MAX_ROWS).map(contract -> {
+                    var quote = finance.futures.FuturesMarketMaker.getQuote(contract.id());
+                    if (quote == null) {
+                        return null;
+                    }
+                    return new FuturesResponsePacket.MmQuoteRow(contract.id(), quote[0], quote[1],
+                            finance.futures.FuturesMarketMaker.getNetPosition(contract.id()));
+                }).filter(java.util.Objects::nonNull).toList();
+        boolean mmPaused = finance.futures.FuturesMarketMaker.isPaused();
         FuturesResponsePacket response = new FuturesResponsePacket(packet.requestId, account.cashBalance(),
                 account.frozenForOrders(), FuturesRiskService.equity(owner), initial,
                 MarginManager.maintenanceRequirement(owner), available, account.riskStatus(),
                 FuturesClearingService.guaranteeFund(), FuturesClearingService.todayFundUse(),
-                contracts, positions, orders, settlements);
+                contracts, positions, orders, settlements, mmQuotes, mmPaused);
         FinancePacketHandler.CHANNEL.send(PacketDistributor.PLAYER.with(() -> player), response);
     }
 }
