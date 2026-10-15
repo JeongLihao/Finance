@@ -120,5 +120,9 @@ public enum TransactionType {
     CARAVAN_LOSS,
     BANK_CHARTER_FEE,
     BANK_CHARTER,
-    BANK_DIVIDEND
+    BANK_DIVIDEND,
+    /** NPC 资金池向 NPC 投资者注资或每日补足。 */
+    NPC_INVESTOR_FUNDING,
+    /** NPC 投资者残差配售：资金销毁（系统水槽），股份从系统流动性残差转入投资者。 */
+    NPC_FLOAT_PLACEMENT
 }

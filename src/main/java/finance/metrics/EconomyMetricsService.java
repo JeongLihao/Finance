@@ -82,7 +82,8 @@ public final class EconomyMetricsService {
             long available = Math.max(0, entry.getValue().getBalance());
             long frozen = Math.max(0, entry.getValue().getFrozenBalance());
             UUID accountId = entry.getKey();
-            if (NpcMarketMaker.NPC_UUID.equals(accountId)) {
+            if (NpcMarketMaker.NPC_UUID.equals(accountId)
+                    || finance.npcinvestor.NpcInvestorArchetype.isInvestorAccount(accountId)) {
                 npcCash = saturatedAdd(npcCash, saturatedAdd(available, frozen));
             } else if (CentralBank.UUID.equals(accountId)) {
                 centralBankReserve = saturatedAdd(centralBankReserve, saturatedAdd(available, frozen));

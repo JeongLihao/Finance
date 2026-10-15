@@ -81,7 +81,7 @@ import net.minecraft.world.level.storage.DimensionDataStorage;
 public class EconomySavedData extends SavedData {
 
     public static final String DATA_NAME = "finance_data";
-    private static final int DATA_VERSION = 37;
+    private static final int DATA_VERSION = 38;
     public static int currentDataVersion() { return DATA_VERSION; }
 
     // ================================================================
@@ -126,6 +126,7 @@ public class EconomySavedData extends SavedData {
         CapitalProjectDataSerializer.save(tag);
         WorldFeedbackDataSerializer.save(tag);
         CaravanDataSerializer.save(tag);
+        finance.data.serializer.NpcEconomyDataSerializer.save(tag);
 
 
 
@@ -457,6 +458,7 @@ public class EconomySavedData extends SavedData {
         CapitalProjectDataSerializer.load(tag);
         WorldFeedbackDataSerializer.load(tag);
         CaravanDataSerializer.load(tag);
+        finance.data.serializer.NpcEconomyDataSerializer.load(tag);
         RecentTradeService.rebuildFromHistories();
         return data;
     }
@@ -526,6 +528,7 @@ public class EconomySavedData extends SavedData {
         finance.fund.FundManager.clearDirect();
         finance.insurance.InsuranceManager.clearDirect();
         finance.governance.CorporateActionManager.clearDirect();
+        finance.npcinvestor.NpcInvestorManager.clearDirect();
         finance.margin.MarginPoolManager.clearDirect();
         finance.warehouse.WarehouseManager.clearDirect();
         finance.logistics.ShipmentManager.clearDirect();
