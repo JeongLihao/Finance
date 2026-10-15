@@ -60,6 +60,9 @@ public class Company {
     /** 上次分红的 MC 天数（用于判断是否需要分红） */
     private long lastDividendDay;
 
+    /** 所有者上次提现的真实时间戳（毫秒），用于提现冷却；0 = 从未提现 */
+    private long lastOwnerWithdrawTime;
+
     /** 最近分红历史 */
     private final List<DividendRecord> dividendHistory = new ArrayList<>();
 
@@ -382,6 +385,12 @@ public class Company {
     public long getRetainedEarnings() { return retainedEarnings; }
     public long getDistributableProfit() { return distributableProfit; }
     public long getLastDividendDay() { return lastDividendDay; }
+
+    public long getLastOwnerWithdrawTime() { return lastOwnerWithdrawTime; }
+
+    public void setLastOwnerWithdrawTime(long timeMillis) {
+        this.lastOwnerWithdrawTime = Math.max(0, timeMillis);
+    }
     public double getDividendRatio() { return dividendRatio; }
     public int getDividendCycleDays() { return dividendCycleDays; }
     public double effectiveDividendRatio(double globalDefault) {
