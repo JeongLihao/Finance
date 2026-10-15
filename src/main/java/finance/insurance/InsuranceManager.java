@@ -33,30 +33,30 @@ public final class InsuranceManager {
         return InsurancePricingService.quote(product,object,coverage,termDays);
     }
     public static synchronized Result purchase(UUID requester,InsuranceProduct product,UUID object,long coverage,int termDays,long day,String operationKey){
-        if(!ModuleHealthRegistry.mayWrite(ModuleHealthRegistry.Module.INSURANCE))return Result.fail("Insurance module is paused");
+        if(!ModuleHealthRegistry.mayWrite(ModuleHealthRegistry.Module.INSURANCE))return Result.fail("保险模块已暂停");
         initializeIfNeeded();String key="policy:"+(operationKey==null?"":operationKey);
-        if(operationKey==null||operationKey.isBlank()||KEYS.contains(key))return Result.fail("Invalid or duplicate purchase request");
-        if(POOL.newBusinessPaused())return Result.fail("Insurance capacity is unavailable");
-        var quote=quote(requester,product,object,coverage,termDays);if(quote==null)return Result.fail("Object is ineligible or history is insufficient");
-        if(hasOverlapping(product,object,day))return Result.fail("An overlapping active policy already exists");
+        if(operationKey==null||operationKey.isBlank()||KEYS.contains(key))return Result.fail("无效或重复的投保请求");
+        if(POOL.newBusinessPaused())return Result.fail("保险承保能力暂不可用");
+        var quote=quote(requester,product,object,coverage,termDays);if(quote==null)return Result.fail("投保对象不符合条件或历史数据不足");
+        if(hasOverlapping(product,object,day))return Result.fail("已存在时间重叠的有效保单");
         CompanyLoan capacityLoan=product==InsuranceProduct.BANK_LOAN_CREDIT?CompanyLoanManager.loans().get(object):null;
         UUID capacityCompany=capacityLoan==null?object:capacityLoan.companyId();
-        if(wouldExceed(companyExposure(capacityCompany),coverage,MAX_COMPANY_EXPOSURE)||wouldExceed(productExposure(product),coverage,MAX_PRODUCT_EXPOSURE))return Result.fail("Insurance capacity for this company or product is unavailable");
+        if(wouldExceed(companyExposure(capacityCompany),coverage,MAX_COMPANY_EXPOSURE)||wouldExceed(productExposure(product),coverage,MAX_PRODUCT_EXPOSURE))return Result.fail("该公司或险种的承保额度已满");
         long exposure=activeExposure(),cash=AccountManager.getBalance(InsurancePool.ACCOUNT_ID);
-        if(exposure>0&&BigInteger.valueOf(exposure).add(BigInteger.valueOf(coverage)).compareTo(BigInteger.valueOf(Math.max(1,cash)).multiply(BigInteger.TEN))>0){POOL.pause(true);return Result.fail("Insurance capacity is unavailable");}
+        if(exposure>0&&BigInteger.valueOf(exposure).add(BigInteger.valueOf(coverage)).compareTo(BigInteger.valueOf(Math.max(1,cash)).multiply(BigInteger.TEN))>0){POOL.pause(true);return Result.fail("保险承保能力暂不可用");}
         CompanyLoan loan=product==InsuranceProduct.BANK_LOAN_CREDIT?CompanyLoanManager.loans().get(object):null;
         UUID companyId=loan==null?object:loan.companyId(),beneficiary=loan==null?requester:loan.lenderId();
-        long effective,expiry;try{effective=Math.addExact(day,1);expiry=Math.addExact(effective,termDays);}catch(ArithmeticException e){return Result.fail("Policy date overflow");}
+        long effective,expiry;try{effective=Math.addExact(day,1);expiry=Math.addExact(effective,termDays);}catch(ArithmeticException e){return Result.fail("保单日期溢出");}
         UUID tx=UUID.randomUUID();boolean premiumPaid=product==InsuranceProduct.BANK_LOAN_CREDIT
                 ?BankingManager.payInsurancePremium(requester,InsurancePool.ACCOUNT_ID,quote.premium(),day,tx)
                 :AccountManager.moveFunds(requester,InsurancePool.ACCOUNT_ID,quote.premium());
-        if(!premiumPaid)return Result.fail("Premium payment failed");
+        if(!premiumPaid)return Result.fail("保费支付失败");
         try{
             InsurancePolicy p=new InsurancePolicy(UUID.randomUUID(),product,requester,companyId,object,beneficiary,effective,expiry,PolicyStatus.PENDING,coverage,quote.deductible(),quote.payoutRatioBps(),coverage,quote.premium(),tx,quote.riskFactorBps(),quote.version(),day);
             POOL.premium(quote.premium());POLICIES.put(p.id(),p);KEYS.add(key);record(requester,InsurancePool.ACCOUNT_ID,quote.premium(),TransactionType.INSURANCE_PREMIUM,requester,"insurance-premium/"+product,1);EconomySavedData.markDirty();return Result.ok(p.id(),"Policy purchased; coverage starts next day");
         }catch(Exception e){
             if(product!=InsuranceProduct.BANK_LOAN_CREDIT)AccountManager.moveFunds(InsurancePool.ACCOUNT_ID,requester,quote.premium());
-            return Result.fail("Policy creation failed");
+            return Result.fail("保单创建失败");
         }
     }
     private static boolean eligible(UUID requester,InsuranceProduct product,UUID object){
@@ -65,7 +65,7 @@ public final class InsuranceManager {
         Company c=CompanyManager.getCompany(object);return c!=null&&requester.equals(c.getOwnerId());
     }
     private static boolean hasOverlapping(InsuranceProduct p,UUID object,long day){return POLICIES.values().stream().anyMatch(x->x.product()==p&&x.insuredObjectId().equals(object)&&(x.status()==PolicyStatus.ACTIVE||x.status()==PolicyStatus.PENDING)&&x.expiryDay()>=day);}
-    public static synchronized Result cancel(UUID requester,UUID policyId,long day){InsurancePolicy p=POLICIES.get(policyId);if(requester==null||p==null||!requester.equals(p.holderId()))return Result.fail("Policy not found or access denied");if(p.status()!=PolicyStatus.PENDING&&p.status()!=PolicyStatus.ACTIVE&&p.status()!=PolicyStatus.SUSPENDED)return Result.fail("Policy cannot be cancelled in its current state");p.restoreStatus(PolicyStatus.CANCELLED,day);EconomySavedData.markDirty();return Result.ok(policyId,"Policy cancelled; paid premium is not refundable");}
+    public static synchronized Result cancel(UUID requester,UUID policyId,long day){InsurancePolicy p=POLICIES.get(policyId);if(requester==null||p==null||!requester.equals(p.holderId()))return Result.fail("保单不存在或无权访问");if(p.status()!=PolicyStatus.PENDING&&p.status()!=PolicyStatus.ACTIVE&&p.status()!=PolicyStatus.SUSPENDED)return Result.fail("保单当前状态不可取消");p.restoreStatus(PolicyStatus.CANCELLED,day);EconomySavedData.markDirty();return Result.ok(policyId,"保单已取消，已缴保费不予退还");}
     private static long companyExposure(UUID company){return exposureMatching(p->company!=null&&company.equals(p.companyId()));}
     private static long productExposure(InsuranceProduct product){return exposureMatching(p->p.product()==product);}
     private static long exposureMatching(java.util.function.Predicate<InsurancePolicy> predicate){BigInteger n=BigInteger.ZERO;for(var p:POLICIES.values())if((p.status()==PolicyStatus.ACTIVE||p.status()==PolicyStatus.PENDING)&&predicate.test(p))n=n.add(BigInteger.valueOf(p.remainingLimit()));return cap(n);}
@@ -76,25 +76,25 @@ public final class InsuranceManager {
         int total=c==null?0:finance.gameplay.company.CompanyInventoryFacade.totalInventory(c,commodity);
         int available=c==null?0:finance.gameplay.company.CompanyInventoryFacade.availableInsurableInventory(c,commodity);
         int lost=Math.min(Math.max(0,quantity),available);
-        if(c==null||price==null||lost<=0)return Result.fail("No verifiable unpledged inventory loss");UUID id=id("warehouse:"+companyId+":"+commodity+":"+day+":"+seed);if(EVENTS.containsKey(id))return Result.fail("Event already processed");
+        if(c==null||price==null||lost<=0)return Result.fail("没有可核实的未质押库存损失");UUID id=id("warehouse:"+companyId+":"+commodity+":"+day+":"+seed);if(EVENTS.containsKey(id))return Result.fail("该事件已处理过");
         long value=cap(BigInteger.valueOf(price.getMidPrice()).multiply(BigInteger.valueOf(lost)));
-        var consumed=finance.gameplay.company.CompanyInventoryFacade.consumeInsurableLoss(c,commodity,lost);if(consumed==null)return Result.fail("Inventory loss failed");
+        var consumed=finance.gameplay.company.CompanyInventoryFacade.consumeInsurableLoss(c,commodity,lost);if(consumed==null)return Result.fail("库存损失记录失败");
         try{
             int intensity=(int)Math.min(10_000L,(long)lost*10_000L/Math.max(1,total));InsuredLossEvent event=new InsuredLossEvent(id,RiskEventType.WAREHOUSE_ACCIDENT,companyId,companyId,day,day,seed,intensity,commodity,total,lost,price.getMidPrice(),value,0,"authority total="+total+" available="+available+" pledged="+(total-available)+" removed="+lost,true);
-            EVENTS.put(id,event);autoClaim(event);EconomySavedData.markDirty();return Result.ok(id,"Warehouse accident recorded");
-        }catch(RuntimeException failure){if(!finance.gameplay.company.CompanyInventoryFacade.rollback(c,consumed))throw new IllegalStateException("insured inventory rollback failed",failure);return Result.fail("Loss event creation failed");}
+            EVENTS.put(id,event);autoClaim(event);EconomySavedData.markDirty();return Result.ok(id,"已记录仓库事故事件");
+        }catch(RuntimeException failure){if(!finance.gameplay.company.CompanyInventoryFacade.rollback(c,consumed))throw new IllegalStateException("insured inventory rollback failed",failure);return Result.fail("损失事件创建失败");}
     }
     public static synchronized Result createBusinessInterruption(UUID companyId,long day,long seed){
         Company c=CompanyManager.getCompany(companyId);var stopped=finance.gameplay.company.CompanyFacilityManager.forCompany(companyId).stream().filter(f->f.status()!=finance.gameplay.company.CompanyFacilityStatus.ACTIVE&&f.status()!=finance.gameplay.company.CompanyFacilityStatus.DISABLED&&f.status()!=finance.gameplay.company.CompanyFacilityStatus.ORPHANED&&f.statusSinceDay()>=0&&f.lastProcessedDay()>=day).min(java.util.Comparator.comparingLong(finance.gameplay.company.CompanyFacilityRecord::statusSinceDay)).orElse(null);
-        long stoppedDays=stopped==null?0:day-stopped.statusSinceDay()+1;if(c==null||stoppedDays<=1||c.getRecentProfits().size()<3)return Result.fail("Insufficient verified shutdown or profit history");UUID id=id("shutdown:"+companyId+":"+stopped.statusSinceDay()+":"+stopped.status());if(EVENTS.containsKey(id))return Result.fail("Event already processed");
+        long stoppedDays=stopped==null?0:day-stopped.statusSinceDay()+1;if(c==null||stoppedDays<=1||c.getRecentProfits().size()<3)return Result.fail("缺少可核实的停业记录或盈利历史");UUID id=id("shutdown:"+companyId+":"+stopped.statusSinceDay()+":"+stopped.status());if(EVENTS.containsKey(id))return Result.fail("该事件已处理过");
         long average=(long)c.getRecentProfits().stream().mapToLong(Long::longValue).filter(v->v>0).average().orElse(0);CompanyFinancialReport latest=c.getLatestFinancialReport();long actualRevenue=latest!=null&&latest.mcDay()>=stopped.statusSinceDay()?Math.max(0,latest.revenue()):0;long loss=Math.max(0,cap(BigInteger.valueOf(Math.max(0,average)).multiply(BigInteger.valueOf(stoppedDays)))-actualRevenue);
         int intensity=(int)Math.min(10_000L,stoppedDays>10?10_000L:stoppedDays*1_000L);InsuredLossEvent event=new InsuredLossEvent(id,RiskEventType.FACILITY_SHUTDOWN,companyId,companyId,stopped.statusSinceDay(),day,seed,intensity,"",0,0,0,loss,0,"facility="+stopped.facilityId()+" reason="+stopped.status()+" since="+stopped.statusSinceDay()+" average="+average+" actual="+actualRevenue,true);
-        EVENTS.put(id,event);autoClaim(event);EconomySavedData.markDirty();return Result.ok(id,"Business interruption recorded");
+        EVENTS.put(id,event);autoClaim(event);EconomySavedData.markDirty();return Result.ok(id,"已记录停业损失事件");
     }
     public static synchronized Result createLoanDefault(UUID loanId,long day){
-        CompanyLoan l=CompanyLoanManager.loans().get(loanId);if(l==null||l.status()!=LoanStatus.DEFAULTED||l.lenderType()!=LoanLenderType.COMMERCIAL_BANK||finance.collateral.InventoryCollateralService.liquidationPending(loanId))return Result.fail("Loan has no finalized eligible credit loss");UUID id=id("loan-default:"+loanId);if(EVENTS.containsKey(id))return Result.fail("Event already processed");
+        CompanyLoan l=CompanyLoanManager.loans().get(loanId);if(l==null||l.status()!=LoanStatus.DEFAULTED||l.lenderType()!=LoanLenderType.COMMERCIAL_BANK||finance.collateral.InventoryCollateralService.liquidationPending(loanId))return Result.fail("该贷款没有已确认且符合条件的信用损失");UUID id=id("loan-default:"+loanId);if(EVENTS.containsKey(id))return Result.fail("该事件已处理过");
         long recovered=finance.collateral.InventoryCollateralService.auditedRecovery(loanId);long gross=cap(BigInteger.valueOf(l.outstandingPrincipal()).add(BigInteger.valueOf(recovered)));InsuredLossEvent event=new InsuredLossEvent(id,RiskEventType.LOAN_DEFAULT,l.companyId(),loanId,day,day,0,10_000,"",0,0,0,gross,recovered,"gross-default="+gross+" audited-collateral-recovery="+recovered+" net="+l.outstandingPrincipal(),true);
-        EVENTS.put(id,event);autoClaim(event);EconomySavedData.markDirty();return Result.ok(id,"Credit loss recorded");
+        EVENTS.put(id,event);autoClaim(event);EconomySavedData.markDirty();return Result.ok(id,"已记录信用损失事件");
     }
     private static void autoClaim(InsuredLossEvent event){
         for(InsurancePolicy p:POLICIES.values()){
