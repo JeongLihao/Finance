@@ -2,7 +2,9 @@ package finance.data.serializer;
 
 import finance.diagnostic.ModuleHealthRegistry;
 import finance.diagnostic.ModuleRunState;
+import finance.npcinvestor.NpcGovernanceManager;
 import finance.npcinvestor.NpcInvestorArchetype;
+import finance.npcinvestor.NpcVotingRules;
 import finance.npcinvestor.NpcInvestorManager;
 import finance.npcinvestor.NpcInvestorState;
 import finance.npcinvestor.NpcReason;
@@ -65,11 +67,38 @@ public final class NpcEconomyDataSerializer {
             decisions.add(t);
         }
         data.put("Decisions", decisions);
+        data.putLong("GovernanceDay", NpcGovernanceManager.lastProcessedDay());
+        ListTag votes = new ListTag();
+        for (NpcGovernanceManager.VoteRecord v : NpcGovernanceManager.votesDirect()) {
+            CompoundTag t = new CompoundTag();
+            t.putUUID("Proposal", v.proposalId());
+            t.putString("Archetype", v.archetype().name());
+            t.putString("Choice", v.choice().name());
+            t.putString("Reason", v.reason().name());
+            t.putLong("Power", v.power());
+            t.putLong("Day", v.day());
+            votes.add(t);
+        }
+        data.put("Votes", votes);
+        ListTag tenders = new ListTag();
+        for (NpcGovernanceManager.TenderRecord r : NpcGovernanceManager.tendersDirect()) {
+            CompoundTag t = new CompoundTag();
+            t.putUUID("Offer", r.offerId());
+            t.putString("Archetype", r.archetype().name());
+            t.putBoolean("Accepted", r.accepted());
+            t.putLong("Shares", r.shares());
+            t.putLong("OfferPrice", r.offerPrice());
+            t.putLong("Threshold", r.thresholdPrice());
+            t.putLong("Day", r.day());
+            tenders.add(t);
+        }
+        data.put("Tenders", tenders);
         root.put(ROOT, data);
     }
 
     public static void load(CompoundTag root) {
         NpcInvestorManager.clearDirect();
+        NpcGovernanceManager.clearDirect();
         if (!root.contains(ROOT, Tag.TAG_COMPOUND)) {
             return;
         }
@@ -116,6 +145,39 @@ public final class NpcEconomyDataSerializer {
         }
         long lastDay = data.contains("LastProcessedDay", Tag.TAG_LONG) ? data.getLong("LastProcessedDay") : Long.MIN_VALUE;
         NpcInvestorManager.restoreDirect(lastDay, decisions);
+
+        List<NpcGovernanceManager.VoteRecord> votes = new ArrayList<>();
+        ListTag rawVotes = data.getList("Votes", Tag.TAG_COMPOUND);
+        int voteStart = Math.max(0, rawVotes.size() - NpcGovernanceManager.MAX_VOTE_RECORDS);
+        skipped += voteStart;
+        for (int i = voteStart; i < rawVotes.size(); i++) {
+            try {
+                CompoundTag t = rawVotes.getCompound(i);
+                votes.add(new NpcGovernanceManager.VoteRecord(t.getUUID("Proposal"),
+                        NpcInvestorArchetype.valueOf(t.getString("Archetype")),
+                        NpcVotingRules.Choice.valueOf(t.getString("Choice")),
+                        NpcVotingRules.VoteReason.valueOf(t.getString("Reason")),
+                        t.getLong("Power"), t.getLong("Day")));
+            } catch (Exception e) {
+                skipped++;
+            }
+        }
+        List<NpcGovernanceManager.TenderRecord> tenders = new ArrayList<>();
+        ListTag rawTenders = data.getList("Tenders", Tag.TAG_COMPOUND);
+        int tenderStart = Math.max(0, rawTenders.size() - NpcGovernanceManager.MAX_TENDER_RECORDS);
+        skipped += tenderStart;
+        for (int i = tenderStart; i < rawTenders.size(); i++) {
+            try {
+                CompoundTag t = rawTenders.getCompound(i);
+                tenders.add(new NpcGovernanceManager.TenderRecord(t.getUUID("Offer"),
+                        NpcInvestorArchetype.valueOf(t.getString("Archetype")), t.getBoolean("Accepted"),
+                        t.getLong("Shares"), t.getLong("OfferPrice"), t.getLong("Threshold"), t.getLong("Day")));
+            } catch (Exception e) {
+                skipped++;
+            }
+        }
+        long governanceDay = data.contains("GovernanceDay", Tag.TAG_LONG) ? data.getLong("GovernanceDay") : Long.MIN_VALUE;
+        NpcGovernanceManager.restoreDirect(governanceDay, votes, tenders);
         if (invalid || skipped > 0) {
             ModuleHealthRegistry.restrict(ModuleHealthRegistry.Module.NPC_ECONOMY,
                     ModuleRunState.READ_ONLY, "NPC 经济存档 " + skipped + " 条损坏已跳过", -1);

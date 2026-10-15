@@ -529,6 +529,7 @@ public class EconomySavedData extends SavedData {
         finance.insurance.InsuranceManager.clearDirect();
         finance.governance.CorporateActionManager.clearDirect();
         finance.npcinvestor.NpcInvestorManager.clearDirect();
+        finance.npcinvestor.NpcGovernanceManager.clearDirect();
         finance.margin.MarginPoolManager.clearDirect();
         finance.warehouse.WarehouseManager.clearDirect();
         finance.logistics.ShipmentManager.clearDirect();

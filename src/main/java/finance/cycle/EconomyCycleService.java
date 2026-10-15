@@ -87,6 +87,8 @@ public final class EconomyCycleService {
         CompanyManager.settleDailyProfits(mcDay);
         finance.earnings.EarningsSeasonService.processDay(server, mcDay);
         finance.npcinvestor.NpcInvestorService.processDay(mcDay);
+        // NPC 投票必须在当天 CompanyProposalManager.tick 结算提案之前
+        finance.npcinvestor.NpcGovernanceService.processDay(mcDay);
         StockMarketManager.tickNewDay();
         CompanyManager.tryDividends(mcDay);
         CompanyFinancingManager.tick(mcDay);

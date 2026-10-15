@@ -132,7 +132,8 @@ public final class NpcInvestorService {
             if (dayBudgetShares <= 0) continue;
 
             UUID account = archetype.accountId();
-            long held = StockPortfolioManager.getHolding(account, stock.getSymbol()).getQuantity();
+            // 含挂卖单和要约锁定的部分，避免锁定后误以为仓位变少而重复买入
+            long held = holdingTotal(stock, account, day);
             long targetShares = bpsOf(votingShares, target);
             long delta = targetShares - held;
             if (Math.abs(delta) < Math.max(1, bpsOf(votingShares, REBALANCE_THRESHOLD_BPS))) continue;
@@ -191,6 +192,13 @@ public final class NpcInvestorService {
             placed += rest;
         }
         return placed;
+    }
+
+    static long holdingTotal(Stock stock, UUID account, long day) {
+        for (ShareholderRegistryService.Holder holder : ShareholderRegistryService.snapshot(stock.getCompanyId(), day).holders()) {
+            if (holder.id().equals(account)) return holder.total();
+        }
+        return 0;
     }
 
     /** 全部 NPC 投资者对该股的持股合计（含挂卖单锁定的部分）。 */

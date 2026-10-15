@@ -108,6 +108,11 @@ public final class FinanceConfig {
     private static final int NPC_MAX_HOLDING_PERCENT_EACH_VALUE = 20;
     private static final int NPC_MAX_COMBINED_HOLDING_PERCENT_VALUE = 49;
     private static final int NPC_MAX_FLOAT_PERCENT_PER_DAY_VALUE = 2;
+    private static final boolean NPC_VOTING_ENABLED_VALUE = true;
+    private static final int NPC_TENDER_PREMIUM_DIVIDEND_VALUE = 35;
+    private static final int NPC_TENDER_PREMIUM_GROWTH_VALUE = 30;
+    private static final int NPC_TENDER_PREMIUM_SPECULATOR_VALUE = 10;
+    private static final int NPC_TENDER_PREMIUM_VALUE_VALUE = 25;
     // ---- 商队商路 ----
     private static final int CARAVAN_MAX_ROUTES_PER_PLAYER_VALUE = 8;
     private static final int CARAVAN_MAX_QTY_PER_TRIP_VALUE = 1_024;
@@ -236,6 +241,11 @@ public final class FinanceConfig {
     private static final ForgeConfigSpec.IntValue NPC_MAX_HOLDING_PERCENT_EACH;
     private static final ForgeConfigSpec.IntValue NPC_MAX_COMBINED_HOLDING_PERCENT;
     private static final ForgeConfigSpec.IntValue NPC_MAX_FLOAT_PERCENT_PER_DAY;
+    private static final ForgeConfigSpec.BooleanValue NPC_VOTING_ENABLED;
+    private static final ForgeConfigSpec.IntValue NPC_TENDER_PREMIUM_DIVIDEND;
+    private static final ForgeConfigSpec.IntValue NPC_TENDER_PREMIUM_GROWTH;
+    private static final ForgeConfigSpec.IntValue NPC_TENDER_PREMIUM_SPECULATOR;
+    private static final ForgeConfigSpec.IntValue NPC_TENDER_PREMIUM_VALUE;
     private static final ForgeConfigSpec.IntValue CARAVAN_MAX_ROUTES_PER_PLAYER;
     private static final ForgeConfigSpec.IntValue CARAVAN_MAX_QTY_PER_TRIP;
     private static final ForgeConfigSpec.LongValue CARAVAN_BLOCKS_PER_DAY;
@@ -937,6 +947,23 @@ public final class FinanceConfig {
         NPC_MAX_FLOAT_PERCENT_PER_DAY = builder
                 .comment("全部 NPC 投资者每天对单只股票的成交量上限（占流通股 %）。")
                 .defineInRange("maxFloatPercentPerDay", NPC_MAX_FLOAT_PERCENT_PER_DAY_VALUE, 0, 100);
+        NPC_VOTING_ENABLED = builder
+                .comment("NPC 股东是否对提案投票。需要同时开启 npcInvestorsEnabled。")
+                .define("npcVotingEnabled", NPC_VOTING_ENABLED_VALUE);
+        builder.push("tenderPremium");
+        NPC_TENDER_PREMIUM_DIVIDEND = builder
+                .comment("分红派接受要约所需的溢价（要约价 ≥ 公允价 × (1 + 该值%)）。")
+                .defineInRange("dividend", NPC_TENDER_PREMIUM_DIVIDEND_VALUE, 0, 1_000);
+        NPC_TENDER_PREMIUM_GROWTH = builder
+                .comment("成长派接受要约所需的溢价（%）。")
+                .defineInRange("growth", NPC_TENDER_PREMIUM_GROWTH_VALUE, 0, 1_000);
+        NPC_TENDER_PREMIUM_SPECULATOR = builder
+                .comment("短线派接受要约所需的溢价（%）。")
+                .defineInRange("speculator", NPC_TENDER_PREMIUM_SPECULATOR_VALUE, 0, 1_000);
+        NPC_TENDER_PREMIUM_VALUE = builder
+                .comment("价值派接受要约所需的溢价（%）。")
+                .defineInRange("value", NPC_TENDER_PREMIUM_VALUE_VALUE, 0, 1_000);
+        builder.pop();
         builder.pop();
 
         COMMON_SPEC = builder.build();
@@ -1212,6 +1239,20 @@ public final class FinanceConfig {
 
     public static int npcMaxFloatPercentPerDay() {
         return getInt(NPC_MAX_FLOAT_PERCENT_PER_DAY, NPC_MAX_FLOAT_PERCENT_PER_DAY_VALUE);
+    }
+
+    public static boolean npcVotingEnabled() {
+        return getBoolean(NPC_VOTING_ENABLED, NPC_VOTING_ENABLED_VALUE);
+    }
+
+    public static int npcTenderPremiumPercent(finance.npcinvestor.NpcInvestorArchetype archetype) {
+        if (archetype == null) return NPC_TENDER_PREMIUM_DIVIDEND_VALUE;
+        return switch (archetype) {
+            case DIVIDEND -> getInt(NPC_TENDER_PREMIUM_DIVIDEND, NPC_TENDER_PREMIUM_DIVIDEND_VALUE);
+            case GROWTH -> getInt(NPC_TENDER_PREMIUM_GROWTH, NPC_TENDER_PREMIUM_GROWTH_VALUE);
+            case SPECULATOR -> getInt(NPC_TENDER_PREMIUM_SPECULATOR, NPC_TENDER_PREMIUM_SPECULATOR_VALUE);
+            case VALUE -> getInt(NPC_TENDER_PREMIUM_VALUE, NPC_TENDER_PREMIUM_VALUE_VALUE);
+        };
     }
 
     // ---- 商队商路 ----
