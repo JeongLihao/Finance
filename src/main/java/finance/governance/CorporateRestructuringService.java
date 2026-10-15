@@ -46,16 +46,16 @@ public final class CorporateRestructuringService {
                 || company == null || !company.isBankruptcyRisk() || amount <= 0
                 || operationKey == null || operationKey.isBlank() || operationKey.length() > 96
                 || CorporateActionManager.keys().contains(key)) {
-            return CorporateActionManager.Result.fail("Invalid emergency recapitalization");
+            return CorporateActionManager.Result.fail("无效的紧急注资请求");
         }
         String riskKey = "recap-risk:" + companyId + ":" + company.getBankruptcyRiskStartDay();
         if (CorporateActionManager.keys().contains(riskKey) || !company.canDeposit(amount)
                 || !AccountManager.withdraw(investor, amount)) {
-            return CorporateActionManager.Result.fail("Recapitalization unavailable or funds insufficient");
+            return CorporateActionManager.Result.fail("暂不可注资或资金不足");
         }
         if (!company.deposit(amount)) {
             AccountManager.deposit(investor, amount);
-            return CorporateActionManager.Result.fail("Recapitalization settlement failed");
+            return CorporateActionManager.Result.fail("注资结算失败");
         }
         CorporateActionManager.putKeyDirect(key);
         CorporateActionManager.putKeyDirect(riskKey);
@@ -68,7 +68,7 @@ public final class CorporateRestructuringService {
             throw new IllegalStateException("validated recapitalization authorization could not be consumed");
         }
         EconomySavedData.markDirty();
-        return CorporateActionManager.Result.ok(companyId, "Emergency recapitalization completed");
+        return CorporateActionManager.Result.ok(companyId, "紧急注资已完成");
     }
 
     public static synchronized CorporateActionManager.Result purchaseInventoryAsset(
@@ -95,16 +95,16 @@ public final class CorporateRestructuringService {
                 || !GovernanceAuthorizationService.mayManage(sellerApprover, sellerCompanyId)
                 || buyer.getCash() < price || !seller.canDeposit(price)
                 || seller.getInventoryAmount(commodityId) < quantity || !buyer.canAddInventory(commodityId, quantity)) {
-            return CorporateActionManager.Result.fail("Invalid or unauthorized asset purchase");
+            return CorporateActionManager.Result.fail("资产收购请求无效或未获授权");
         }
         if (!buyer.withdraw(price) || !seller.removeInventory(commodityId, quantity)) {
             if (buyer.canDeposit(price)) buyer.deposit(price);
-            return CorporateActionManager.Result.fail("Asset reservation failed");
+            return CorporateActionManager.Result.fail("资产预留失败");
         }
         if (!buyer.addInventory(commodityId, quantity) || !seller.deposit(price)) {
             seller.addInventory(commodityId, quantity);
             buyer.deposit(price);
-            return CorporateActionManager.Result.fail("Asset settlement failed");
+            return CorporateActionManager.Result.fail("资产交割失败");
         }
         CorporateActionManager.putKeyDirect(key);
         CorporateActionManager.putAnnouncementDirect(new CorporateAnnouncement(UUID.randomUUID(), buyerCompanyId,
@@ -117,6 +117,6 @@ public final class CorporateRestructuringService {
             throw new IllegalStateException("validated asset-purchase authorization could not be consumed");
         }
         EconomySavedData.markDirty();
-        return CorporateActionManager.Result.ok(buyerCompanyId, "Asset purchase completed");
+        return CorporateActionManager.Result.ok(buyerCompanyId, "资产收购已完成");
     }
 }

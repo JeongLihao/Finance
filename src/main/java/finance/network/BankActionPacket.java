@@ -1,5 +1,6 @@
 package finance.network;
 
+import finance.bank.BankLiquidationService;
 import finance.bank.BankStressTestService;
 import finance.bank.BankingManager;
 import finance.bank.DepositInsuranceService;
@@ -18,7 +19,8 @@ public record BankActionPacket(Action action, UUID primaryId, UUID secondaryId,
                                long amount, int termDays, int intervalDays) {
     public enum Action {
         DEPOSIT, WITHDRAW, OPEN_TIME, REDEEM_TIME, TRANSFER,
-        APPLY_COMPANY_LOAN, WITHDRAW_COMPANY, ADMIN_RESOLVE, ADMIN_STRESS_TEST
+        APPLY_COMPANY_LOAN, WITHDRAW_COMPANY, ADMIN_RESOLVE, ADMIN_STRESS_TEST,
+        EARLY_REDEEM_TIME
     }
 
     public static void encode(BankActionPacket packet, FriendlyByteBuf buffer) {
@@ -73,6 +75,8 @@ public record BankActionPacket(Action action, UUID primaryId, UUID secondaryId,
                     : "定期参数无效";
             case REDEEM_TIME -> packet.primaryId != null
                     ? BankingManager.redeemTimeDeposit(owner, packet.primaryId, day).message() : "合同无效";
+            case EARLY_REDEEM_TIME -> packet.primaryId != null
+                    ? BankingManager.earlyRedeemTimeDeposit(owner, packet.primaryId, day).message() : "合同无效";
             case TRANSFER -> packet.primaryId != null && packet.secondaryId != null && packet.amount > 0
                     ? BankingManager.transfer(owner, packet.primaryId, packet.secondaryId, packet.amount, day).message()
                     : "转账参数无效";
@@ -86,9 +90,13 @@ public record BankActionPacket(Action action, UUID primaryId, UUID secondaryId,
             case WITHDRAW_COMPANY -> packet.primaryId != null && packet.amount > 0
                     && BankingManager.withdrawCompanyToCash(owner, packet.primaryId, packet.amount, day)
                     ? "公司存款已提取" : "公司提款失败";
-            case ADMIN_RESOLVE -> player.hasPermissions(2) && packet.primaryId != null
-                    && DepositInsuranceService.resolve(packet.primaryId, day)
-                    ? "银行处置完成" : "权限不足或银行不可处置";
+            case ADMIN_RESOLVE -> {
+                if (!player.hasPermissions(2) || packet.primaryId == null) yield "权限不足或银行不可处置";
+                if (!DepositInsuranceService.resolve(packet.primaryId, day)) yield "权限不足或银行不可处置";
+                // 手动处置同样要走未保险部分清算（NPC 池核销/定期终结），与自动处置链路一致
+                BankLiquidationService.settleUninsured(packet.primaryId, day);
+                yield "银行处置完成";
+            }
             case ADMIN_STRESS_TEST -> {
                 if (!player.hasPermissions(2)) yield "权限不足";
                 var result = BankStressTestService.run(

@@ -1,6 +1,8 @@
 package finance.data;
 
 import finance.account.AccountManager;
+import finance.caravan.CaravanManager;
+import finance.caravan.CaravanRoute;
 import finance.commodity.Commodity;
 import finance.commodity.CommodityCategory;
 import finance.commodity.CommodityRegistry;
@@ -8,6 +10,7 @@ import finance.company.Company;
 import finance.company.CompanyManager;
 import finance.company.CompanyType;
 import finance.contract.*;
+import finance.event.EventManager;
 import finance.gameplay.company.*;
 import finance.warehouse.*;
 import net.minecraft.core.BlockPos;
@@ -77,5 +80,21 @@ class WorldLifecycleIsolationTest {
         assertNotNull(ContractManager.get(contractId));
         assertEquals(500, AccountManager.getAccounts().get(escrowId).getBalance());
         assertNotNull(CommodityRegistry.getCommodity(COMMODITY));
+    }
+
+    @Test
+    void worldSwitchClearsCaravansAndEventTimers() {
+        CaravanManager.putRouteDirect(new CaravanRoute(UUID.randomUUID(), UUID.randomUUID(),
+                UUID.randomUUID(), UUID.randomUUID(), "wheat", 8, CaravanRoute.MIN_GUARD_LEVEL, false, 1));
+        EventManager.setTimers(5, 30, 200);
+        assertFalse(CaravanManager.routes().isEmpty());
+
+        // 模拟同一 JVM 内退出世界 A 后新建世界 B（新世界不会走 load()）。
+        EconomySavedData.unload();
+
+        assertTrue(CaravanManager.routes().isEmpty());
+        assertEquals(0, EventManager.getTimerMinor());
+        assertEquals(0, EventManager.getTimerMajor());
+        assertEquals(0, EventManager.getTimerBlackSwan());
     }
 }

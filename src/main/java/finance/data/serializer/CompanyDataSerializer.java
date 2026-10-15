@@ -2,6 +2,7 @@ package finance.data.serializer;
 
 import finance.commodity.CommodityRegistry;
 import finance.company.*;
+import finance.earnings.QuarterlyEarningsReport;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
@@ -157,6 +158,34 @@ public final class CompanyDataSerializer {
                 financialReportsTag.add(reportTag);
             }
             companyTag.put("FinancialReports", financialReportsTag);
+
+            // 财报季：季度累加器 + 已发布季报历史
+            companyTag.putLong("QuarterRevenue", company.getQuarterAccumulator().revenue());
+            companyTag.putLong("QuarterExpenses", company.getQuarterAccumulator().expenses());
+            companyTag.putInt("QuarterDays", company.getQuarterAccumulator().days());
+            ListTag earningsHistoryTag = new ListTag();
+            for (QuarterlyEarningsReport report : company.getEarningsHistory()) {
+                CompoundTag reportTag = new CompoundTag();
+                reportTag.putUUID("CompanyId", report.companyId());
+                reportTag.putString("Symbol", report.symbol());
+                reportTag.putString("CompanyName", report.companyName());
+                reportTag.putInt("QuarterIndex", report.quarterIndex());
+                reportTag.putLong("McDay", report.mcDay());
+                reportTag.putInt("TradingDays", report.tradingDays());
+                reportTag.putLong("Revenue", report.revenue());
+                reportTag.putLong("Expenses", report.expenses());
+                reportTag.putLong("NetProfit", report.netProfit());
+                reportTag.putLong("Eps", report.eps());
+                reportTag.putLong("RevenueQoQBps", report.revenueQoQBps());
+                reportTag.putLong("ProfitQoQBps", report.profitQoQBps());
+                reportTag.putLong("DividendPerShare", report.dividendPerShare());
+                reportTag.putBoolean("HasData", report.hasData());
+                reportTag.putLong("ExpectedProfit", report.expectedProfit());
+                reportTag.putLong("SurpriseBps", report.surpriseBps());
+                reportTag.putLong("CreatedAt", report.createdAt().toEpochSecond(ZoneOffset.UTC));
+                earningsHistoryTag.add(reportTag);
+            }
+            companyTag.put("EarningsHistory", earningsHistoryTag);
 
             // P4：保存上市状态
             companyTag.putBoolean("IsPublic", company.isPublic());
@@ -356,6 +385,46 @@ public final class CompanyDataSerializer {
                                 LocalDateTime.ofEpochSecond(reportTag.getLong("CreatedAt"), 0, ZoneOffset.UTC)));
                     }
                 }
+                // 财报季：季度累加器 + 已发布季报历史（损坏条目跳过，不中断整档读档）
+                List<finance.earnings.QuarterlyEarningsReport> earningsHistory =
+                        new java.util.ArrayList<>();
+                if (companyTag.contains("EarningsHistory")) {
+                    ListTag earningsTag = companyTag.getList("EarningsHistory", Tag.TAG_COMPOUND);
+                    for (Tag reportRaw : earningsTag) {
+                        try {
+                            CompoundTag reportTag = (CompoundTag) reportRaw;
+                            UUID reportCompanyId = NbtDataSupport.readUuidOrNull(reportTag, "CompanyId");
+                            if (reportCompanyId == null) {
+                                continue;
+                            }
+                            earningsHistory.add(new finance.earnings.QuarterlyEarningsReport(
+                                    reportCompanyId,
+                                    reportTag.getString("Symbol"),
+                                    reportTag.getString("CompanyName"),
+                                    reportTag.getInt("QuarterIndex"),
+                                    reportTag.getLong("McDay"),
+                                    reportTag.getInt("TradingDays"),
+                                    reportTag.getLong("Revenue"),
+                                    reportTag.getLong("Expenses"),
+                                    reportTag.getLong("NetProfit"),
+                                    reportTag.getLong("Eps"),
+                                    reportTag.getLong("RevenueQoQBps"),
+                                    reportTag.getLong("ProfitQoQBps"),
+                                    reportTag.getLong("DividendPerShare"),
+                                    reportTag.getBoolean("HasData"),
+                                    reportTag.getLong("ExpectedProfit"),
+                                    reportTag.getLong("SurpriseBps"),
+                                    LocalDateTime.ofEpochSecond(reportTag.getLong("CreatedAt"), 0, ZoneOffset.UTC)));
+                        } catch (Exception ignored) {
+                            // 单条损坏跳过
+                        }
+                    }
+                }
+                company.restoreQuarterly(
+                        companyTag.contains("QuarterRevenue") ? companyTag.getLong("QuarterRevenue") : 0,
+                        companyTag.contains("QuarterExpenses") ? companyTag.getLong("QuarterExpenses") : 0,
+                        companyTag.contains("QuarterDays") ? companyTag.getInt("QuarterDays") : 0,
+                        earningsHistory);
                 company.restoreManagement(
                         companyTag.contains("Strategy")
                                 ? NbtDataSupport.safeEnum(finance.company.CompanyStrategy.class,

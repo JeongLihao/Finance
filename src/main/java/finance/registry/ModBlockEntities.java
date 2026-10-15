@@ -6,6 +6,7 @@ import finance.block.entity.CompanyDeskBlockEntity;
 import finance.block.entity.CompanyFactoryControllerBlockEntity;
 import finance.block.entity.BoardroomTableBlockEntity;
 import finance.block.entity.SettlementTradeStationBlockEntity;
+import finance.block.entity.FactoryBlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.registries.DeferredRegister;
@@ -32,6 +33,9 @@ public final class ModBlockEntities {
     public static final RegistryObject<BlockEntityType<SettlementTradeStationBlockEntity>> SETTLEMENT_TRADE_STATION =
             BLOCK_ENTITIES.register("settlement_trade_station", () -> BlockEntityType.Builder.of(
                     SettlementTradeStationBlockEntity::new, ModBlocks.SETTLEMENT_TRADE_STATION.get()).build(null));
+    public static final RegistryObject<BlockEntityType<FactoryBlockEntity>> FACTORY =
+            BLOCK_ENTITIES.register("factory", () -> BlockEntityType.Builder.of(
+                    FactoryBlockEntity::new, ModBlocks.FACTORY.get()).build(null));
 
     private ModBlockEntities() {}
 

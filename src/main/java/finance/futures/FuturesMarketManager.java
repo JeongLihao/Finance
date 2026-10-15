@@ -71,6 +71,9 @@ public final class FuturesMarketManager {
             if(!execute(buy,sell,price,qty,incoming.side()==FuturesOrderSide.BUY))break;
             if(resting.remainingQuantity()==0)ORDERS.remove(resting);
         }
+        // 无玩家对手盘时，做市商作为中央对手方按报价吃下剩余（Phase 3）；
+        // 报价/风控/保证金任一不通过则订单留订单簿。
+        if(incoming.remainingQuantity()>0)FuturesMarketMaker.tryFill(incoming);
         if(incoming.remainingQuantity()>0)ORDERS.add(incoming);
         EconomySavedData.markDirty();return Result.ok(incoming.orderId(),incoming.remainingQuantity()==0?"期货订单已成交":"期货订单已挂入订单簿");
     }
@@ -93,6 +96,43 @@ public final class FuturesMarketManager {
         AccountManager.addTransactionRecord(new TransactionRecord(buy.playerId(),sell.playerId(),0,TransactionType.FUTURES_TRADE,buy.playerId(),c.code(),quantity));
         AccountManager.addTransactionRecord(new TransactionRecord(sell.playerId(),buy.playerId(),0,TransactionType.FUTURES_TRADE,sell.playerId(),c.code(),quantity));
         return true;
+    }
+
+    /**
+     * 做市商作为中央对手方与玩家订单直接成交（Phase 3）。
+     * 做市商不在订单簿挂单，因此不存在与自身历史订单成交的可能；此处仍做防御性校验。
+     * 调用方必须持有 FuturesMarketManager.class 锁。
+     */
+    static boolean executeMmTrade(FuturesOrder playerOrder,FuturesOrderSide mmSide,long price,long quantity){
+        FuturesContract c=CONTRACTS.get(playerOrder.contractId());UUID player=playerOrder.playerId();
+        if(c==null||!c.canTrade()||player==null||FuturesMarketMaker.MARKET_MAKER_ID.equals(player)
+                ||mmSide==null||mmSide==playerOrder.side()||price<=0||quantity<=0||quantity>playerOrder.remainingQuantity())return false;
+        FuturesPosition pp=MarginManager.findPosition(player,c.id()),mp=MarginManager.findPosition(FuturesMarketMaker.MARKET_MAKER_ID,c.id());
+        if(pp==null)pp=new FuturesPosition(player,c.id(),0,0,0,0);
+        if(mp==null)mp=new FuturesPosition(FuturesMarketMaker.MARKET_MAKER_ID,c.id(),0,0,0,0);
+        FuturesPosition.Preview pPrev=pp.preview(playerOrder.side(),quantity,price,c.contractSize()),
+                mPrev=mp.preview(mmSide,quantity,price,c.contractSize());
+        long pr=playerOrder.reservationFor(quantity);
+        if(pPrev==null||mPrev==null||pr<0||Math.abs(pPrev.signedQuantity())>FinanceConfig.futuresMaxPosition()
+                ||Math.abs(mPrev.signedQuantity())>FinanceConfig.futuresMaxPosition()
+                ||!MarginManager.canCommit(player,c.id(),pPrev,pr)
+                ||!MarginManager.canCommit(FuturesMarketMaker.MARKET_MAKER_ID,c.id(),mPrev,0))return false;
+        MarginManager.commit(player,c.id(),pPrev,pr);MarginManager.commit(FuturesMarketMaker.MARKET_MAKER_ID,c.id(),mPrev,0);
+        playerOrder.fill(quantity,pr);
+        UUID buyer=playerOrder.side()==FuturesOrderSide.BUY?player:FuturesMarketMaker.MARKET_MAKER_ID,
+                seller=playerOrder.side()==FuturesOrderSide.SELL?player:FuturesMarketMaker.MARKET_MAKER_ID;
+        long day=CandlestickService.currentMcDay();FuturesTrade trade=new FuturesTrade(buyer,seller,c.id(),price,quantity,day,LocalDateTime.now());
+        TRADES.add(trade);if(TRADES.size()>MAX_TRADES)TRADES.subList(0,TRADES.size()-MAX_TRADES).clear();LAST_PRICES.put(c.id(),price);
+        String id=c.id().toString();CandlestickService.recordTrade(MarketInstrumentType.FUTURES,id,day,price,quantity);
+        RecentTradeService.record(MarketInstrumentType.FUTURES,id,day,price,quantity,trade.timestamp(),playerOrder.side()==FuturesOrderSide.BUY?TradeDirection.BUY:TradeDirection.SELL);
+        AccountManager.addTransactionRecord(new TransactionRecord(buyer,seller,0,TransactionType.FUTURES_TRADE,buyer,c.code(),quantity));
+        AccountManager.addTransactionRecord(new TransactionRecord(seller,buyer,0,TransactionType.FUTURES_TRADE,seller,c.code(),quantity));
+        // 做市商成交单独记一笔（MARKET_MAKER_BUY/SELL），管理后台可审计做市商 P&L
+        long notional=FuturesMath.notional(price,c.contractSize(),quantity);
+        AccountManager.addTransactionRecord(new TransactionRecord(buyer,seller,Math.max(0,notional),
+                mmSide==FuturesOrderSide.BUY?TransactionType.MARKET_MAKER_BUY:TransactionType.MARKET_MAKER_SELL,
+                FuturesMarketMaker.MARKET_MAKER_ID,c.code(),quantity));
+        EconomySavedData.markDirty();return true;
     }
 
     public static synchronized boolean cancel(UUID player,UUID orderId){

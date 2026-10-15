@@ -59,7 +59,16 @@ public class FinanceMenu extends AbstractContainerMenu {
                            long dayVolume, long availableShares, long fairValue,
                            long dayHigh, long dayLow, List<Long> priceHistory,
                            long expectedDividendPerShare, long lastDividendPerShare,
-                           long lastDividendTotal) {}
+                           long lastDividendTotal,
+                           // ---- Phase 4：做市商状态（服务端随菜单快照下发，客户端只展示） ----
+                           /** 做市商买价（无报价时为 0）。 */
+                           long mmBid,
+                           /** 做市商卖价（无报价时为 0）。 */
+                           long mmAsk,
+                           /** 做市商是否熔断暂停（Phase 2 熔断）。 */
+                           boolean mmHalted,
+                           /** 库存水位：0=充足，1=紧张，2=熔断。 */
+                           int mmLevel) {}
 
     public record StockHoldingRow(String symbol, long quantity, long averageCost) {}
 
@@ -501,6 +510,10 @@ public class FinanceMenu extends AbstractContainerMenu {
             buffer.writeLong(row.expectedDividendPerShare());
             buffer.writeLong(row.lastDividendPerShare());
             buffer.writeLong(row.lastDividendTotal());
+            buffer.writeLong(row.mmBid());
+            buffer.writeLong(row.mmAsk());
+            buffer.writeBoolean(row.mmHalted());
+            buffer.writeVarInt(row.mmLevel());
         }
     }
 
@@ -512,7 +525,8 @@ public class FinanceMenu extends AbstractContainerMenu {
                     buffer.readUtf(16), buffer.readUtf(64), buffer.readLong(),
                     buffer.readDouble(), buffer.readLong(), buffer.readLong(), buffer.readLong(),
                     buffer.readLong(), buffer.readLong(), readLongList(buffer),
-                    buffer.readLong(), buffer.readLong(), buffer.readLong()));
+                    buffer.readLong(), buffer.readLong(), buffer.readLong(),
+                    buffer.readLong(), buffer.readLong(), buffer.readBoolean(), buffer.readVarInt()));
         }
         return rows;
     }

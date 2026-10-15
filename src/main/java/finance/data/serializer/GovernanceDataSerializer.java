@@ -41,6 +41,8 @@ public final class GovernanceDataSerializer {
             tag.putLong("Target", offer.targetShares()); tag.putLong("Minimum", offer.minShares());
             tag.putLong("Start", offer.startDay()); tag.putLong("End", offer.endDay());
             tag.putLong("Funds", offer.maxFunds()); tag.putString("Status", offer.status().name());
+            tag.putBoolean("SqueezeOut", offer.isSqueezeOut());
+            tag.put("AcceptedDividends", writeMap(offer.acceptedDividends()));
             tag.put("Accepted", writeMap(offer.accepted())); tag.put("AcceptedCosts", writeMap(offer.acceptedCosts()));
             tenders.add(tag);
         }
@@ -99,14 +101,20 @@ public final class GovernanceDataSerializer {
                 CapitalActionStatus status=CapitalActionStatus.valueOf(tag.getString("Status"));
                 Map<UUID,Long>accepted=readMap(tag.getList("Accepted",Tag.TAG_COMPOUND));
                 Map<UUID,Long>costs=readMap(tag.getList("AcceptedCosts",Tag.TAG_COMPOUND));
+                Map<UUID,Long>dividends=readMap(tag.getList("AcceptedDividends",Tag.TAG_COMPOUND));
+                boolean squeezeOut=tag.contains("SqueezeOut",Tag.TAG_BYTE)&&tag.getBoolean("SqueezeOut");
                 Stock stock=StockMarketManager.getStockByCompanyId(company);
+                long divSum=sum(dividends);
                 boolean valid=id!=null&&buyer!=null&&company!=null&&escrow!=null&&stock!=null&&stock.getSymbol().equals(symbol)
                         &&price>0&&target>0&&minimum>0&&minimum<=target&&start>=0&&end>start
                         &&funds==exactMultiply(price,target)&&sum(accepted)<=stock.getVotingShares()
-                        &&validEscrow(status,escrow,funds);
+                        &&dividends.keySet().stream().allMatch(accepted::containsKey)
+                        &&validTenderEscrow(status,escrow,funds,divSum);
                 if(!valid){if(status==CapitalActionStatus.OPEN)recoverTender(buyer,escrow,symbol,accepted,costs);continue;}
                 TenderOffer offer=new TenderOffer(id,buyer,company,escrow,symbol,price,target,minimum,start,end,funds,status);
+                offer.setSqueezeOut(squeezeOut);
                 accepted.forEach((holder,shares)->offer.accept(holder,shares,costs.getOrDefault(holder,0L)));
+                dividends.forEach(offer::addDividend);
                 if(!CorporateActionManager.putTenderDirect(offer)&&status==CapitalActionStatus.OPEN)
                     recoverTender(buyer,escrow,symbol,accepted,costs);
             }catch(Exception ignored){}
@@ -125,6 +133,7 @@ public final class GovernanceDataSerializer {
     }
 
     private static boolean validEscrow(CapitalActionStatus status,UUID escrow,long expected){Account account=AccountManager.getAccounts().get(escrow);long balance=account==null?0:account.getBalance();return status!=CapitalActionStatus.OPEN||balance==expected;}
+    private static boolean validTenderEscrow(CapitalActionStatus status,UUID escrow,long funds,long dividends){Account account=AccountManager.getAccounts().get(escrow);long balance=account==null?0:account.getBalance();long expected=funds>Long.MAX_VALUE-dividends?Long.MAX_VALUE:funds+dividends;return status!=CapitalActionStatus.OPEN||balance==expected;}
     private static void recoverBuyback(UUID companyId,UUID escrow,String symbol,Map<UUID,Long>accepted,Map<UUID,Long>costs){finance.company.Company company=CompanyManager.getCompany(companyId);long cash=balance(escrow);if(company==null||!canRestoreShares(symbol,accepted)||(cash>0&&!company.canDeposit(cash)))return;restoreShares(symbol,accepted,costs);if(cash>0&&AccountManager.withdraw(escrow,cash))company.deposit(cash);}
     private static void recoverTender(UUID buyer,UUID escrow,String symbol,Map<UUID,Long>accepted,Map<UUID,Long>costs){long cash=balance(escrow);if(buyer==null||!canRestoreShares(symbol,accepted)||(cash>0&&!AccountManager.canDeposit(buyer,cash)))return;restoreShares(symbol,accepted,costs);if(cash>0)AccountManager.moveFunds(escrow,buyer,cash);}
     private static long balance(UUID id){Account account=id==null?null:AccountManager.getAccounts().get(id);return account==null?0:account.getBalance();}

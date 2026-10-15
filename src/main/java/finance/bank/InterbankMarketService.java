@@ -26,6 +26,8 @@ public final class InterbankMarketService {
         CommercialBank borrower = BankingManager.bank(borrowerId);
         if (!FinanceConfig.bankingEnabled() || borrower == null
                 || minimumReserve <= borrower.ledger().balance(BankLedgerAccount.ASSET_RESERVE)) return 0;
+        // 银行挤兑：恐慌过高的银行被同业冻结，只能求助央行最后贷款人
+        if (BankRunService.isInterbankFrozen(borrowerId)) return 0;
         long need = minimumReserve - borrower.ledger().balance(BankLedgerAccount.ASSET_RESERVE);
         long borrowed = 0;
         List<CommercialBank> lenders = BankingManager.banks().values().stream()

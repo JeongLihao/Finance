@@ -44,7 +44,9 @@ public class AdminActionPacket {
         CLEAR_STOCK_PRICE_HISTORY,
         CLEAR_ALL_PRICE_HISTORY,
         SET_DIVIDEND_RATIO,
-        SET_DIVIDEND_CYCLE
+        SET_DIVIDEND_CYCLE,
+        /** Phase 4：手动暂停/恢复某市场做市商（commodity/stock/futures，借用 commodityId 字段承载市场键）。 */
+        TOGGLE_MM_PAUSE
     }
 
     private final ActionType actionType;
@@ -123,6 +125,24 @@ public class AdminActionPacket {
         return new AdminActionPacket(ActionType.SET_DIVIDEND_CYCLE, days);
     }
 
+    /**
+     * Phase 4：手动暂停/恢复某市场做市商。
+     * @param market 市场键：commodity / stock / futures（借用 commodityId 字段承载）。
+     */
+    public static AdminActionPacket toggleMarketMakerPause(String market) {
+        return new AdminActionPacket(ActionType.TOGGLE_MM_PAUSE, market == null ? "" : market);
+    }
+
+    /** TOGGLE_MM_PAUSE 专用构造：market 借用 commodityId 字段承载。 */
+    private AdminActionPacket(ActionType actionType, String market) {
+        this.actionType = actionType;
+        this.commodityId = market;
+        this.itemId = null;
+        this.displayName = null;
+        this.basePrice = 0;
+        this.category = null;
+    }
+
     public static void encode(AdminActionPacket packet, FriendlyByteBuf buffer) {
         buffer.writeEnum(packet.actionType);
         switch (packet.actionType) {
@@ -146,6 +166,9 @@ public class AdminActionPacket {
             }
             case SET_DIVIDEND_RATIO, SET_DIVIDEND_CYCLE -> {
                 buffer.writeLong(packet.basePrice);
+            }
+            case TOGGLE_MM_PAUSE -> {
+                buffer.writeUtf(packet.commodityId, 16);
             }
         }
     }
@@ -182,6 +205,9 @@ public class AdminActionPacket {
             }
             case SET_DIVIDEND_CYCLE -> {
                 return new AdminActionPacket(ActionType.SET_DIVIDEND_CYCLE, buffer.readLong());
+            }
+            case TOGGLE_MM_PAUSE -> {
+                return AdminActionPacket.toggleMarketMakerPause(buffer.readUtf(16));
             }
             default -> throw new IllegalStateException("未知 ActionType");
         }
@@ -221,6 +247,7 @@ public class AdminActionPacket {
                 case CLEAR_ALL_PRICE_HISTORY -> handleClearAllPriceHistory(player);
                 case SET_DIVIDEND_RATIO -> handleSetDividendRatio(player, packet.basePrice);
                 case SET_DIVIDEND_CYCLE -> handleSetDividendCycle(player, packet.basePrice);
+                case TOGGLE_MM_PAUSE -> handleToggleMarketMakerPause(player, packet.commodityId);
             }
         });
         ctx.get().setPacketHandled(true);
@@ -470,6 +497,40 @@ public class AdminActionPacket {
         GuiFeedbackPacket.send(player, "分红周期已设置为 " + CompanyManager.getDividendCycleDays() + " 天。");
     }
 
+    /**
+     * Phase 4：手动暂停/恢复某市场做市商（服务端 toggle＋持久化，可审计）。
+     * 暂停是可逆操作，不走二次确认；状态变化记 TransactionRecord（MARKET_MAKER_PAUSE/RESUME）
+     * 并写入 AdminOperationGuard 审计日志。
+     */
+    private static void handleToggleMarketMakerPause(ServerPlayer player, String marketKey) {
+        finance.market.MarketMakerLedger.SubMarket market =
+                finance.market.MarketMakerPauseState.fromKey(marketKey);
+        if (market == null) {
+            GuiFeedbackPacket.send(player, "未知的做市商市场：" + marketKey);
+            return;
+        }
+        boolean paused = finance.market.MarketMakerPauseState.toggle(market);
+        String marketName = marketDisplayName(market);
+        finance.account.TransactionType type = paused
+                ? finance.account.TransactionType.MARKET_MAKER_PAUSE
+                : finance.account.TransactionType.MARKET_MAKER_RESUME;
+        AccountManager.addTransactionRecord(new finance.account.TransactionRecord(
+                player.getUUID(), finance.market.MarketMakerLedger.MASTER_UUID, 0,
+                type, player.getUUID(), "做市商" + marketName, 0));
+        finance.admin.AdminOperationGuard.audit(player.getUUID(), "TOGGLE_MM_PAUSE",
+                marketKey + "=" + paused, player.server.getTickCount(), true);
+        EconomySavedData.markDirty();
+        GuiFeedbackPacket.send(player, "做市商（" + marketName + "）已" + (paused ? "暂停报价" : "恢复报价") + "。");
+    }
+
+    private static String marketDisplayName(finance.market.MarketMakerLedger.SubMarket market) {
+        return switch (market) {
+            case COMMODITY -> "商品";
+            case STOCK -> "股票";
+            case FUTURES -> "期货";
+        };
+    }
+
     private static boolean isValidRequest(AdminActionPacket packet) {
         if (packet.actionType == null) {
             return false;
@@ -485,6 +546,8 @@ public class AdminActionPacket {
             case CLEAR_COMMODITY_PRICE_HISTORY, CLEAR_STOCK_PRICE_HISTORY, CLEAR_ALL_PRICE_HISTORY -> true;
             case SET_DIVIDEND_RATIO -> packet.basePrice >= 0 && packet.basePrice <= 10_000;
             case SET_DIVIDEND_CYCLE -> packet.basePrice >= 1 && packet.basePrice <= 365;
+            case TOGGLE_MM_PAUSE ->
+                    finance.market.MarketMakerPauseState.fromKey(packet.commodityId) != null;
         };
     }
 
