@@ -209,6 +209,13 @@ public class EventManager {
         activeEvents.clear();
     }
 
+    /** 世界切换时重置事件计时器；已有存档会在加载阶段通过 setTimers 恢复。 */
+    public static void resetTimersDirect() {
+        timerMinor = 0;
+        timerMajor = 0;
+        timerBlackSwan = 0;
+    }
+
     public static void addActiveEventDirect(MarketEvent event) {
         activeEvents.add(event);
     }
