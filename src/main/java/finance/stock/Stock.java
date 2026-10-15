@@ -251,12 +251,20 @@ public class Stock {
 
     /**
      * 每 MC 天调用 —— 基本面更新 + 日统计重置。
+     * 注意：创始人锁仓递减已拆出到 {@link #tickFounderLockupDay()}，仅由日结算显式驱动；
+     * 开服初始化复用本方法更新公允价值时，不再消耗锁仓天数（P1-2：每次重启曾偷减 1 天）。
      */
     public void updateFairValueAndResetDay(long companyAssetValue, long totalShares,
                                            long smoothedDailyProfit, double industrySentiment) {
         priceEngine.updateFairValue(companyAssetValue, totalShares, smoothedDailyProfit, industrySentiment);
         priceEngine.newDayReset();
-        // 创始人锁定期按天递减（每日调用一次）
+    }
+
+    /**
+     * 创始人锁定期按天递减 —— 仅由日结算（{@code StockMarketManager.tickNewDay}）调用，
+     * 开服初始化路径（FinanceMod）不得调用。
+     */
+    public void tickFounderLockupDay() {
         if (founderLockupDaysRemaining > 0) {
             founderLockupDaysRemaining--;
         }

@@ -159,6 +159,7 @@ public class FinanceMod {
 
         // 初始化系统公司股票
         StockMarketManager.seedSystemStocksIfNeeded();
+        // 开服初始化只刷新公允价值，不递减创始人锁仓（P1-2：锁仓递减仅由日结算 tickNewDay 驱动）
         StockMarketManager.updateFairValuesAndResetDay();
         StartupSelfCheckService.schedule(EconomyCycleService.currentMcDay(event.getServer()));
     }
