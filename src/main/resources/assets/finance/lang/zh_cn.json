@@ -164,6 +164,11 @@
   "finance.feedback.market_recovery": "市场供应正在恢复：%s（库存 %s）",
   "finance.feedback.company_risk": "公司进入财务风险状态：%s",
   "finance.feedback.company_recovery": "公司已脱离财务风险：%s",
+  "finance.feedback.earnings_beat": "📈 %s %s 财报超预期！营收 %s，净利润 %s，EPS %s，预期差 +%s",
+  "finance.feedback.earnings_miss": "📉 %s %s 财报不及预期：营收 %s，净利润 %s，EPS %s，预期差 %s",
+  "finance.feedback.earnings_inline": "📰 %s %s 财报发布：营收 %s，净利润 %s，EPS %s（符合预期）",
+  "finance.feedback.earnings_first": "📰 %s 发布首份季报：营收 %s，净利润 %s，EPS %s",
+  "finance.feedback.earnings_nodata": "📰 %s %s 财报：本期无经营数据",
   "finance.feedback.bank_restricted": "银行体系进入限制状态，请在柜台查看公开风险提示",
   "finance.feedback.bank_resolution": "银行体系进入处置状态，既有存款仍按规则结算",
   "finance.feedback.market_event": "%s%s：%s（%s，持续%s）",
@@ -503,5 +508,14 @@
   "finance.company_supply.delivery_failed": "商品划转失败，操作已回滚",
   "finance.company_supply.payment_failed": "托管付款失败，交货已回滚",
   "finance.company_supply.partial": "分批交货成功，托管资金已按进度结算",
-  "finance.company_supply.completed": "公司间供应合同已完成"
+  "finance.company_supply.completed": "公司间供应合同已完成",
+  "finance.feedback.policy_guidance": "【央行议息前瞻】%s 天后议息（第 %s 天），当前政策倾向：%s，基准利率现为 %s",
+  "finance.feedback.policy_decision": "【央行议息决议】基准利率 %s → %s（%s）。%s",
+  "finance.feedback.policy_decision_manual": "【央行议息】检测到人工干预，维持现行基准利率 %s（%s）",
+  "block.finance.factory": "工厂",
+  "screen.finance.factory.input": "输入",
+  "screen.finance.factory.output": "输出",
+  "screen.finance.factory.working": "工作中",
+  "screen.finance.factory.idle": "缺料待机",
+  "screen.finance.factory.output_full": "输出已满"
 }
