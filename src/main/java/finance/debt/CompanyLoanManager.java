@@ -61,6 +61,11 @@ public final class CompanyLoanManager {
         if(!FinanceConfig.bankingEnabled()||company==null||bank==null||ownerId==null||!ownerId.equals(company.getOwnerId())||!bank.acceptsNewBusiness()
                 ||principal<=0||currentDay<0||termDays<2||termDays>FinanceConfig.maxLoanTermDays()
                 ||paymentIntervalDays<1||paymentIntervalDays>=termDays||LOANS.size()>=FinanceConfig.maxCompanyLoans())return Result.fail("商业银行贷款参数无效");
+        UUID bankOwner=PlayerBankService.ownerOf(bankId);
+        if(bankOwner!=null&&bankOwner.equals(company.getOwnerId())){
+            long limit=PlayerBankService.relatedPartyLimit(bank),existing=PlayerBankService.relatedExposure(bankId,bankOwner);
+            if(principal>limit||existing>limit-principal)return Result.fail("关联交易：银行所有者不得从自家银行贷款");
+        }
         CreditRating rating=CompanyCreditService.rate(company);if(rating==CreditRating.D)return Result.fail("信用等级不足");
         BigInteger companyLimit=BigInteger.valueOf(Math.max(1,company.getReportBasedAssetValue())).multiply(BigInteger.valueOf(rating.maxDebtPercent())).divide(BigInteger.valueOf(100));
         if(BigInteger.valueOf(CompanyCreditService.totalDebt(companyId)).add(BigInteger.valueOf(principal)).compareTo(companyLimit)>0)return Result.fail("超过公司信用额度");

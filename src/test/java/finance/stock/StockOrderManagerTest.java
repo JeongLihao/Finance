@@ -4,6 +4,7 @@ import finance.account.AccountManager;
 import finance.company.Company;
 import finance.company.CompanyManager;
 import finance.company.CompanyType;
+import finance.market.MarketMakerLedger;
 import finance.metrics.EconomyMetricsService;
 import finance.chart.CandlestickService;
 import finance.chart.MarketInstrumentType;
@@ -39,6 +40,7 @@ class StockOrderManagerTest {
         StockPortfolioManager.clearPortfolios();
         EconomyMetricsService.clearDirect();
         CandlestickService.clearDirect();
+        MarketMakerLedger.clearDirect();
 
         Company company = new Company(COMPANY_ID, "Bug Regression Inc", CompanyType.RAW_MATERIALS, 10_000);
         company.setPublic(true);
@@ -47,6 +49,10 @@ class StockOrderManagerTest {
         Stock stock = new Stock(SYMBOL, "Bug Regression Inc", COMPANY_ID,
                 10_000, 10_000, 0, 100, 100);
         StockMarketManager.putStockDirect(stock);
+
+        // Phase 1 起做市商成交需要真实资金与库存：总账户注资并建仓至目标库存
+        AccountManager.getOrCreateSystemAccount(MarketMakerLedger.MASTER_UUID).deposit(10_000_000L);
+        MarketMakerLedger.seedStockInventory(stock);
     }
 
     @Test

@@ -107,13 +107,13 @@ public final class CompanyFinancingManager {
 
         if (!project.addSubscription(playerId, acceptedShares)) {
             AccountManager.deposit(playerId, cost);
-            return Result.fail("Subscription settlement failed.");
+            return Result.fail("认购结算失败。");
         }
         addRecord(playerId, project.getCompanyId(), TransactionType.COMPANY_FINANCING_SUBSCRIBE,
                 cost, acceptedShares, company.getName() + "/" + project.getSymbol());
         if (project.isFunded()) {
             if (!finalizeProject(project, Math.max(0, currentMcDay))) {
-                return Result.fail("Financing settlement is pending; no partial issue was committed.");
+                return Result.fail("融资结算待处理，未发生部分发行。");
             }
             return Result.ok("认购成功，融资目标已达成并完成增发。");
         }

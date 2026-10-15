@@ -5,6 +5,7 @@ import finance.account.TransactionRecord;
 import finance.account.TransactionType;
 import finance.config.FinanceConfig;
 import finance.data.EconomySavedData;
+import finance.market.MarketMakerLedger;
 import finance.stock.Stock;
 import finance.stock.StockMarketManager;
 import finance.stock.StockPortfolioManager;
@@ -112,11 +113,11 @@ public class CompanyIPOService {
 
         if (!company.canDeposit(raisedCapital)) {
             AccountManager.deposit(requesterId, ipoFee);
-            return fail("Company cash balance cannot hold the raised capital.");
+            return fail("公司现金余额无法容纳本次募资。");
         }
         if (!StockPortfolioManager.canAddHolding(requesterId, symbol, ownerShares)) {
             AccountManager.deposit(requesterId, ipoFee);
-            return fail("Founder portfolio cannot hold the issued shares.");
+            return fail("创始人持仓无法容纳本次发行的股份。");
         }
 
         // 创建股票
@@ -135,12 +136,12 @@ public class CompanyIPOService {
         // IPO capital is an explicit issuance source; it is not transferred from the listing fee.
         if (!company.deposit(raisedCapital)) {
             AccountManager.deposit(requesterId, ipoFee);
-            return fail("IPO capital settlement failed.");
+            return fail("IPO 募资结算失败。");
         }
         if (!StockPortfolioManager.addHolding(requesterId, symbol, ownerShares, issuePrice)) {
             company.withdraw(raisedCapital);
             AccountManager.deposit(requesterId, ipoFee);
-            return fail("Founder share settlement failed.");
+            return fail("创始人股份结算失败。");
         }
 
         // 创始人股份锁定期 —— 防止上市即抛售砸盘套现
@@ -149,8 +150,16 @@ public class CompanyIPOService {
         // 标记公司为已上市
         company.setPublic(true);
 
+        // 财报季：上市前累积的季度流水清零，避免 IPO 后首份季报混入上市前经营数据
+        company.drainQuarter();
+
         // 注册股票
         StockMarketManager.putStockDirect(stock);
+
+        // 做市商 IPO 预留：发行量 × 预留比例以发行价划入做市商库存。
+        // 余额不足则跳过预留，不阻断 IPO。
+        reserveForMarketMaker(company, stock, issuePrice, issueQuantity);
+
         AccountManager.addTransactionRecord(
                 new TransactionRecord(
                         requesterId,
@@ -199,6 +208,56 @@ public class CompanyIPOService {
             symbol = base.substring(0, Math.min(prefixLength, base.length())) + suffixText;
         }
         return symbol;
+    }
+
+    /**
+     * 做市商 IPO 预留 —— 发行量 × {@link FinanceConfig#ipoMarketMakerReserveRatio()}
+     * 以发行价认购，资金从做市商总账户（nil UUID）真实支付给公司，
+     * 股份记入做市商股票子账本库存。
+     *
+     * <p>这是做市商初始库存的正规来源（一级市场联动），区别于二级市场的
+     * 终身接盘计数（{@code marketMakerBoughtShares}），不计入 200 股熔断。</p>
+     *
+     * <p>做市商总账户余额不足时跳过预留，不阻断 IPO。</p>
+     */
+    private static void reserveForMarketMaker(Company company, Stock stock, long issuePrice, long issueQuantity) {
+        double ratio = FinanceConfig.ipoMarketMakerReserveRatio();
+        if (ratio <= 0) {
+            return;
+        }
+        long reserveQty = (long) Math.floor(issueQuantity * ratio);
+        if (reserveQty <= 0) {
+            return;
+        }
+        long reserveCost;
+        try {
+            reserveCost = Math.multiplyExact(issuePrice, reserveQty);
+        } catch (ArithmeticException ex) {
+            return;
+        }
+        if (reserveCost <= 0) {
+            return;
+        }
+        if (!AccountManager.withdraw(MarketMakerLedger.MASTER_UUID, reserveCost)) {
+            return; // 余额不足：跳过预留
+        }
+        if (!company.deposit(reserveCost)) {
+            AccountManager.deposit(MarketMakerLedger.MASTER_UUID, reserveCost);
+            return;
+        }
+        MarketMakerLedger.addInventory(MarketMakerLedger.SubMarket.STOCK, stock.getSymbol(), reserveQty);
+        AccountManager.addTransactionRecord(
+                new TransactionRecord(
+                        MarketMakerLedger.MASTER_UUID,
+                        company.getCompanyId(),
+                        reserveCost,
+                        TransactionType.MARKET_MAKER_BUY,
+                        MarketMakerLedger.MASTER_UUID,
+                        stock.getSymbol(),
+                        reserveQty
+                )
+        );
+        EconomySavedData.markDirty();
     }
 
     private static IPOResult fail(String message) {

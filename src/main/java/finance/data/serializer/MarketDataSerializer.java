@@ -6,7 +6,10 @@ import finance.commodity.CommodityRegistry;
 import finance.event.EventManager;
 import finance.event.EventTier;
 import finance.event.MarketEvent;
+import finance.market.CentralBankLoanLedger;
 import finance.market.MarketManager;
+import finance.market.MarketMakerLedger;
+import finance.market.MarketMakerPauseState;
 import finance.market.MarketPrice;
 import finance.market.NpcMarketMaker;
 import finance.market.Order;
@@ -18,6 +21,7 @@ import net.minecraft.nbt.Tag;
 
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.Map;
 import java.util.UUID;
 
 /** Persists commodity definitions, market books, price history and active events. */
@@ -191,11 +195,147 @@ public final class MarketDataSerializer {
         }
         tag.put("ActiveEvents", eventsTag);
 
+        saveMarketMakerLedger(tag);
+        saveCentralBankLoanLedger(tag);
+        saveMarketMakerPause(tag);
     }
 
     public static void load(CompoundTag tag) {
         loadCommodityDefinitions(tag);
         loadMarketState(tag);
+        loadMarketMakerLedger(tag);
+        loadCentralBankLoanLedger(tag);
+        loadMarketMakerPause(tag);
+    }
+
+    /**
+     * 持久化做市商分市场子账本（各子账本的标的库存）。
+     * 总账户资金本身由 AccountDataSerializer 随 nil UUID 账户保存。
+     */
+    public static void saveMarketMakerLedger(CompoundTag tag) {
+        ListTag ledgerTag = new ListTag();
+        for (Map.Entry<MarketMakerLedger.SubMarket, Map<String, Long>> marketEntry
+                : MarketMakerLedger.getAllInventories().entrySet()) {
+            for (Map.Entry<String, Long> entry : marketEntry.getValue().entrySet()) {
+                CompoundTag itemTag = new CompoundTag();
+                itemTag.putString("Market", marketEntry.getKey().name());
+                itemTag.putString("Symbol", entry.getKey());
+                itemTag.putLong("Inventory", entry.getValue());
+                ledgerTag.add(itemTag);
+            }
+        }
+        tag.put("MarketMakerLedger", ledgerTag);
+    }
+
+    /** 恢复做市商分市场子账本；旧存档无该节点时视为空账本。 */
+    public static void loadMarketMakerLedger(CompoundTag tag) {
+        MarketMakerLedger.clearDirect();
+        if (!tag.contains("MarketMakerLedger")) {
+            return;
+        }
+        ListTag ledgerTag = tag.getList("MarketMakerLedger", Tag.TAG_COMPOUND);
+        for (Tag raw : ledgerTag) {
+            CompoundTag itemTag = (CompoundTag) raw;
+            MarketMakerLedger.SubMarket market;
+            try {
+                market = MarketMakerLedger.SubMarket.valueOf(itemTag.getString("Market"));
+            } catch (IllegalArgumentException ex) {
+                continue;
+            }
+            String symbol = itemTag.getString("Symbol");
+            long inventory = itemTag.getLong("Inventory");
+            if (market == MarketMakerLedger.SubMarket.FUTURES) {
+                // 期货净持仓有符号（可为负），走专用恢复路径；stock 沿用原逻辑
+                try {
+                    MarketMakerLedger.restoreFuturesNetPosition(UUID.fromString(symbol), inventory);
+                } catch (IllegalArgumentException ignored) {
+                }
+            } else {
+                MarketMakerLedger.restoreInventory(market, symbol, inventory);
+            }
+        }
+    }
+
+    /**
+     * 持久化央行紧急贷款账本（Phase 4）。
+     */
+    public static void saveCentralBankLoanLedger(CompoundTag tag) {
+        ListTag loansTag = new ListTag();
+        for (Map.Entry<MarketMakerLedger.SubMarket, CentralBankLoanLedger.LoanBook> entry
+                : CentralBankLoanLedger.snapshot().entrySet()) {
+            CentralBankLoanLedger.LoanBook book = entry.getValue();
+            if (book.outstanding() <= 0 && book.totalLoaned() <= 0) {
+                continue;
+            }
+            CompoundTag itemTag = new CompoundTag();
+            itemTag.putString("Market", entry.getKey().name());
+            itemTag.putLong("Outstanding", book.outstanding());
+            itemTag.putLong("TotalLoaned", book.totalLoaned());
+            itemTag.putLong("TotalRepaid", book.totalRepaid());
+            itemTag.putLong("LastLoanDay", book.lastLoanDay());
+            loansTag.add(itemTag);
+        }
+        tag.put("CentralBankMmLoans", loansTag);
+    }
+
+    /** 恢复央行紧急贷款账本；旧存档无该节点时视为空账本。 */
+    public static void loadCentralBankLoanLedger(CompoundTag tag) {
+        CentralBankLoanLedger.clearDirect();
+        if (!tag.contains("CentralBankMmLoans")) {
+            return;
+        }
+        ListTag loansTag = tag.getList("CentralBankMmLoans", Tag.TAG_COMPOUND);
+        for (Tag raw : loansTag) {
+            CompoundTag itemTag = (CompoundTag) raw;
+            MarketMakerLedger.SubMarket market;
+            try {
+                market = MarketMakerLedger.SubMarket.valueOf(itemTag.getString("Market"));
+            } catch (IllegalArgumentException ex) {
+                continue;
+            }
+            CentralBankLoanLedger.restore(market, itemTag.getLong("Outstanding"),
+                    itemTag.getLong("TotalLoaned"), itemTag.getLong("TotalRepaid"),
+                    itemTag.getLong("LastLoanDay"));
+        }
+    }
+
+    /**
+     * 持久化做市商手动暂停状态（Phase 4）。
+     */
+    public static void saveMarketMakerPause(CompoundTag tag) {
+        ListTag pauseTag = new ListTag();
+        for (Map.Entry<MarketMakerLedger.SubMarket, Boolean> entry
+                : MarketMakerPauseState.snapshot().entrySet()) {
+            if (!Boolean.TRUE.equals(entry.getValue())) {
+                continue;
+            }
+            CompoundTag itemTag = new CompoundTag();
+            itemTag.putString("Market", entry.getKey().name());
+            itemTag.putBoolean("Paused", true);
+            pauseTag.add(itemTag);
+        }
+        tag.put("MarketMakerPause", pauseTag);
+    }
+
+    /** 恢复做市商手动暂停状态；旧存档无该节点时视为全部运行中。 */
+    public static void loadMarketMakerPause(CompoundTag tag) {
+        MarketMakerPauseState.clearDirect();
+        if (!tag.contains("MarketMakerPause")) {
+            return;
+        }
+        ListTag pauseTag = tag.getList("MarketMakerPause", Tag.TAG_COMPOUND);
+        for (Tag raw : pauseTag) {
+            CompoundTag itemTag = (CompoundTag) raw;
+            MarketMakerLedger.SubMarket market;
+            try {
+                market = MarketMakerLedger.SubMarket.valueOf(itemTag.getString("Market"));
+            } catch (IllegalArgumentException ex) {
+                continue;
+            }
+            if (itemTag.getBoolean("Paused")) {
+                MarketMakerPauseState.restore(market, true);
+            }
+        }
     }
 
     /**

@@ -40,12 +40,15 @@ public final class FinancialCycleService {
             finance.debt.CompanyLoanManager.processDay(day);
         }
         finance.fixedincome.CentralBankBillManager.processDay(day);
+        finance.fixedincome.TreasuryBondManager.processDay(day);
         if(finance.diagnostic.ModuleHealthRegistry.mayWrite(finance.diagnostic.ModuleHealthRegistry.Module.FUTURES))finance.futures.FuturesMarketManager.processDay(day);
         if(finance.diagnostic.ModuleHealthRegistry.mayWrite(finance.diagnostic.ModuleHealthRegistry.Module.BANKING))finance.bank.BankingManager.processDay(day);
         if(finance.diagnostic.ModuleHealthRegistry.mayWrite(finance.diagnostic.ModuleHealthRegistry.Module.COLLATERAL))finance.collateral.InventoryCollateralService.processDay(day);
         if(finance.diagnostic.ModuleHealthRegistry.mayWrite(finance.diagnostic.ModuleHealthRegistry.Module.FUND))finance.fund.FundManager.processDay(day);
         if(finance.diagnostic.ModuleHealthRegistry.mayWrite(finance.diagnostic.ModuleHealthRegistry.Module.INSURANCE))finance.insurance.InsuranceManager.processDay(day);
         if(finance.diagnostic.ModuleHealthRegistry.mayWrite(finance.diagnostic.ModuleHealthRegistry.Module.STOCK))finance.governance.CorporateActionManager.processDay(day);
+        // 两融：先计息、后重估保证金率并强平（与公司行动同一门控）
+        if(finance.diagnostic.ModuleHealthRegistry.mayWrite(finance.diagnostic.ModuleHealthRegistry.Module.STOCK))finance.margin.MarginService.processDay(day);
         finance.contract.ContractManager.processDay(day);
         if (finance.diagnostic.ModuleHealthRegistry.mayWrite(
                 finance.diagnostic.ModuleHealthRegistry.Module.COMPANY_GAMEPLAY))

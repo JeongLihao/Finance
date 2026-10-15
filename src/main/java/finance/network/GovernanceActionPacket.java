@@ -67,7 +67,7 @@ public record GovernanceActionPacket(Action action, UUID targetId, long price, l
                         packet.price, packet.quantity, packet.duration, day, packet.operationKey);
                 case ACCEPT_BUYBACK -> CorporateActionManager.acceptBuyback(player.getUUID(), packet.targetId,
                         packet.quantity, day, packet.operationKey);
-                case START_TENDER -> CorporateActionManager.startTender(player.getUUID(), packet.targetId,
+                case START_TENDER -> finance.governance.TakeoverService.offerTender(player.getUUID(), packet.targetId,
                         packet.price, packet.quantity, packet.minimum, packet.duration, day, packet.operationKey);
                 case ACCEPT_TENDER -> CorporateActionManager.acceptTender(player.getUUID(), packet.targetId,
                         packet.quantity, day, packet.operationKey);

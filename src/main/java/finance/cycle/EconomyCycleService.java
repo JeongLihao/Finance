@@ -22,6 +22,17 @@ public final class EconomyCycleService {
     private EconomyCycleService() {
     }
 
+    /**
+     * 最近一次执行过 tickDay 的 mcDay。/time set 回拨会让同一天的 tickDay 被重复调用，
+     * 幂等跳过可防止重复发布零季报等副作用（只防"同一天重复"，跨天回拨仍属时间旅行，另案处理）。
+     */
+    private static long lastTickDayProcessed = Long.MIN_VALUE;
+
+    /** 世界切换时重置日结算幂等标记，避免新世界的同一天被误判为已处理。 */
+    public static void resetDirect() {
+        lastTickDayProcessed = Long.MIN_VALUE;
+    }
+
     public static long currentMcDay(MinecraftServer server) {
         if (server == null) {
             return 0;
@@ -56,6 +67,10 @@ public final class EconomyCycleService {
     }
 
     private static void tickDay(MinecraftServer server, long mcDay) {
+        if (mcDay == lastTickDayProcessed) {
+            return; // 同一天重复调用（/time set 回拨）直接跳过
+        }
+        lastTickDayProcessed = mcDay;
         // At the first tick of a new MC day, the previous day's counters are
         // still intact. Persist them before individual price engines reset.
         EconomyMetricsService.closeDay(mcDay - 1);
@@ -64,11 +79,13 @@ public final class EconomyCycleService {
         EventManager.onDayTick(server);
         finance.event.EventContractService.processDay(server,mcDay);
         finance.settlement.SettlementService.processDay(server, mcDay);
+        finance.village.VillageService.processDay(server, mcDay);
         finance.exploration.ExplorationService.processDay(mcDay);
         NpcMarketMaker.naturalConsumeAll();
         NpcMarketMaker.centralBankIntervention();
         CompanyManager.tickAll(mcDay);
         CompanyManager.settleDailyProfits(mcDay);
+        finance.earnings.EarningsSeasonService.processDay(server, mcDay);
         StockMarketManager.tickNewDay();
         CompanyManager.tryDividends(mcDay);
         CompanyFinancingManager.tick(mcDay);
@@ -76,6 +93,8 @@ public final class EconomyCycleService {
         CompanyBankruptcyManager.tick(server, mcDay);
         finance.gameplay.company.CompanyFacilityWorldFeedbackService.refresh(server, mcDay);
         finance.feedback.WorldTerminalStateService.auditDay(server, mcDay);
+        finance.policy.PolicyMeetingService.onDayTick(server, mcDay);
+        finance.caravan.CaravanService.processDay(server, mcDay);
     }
 
     private static void tickNoiseAndMomentum(MinecraftServer server) {

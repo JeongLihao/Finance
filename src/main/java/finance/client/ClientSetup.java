@@ -24,6 +24,7 @@ public class ClientSetup {
             MenuScreens.register(ModMenus.WAREHOUSE.get(), WarehouseScreen::new);
             MenuScreens.register(ModMenus.COMPANY_GAMEPLAY.get(), CompanyGameplayScreen::new);
             MenuScreens.register(ModMenus.SETTLEMENT.get(), SettlementScreen::new);
+            MenuScreens.register(ModMenus.FACTORY.get(), FactoryScreen::new);
             registerOptionalPonderTutorials();
         });
     }
