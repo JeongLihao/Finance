@@ -208,5 +208,7 @@ public final class MacroEconomyManager {
         EconomyAchievements.clearDirect();
         MacroWorldFeedback.clearDirect();
         NewsService.clearDirect();
+        MacroIndicators.restoreLink(-1);
+        PoliticsService.clearCache();
     }
 }

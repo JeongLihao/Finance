@@ -87,12 +87,17 @@ public final class MacroFiscalService {
 
     /** 提案费等规费：玩家 → 国库。 */
     static boolean collectFee(UUID payer, long amount, String note) {
+        return collectFee(payer, amount, note, TransactionType.MACRO_POLITICS);
+    }
+
+    /** 规费：玩家 → 国库，按给定流水类型记账。 */
+    static boolean collectFee(UUID payer, long amount, String note, TransactionType type) {
         if (payer == null || amount <= 0) return amount == 0;
         ensureAccount();
         if (!AccountManager.moveFunds(payer, Treasury.UUID, amount)) return false;
         Treasury.book(Treasury.Item.FEES, amount);
         AccountManager.addTransactionRecord(new TransactionRecord(payer, Treasury.UUID, amount,
-                TransactionType.MACRO_POLITICS, payer, note, 0));
+                type, payer, note, 0));
         return true;
     }
 

@@ -146,5 +146,7 @@ public enum TransactionType {
     /** 国家财政：国库债务利息（国库 → 央行）。 */
     MACRO_DEBT_INTEREST,
     /** 国家财政：央行准备金不足以放款时的增发（货币创造）。 */
-    MACRO_DEBT_ISSUANCE
+    MACRO_DEBT_ISSUANCE,
+    /** 商情调查费（玩家 → 国库或 NPC 资金池）。 */
+    MACRO_SURVEY
 }

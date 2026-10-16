@@ -77,7 +77,8 @@ public final class EconomyAchievements {
     /** 给某玩家发成就；不在线时进待发队列。 */
     public static void award(UUID player, String event) {
         if (player == null || !ALL.contains(event)) return;
-        ServerPlayer online = server == null ? null : server.getPlayerList().getPlayer(player);
+        MinecraftServer current = server != null ? server : net.minecraftforge.server.ServerLifecycleHooks.getCurrentServer();
+        ServerPlayer online = current == null ? null : current.getPlayerList().getPlayer(player);
         if (online != null) {
             FinanceAdvancementTriggers.trigger(online, event);
             return;
@@ -89,6 +90,15 @@ public final class EconomyAchievements {
             PENDING.put(player, queue);
         }
         queue.add(event);
+    }
+
+    /** 补发给当前在线、但之前因为拿不到服务器引用而进了队列的玩家。 */
+    private static void flushOnline() {
+        if (server == null || PENDING.isEmpty()) return;
+        for (UUID id : java.util.List.copyOf(PENDING.keySet())) {
+            ServerPlayer p = server.getPlayerList().getPlayer(id);
+            if (p != null) deliverPending(p);
+        }
     }
 
     /** 玩家上线时补发待发成就。 */
@@ -147,6 +157,7 @@ public final class EconomyAchievements {
             return;
         }
         lastProcessedDay = day;
+        flushOnline();
         checkEmployers();
         checkMarkets();
         checkCaravans();

@@ -73,6 +73,7 @@ public final class PoliticsService {
             MacroEconomyManager.setUnrestFlags(false, false);
             return;
         }
+        refreshPrivateCash();
         recompute();
         int unions = MacroEconomyManager.approval(InterestGroup.TRADE_UNIONS);
         boolean strike = unions <= UNREST_THRESHOLD && MacroEconomyManager.cloutBps(InterestGroup.TRADE_UNIONS) > 0;
@@ -118,15 +119,26 @@ public final class PoliticsService {
         }
         // 资本按平方根折算影响力：钱越多影响力越大，但不会让一个富玩家压过全部人口
         w.put(InterestGroup.INDUSTRIALISTS, Math.sqrt(companyCash / scale));
+        if (cachedPrivateCash < 0) refreshPrivateCash();
+        w.put(InterestGroup.FINANCIERS, Math.sqrt(cachedPrivateCash / scale));
+        return w;
+    }
+
+    /** 私人现金（金融家影响力的来源）：日结时刷新一次，命令和界面查询直接用缓存，避免每次扫全部账户。 */
+    private static long cachedPrivateCash = -1;
+
+    static void refreshPrivateCash() {
         // 玩家现金口径包含聚落预算这类系统账户，扣掉它们只留真正的私人资本
         long villageBudgets = 0;
         for (VillageRecord v : VillageManager.villages()) {
-            if (v.budgetAccountId() != null) villageBudgets = GoodBook.sat(villageBudgets, AccountManager.getBalance(v.budgetAccountId()));
+            if (v.budgetAccountId() != null && AccountManager.getAccounts().containsKey(v.budgetAccountId())) {
+                villageBudgets = GoodBook.sat(villageBudgets, AccountManager.getBalance(v.budgetAccountId()));
+            }
         }
-        long privateCash = Math.max(0, EconomyMetricsService.getCurrentMetrics().playerCash() - villageBudgets);
-        w.put(InterestGroup.FINANCIERS, Math.sqrt(privateCash / scale));
-        return w;
+        cachedPrivateCash = Math.max(0, EconomyMetricsService.getCurrentMetrics().playerCash() - villageBudgets);
     }
+
+    static void clearCache() { cachedPrivateCash = -1; }
 
     /** 满意度 = 处境得分 + 现行法律立场 + 游说加成，钳制到 −10..+10。 */
     static int approvalOf(InterestGroup ig) {

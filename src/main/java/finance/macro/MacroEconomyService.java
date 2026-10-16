@@ -200,8 +200,7 @@ public final class MacroEconomyService {
         for (GoodBook book : econ.goods.values()) book.close(day, step);
         econ.unrest = unrest;
         if (!marketRan) {
-            econ.lastIncome = econ.incomeToday;
-            econ.incomeToday = 0;
+            econ.rollIncome();
             econ.plan.clear();
             econ.consumedUnits.clear();
             econ.required.clear();
@@ -217,8 +216,7 @@ public final class MacroEconomyService {
         econ.lastFulfilment.clear();
         econ.lastFulfilment.putAll(fulfilment);
         int population = village.population();
-        econ.lastIncome = econ.incomeToday;
-        econ.incomeToday = 0;
+        econ.rollIncome();
         double incomePerCapita = population <= 0 ? 0 : (double) econ.lastIncome / population;
         int subsistence = MacroFormulas.subsistenceSol(population, FinanceConfig.villagePopulation());
         econ.solBps = MacroFormulas.smoothSol(econ.solBps,
