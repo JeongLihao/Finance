@@ -216,10 +216,10 @@ public final class FinanceFormat {
             case RAW_MATERIALS -> "产出: 铁锭×100/天";
             case BUILDING_BLOCKS -> "产出: 石头×120/天";
             case FOOD -> "产出: 小麦×80/天";
-            case FOOD_PROCESSING -> "产出: 面包×30/天 投入: 小麦×60";
+            case FOOD_PROCESSING -> "产出: 面包×30/天 投入: 小麦×40";
             case FORESTRY -> "产出: 木头×100/天";
             case COAL_MINING -> "产出: 煤×80/天 投入: 铁锭×5";
-            case TEXTILE -> "产出: 羊毛×40/天 投入: 小麦×20";
+            case TEXTILE -> "产出: 羊毛×40/天 投入: 小麦×10";
         };
     }
 

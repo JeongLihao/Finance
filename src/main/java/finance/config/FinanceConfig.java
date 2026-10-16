@@ -119,9 +119,9 @@ public final class FinanceConfig {
     private static final boolean MACRO_POLITICS_ENABLED_VALUE = true;
     private static final int MACRO_MIN_POPULATION_VALUE = 5;
     private static final int MACRO_MAX_POPULATION_VALUE = 400;
-    private static final int MACRO_GROWTH_MAX_BPS_VALUE = 50;
-    private static final int MACRO_MIGRATION_MAX_BPS_VALUE = 100;
-    private static final int MACRO_MIGRATION_GAP_BPS_VALUE = 1500;
+    private static final int MACRO_GROWTH_MAX_BPS_VALUE = 150;
+    private static final int MACRO_MIGRATION_MAX_BPS_VALUE = 50;
+    private static final int MACRO_MIGRATION_GAP_BPS_VALUE = 500;
     private static final int MACRO_PRICE_STEP_BPS_VALUE = 1000;
     private static final int MACRO_LABOR_RADIUS_VALUE = 256;
     private static final int MACRO_JOBS_PER_LEVEL_VALUE = 10;
@@ -132,8 +132,8 @@ public final class FinanceConfig {
     private static final long MACRO_LAW_PROPOSAL_FEE_VALUE = 2000L;
     private static final long MACRO_LOBBY_PER_POINT_VALUE = 1000L;
     private static final long MACRO_CLOUT_VALUE_SCALE_VALUE = 100L;
-    private static final long MACRO_WELFARE_RELIEF_PER_CAPITA_VALUE = 5L;
-    private static final long MACRO_WELFARE_HEALTH_PER_CAPITA_VALUE = 10L;
+    private static final long MACRO_WELFARE_RELIEF_PER_CAPITA_VALUE = 2L;
+    private static final long MACRO_WELFARE_HEALTH_PER_CAPITA_VALUE = 4L;
     private static final long MACRO_POOL_RESERVE_FLOOR_VALUE = 1000000L;
     // ---- 商队商路 ----
     private static final int CARAVAN_MAX_ROUTES_PER_PLAYER_VALUE = 8;
@@ -1015,7 +1015,7 @@ public final class FinanceConfig {
         MACRO_POLITICS_ENABLED = builder.comment("利益集团与法律是否生效；关闭后法律固定为默认级别，不能提案。").define("politicsEnabled", MACRO_POLITICS_ENABLED_VALUE);
         MACRO_MIN_POPULATION = builder.comment("聚落人口下限。").defineInRange("minPopulation", MACRO_MIN_POPULATION_VALUE, 1, 10000);
         MACRO_MAX_POPULATION = builder.comment("聚落人口上限。").defineInRange("maxPopulation", MACRO_MAX_POPULATION_VALUE, 1, 10000);
-        MACRO_GROWTH_MAX_BPS = builder.comment("生活水平满分或零分时的日人口增减率（基点，50 = 0.5%）。").defineInRange("growthMaxBps", MACRO_GROWTH_MAX_BPS_VALUE, 0, 1000);
+        MACRO_GROWTH_MAX_BPS = builder.comment("生活水平满分或零分时的日人口增减率（基点，150 = 1.5%）。").defineInRange("growthMaxBps", MACRO_GROWTH_MAX_BPS_VALUE, 0, 1000);
         MACRO_MIGRATION_MAX_BPS = builder.comment("每个维度每天从最不宜居聚落迁往最宜居聚落的人口比例（基点）。").defineInRange("migrationMaxBps", MACRO_MIGRATION_MAX_BPS_VALUE, 0, 1000);
         MACRO_MIGRATION_GAP_BPS = builder.comment("两地吸引力差距达到该值（基点）才发生迁移。").defineInRange("migrationGapBps", MACRO_MIGRATION_GAP_BPS_VALUE, 0, 10000);
         MACRO_PRICE_STEP_BPS = builder.comment("本地价格系数每天最多变化的基点。").defineInRange("priceStepBps", MACRO_PRICE_STEP_BPS_VALUE, 1, 10000);

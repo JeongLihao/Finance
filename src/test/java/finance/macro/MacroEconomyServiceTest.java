@@ -103,11 +103,21 @@ class MacroEconomyServiceTest {
         assertTrue(econ().goods().get("wool").factorBps() < highFactor, "有了供给价格回落");
     }
 
-    @Test void goodLivingGrowsPopulationAndFamineShrinksIt() {
+    /** 补齐取暖的候选商品，让五类需求都能满足。 */
+    private void stockAllNeeds() {
+        CommodityRegistry.register(new Commodity("coal", "minecraft:coal", "Coal", CommodityCategory.RAW_MATERIALS, 6));
+        CommodityInventoryManager.setCommodity(NpcMarketMaker.NPC_UUID, "coal", 1_000_000);
         CommodityInventoryManager.setCommodity(NpcMarketMaker.NPC_UUID, "wool", 1_000_000);
-        for (long d = 1; d <= 60; d++) runDay(d);
+    }
+
+    @Test void incomeGrowsPopulationAndFamineShrinksIt() {
+        stockAllNeeds();
+        for (long d = 1; d <= 60; d++) {
+            MacroEconomyManager.getOrCreate(settlement.id()).addIncome(300); // 人均 10 元/天，相当于有工资收入
+            runDay(d);
+        }
         int grown = village.population();
-        assertTrue(econ().solBps() > 5_000, "食物住房工具衣物都满足，生活水平高于 50%：" + econ().solBps());
+        assertTrue(econ().solBps() > 5_000, "需求都满足且有收入，生活水平高于 50%：" + econ().solBps());
         assertTrue(grown > 30, "人口应增长：" + grown);
         assertEquals(grown, village.professionMix().values().stream().mapToInt(Integer::intValue).sum());
 
@@ -119,18 +129,30 @@ class MacroEconomyServiceTest {
         assertTrue(village.population() >= 5, "不低于人口下限");
     }
 
+    @Test void villageWithoutIncomeSettlesAtItsNaturalSize() {
+        stockAllNeeds();
+        for (long d = 1; d <= 30; d++) runDay(d);
+        assertEquals(30, village.population(), "自然规模（villagePopulation=30）、没有收入：不涨不跌");
+        assertEquals(5_000, econ().solBps(), 50);
+        village.resize(PopulationMix.resized(village.professionMix(), 60));
+        for (long d = 31; d <= 200; d++) runDay(d);
+        assertTrue(village.population() < 60 && village.population() > 30, "超过自然规模又没有收入时回落：" + village.population());
+    }
+
     @Test void migrationMovesPeopleTowardTheBetterSettlement() {
         SettlementRecord other = SettlementManager.registerOrRecover(UUID.randomUUID(), "minecraft:overworld",
                 new BlockPos(500, 64, 0), "beta");
         VillageRecord rich = makeVillage(other, 12, 9, 4, 5);
         MacroEconomyManager.getOrCreate(settlement.id()).solBps = 2_000;
         MacroEconomyManager.getOrCreate(other.id()).solBps = 8_000;
-        MacroEconomyService.migrate(List.of(settlement.id(), other.id()));
-        assertEquals(29, village.population(), "1% 向下取整至少 1 人");
-        assertEquals(31, rich.population());
-        MacroEconomyManager.getOrCreate(settlement.id()).solBps = 7_000;
-        MacroEconomyService.migrate(List.of(settlement.id(), other.id()));
-        assertEquals(29, village.population(), "差距不足 1500 不迁移");
+        MacroEconomyService.migrate(List.of(settlement.id(), other.id()), 1);
+        assertEquals(30, village.population(), "30 人 × 0.5% = 0.15 人/天，每 7 天迁 1 人");
+        for (long d = 2; d <= 20; d++) MacroEconomyService.migrate(List.of(settlement.id(), other.id()), d);
+        assertEquals(27, village.population(), "约每 7 天迁出 1 人：第 7、14、16 天");
+        assertEquals(33, rich.population());
+        MacroEconomyManager.getOrCreate(settlement.id()).solBps = 7_600;
+        for (long d = 21; d <= 60; d++) MacroEconomyService.migrate(List.of(settlement.id(), other.id()), d);
+        assertEquals(27, village.population(), "差距不足 500 不迁移");
     }
 
     @Test void excessVillageBudgetFlowsBackToNpcPool() {

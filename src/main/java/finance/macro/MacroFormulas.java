@@ -10,9 +10,19 @@ public final class MacroFormulas {
     public static final int MIN_FACTOR_BPS = 2_500;
     public static final int MAX_FACTOR_BPS = 17_500;
     public static final int MAX_SOL = 10_000;
-    /** 人均日收入每 1 元带来的生活水平加成。 */
-    public static final int INCOME_SOL_PER_UNIT = 150;
-    public static final int MAX_INCOME_SOL = 1_500;
+    /**
+     * 基本需求全部满足时的生活水平（不含自给与收入）。低于增长中性线 5000，差额由自给加成补上。
+     */
+    public static final int NEEDS_SOL_MAX = 4_000;
+    /**
+     * 自给加成：人口等于聚落自然规模（{@code villagePopulation}）时 +1000，正好回到中性线；
+     * 人口越多摊得越薄，越少越厚（最多 3 倍）。于是没有工作的聚落会回到自然规模，而不是一直涨或一直跌。
+     */
+    public static final int SUBSISTENCE_SOL = 1_000;
+    public static final int MAX_SUBSISTENCE_SOL = 3_000;
+    /** 人均日收入每 1 元带来的生活水平加成。默认工资 12 时每个岗位约多养活 2.4 人。 */
+    public static final int INCOME_SOL_PER_UNIT = 200;
+    public static final int MAX_INCOME_SOL = 2_000;
 
     private MacroFormulas() { }
 
@@ -45,12 +55,12 @@ public final class MacroFormulas {
     }
 
     /**
-     * 当日目标生活水平：各类别满足率（0..1）按权重加权，乘以饥荒系数 {@code 0.5 + 0.5 × 食物满足率}，
-     * 再加收入加成和法律修正。吃不饱时其他需求满足得再好也过不好。
+     * 当日目标生活水平：各类别满足率（0..1）按权重加权后乘以 {@link #NEEDS_SOL_MAX}，再乘饥荒系数
+     * {@code 0.5 + 0.5 × 食物满足率}，最后加收入加成和其他修正（自给加成、法律）。吃不饱时其他需求满足得再好也过不好。
      *
      * @param fulfilment      类别 → 满足率；缺项按 0
      * @param incomePerCapita 人均日收入（工资 + 福利）
-     * @param bonusBps        其他修正（如劳工保护），可为负
+     * @param bonusBps        其他修正（自给加成、劳工保护），可为负
      */
     public static int targetSol(Map<NeedCategory, Double> fulfilment, double incomePerCapita, int bonusBps) {
         double total = 0;
@@ -61,9 +71,19 @@ public final class MacroFormulas {
             weights += c.weight();
         }
         double food = fulfilment == null ? 0 : Math.max(0, Math.min(1, fulfilment.getOrDefault(NeedCategory.FOOD, 0.0)));
-        double base = weights == 0 ? 0 : total / weights * MAX_SOL * (0.5 + 0.5 * food);
+        double base = weights == 0 ? 0 : total / weights * NEEDS_SOL_MAX * (0.5 + 0.5 * food);
         double income = Math.min(MAX_INCOME_SOL, Math.max(0, incomePerCapita) * INCOME_SOL_PER_UNIT);
         return clampSol((int) Math.round(base + income + bonusBps));
+    }
+
+    /**
+     * 自给加成：{@code SUBSISTENCE_SOL × 自然规模 / 人口}，封顶 {@link #MAX_SUBSISTENCE_SOL}。
+     * 自然规模 ≤ 0 时为 0。
+     */
+    public static int subsistenceSol(int population, int naturalPopulation) {
+        if (naturalPopulation <= 0) return 0;
+        if (population <= 0) return MAX_SUBSISTENCE_SOL;
+        return (int) Math.min(MAX_SUBSISTENCE_SOL, (long) SUBSISTENCE_SOL * naturalPopulation / population);
     }
 
     /** 生活水平每天向目标移动差距的 1/5（至少 1 点）。 */
@@ -88,6 +108,18 @@ public final class MacroFormulas {
         double rate = (clampSol(sol) - 5_000) / 5_000.0 * growthMaxBps / 10_000.0;
         if (unrest && rate > 0) rate /= 2;
         return Math.round(population * 1000.0 * rate);
+    }
+
+    /**
+     * 当天迁出人数：每天应迁 {@code x = 人口 × rateBps / 10000} 人；x ≥ 1 时取整数部分，
+     * 不足 1 人时每 ⌈1/x⌉ 天迁 1 人。不需要存档状态，小聚落也不会因为“至少 1 人”被几天抽空。
+     */
+    public static long migrants(int population, int rateBps, long day) {
+        if (population <= 0 || rateBps <= 0) return 0;
+        long perDay = (long) population * rateBps;   // 单位：1/10000 人
+        if (perDay >= 10_000) return perDay / 10_000;
+        long period = (10_000 + perDay - 1) / perDay;
+        return Math.floorMod(day, period) == 0 ? 1 : 0;
     }
 
     /** 迁移吸引力：生活水平（已含收入加成），骚乱时 −1000。 */

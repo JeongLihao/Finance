@@ -113,7 +113,7 @@ public class FinanceMod {
         );
 
         // ---- 宏观经济：需求类别的替代品（见 docs/MACRO_ECONOMY.md）----
-        CommodityRegistry.registerDefault(new Commodity("bread", "minecraft:bread", "面包", CommodityCategory.FOOD, 12));
+        CommodityRegistry.registerDefault(new Commodity("bread", "minecraft:bread", "面包", CommodityCategory.FOOD, 20));
         CommodityRegistry.registerDefault(new Commodity("wood", "minecraft:oak_log", "木头", CommodityCategory.BUILDING_BLOCKS, 4));
         CommodityRegistry.registerDefault(new Commodity("coal", "minecraft:coal", "煤", CommodityCategory.RAW_MATERIALS, 6));
         CommodityRegistry.registerDefault(new Commodity("wool", "minecraft:white_wool", "羊毛", CommodityCategory.MISCELLANEOUS, 9));

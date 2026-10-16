@@ -30,16 +30,31 @@ class MacroFormulasTest {
     @Test void standardOfLivingIsWeightedFulfilmentPlusIncome() {
         Map<NeedCategory, Double> all = new EnumMap<>(NeedCategory.class);
         for (NeedCategory c : NeedCategory.values()) all.put(c, 1.0);
-        assertEquals(10_000, MacroFormulas.targetSol(all, 0, 0));
+        assertEquals(4_000, MacroFormulas.targetSol(all, 0, 0), "基本需求满分 4000，低于中性线");
+        assertEquals(5_000, MacroFormulas.targetSol(all, 0, MacroFormulas.subsistenceSol(30, 30)), "自然规模时自给加成正好补到 5000");
         Map<NeedCategory, Double> foodOnly = new EnumMap<>(NeedCategory.class);
         foodOnly.put(NeedCategory.FOOD, 1.0);
-        assertEquals(3_500, MacroFormulas.targetSol(foodOnly, 0, 0), "食物权重 35");
-        assertEquals(3_500 + 1_500, MacroFormulas.targetSol(foodOnly, 50, 0), "收入加成封顶 1500");
-        assertEquals(3_500 + 300, MacroFormulas.targetSol(foodOnly, 2, 0), "人均 2 元收入 +300");
-        assertEquals(4_000, MacroFormulas.targetSol(foodOnly, 0, 500), "法律修正");
+        assertEquals(1_400, MacroFormulas.targetSol(foodOnly, 0, 0), "食物权重 35");
+        assertEquals(1_400 + 2_000, MacroFormulas.targetSol(foodOnly, 50, 0), "收入加成封顶 2000");
+        assertEquals(1_400 + 400, MacroFormulas.targetSol(foodOnly, 2, 0), "人均 2 元收入 +400");
+        assertEquals(1_900, MacroFormulas.targetSol(foodOnly, 0, 500), "法律修正");
         Map<NeedCategory, Double> noFood = new EnumMap<>(all);
         noFood.put(NeedCategory.FOOD, 0.0);
-        assertEquals(3_250, MacroFormulas.targetSol(noFood, 0, 0), "饥荒：其余 65% 再打五折");
+        assertEquals(1_300, MacroFormulas.targetSol(noFood, 0, 0), "饥荒：其余 65% 再打五折");
+    }
+
+    @Test void subsistenceThinsOutAsPopulationGrows() {
+        assertEquals(1_000, MacroFormulas.subsistenceSol(30, 30));
+        assertEquals(500, MacroFormulas.subsistenceSol(60, 30), "人口翻倍，自给加成减半 → 生活水平低于中性线，回落");
+        assertEquals(3_000, MacroFormulas.subsistenceSol(5, 30), "人口很少时封顶 3000 → 回升");
+        assertEquals(0, MacroFormulas.subsistenceSol(30, 0));
+    }
+
+    @Test void migrantsTrickleOutOfSmallSettlements() {
+        assertEquals(0, MacroFormulas.migrants(30, 50, 1), "0.15 人/天：每 7 天 1 人");
+        assertEquals(1, MacroFormulas.migrants(30, 50, 7));
+        assertEquals(2, MacroFormulas.migrants(400, 50, 3), "x ≥ 1 时取整数部分");
+        assertEquals(0, MacroFormulas.migrants(30, 0, 7));
     }
 
     @Test void solSmoothsTowardTarget() {
@@ -76,8 +91,11 @@ class MacroFormulasTest {
         // 小麦每份 8；面包 12/3 = 每份 4 → 权重 1/64 : 1/16，面包分到 80% 的份数
         Map<String, Long> split = MacroNeeds.allocate(NeedCategory.FOOD, 100, id -> true, id -> true,
                 id -> id.equals("wheat") ? 8 : 12);
-        assertEquals(20L, split.get("wheat"));
-        assertEquals(26L, split.get("bread"), "80 份 / 3 = 26 个面包，余数 2 份给最便宜的面包不足一个");
+        assertEquals(26L, split.get("bread"), "80 份 / 3 = 26 个面包");
+        assertEquals(22L, split.get("wheat"), "20 个小麦，余数 2 份最便宜的面包装不下，交给小麦");
+        Map<String, Long> heating = MacroNeeds.allocate(NeedCategory.HEATING, 1.6, id -> true, id -> true,
+                id -> id.equals("coal") ? 5 : 3);
+        assertEquals(Map.of("wood", 1L), heating, "小聚落 1.6 份取暖：煤一块 2 份装不下，改买 1 块木头");
         Map<String, Long> noBread = MacroNeeds.allocate(NeedCategory.FOOD, 100, id -> true, id -> id.equals("wheat"),
                 id -> id.equals("wheat") ? 8 : 12);
         assertEquals(Map.of("wheat", 100L), noBread, "没有供给的替代品不参与");

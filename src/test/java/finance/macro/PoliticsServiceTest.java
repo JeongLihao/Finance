@@ -83,7 +83,7 @@ class PoliticsServiceTest {
         MacroEconomyManager.setLaw(LawLevel.POOR_RELIEF);
         long pool = AccountManager.getBalance(NpcMarketMaker.NPC_UUID);
         PoliticsService.payWelfare(1);
-        long expected = 5L * village.population();
+        long expected = 2L * village.population();
         assertEquals(expected, AccountManager.getBalance(village.budgetAccountId()));
         assertEquals(pool - expected, AccountManager.getBalance(NpcMarketMaker.NPC_UUID));
         assertEquals(expected, MacroEconomyManager.settlement(village.settlementId()).incomeToday);
