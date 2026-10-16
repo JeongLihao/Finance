@@ -159,6 +159,7 @@ public final class FinanceFormat {
             case "MACRO_DEBT_REPAY" -> "国库还款";
             case "MACRO_DEBT_INTEREST" -> "国债利息";
             case "MACRO_DEBT_ISSUANCE" -> "央行增发";
+            case "MACRO_SURVEY" -> "商情调查";
             default -> type;
         };
     }

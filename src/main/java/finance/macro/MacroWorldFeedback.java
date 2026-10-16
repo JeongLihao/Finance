@@ -89,7 +89,8 @@ public final class MacroWorldFeedback {
 
     /** 宏观日结末尾调用：比较昨天和今天，状态翻转时发公告。 */
     static void onDayClosed() {
-        if (!enabled()) return;
+        // 报社和视觉反馈各自有开关：两者都关时才不必追踪状态翻转
+        if (!enabled() && !NewsService.enabled()) return;
         boolean politics = FinanceConfig.macroPoliticsEnabled();
         boolean strike = politics && MacroEconomyManager.strike();
         boolean unrest = politics && MacroEconomyManager.unrest();
@@ -124,7 +125,7 @@ public final class MacroWorldFeedback {
 
     /** 法律表决结束（PoliticsService 调用）。 */
     static void onLawResolved(LawLevel level, boolean passed, long support, long opposition) {
-        if (!enabled() || level == null) return;
+        if ((!enabled() && !NewsService.enabled()) || level == null) return;
         String what = level.group().displayName() + "改为「" + level.displayName() + "」";
         if (passed) news(70, "议会通过：" + what, String.format("支持 %d，反对 %d。新法律即日生效。", support, opposition), true);
         else news(50, "法案受挫：" + what + "被否决", String.format("支持 %d，反对 %d。", support, opposition), true);
@@ -136,7 +137,7 @@ public final class MacroWorldFeedback {
     private static void news(int score, String headline, String body, boolean major) {
         if (NewsService.enabled()) {
             NewsService.report(score, headline, body, major);
-        } else if (major) {
+        } else if (major && enabled()) {
             announce("finance.macro.announce.brief", Tone.BAD, headline);
         }
     }
@@ -146,7 +147,12 @@ public final class MacroWorldFeedback {
     /** 商队到货（CaravanService 调用）：目的地放烟花、敲钟，主人收到盈亏消息。 */
     public static void onCaravanArrived(MinecraftServer server, UUID owner, SettlementRecord dest, String commodityName,
                                         int soldQty, long profit) {
-        if (server == null || dest == null || !enabled()) return;
+        if (dest == null) return;
+        // 个人新闻属于报社，不受视觉反馈开关影响
+        if (NewsService.enabled()) {
+            NewsService.recordPersonal(owner, String.format("商队抵达%s，卖出%s ×%d，盈亏 %+d", dest.displayName(), commodityName, soldQty, profit));
+        }
+        if (server == null || !enabled()) return;
         ServerLevel level = level(server, dest.dimensionId());
         BlockPos pos = dest.anchor();
         if (level != null && level.isLoaded(pos) && anyPlayerNear(level, pos, 64)) {
@@ -164,7 +170,6 @@ public final class MacroWorldFeedback {
             level.addFreshEntity(new FireworkRocketEntity(level, pos.getX() + .5, pos.getY() + 1.2, pos.getZ() + .5, rocket));
             level.playSound(null, pos, SoundEvents.BELL_BLOCK, SoundSource.BLOCKS, 1.0f, 1.0f);
         }
-        NewsService.recordPersonal(owner, String.format("商队抵达%s，卖出%s ×%d，盈亏 %+d", dest.displayName(), commodityName, soldQty, profit));
         ServerPlayer player = owner == null ? null : server.getPlayerList().getPlayer(owner);
         if (player != null) {
             player.sendSystemMessage(Component.translatable("finance.macro.caravan_arrived", dest.displayName(), commodityName,

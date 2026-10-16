@@ -27,6 +27,9 @@ public final class SettlementEconomy {
     long employed;
     long incomeToday;
     long lastIncome;
+    /** 收入中的工资部分（不含福利），用于宏观快照的“工资”口径。 */
+    long wagesToday;
+    long lastWages;
     final TreeMap<String, GoodBook> goods = new TreeMap<>();
     /** 当天分摊：类别 → 商品 → 数量。只在日结内使用，不落盘。 */
     final EnumMap<NeedCategory, Map<String, Long>> plan = new EnumMap<>(NeedCategory.class);
@@ -44,6 +47,7 @@ public final class SettlementEconomy {
     public boolean unrest() { return unrest; }
     public long employed() { return employed; }
     public long lastIncome() { return lastIncome; }
+    public long lastWages() { return lastWages; }
     public long lastProcessedDay() { return lastProcessedDay; }
     public Map<String, GoodBook> goods() { return Collections.unmodifiableMap(goods); }
     public Map<NeedCategory, Double> lastFulfilment() { return Collections.unmodifiableMap(lastFulfilment); }
@@ -77,6 +81,20 @@ public final class SettlementEconomy {
 
     void addIncome(long amount) {
         incomeToday = GoodBook.sat(incomeToday, amount);
+    }
+
+    /** 工资：同时计入收入和工资口径。 */
+    void addWages(long amount) {
+        addIncome(amount);
+        wagesToday = GoodBook.sat(wagesToday, amount);
+    }
+
+    /** 收盘：今天的收入和工资转为“昨日”，并清零。 */
+    void rollIncome() {
+        lastIncome = incomeToday;
+        lastWages = wagesToday;
+        incomeToday = 0;
+        wagesToday = 0;
     }
 
     void pushHistory(long day, int population) {

@@ -106,7 +106,12 @@ public final class MacroLaborService {
 
     /** 招工并发工资。必须在 {@code CompanyManager.tickAll}（生产）之前调用。 */
     public static void processDay(long day) {
-        if (!active() || day <= MacroEconomyManager.lastLaborDay()) return;
+        if (!active()) {
+            // 宏观经济仍在运行但雇工被关掉：清空在岗人数，避免旧的就业数继续影响需求和工会
+            if (MacroEconomyService.active() && !FinanceConfig.macroLaborEnabled()) clearEmployment();
+            return;
+        }
+        if (day <= MacroEconomyManager.lastLaborDay()) return;
         MacroEconomyManager.setLastLaborDay(day);
         long reservation = reservationWage();
 
@@ -155,6 +160,17 @@ public final class MacroLaborService {
         EconomySavedData.markDirty();
     }
 
+    static void clearEmployment() {
+        if (MacroEconomyManager.employmentDirect().isEmpty()) {
+            boolean any = false;
+            for (SettlementEconomy econ : MacroEconomyManager.settlements()) any |= econ.employed != 0;
+            if (!any) return;
+        }
+        MacroEconomyManager.retainFacilities(java.util.Set.of());
+        for (SettlementEconomy econ : MacroEconomyManager.settlements()) econ.employed = 0;
+        EconomySavedData.markDirty();
+    }
+
     /** 发工资；现金不够时只保留付得起的人数。返回实际在岗人数。 */
     private static long pay(CompanyFacilityRecord facility, VillageRecord village, SettlementEconomy econ,
                             long workers, long wage) {
@@ -172,7 +188,7 @@ public final class MacroLaborService {
             return 0;
         }
         company.recordGameplayCost(amount);
-        econ.addIncome(amount);
+        econ.addWages(amount);
         AccountManager.addTransactionRecord(new TransactionRecord(company.getCompanyId(), budget, amount,
                 TransactionType.MACRO_WAGE, company.getOwnerId(), company.getName(), n));
         return n;

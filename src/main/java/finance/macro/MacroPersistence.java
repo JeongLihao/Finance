@@ -36,6 +36,8 @@ public final class MacroPersistence {
             t.putLong("Employed", econ.employed);
             t.putLong("LastIncome", econ.lastIncome);
             t.putLong("IncomeToday", econ.incomeToday);
+            t.putLong("LastWages", econ.lastWages);
+            t.putLong("WagesToday", econ.wagesToday);
             CompoundTag fulfil = new CompoundTag();
             econ.lastFulfilment.forEach((c, v) -> fulfil.putDouble(c.name(), v));
             t.put("Fulfilment", fulfil);
@@ -163,6 +165,7 @@ public final class MacroPersistence {
         ach.put("Pending", pending);
         data.put("Achievements", ach);
         data.put("News", saveNews());
+        data.putDouble("CpiLink", MacroIndicators.link());
         root.put(ROOT, data);
     }
 
@@ -373,6 +376,8 @@ public final class MacroPersistence {
                 econ.employed = Math.max(0, t.getLong("Employed"));
                 econ.lastIncome = Math.max(0, t.getLong("LastIncome"));
                 econ.incomeToday = Math.max(0, t.getLong("IncomeToday"));
+                econ.lastWages = Math.max(0, t.getLong("LastWages"));
+                econ.wagesToday = Math.max(0, t.getLong("WagesToday"));
                 CompoundTag fulfil = t.getCompound("Fulfilment");
                 for (NeedCategory c : NeedCategory.values()) {
                     if (fulfil.contains(c.name(), Tag.TAG_DOUBLE)) {
@@ -493,6 +498,7 @@ public final class MacroPersistence {
                     ach.getLong("DebtFreeStreak"), ach.getBoolean("LastStrike"), pending);
         }
         if (data.contains("News", Tag.TAG_COMPOUND)) skipped += loadNews(data.getCompound("News"));
+        if (data.contains("CpiLink", Tag.TAG_DOUBLE)) MacroIndicators.restoreLink(data.getDouble("CpiLink"));
         if (invalid || skipped > 0) {
             ModuleHealthRegistry.restrict(ModuleHealthRegistry.Module.MACRO_ECONOMY,
                     ModuleRunState.READ_ONLY, "宏观经济存档 " + skipped + " 条损坏已跳过", -1);
