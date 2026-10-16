@@ -62,7 +62,7 @@ class MacroPacketTest {
         assertEquals("alpha", built.settlements().get(0).name());
         assertEquals("小麦", built.settlements().get(0).goods().get(0).commodity());
         assertEquals(6, built.groups().size());
-        assertEquals(3, built.laws().size());
+        assertEquals(4, built.laws().size());
 
         FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
         MacroResponsePacket.encode(built, buf);
@@ -81,6 +81,11 @@ class MacroPacketTest {
         buf.writeLong(0);
         buf.writeLong(0);
         buf.writeBoolean(false);
+        buf.writeBoolean(false);
+        buf.writeLong(0);
+        buf.writeLong(0);
+        buf.writeLong(0);
+        buf.writeLong(0);
         buf.writeBoolean(false);
         buf.writeVarInt(1_000);
         assertThrows(IllegalArgumentException.class, () -> MacroResponsePacket.decode(buf));

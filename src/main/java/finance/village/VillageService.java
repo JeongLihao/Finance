@@ -257,7 +257,8 @@ public final class VillageService {
             return 0;
         }
 
-        long caravanPrice = finance.macro.MacroEconomyService.applyTradePolicy(caravanPriceOf(mp, premium));
+        long caravanBasePrice = caravanPriceOf(mp, premium);
+        long caravanPrice = finance.macro.MacroEconomyService.applyTradePolicy(caravanBasePrice);
         boolean caravanAvailable = caravanPresent && caravanPrice > 0
                 && !SUSPENDED_CARAVAN.contains(settlementId);
 
@@ -369,6 +370,8 @@ public final class VillageService {
                     AccountManager.addTransactionRecord(new TransactionRecord(
                             village.budgetAccountId(), NpcMarketMaker.NPC_UUID, payment,
                             TransactionType.VILLAGE_CARAVAN_SALE, NpcMarketMaker.NPC_UUID, commodity, qty));
+                    // 国家财政：保护主义下多付的部分作为关税转入国库
+                    finance.macro.MacroFiscalService.collectTariff(commodity, caravanBasePrice, caravanPrice, qty);
                 }
             }
         }

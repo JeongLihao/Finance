@@ -14,6 +14,7 @@ import java.util.function.Supplier;
  */
 public record MacroResponsePacket(long requestId, boolean enabled, long cpiX100, int inflationX10, long population,
                                   int avgSol, long employed, long wages, boolean strike, boolean unrest,
+                                  long treasury, long debt, long revenue, long expense, boolean austerity,
                                   List<String> laws, String proposal, List<GroupRow> groups,
                                   List<SettlementRow> settlements) {
     public static final int MAX_SETTLEMENTS = 16, MAX_GOODS = 16, MAX_LAWS = 8, MAX_GROUPS = 8, CATEGORIES = 5;
@@ -47,6 +48,11 @@ public record MacroResponsePacket(long requestId, boolean enabled, long cpiX100,
         b.writeLong(p.wages);
         b.writeBoolean(p.strike);
         b.writeBoolean(p.unrest);
+        b.writeLong(p.treasury);
+        b.writeLong(p.debt);
+        b.writeLong(p.revenue);
+        b.writeLong(p.expense);
+        b.writeBoolean(p.austerity);
         b.writeVarInt(p.laws.size());
         for (String s : p.laws) b.writeUtf(s, 64);
         b.writeUtf(p.proposal, 160);
@@ -91,6 +97,11 @@ public record MacroResponsePacket(long requestId, boolean enabled, long cpiX100,
         long wages = b.readLong();
         boolean strike = b.readBoolean();
         boolean unrest = b.readBoolean();
+        long treasury = b.readLong();
+        long debt = b.readLong();
+        long revenue = b.readLong();
+        long expense = b.readLong();
+        boolean austerity = b.readBoolean();
         int n = count(b, MAX_LAWS);
         List<String> laws = new ArrayList<>(n);
         for (int i = 0; i < n; i++) laws.add(b.readUtf(64));
@@ -116,7 +127,7 @@ public record MacroResponsePacket(long requestId, boolean enabled, long cpiX100,
             settlements.add(new SettlementRow(name, pop, sol, emp, income, u, f, goods));
         }
         return new MacroResponsePacket(id, enabled, cpi, inflation, population, avgSol, employed, wages, strike, unrest,
-                laws, proposal, groups, settlements);
+                treasury, debt, revenue, expense, austerity, laws, proposal, groups, settlements);
     }
 
     private static int count(FriendlyByteBuf b, int max) {

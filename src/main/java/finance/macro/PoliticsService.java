@@ -133,6 +133,8 @@ public final class PoliticsService {
         int score = situation(ig);
         for (LawLevel law : MacroEconomyManager.laws().values()) score += ig.stance(law);
         score += MacroEconomyManager.lobby(ig);
+        // 紧缩：福利停发，乡村民众和工会不满
+        if (Treasury.austerity() && (ig == InterestGroup.RURAL_FOLK || ig == InterestGroup.TRADE_UNIONS)) score -= 2;
         return Math.max(MIN_APPROVAL, Math.min(MAX_APPROVAL, score));
     }
 
@@ -149,7 +151,11 @@ public final class PoliticsService {
                 double gap = wageGap();
                 yield Double.isNaN(gap) ? 0 : clamp((int) Math.round(-gap * 2), -4, 4);
             }
-            case FINANCIERS -> clamp((int) Math.round(2 - Math.abs(MacroIndicators.annualizedInflationPct() - 2) / 2), -5, 2);
+            case FINANCIERS -> {
+                int debt = MacroFiscalService.debtRatioBps();
+                int debtPenalty = debt > 9_000 ? 2 : debt > 5_000 ? 1 : 0;
+                yield clamp((int) Math.round(2 - Math.abs(MacroIndicators.annualizedInflationPct() - 2) / 2) - debtPenalty, -5, 2);
+            }
         };
     }
 
@@ -216,7 +222,9 @@ public final class PoliticsService {
         if (MacroEconomyManager.proposal() != null) return Result.fail("已有进行中的提案，请等它表决后再提。");
         if (MacroEconomyManager.law(level.group()) == level) return Result.fail("该法律已经生效。");
         long fee = Math.max(0, FinanceConfig.macroLawProposalFee());
-        if (fee > 0) {
+        if (fee > 0 && MacroFiscalService.active()) {
+            if (!MacroFiscalService.collectFee(player, fee, "propose:" + level.name())) return Result.fail("余额不足，提案费 " + fee + "。");
+        } else if (fee > 0) {
             if (!AccountManager.moveFunds(player, NpcMarketMaker.NPC_UUID, fee)) return Result.fail("余额不足，提案费 " + fee + "。");
             AccountManager.addTransactionRecord(new TransactionRecord(player, NpcMarketMaker.NPC_UUID, fee,
                     TransactionType.MACRO_POLITICS, player, "propose:" + level.name(), 0));

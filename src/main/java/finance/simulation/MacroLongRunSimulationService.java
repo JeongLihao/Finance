@@ -63,8 +63,9 @@ import java.util.UUID;
  * {@code MacroLaborService.processDay} → {@code CompanyProductionService} → 国际市场 20 次动能衰减（一个 MC 日的分钟 tick）。
  * 第 {@link #SHOCK_START}～{@link #SHOCK_END} 天铁厂停工，检验失业 → 迁出 → 复工回流的反应。</p>
  *
- * <p>货币守恒：模拟里唯一凭空消失的钱是设施维护费（{@code FACILITY_PRODUCTION} 流水），
- * 所以每天都应满足 {@code 账户余额合计 + 公司现金合计 + 累计维护费 = 初始值}。</p>
+ * <p>货币守恒：模拟里凭空消失的钱只有设施维护费（{@code FACILITY_PRODUCTION} 流水），凭空出现的钱只有
+ * 国库借款时央行准备金不足的增发（{@code MACRO_DEBT_ISSUANCE}），
+ * 所以每天都应满足 {@code 账户余额合计 + 公司现金合计 + 累计维护费 − 累计增发 = 初始值}。</p>
  */
 public final class MacroLongRunSimulationService {
     public static final int STANDARD_DAYS = 365;
@@ -84,7 +85,8 @@ public final class MacroLongRunSimulationService {
 
     /** 一天的全局指标。 */
     public record Daily(long day, List<SettlementDay> settlements, double cpi, int pinnedLow, int pinnedHigh,
-                       int books, long totalMoney, long burned, Map<String, Long> companyCash) {
+                       int books, long totalMoney, long burned, long issued, long treasury, long debt,
+                       boolean austerity, Map<String, Long> companyCash) {
         public long population() { return settlements.stream().mapToLong(SettlementDay::population).sum(); }
     }
 
@@ -98,7 +100,7 @@ public final class MacroLongRunSimulationService {
 
         /** 每天都满足：账户 + 公司现金 + 累计销毁 = 初始值。 */
         public boolean moneyConserved() {
-            return daily.stream().allMatch(d -> d.totalMoney() + d.burned() == initialMoney);
+            return daily.stream().allMatch(d -> d.totalMoney() + d.burned() - d.issued() == initialMoney);
         }
 
         /** 某聚落的人口序列。 */
@@ -132,8 +134,10 @@ public final class MacroLongRunSimulationService {
 
         public String summary() {
             StringBuilder sb = new StringBuilder();
-            sb.append(String.format(Locale.ROOT, "days=%d moneyConserved=%s deterministic=%s initialMoney=%d burned=%d%n",
-                    days, moneyConserved(), deterministic, initialMoney, last().burned()));
+            sb.append(String.format(Locale.ROOT, "days=%d moneyConserved=%s deterministic=%s initialMoney=%d burned=%d issued=%d%n",
+                    days, moneyConserved(), deterministic, initialMoney, last().burned(), last().issued()));
+            sb.append(String.format(Locale.ROOT, "treasury=%d debt=%d austerityDays=%d%n", last().treasury(), last().debt(),
+                    daily.stream().filter(Daily::austerity).count()));
             sb.append(String.format(Locale.ROOT, "CPI annualized day30..end=%.2f%% day%d..end=%.2f%%  CPI final=%.2f%n",
                     annualizedCpiInflationPct(30), STEADY_STATE_DAY, annualizedCpiInflationPct(STEADY_STATE_DAY), last().cpi()));
             for (int d : new int[] {0, 29, 59, 89, 119, 149, 179, 209, 239, 269, 299, 329, days - 1}) {
@@ -208,6 +212,7 @@ public final class MacroLongRunSimulationService {
 
         long initialMoney = totalMoney();
         long burned = 0;
+        long issued = 0;
         List<Daily> daily = new ArrayList<>();
         Map<String, int[]> factorTrack = new LinkedHashMap<>();
         Firm shocked = firms.get(firms.size() - 1);
@@ -224,6 +229,11 @@ public final class MacroLongRunSimulationService {
             NpcMarketMaker.naturalConsumeAll();
             MacroLaborService.processDay(day);
             for (Firm f : firms) CompanyProductionService.processCompanyDay(f.company(), day);
+            // 日利润结算（结算前扣利润税）
+            for (Firm f : firms) {
+                finance.macro.MacroFiscalService.collectProfitTax(f.company());
+                f.company().settleDailyProfits(day);
+            }
             // 一个 MC 日里国际市场有 20 次动能衰减（每 1200 tick），不调用随机噪音以保持确定性
             for (int i = 0; i < 20; i++) {
                 NpcMarketMaker.tickAllMomentum();
@@ -231,8 +241,9 @@ public final class MacroLongRunSimulationService {
             }
             for (TransactionRecord t : AccountManager.getTransactions()) {
                 if (t.getType() == TransactionType.FACILITY_PRODUCTION) burned += t.getAmount();
+                if (t.getType() == TransactionType.MACRO_DEBT_ISSUANCE) issued += t.getAmount();
             }
-            daily.add(snapshot(day, sites, firms, burned, factorTrack));
+            daily.add(snapshot(day, sites, firms, burned, issued, factorTrack));
         }
         return new Result(days, List.copyOf(daily), factorStats(sites, factorTrack), initialMoney, startCash, true);
     }
@@ -312,7 +323,7 @@ public final class MacroLongRunSimulationService {
         return sum;
     }
 
-    private static Daily snapshot(long day, List<Site> sites, List<Firm> firms, long burned, Map<String, int[]> track) {
+    private static Daily snapshot(long day, List<Site> sites, List<Firm> firms, long burned, long issued, Map<String, int[]> track) {
         List<SettlementDay> rows = new ArrayList<>();
         int low = 0, high = 0, books = 0;
         for (Site s : sites) {
@@ -338,7 +349,8 @@ public final class MacroLongRunSimulationService {
         Map<String, Long> cash = new LinkedHashMap<>();
         for (Firm f : firms) cash.put(f.name(), f.company().getCash());
         return new Daily(day, List.copyOf(rows), MacroIndicators.cpiOrNegative(), low, high, books,
-                totalMoney(), burned, cash);
+                totalMoney(), burned, issued, finance.macro.MacroFiscalService.balance(), finance.macro.Treasury.debt(),
+                finance.macro.Treasury.austerity(), cash);
     }
 
     private static List<FactorStats> factorStats(List<Site> sites, Map<String, int[]> track) {
@@ -358,7 +370,7 @@ public final class MacroLongRunSimulationService {
     private static String fingerprint(Result r) {
         Daily d = r.last();
         return d.day() + ":" + d.population() + ":" + Math.round(d.cpi() * 100) + ":" + d.totalMoney() + ":"
-                + d.burned() + ":" + d.companyCash() + ":" + r.factors();
+                + d.burned() + ":" + d.issued() + ":" + d.debt() + ":" + d.companyCash() + ":" + r.factors();
     }
 
     private static UUID stable(String key) {

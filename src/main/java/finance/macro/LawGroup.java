@@ -4,7 +4,8 @@ package finance.macro;
 public enum LawGroup {
     TRADE("贸易政策"),
     LABOR("劳工权利"),
-    WELFARE("社会福利");
+    WELFARE("社会福利"),
+    TAXATION("税制");
 
     private final String displayName;
 
@@ -17,6 +18,7 @@ public enum LawGroup {
             case TRADE -> LawLevel.MERCANTILISM;
             case LABOR -> LawLevel.NO_LABOR_PROTECTION;
             case WELFARE -> LawLevel.NO_WELFARE;
+            case TAXATION -> LawLevel.MEDIUM_TAX;
         };
     }
 }

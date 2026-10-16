@@ -146,7 +146,66 @@ public final class MacroPersistence {
             results.add(t);
         }
         data.put("LawHistory", results);
+        data.put("Fiscal", saveFiscal());
         root.put(ROOT, data);
+    }
+
+    private static CompoundTag saveFiscal() {
+        CompoundTag t = new CompoundTag();
+        t.putLong("Debt", Treasury.debt());
+        t.putBoolean("Austerity", Treasury.austerity());
+        t.putLong("LastDay", Treasury.lastProcessedDay());
+        t.putLong("Issuance", Treasury.cumulativeIssuance());
+        t.put("Today", flows(Treasury.today()));
+        ListTag hist = new ListTag();
+        for (Treasury.Day d : Treasury.history()) {
+            CompoundTag h = new CompoundTag();
+            h.putLong("D", d.day());
+            h.putLong("Balance", d.balance());
+            h.putLong("Debt", d.debt());
+            h.putBoolean("Austerity", d.austerity());
+            h.put("Flows", flows(d.flows()));
+            hist.add(h);
+        }
+        t.put("History", hist);
+        return t;
+    }
+
+    private static CompoundTag flows(Map<Treasury.Item, Long> flows) {
+        CompoundTag t = new CompoundTag();
+        flows.forEach((k, v) -> t.putLong(k.name(), v));
+        return t;
+    }
+
+    private static Map<Treasury.Item, Long> readFlows(CompoundTag t) {
+        Map<Treasury.Item, Long> out = new java.util.EnumMap<>(Treasury.Item.class);
+        for (Treasury.Item item : Treasury.Item.values()) {
+            if (t.contains(item.name(), Tag.TAG_LONG) && t.getLong(item.name()) > 0) out.put(item, t.getLong(item.name()));
+        }
+        return out;
+    }
+
+    /** 读财政子标签，返回跳过的坏记录数。 */
+    private static int loadFiscal(CompoundTag t) {
+        int skipped = 0;
+        long debt = t.getLong("Debt");
+        if (debt < 0) skipped++;
+        Treasury.setDebt(debt);
+        Treasury.setAusterity(t.getBoolean("Austerity"));
+        if (t.contains("LastDay", Tag.TAG_LONG)) Treasury.setLastProcessedDay(t.getLong("LastDay"));
+        Treasury.restoreIssuance(t.getLong("Issuance"));
+        readFlows(t.getCompound("Today")).forEach(Treasury::restoreToday);
+        ListTag hist = t.getList("History", Tag.TAG_COMPOUND);
+        for (int i = Math.max(0, hist.size() - Treasury.HISTORY_DAYS); i < hist.size(); i++) {
+            try {
+                CompoundTag h = hist.getCompound(i);
+                Treasury.restoreDay(new Treasury.Day(h.getLong("D"), h.getLong("Balance"), Math.max(0, h.getLong("Debt")),
+                        Map.copyOf(readFlows(h.getCompound("Flows"))), h.getBoolean("Austerity")));
+            } catch (Exception e) {
+                skipped++;
+            }
+        }
+        return skipped;
     }
 
     public static void load(CompoundTag root) {
@@ -276,6 +335,7 @@ public final class MacroPersistence {
                 skipped++;
             }
         }
+        if (data.contains("Fiscal", Tag.TAG_COMPOUND)) skipped += loadFiscal(data.getCompound("Fiscal"));
         if (invalid || skipped > 0) {
             ModuleHealthRegistry.restrict(ModuleHealthRegistry.Module.MACRO_ECONOMY,
                     ModuleRunState.READ_ONLY, "宏观经济存档 " + skipped + " 条损坏已跳过", -1);

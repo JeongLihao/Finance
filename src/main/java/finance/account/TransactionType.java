@@ -132,5 +132,19 @@ public enum TransactionType {
     /** 宏观经济：法律提案费与游说捐款（玩家 → NPC 资金池）。 */
     MACRO_POLITICS,
     /** 宏观经济：聚落预算超出上限的部分作为村民消费回流 NPC 资金池。 */
-    MACRO_VILLAGE_SPENDING
+    MACRO_VILLAGE_SPENDING,
+    /** 国家财政：公司利润税（公司现金 → 国库）。 */
+    MACRO_TAX,
+    /** 国家财政：保护主义关税（NPC 资金池 → 国库）。 */
+    MACRO_TARIFF,
+    /** 国家财政：行政开支（国库 → NPC 资金池）。 */
+    MACRO_ADMIN,
+    /** 国家财政：国库向央行借款。 */
+    MACRO_DEBT_BORROW,
+    /** 国家财政：国库向央行还款。 */
+    MACRO_DEBT_REPAY,
+    /** 国家财政：国库债务利息（国库 → 央行）。 */
+    MACRO_DEBT_INTEREST,
+    /** 国家财政：央行准备金不足以放款时的增发（货币创造）。 */
+    MACRO_DEBT_ISSUANCE
 }

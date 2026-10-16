@@ -53,6 +53,11 @@ public final class MacroTabs {
         y += 12;
         FinanceGui.drawClippedString(font, g, String.join("  ", data.laws()), LEFT_X, y, 380, FinanceGui.COL_TEXT_DIM);
         y += 12;
+        String budget = "国库 " + data.treasury() + "  债务 " + data.debt() + "  昨日收入 " + data.revenue()
+                + "  支出 " + data.expense() + (data.austerity() ? "  紧缩中：福利停发" : "");
+        FinanceGui.drawClippedString(font, g, budget, LEFT_X, y, 380,
+                data.austerity() ? FinanceGui.COL_BAD : data.revenue() >= data.expense() ? FinanceGui.COL_GOOD : FinanceGui.COL_WARN);
+        y += 12;
         String flags = (data.strike() ? "工会罢工：雇工产量减半  " : "") + (data.unrest() ? "民众骚乱：人口增长减半" : "");
         if (!flags.isEmpty()) {
             FinanceGui.drawClippedString(font, g, flags, LEFT_X, y, 380, FinanceGui.COL_BAD);
@@ -128,7 +133,7 @@ public final class MacroTabs {
     }
 
     public boolean handleClick(int mx, int my) {
-        int top = FinanceGui.CONTENT_Y + 2 + 12 + 12 + 14;
+        int top = FinanceGui.CONTENT_Y + 2 + 12 + 12 + 12 + 14;
         if (my >= top - 2 && my < top + 10) {
             if (mx >= RIGHT_X && mx < RIGHT_X + 12) { selected--; return true; }
             if (mx >= RIGHT_X + RIGHT_W - 12 && mx < RIGHT_X + RIGHT_W) { selected++; return true; }

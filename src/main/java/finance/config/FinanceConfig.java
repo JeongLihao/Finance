@@ -135,6 +135,10 @@ public final class FinanceConfig {
     private static final long MACRO_WELFARE_RELIEF_PER_CAPITA_VALUE = 2L;
     private static final long MACRO_WELFARE_HEALTH_PER_CAPITA_VALUE = 4L;
     private static final long MACRO_POOL_RESERVE_FLOOR_VALUE = 1000000L;
+    private static final boolean MACRO_FISCAL_ENABLED_VALUE = true;
+    private static final long MACRO_ADMIN_COST_PER_CAPITA_VALUE = 1L;
+    private static final long MACRO_DEBT_CEILING_VALUE = 200000L;
+    private static final int MACRO_DEBT_SPREAD_BPS_VALUE = 100;
     // ---- 商队商路 ----
     private static final int CARAVAN_MAX_ROUTES_PER_PLAYER_VALUE = 8;
     private static final int CARAVAN_MAX_QTY_PER_TRIP_VALUE = 1_024;
@@ -289,6 +293,10 @@ public final class FinanceConfig {
     private static final ForgeConfigSpec.LongValue MACRO_WELFARE_RELIEF_PER_CAPITA;
     private static final ForgeConfigSpec.LongValue MACRO_WELFARE_HEALTH_PER_CAPITA;
     private static final ForgeConfigSpec.LongValue MACRO_POOL_RESERVE_FLOOR;
+    private static final ForgeConfigSpec.BooleanValue MACRO_FISCAL_ENABLED;
+    private static final ForgeConfigSpec.LongValue MACRO_ADMIN_COST_PER_CAPITA;
+    private static final ForgeConfigSpec.LongValue MACRO_DEBT_CEILING;
+    private static final ForgeConfigSpec.IntValue MACRO_DEBT_SPREAD_BPS;
     private static final ForgeConfigSpec.IntValue CARAVAN_MAX_ROUTES_PER_PLAYER;
     private static final ForgeConfigSpec.IntValue CARAVAN_MAX_QTY_PER_TRIP;
     private static final ForgeConfigSpec.LongValue CARAVAN_BLOCKS_PER_DAY;
@@ -1031,6 +1039,10 @@ public final class FinanceConfig {
         MACRO_WELFARE_RELIEF_PER_CAPITA = builder.comment("“济贫法”每人每天从 NPC 资金池拨给聚落的福利。").defineInRange("welfareReliefPerCapita", MACRO_WELFARE_RELIEF_PER_CAPITA_VALUE, 0L, 1000000L);
         MACRO_WELFARE_HEALTH_PER_CAPITA = builder.comment("“公共卫生”每人每天从 NPC 资金池拨给聚落的福利。").defineInRange("welfareHealthPerCapita", MACRO_WELFARE_HEALTH_PER_CAPITA_VALUE, 0L, 1000000L);
         MACRO_POOL_RESERVE_FLOOR = builder.comment("NPC 资金池低于该值时停发福利。").defineInRange("poolReserveFloor", MACRO_POOL_RESERVE_FLOOR_VALUE, 0L, Long.MAX_VALUE);
+        MACRO_FISCAL_ENABLED = builder.comment("国家财政：国库收税（利润税、关税）、付行政开支和福利、赤字时向央行借款。关闭后福利回到由 NPC 资金池支付。").define("fiscalEnabled", MACRO_FISCAL_ENABLED_VALUE);
+        MACRO_ADMIN_COST_PER_CAPITA = builder.comment("国库每人每天的行政开支（转入 NPC 资金池）。").defineInRange("adminCostPerCapita", MACRO_ADMIN_COST_PER_CAPITA_VALUE, 0L, 1000000L);
+        MACRO_DEBT_CEILING = builder.comment("国库向央行借款的债务上限；到上限后付不起的开支停发（紧缩）。").defineInRange("debtCeiling", MACRO_DEBT_CEILING_VALUE, 0L, Long.MAX_VALUE);
+        MACRO_DEBT_SPREAD_BPS = builder.comment("国库债务利率 = 基准利率 + 该点差（基点）。").defineInRange("debtSpreadBps", MACRO_DEBT_SPREAD_BPS_VALUE, 0, 10000);
         builder.pop();
 
         COMMON_SPEC = builder.build();
@@ -1344,6 +1356,10 @@ public final class FinanceConfig {
     public static long macroWelfareReliefPerCapita() { return getLong(MACRO_WELFARE_RELIEF_PER_CAPITA, MACRO_WELFARE_RELIEF_PER_CAPITA_VALUE); }
     public static long macroWelfareHealthPerCapita() { return getLong(MACRO_WELFARE_HEALTH_PER_CAPITA, MACRO_WELFARE_HEALTH_PER_CAPITA_VALUE); }
     public static long macroPoolReserveFloor() { return getLong(MACRO_POOL_RESERVE_FLOOR, MACRO_POOL_RESERVE_FLOOR_VALUE); }
+    public static boolean macroFiscalEnabled() { return getBoolean(MACRO_FISCAL_ENABLED, MACRO_FISCAL_ENABLED_VALUE); }
+    public static long macroAdminCostPerCapita() { return getLong(MACRO_ADMIN_COST_PER_CAPITA, MACRO_ADMIN_COST_PER_CAPITA_VALUE); }
+    public static long macroDebtCeiling() { return getLong(MACRO_DEBT_CEILING, MACRO_DEBT_CEILING_VALUE); }
+    public static int macroDebtSpreadBps() { return getInt(MACRO_DEBT_SPREAD_BPS, MACRO_DEBT_SPREAD_BPS_VALUE); }
 
     // ---- 商队商路 ----
     public static int caravanMaxRoutesPerPlayer() {

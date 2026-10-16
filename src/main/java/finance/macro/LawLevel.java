@@ -14,7 +14,10 @@ public enum LawLevel {
     WORKER_PROTECTION(LawGroup.LABOR, "劳工保护", "protection"),
     NO_WELFARE(LawGroup.WELFARE, "无福利", "none"),
     POOR_RELIEF(LawGroup.WELFARE, "济贫法", "poor_relief"),
-    PUBLIC_HEALTH(LawGroup.WELFARE, "公共卫生", "public_health");
+    PUBLIC_HEALTH(LawGroup.WELFARE, "公共卫生", "public_health"),
+    LOW_TAX(LawGroup.TAXATION, "低税", "low"),
+    MEDIUM_TAX(LawGroup.TAXATION, "中税", "medium"),
+    HIGH_TAX(LawGroup.TAXATION, "高税", "high");
 
     private final LawGroup group;
     private final String displayName;
@@ -42,6 +45,16 @@ public enum LawLevel {
         String k = key.toLowerCase(Locale.ROOT);
         for (LawLevel l : levelsOf(group)) if (l.key.equals(k) || l.name().toLowerCase(Locale.ROOT).equals(k)) return l;
         return null;
+    }
+
+    /** 公司利润税率（基点）；非税制法律返回 0。 */
+    public int profitTaxBps() {
+        return switch (this) {
+            case LOW_TAX -> 500;
+            case MEDIUM_TAX -> 1_500;
+            case HIGH_TAX -> 3_000;
+            default -> 0;
+        };
     }
 
     /** NPC 行商卖给聚落时的价格倍率（基点）。 */

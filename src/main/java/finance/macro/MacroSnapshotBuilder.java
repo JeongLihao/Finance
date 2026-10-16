@@ -57,10 +57,12 @@ public final class MacroSnapshotBuilder {
             rows.add(new MacroResponsePacket.SettlementRow(settlement.displayName(), village.population(), econ.solBps,
                     econ.employed, econ.lastIncome, econ.unrest, fulfil, goods));
         }
+        long[] totals = MacroFiscalService.lastDayTotals();
         return new MacroResponsePacket(requestId, enabled, cpi < 0 ? 0 : Math.round(cpi * 100),
                 (int) Math.round(MacroIndicators.annualizedInflationPct() * 10),
                 s == null ? 0 : s.population(), s == null ? 0 : s.avgSol(), s == null ? 0 : s.employed(),
                 s == null ? 0 : s.wages(), MacroEconomyManager.strike(), MacroEconomyManager.unrest(),
+                MacroFiscalService.balance(), Treasury.debt(), totals[0], totals[1], Treasury.austerity(),
                 laws, proposal, groups, rows);
     }
 }

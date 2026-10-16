@@ -152,6 +152,13 @@ public final class FinanceFormat {
             case "MACRO_WELFARE" -> "社会福利";
             case "MACRO_POLITICS" -> "政治捐款";
             case "MACRO_VILLAGE_SPENDING" -> "村民消费";
+            case "MACRO_TAX" -> "利润税";
+            case "MACRO_TARIFF" -> "关税";
+            case "MACRO_ADMIN" -> "行政开支";
+            case "MACRO_DEBT_BORROW" -> "国库借款";
+            case "MACRO_DEBT_REPAY" -> "国库还款";
+            case "MACRO_DEBT_INTEREST" -> "国债利息";
+            case "MACRO_DEBT_ISSUANCE" -> "央行增发";
             default -> type;
         };
     }
