@@ -190,6 +190,7 @@ public final class MacroEconomyService {
         for (List<UUID> ids : byDimension.values()) migrate(ids, day);
         MacroIndicators.closeDay(day);
         PoliticsService.processDay(day);
+        MacroWorldFeedback.onDayClosed();
         EconomySavedData.markDirty();
     }
 

@@ -192,7 +192,7 @@ public final class CaravanService {
         }
         // 1. 到货结算
         for (CaravanShipment shipment : CaravanManager.arrivalsOn(day)) {
-            settleShipment(shipment, day);
+            settleShipment(server, shipment, day);
         }
         // 2. 饱和度衰减（所有路线，含暂停——停跑的市场自己冷却）
         long decayBps = Math.max(0, FinanceConfig.caravanSaturationDecayBps());
@@ -276,7 +276,7 @@ public final class CaravanService {
     // 到货结算
     // ================================================================
 
-    private static void settleShipment(CaravanShipment shipment, long day) {
+    private static void settleShipment(MinecraftServer server, CaravanShipment shipment, long day) {
         UUID ownerId = shipment.ownerId();
         String commodityId = shipment.commodityId();
         CaravanRoute route = CaravanManager.route(shipment.routeId());
@@ -351,6 +351,12 @@ public final class CaravanService {
         // 记账：利润 = 到账（货款＋赔付）− 发车总成本
         long profit = revenue + insurancePayout - shipment.dispatchCost();
         route.addProfit(profit);
+        // 宏观经济：目的地放烟花、敲钟，通知商队主人
+        if (soldQty > 0 && revenue > 0) {
+            var def = finance.commodity.CommodityRegistry.getCommodity(commodityId);
+            finance.macro.MacroWorldFeedback.onCaravanArrived(server, ownerId, dest,
+                    def == null ? commodityId : def.getDisplayName(), soldQty, profit);
+        }
         shipment.markArrived();
         CaravanManager.removeShipment(shipment.id());
     }

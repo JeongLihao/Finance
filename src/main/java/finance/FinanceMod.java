@@ -206,6 +206,7 @@ public class FinanceMod {
         if (server == null) return;
 
         EconomyCycleService.tick(server);
+        finance.macro.MacroWorldFeedback.tick(server);
         StartupSelfCheckService.tick();
     }
 

@@ -139,6 +139,7 @@ public final class FinanceConfig {
     private static final long MACRO_ADMIN_COST_PER_CAPITA_VALUE = 1L;
     private static final long MACRO_DEBT_CEILING_VALUE = 200000L;
     private static final int MACRO_DEBT_SPREAD_BPS_VALUE = 100;
+    private static final boolean MACRO_WORLD_FEEDBACK_VALUE = true;
     // ---- 商队商路 ----
     private static final int CARAVAN_MAX_ROUTES_PER_PLAYER_VALUE = 8;
     private static final int CARAVAN_MAX_QTY_PER_TRIP_VALUE = 1_024;
@@ -297,6 +298,7 @@ public final class FinanceConfig {
     private static final ForgeConfigSpec.LongValue MACRO_ADMIN_COST_PER_CAPITA;
     private static final ForgeConfigSpec.LongValue MACRO_DEBT_CEILING;
     private static final ForgeConfigSpec.IntValue MACRO_DEBT_SPREAD_BPS;
+    private static final ForgeConfigSpec.BooleanValue MACRO_WORLD_FEEDBACK;
     private static final ForgeConfigSpec.IntValue CARAVAN_MAX_ROUTES_PER_PLAYER;
     private static final ForgeConfigSpec.IntValue CARAVAN_MAX_QTY_PER_TRIP;
     private static final ForgeConfigSpec.LongValue CARAVAN_BLOCKS_PER_DAY;
@@ -1043,6 +1045,7 @@ public final class FinanceConfig {
         MACRO_ADMIN_COST_PER_CAPITA = builder.comment("国库每人每天的行政开支（转入 NPC 资金池）。").defineInRange("adminCostPerCapita", MACRO_ADMIN_COST_PER_CAPITA_VALUE, 0L, 1000000L);
         MACRO_DEBT_CEILING = builder.comment("国库向央行借款的债务上限；到上限后付不起的开支停发（紧缩）。").defineInRange("debtCeiling", MACRO_DEBT_CEILING_VALUE, 0L, Long.MAX_VALUE);
         MACRO_DEBT_SPREAD_BPS = builder.comment("国库债务利率 = 基准利率 + 该点差（基点）。").defineInRange("debtSpreadBps", MACRO_DEBT_SPREAD_BPS_VALUE, 0, 10000);
+        MACRO_WORLD_FEEDBACK = builder.comment("宏观经济的世界反馈：聚落心情粒子与村民抱怨、罢工工厂冒烟、商队到货烟花、议会/罢工/饥荒全服公告。只影响表现，不影响数值。").define("worldFeedback", MACRO_WORLD_FEEDBACK_VALUE);
         builder.pop();
 
         COMMON_SPEC = builder.build();
@@ -1360,6 +1363,7 @@ public final class FinanceConfig {
     public static long macroAdminCostPerCapita() { return getLong(MACRO_ADMIN_COST_PER_CAPITA, MACRO_ADMIN_COST_PER_CAPITA_VALUE); }
     public static long macroDebtCeiling() { return getLong(MACRO_DEBT_CEILING, MACRO_DEBT_CEILING_VALUE); }
     public static int macroDebtSpreadBps() { return getInt(MACRO_DEBT_SPREAD_BPS, MACRO_DEBT_SPREAD_BPS_VALUE); }
+    public static boolean macroWorldFeedback() { return getBoolean(MACRO_WORLD_FEEDBACK, MACRO_WORLD_FEEDBACK_VALUE); }
 
     // ---- 商队商路 ----
     public static int caravanMaxRoutesPerPlayer() {
