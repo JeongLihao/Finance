@@ -17,6 +17,8 @@ public enum NpcReason {
     UNDERVALUED("股价低于基本面"),
     COMBINED_CAP("NPC 合计持股已达上限"),
     NO_CASH("资金不足"),
+    SHARES_LOCKED("可卖持股不足（已被要约或回购锁定）"),
+    SELL_REJECTED("卖单被拒"),
     FUNDING("从 NPC 资金池注资");
 
     private final String fallbackText;

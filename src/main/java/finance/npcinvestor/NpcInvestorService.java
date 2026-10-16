@@ -145,20 +145,31 @@ public final class NpcInvestorService {
                     continue;
                 }
                 long want = Math.min(delta, Math.min(dayBudgetShares, combinedHeadroom));
-                long bought = buy(account, stock, want, day);
-                if (bought > 0) {
-                    dayBudgetShares -= bought;
-                    log(day, archetype, company, stock, "BUY", bought, score.reason());
+                Fill fill = buy(account, stock, want, day);
+                if (fill.total() > 0) {
+                    // 挂单部分随时可能成交，同样占用当日额度
+                    dayBudgetShares -= fill.total();
+                    if (fill.filled() > 0) log(day, archetype, company, stock, "BUY", fill.filled(), score.reason());
+                    if (fill.resting() > 0) log(day, archetype, company, stock, "BUY_ORDER", fill.resting(), score.reason());
                 } else {
                     log(day, archetype, company, stock, "HOLD", 0, NpcReason.NO_CASH);
                 }
             } else {
-                long want = Math.min(-delta, dayBudgetShares);
-                if (want <= 0) continue;
-                if (StockMarketManager.sell(account, stock.getSymbol(), want).success()) {
-                    dayBudgetShares -= want;
-                    log(day, archetype, company, stock, "SELL", want, score.reason());
+                // held 含要约/回购锁定的股份，实际只能卖出持仓里的可用部分
+                long free = StockPortfolioManager.getHolding(account, stock.getSymbol()).getQuantity();
+                long want = Math.min(Math.min(-delta, dayBudgetShares), free);
+                if (want <= 0) {
+                    log(day, archetype, company, stock, "HOLD", 0, NpcReason.SHARES_LOCKED);
+                    continue;
                 }
+                if (!StockMarketManager.sell(account, stock.getSymbol(), want).success()) {
+                    log(day, archetype, company, stock, "HOLD", 0, NpcReason.SELL_REJECTED);
+                    continue;
+                }
+                dayBudgetShares -= want;
+                long resting = Math.min(want, openOrderQuantity(account, stock.getSymbol(), StockOrderType.SELL));
+                if (want > resting) log(day, archetype, company, stock, "SELL", want - resting, score.reason());
+                if (resting > 0) log(day, archetype, company, stock, "SELL_ORDER", resting, score.reason());
             }
         }
     }
@@ -172,26 +183,50 @@ public final class NpcInvestorService {
         return order;
     }
 
-    /** 先配售残差，再用普通买单补足。返回已成交或已挂单的股数。 */
-    static long buy(UUID account, Stock stock, long want, long day) {
-        if (want <= 0) return 0;
+    /** 一次买入的结果：已成交（含残差配售）的股数，和挂在订单簿上尚未成交的股数。 */
+    record Fill(long filled, long resting) {
+        static final Fill NONE = new Fill(0, 0);
+
+        long total() { return filled + resting; }
+    }
+
+    /** 先配售残差，再用普通买单补足。普通买单没撮合到对手盘的部分会挂进订单簿，单独计为 resting。 */
+    static Fill buy(UUID account, Stock stock, long want, long day) {
+        if (want <= 0) return Fill.NONE;
         long price = NpcFloatPlacementService.placementPrice(stock);
-        if (price <= 0) return 0;
+        if (price <= 0) return Fill.NONE;
         long affordable = AccountManager.getBalance(account) / price;
         long qty = Math.min(want, affordable);
-        if (qty <= 0) return 0;
+        if (qty <= 0) return Fill.NONE;
         long residual = NpcFloatPlacementService.availableResidual(stock, day);
-        long placed = 0;
+        long filled = 0;
+        long resting = 0;
         long fromResidual = Math.min(qty, residual);
         if (fromResidual > 0 && NpcFloatPlacementService.place(account, stock.getSymbol(), fromResidual, day).success()) {
-            placed = fromResidual;
+            filled = fromResidual;
         }
-        long rest = qty - placed;
+        long rest = qty - filled;
         if (rest > 0 && rest <= Integer.MAX_VALUE
                 && StockMarketManager.buy(account, stock.getSymbol(), rest).success()) {
-            placed += rest;
+            resting = Math.min(rest, openOrderQuantity(account, stock.getSymbol(), StockOrderType.BUY));
+            filled += rest - resting;
         }
-        return placed;
+        return new Fill(filled, resting);
+    }
+
+    /**
+     * 该账户在订单簿上对该股票、该方向的未成交数量。每天开盘前已撤掉 NPC 的旧挂单，
+     * 而每个原型每天对每只股票最多下一笔单，所以这里就是刚才那一笔的剩余量。
+     */
+    static long openOrderQuantity(UUID account, String symbol, StockOrderType type) {
+        long total = 0;
+        for (StockOrder order : StockMarketManager.getOrders()) {
+            if (order.getType() == type && account.equals(order.getPlayerId())
+                    && order.getSymbol().equalsIgnoreCase(symbol)) {
+                total += order.getQuantity();
+            }
+        }
+        return total;
     }
 
     static long holdingTotal(Stock stock, UUID account, long day) {
