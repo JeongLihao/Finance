@@ -162,6 +162,55 @@ class NpcInvestorServiceTest {
         }
     }
 
+    private static long logged(NpcInvestorArchetype a, String action) {
+        long total = 0;
+        for (NpcInvestorManager.Decision d : NpcInvestorManager.decisionsDirect()) {
+            if (d.archetype() == a && action.equals(d.action())) total += d.quantity();
+        }
+        return total;
+    }
+
+    private static boolean loggedReason(NpcInvestorArchetype a, NpcReason reason) {
+        for (NpcInvestorManager.Decision d : NpcInvestorManager.decisionsDirect()) {
+            if (d.archetype() == a && d.reason() == reason) return true;
+        }
+        return false;
+    }
+
+    @Test void restingBuyOrderIsLoggedAsOrderNotFill() {
+        // 残差为 0（全部股份在玩家手里），做市商没有库存：NPC 买单只能挂进订单簿
+        assertTrue(StockPortfolioManager.addHolding(PLAYER, SYMBOL, TOTAL, 10L));
+        // 第 3 天轮换顺序以价值派开头，当日额度不会先被其他原型用完
+        NpcInvestorService.processDay(3, SETTINGS);
+        NpcInvestorArchetype value = NpcInvestorArchetype.VALUE;
+        long resting = NpcInvestorService.openOrderQuantity(value.accountId(), SYMBOL, finance.stock.StockOrderType.BUY);
+        assertTrue(resting > 0, "价值派应有未成交的挂单");
+        assertEquals(held(value), logged(value, "BUY"), "BUY 只记真实成交的股数");
+        assertEquals(resting, logged(value, "BUY_ORDER"), "未成交部分记为 BUY_ORDER");
+    }
+
+    @Test void sellIsCappedByFreeSharesAndLockedSharesAreLogged() {
+        for (long day = 1; day <= 30; day++) NpcInvestorService.processDay(day, SETTINGS);
+        NpcInvestorArchetype value = NpcInvestorArchetype.VALUE;
+        UUID account = value.accountId();
+        assertEquals(2_000L, held(value));
+        // 全部持股挂高价卖单锁定：名册仍算 2000 股，但可卖持仓为 0
+        assertTrue(finance.stock.StockOrderManager.placeSellOrder(account, SYMBOL, 1_000_000L, 2_000).success());
+        assertEquals(0, held(value));
+        // 第 31、35 天轮换顺序以价值派开头，当日额度不会先被其他原型用完
+        company.setBankruptcyRisk(true, 31);
+        NpcInvestorService.processStock(stock, company, 31, SETTINGS);
+        assertTrue(loggedReason(value, NpcReason.SHARES_LOCKED), "可卖持股为 0 时应记录 SHARES_LOCKED，而不是静默跳过");
+        assertEquals(0, logged(value, "SELL"));
+
+        // 只锁一部分：卖出数量不超过可用持股
+        NpcInvestorService.cancelOpenOrders();
+        assertTrue(finance.stock.StockOrderManager.placeSellOrder(account, SYMBOL, 1_000_000L, 1_950).success());
+        NpcInvestorService.processStock(stock, company, 35, SETTINGS);
+        assertEquals(50, logged(value, "SELL") + logged(value, "SELL_ORDER"), "只能卖出未锁定的 50 股");
+        assertTrue(ShareholderRegistryService.snapshot(COMPANY_ID, 35).consistent());
+    }
+
     @Test void placementRejectsPlayersAndResidualShortfall() {
         AccountManager.deposit(PLAYER, 1_000_000L);
         assertFalse(NpcFloatPlacementService.place(PLAYER, SYMBOL, 10, 0).success(), "玩家不能走残差配售");
