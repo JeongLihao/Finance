@@ -113,6 +113,28 @@ public final class FinanceConfig {
     private static final int NPC_TENDER_PREMIUM_GROWTH_VALUE = 30;
     private static final int NPC_TENDER_PREMIUM_SPECULATOR_VALUE = 10;
     private static final int NPC_TENDER_PREMIUM_VALUE_VALUE = 25;
+    // ---- 宏观实体经济 ----
+    private static final boolean MACRO_ENABLED_VALUE = true;
+    private static final boolean MACRO_LABOR_ENABLED_VALUE = true;
+    private static final boolean MACRO_POLITICS_ENABLED_VALUE = true;
+    private static final int MACRO_MIN_POPULATION_VALUE = 5;
+    private static final int MACRO_MAX_POPULATION_VALUE = 400;
+    private static final int MACRO_GROWTH_MAX_BPS_VALUE = 50;
+    private static final int MACRO_MIGRATION_MAX_BPS_VALUE = 100;
+    private static final int MACRO_MIGRATION_GAP_BPS_VALUE = 1500;
+    private static final int MACRO_PRICE_STEP_BPS_VALUE = 1000;
+    private static final int MACRO_LABOR_RADIUS_VALUE = 256;
+    private static final int MACRO_JOBS_PER_LEVEL_VALUE = 10;
+    private static final long MACRO_DEFAULT_WAGE_VALUE = 12L;
+    private static final long MACRO_BASE_RESERVATION_WAGE_VALUE = 4L;
+    private static final long MACRO_MINIMUM_WAGE_VALUE = 10L;
+    private static final int MACRO_LAW_DEBATE_DAYS_VALUE = 5;
+    private static final long MACRO_LAW_PROPOSAL_FEE_VALUE = 2000L;
+    private static final long MACRO_LOBBY_PER_POINT_VALUE = 1000L;
+    private static final long MACRO_CLOUT_VALUE_SCALE_VALUE = 100L;
+    private static final long MACRO_WELFARE_RELIEF_PER_CAPITA_VALUE = 5L;
+    private static final long MACRO_WELFARE_HEALTH_PER_CAPITA_VALUE = 10L;
+    private static final long MACRO_POOL_RESERVE_FLOOR_VALUE = 1000000L;
     // ---- 商队商路 ----
     private static final int CARAVAN_MAX_ROUTES_PER_PLAYER_VALUE = 8;
     private static final int CARAVAN_MAX_QTY_PER_TRIP_VALUE = 1_024;
@@ -246,6 +268,27 @@ public final class FinanceConfig {
     private static final ForgeConfigSpec.IntValue NPC_TENDER_PREMIUM_GROWTH;
     private static final ForgeConfigSpec.IntValue NPC_TENDER_PREMIUM_SPECULATOR;
     private static final ForgeConfigSpec.IntValue NPC_TENDER_PREMIUM_VALUE;
+    private static final ForgeConfigSpec.BooleanValue MACRO_ENABLED;
+    private static final ForgeConfigSpec.BooleanValue MACRO_LABOR_ENABLED;
+    private static final ForgeConfigSpec.BooleanValue MACRO_POLITICS_ENABLED;
+    private static final ForgeConfigSpec.IntValue MACRO_MIN_POPULATION;
+    private static final ForgeConfigSpec.IntValue MACRO_MAX_POPULATION;
+    private static final ForgeConfigSpec.IntValue MACRO_GROWTH_MAX_BPS;
+    private static final ForgeConfigSpec.IntValue MACRO_MIGRATION_MAX_BPS;
+    private static final ForgeConfigSpec.IntValue MACRO_MIGRATION_GAP_BPS;
+    private static final ForgeConfigSpec.IntValue MACRO_PRICE_STEP_BPS;
+    private static final ForgeConfigSpec.IntValue MACRO_LABOR_RADIUS;
+    private static final ForgeConfigSpec.IntValue MACRO_JOBS_PER_LEVEL;
+    private static final ForgeConfigSpec.LongValue MACRO_DEFAULT_WAGE;
+    private static final ForgeConfigSpec.LongValue MACRO_BASE_RESERVATION_WAGE;
+    private static final ForgeConfigSpec.LongValue MACRO_MINIMUM_WAGE;
+    private static final ForgeConfigSpec.IntValue MACRO_LAW_DEBATE_DAYS;
+    private static final ForgeConfigSpec.LongValue MACRO_LAW_PROPOSAL_FEE;
+    private static final ForgeConfigSpec.LongValue MACRO_LOBBY_PER_POINT;
+    private static final ForgeConfigSpec.LongValue MACRO_CLOUT_VALUE_SCALE;
+    private static final ForgeConfigSpec.LongValue MACRO_WELFARE_RELIEF_PER_CAPITA;
+    private static final ForgeConfigSpec.LongValue MACRO_WELFARE_HEALTH_PER_CAPITA;
+    private static final ForgeConfigSpec.LongValue MACRO_POOL_RESERVE_FLOOR;
     private static final ForgeConfigSpec.IntValue CARAVAN_MAX_ROUTES_PER_PLAYER;
     private static final ForgeConfigSpec.IntValue CARAVAN_MAX_QTY_PER_TRIP;
     private static final ForgeConfigSpec.LongValue CARAVAN_BLOCKS_PER_DAY;
@@ -966,6 +1009,30 @@ public final class FinanceConfig {
         builder.pop();
         builder.pop();
 
+        builder.push("macroEconomy");
+        MACRO_ENABLED = builder.comment("宏观实体经济总开关：人口需求类别、聚落本地价格、人口增长与迁移、CPI。关闭后村庄、商队、价格指数回到旧逻辑。").define("enabled", MACRO_ENABLED_VALUE);
+        MACRO_LABOR_ENABLED = builder.comment("公司设施是否需要从附近聚落雇工并发工资；关闭后设施按满员生产。").define("laborEnabled", MACRO_LABOR_ENABLED_VALUE);
+        MACRO_POLITICS_ENABLED = builder.comment("利益集团与法律是否生效；关闭后法律固定为默认级别，不能提案。").define("politicsEnabled", MACRO_POLITICS_ENABLED_VALUE);
+        MACRO_MIN_POPULATION = builder.comment("聚落人口下限。").defineInRange("minPopulation", MACRO_MIN_POPULATION_VALUE, 1, 10000);
+        MACRO_MAX_POPULATION = builder.comment("聚落人口上限。").defineInRange("maxPopulation", MACRO_MAX_POPULATION_VALUE, 1, 10000);
+        MACRO_GROWTH_MAX_BPS = builder.comment("生活水平满分或零分时的日人口增减率（基点，50 = 0.5%）。").defineInRange("growthMaxBps", MACRO_GROWTH_MAX_BPS_VALUE, 0, 1000);
+        MACRO_MIGRATION_MAX_BPS = builder.comment("每个维度每天从最不宜居聚落迁往最宜居聚落的人口比例（基点）。").defineInRange("migrationMaxBps", MACRO_MIGRATION_MAX_BPS_VALUE, 0, 1000);
+        MACRO_MIGRATION_GAP_BPS = builder.comment("两地吸引力差距达到该值（基点）才发生迁移。").defineInRange("migrationGapBps", MACRO_MIGRATION_GAP_BPS_VALUE, 0, 10000);
+        MACRO_PRICE_STEP_BPS = builder.comment("本地价格系数每天最多变化的基点。").defineInRange("priceStepBps", MACRO_PRICE_STEP_BPS_VALUE, 1, 10000);
+        MACRO_LABOR_RADIUS = builder.comment("设施从多远（格）以内的聚落招工。").defineInRange("laborRadius", MACRO_LABOR_RADIUS_VALUE, 16, 4096);
+        MACRO_JOBS_PER_LEVEL = builder.comment("设施每级提供的岗位数。").defineInRange("jobsPerLevel", MACRO_JOBS_PER_LEVEL_VALUE, 1, 1000);
+        MACRO_DEFAULT_WAGE = builder.comment("公司未设定工资时的默认日工资（每人每天）。").defineInRange("defaultWage", MACRO_DEFAULT_WAGE_VALUE, 0L, 1000000L);
+        MACRO_BASE_RESERVATION_WAGE = builder.comment("工人接受工作的最低日工资（劳工法可抬高）。").defineInRange("baseReservationWage", MACRO_BASE_RESERVATION_WAGE_VALUE, 0L, 1000000L);
+        MACRO_MINIMUM_WAGE = builder.comment("“最低工资”法律规定的日工资下限。").defineInRange("minimumWage", MACRO_MINIMUM_WAGE_VALUE, 0L, 1000000L);
+        MACRO_LAW_DEBATE_DAYS = builder.comment("法律提案的辩论天数。").defineInRange("lawDebateDays", MACRO_LAW_DEBATE_DAYS_VALUE, 1, 60);
+        MACRO_LAW_PROPOSAL_FEE = builder.comment("发起法律提案的费用（转入 NPC 资金池）。").defineInRange("lawProposalFee", MACRO_LAW_PROPOSAL_FEE_VALUE, 0L, 100000000L);
+        MACRO_LOBBY_PER_POINT = builder.comment("游说时每 +1 满意度需要的捐款。").defineInRange("lobbyPerPoint", MACRO_LOBBY_PER_POINT_VALUE, 1L, 100000000L);
+        MACRO_CLOUT_VALUE_SCALE = builder.comment("资本类利益集团的影响力 = √(价值 / 该值)。").defineInRange("cloutValueScale", MACRO_CLOUT_VALUE_SCALE_VALUE, 1L, 100000000L);
+        MACRO_WELFARE_RELIEF_PER_CAPITA = builder.comment("“济贫法”每人每天从 NPC 资金池拨给聚落的福利。").defineInRange("welfareReliefPerCapita", MACRO_WELFARE_RELIEF_PER_CAPITA_VALUE, 0L, 1000000L);
+        MACRO_WELFARE_HEALTH_PER_CAPITA = builder.comment("“公共卫生”每人每天从 NPC 资金池拨给聚落的福利。").defineInRange("welfareHealthPerCapita", MACRO_WELFARE_HEALTH_PER_CAPITA_VALUE, 0L, 1000000L);
+        MACRO_POOL_RESERVE_FLOOR = builder.comment("NPC 资金池低于该值时停发福利。").defineInRange("poolReserveFloor", MACRO_POOL_RESERVE_FLOOR_VALUE, 0L, Long.MAX_VALUE);
+        builder.pop();
+
         COMMON_SPEC = builder.build();
     }
 
@@ -1254,6 +1321,29 @@ public final class FinanceConfig {
             case VALUE -> getInt(NPC_TENDER_PREMIUM_VALUE, NPC_TENDER_PREMIUM_VALUE_VALUE);
         };
     }
+
+    // ---- 宏观实体经济 ----
+    public static boolean macroEnabled() { return getBoolean(MACRO_ENABLED, MACRO_ENABLED_VALUE); }
+    public static boolean macroLaborEnabled() { return getBoolean(MACRO_LABOR_ENABLED, MACRO_LABOR_ENABLED_VALUE); }
+    public static boolean macroPoliticsEnabled() { return getBoolean(MACRO_POLITICS_ENABLED, MACRO_POLITICS_ENABLED_VALUE); }
+    public static int macroMinPopulation() { return getInt(MACRO_MIN_POPULATION, MACRO_MIN_POPULATION_VALUE); }
+    public static int macroMaxPopulation() { return getInt(MACRO_MAX_POPULATION, MACRO_MAX_POPULATION_VALUE); }
+    public static int macroGrowthMaxBps() { return getInt(MACRO_GROWTH_MAX_BPS, MACRO_GROWTH_MAX_BPS_VALUE); }
+    public static int macroMigrationMaxBps() { return getInt(MACRO_MIGRATION_MAX_BPS, MACRO_MIGRATION_MAX_BPS_VALUE); }
+    public static int macroMigrationGapBps() { return getInt(MACRO_MIGRATION_GAP_BPS, MACRO_MIGRATION_GAP_BPS_VALUE); }
+    public static int macroPriceStepBps() { return getInt(MACRO_PRICE_STEP_BPS, MACRO_PRICE_STEP_BPS_VALUE); }
+    public static int macroLaborRadius() { return getInt(MACRO_LABOR_RADIUS, MACRO_LABOR_RADIUS_VALUE); }
+    public static int macroJobsPerLevel() { return getInt(MACRO_JOBS_PER_LEVEL, MACRO_JOBS_PER_LEVEL_VALUE); }
+    public static long macroDefaultWage() { return getLong(MACRO_DEFAULT_WAGE, MACRO_DEFAULT_WAGE_VALUE); }
+    public static long macroBaseReservationWage() { return getLong(MACRO_BASE_RESERVATION_WAGE, MACRO_BASE_RESERVATION_WAGE_VALUE); }
+    public static long macroMinimumWage() { return getLong(MACRO_MINIMUM_WAGE, MACRO_MINIMUM_WAGE_VALUE); }
+    public static int macroLawDebateDays() { return getInt(MACRO_LAW_DEBATE_DAYS, MACRO_LAW_DEBATE_DAYS_VALUE); }
+    public static long macroLawProposalFee() { return getLong(MACRO_LAW_PROPOSAL_FEE, MACRO_LAW_PROPOSAL_FEE_VALUE); }
+    public static long macroLobbyPerPoint() { return getLong(MACRO_LOBBY_PER_POINT, MACRO_LOBBY_PER_POINT_VALUE); }
+    public static long macroCloutValueScale() { return getLong(MACRO_CLOUT_VALUE_SCALE, MACRO_CLOUT_VALUE_SCALE_VALUE); }
+    public static long macroWelfareReliefPerCapita() { return getLong(MACRO_WELFARE_RELIEF_PER_CAPITA, MACRO_WELFARE_RELIEF_PER_CAPITA_VALUE); }
+    public static long macroWelfareHealthPerCapita() { return getLong(MACRO_WELFARE_HEALTH_PER_CAPITA, MACRO_WELFARE_HEALTH_PER_CAPITA_VALUE); }
+    public static long macroPoolReserveFloor() { return getLong(MACRO_POOL_RESERVE_FLOOR, MACRO_POOL_RESERVE_FLOOR_VALUE); }
 
     // ---- 商队商路 ----
     public static int caravanMaxRoutesPerPlayer() {

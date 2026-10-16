@@ -79,10 +79,15 @@ public final class EconomyCycleService {
         EventManager.onDayTick(server);
         finance.event.EventContractService.processDay(server,mcDay);
         finance.settlement.SettlementService.processDay(server, mcDay);
+        // 宏观经济：福利 → 村庄集市（按类别需求采购并回报供需）→ 价格/人口/政治收盘
+        finance.macro.MacroEconomyService.beforeVillages(mcDay);
         finance.village.VillageService.processDay(server, mcDay);
+        finance.macro.MacroEconomyService.afterVillages(mcDay);
         finance.exploration.ExplorationService.processDay(mcDay);
         NpcMarketMaker.naturalConsumeAll();
         NpcMarketMaker.centralBankIntervention();
+        // 招工和发工资必须在设施生产之前
+        finance.macro.MacroLaborService.processDay(mcDay);
         CompanyManager.tickAll(mcDay);
         CompanyManager.settleDailyProfits(mcDay);
         finance.earnings.EarningsSeasonService.processDay(server, mcDay);

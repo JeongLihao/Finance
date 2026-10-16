@@ -56,6 +56,7 @@ public final class EconomyConsistencyService {
             case BANKING -> checkBanking(issues);
             case CARAVAN -> checkCaravan(issues);
             case NPC_ECONOMY -> checkNpcEconomy(issues);
+            case MACRO_ECONOMY -> { for (DiagnosticIssue i : finance.macro.MacroConsistency.check()) add(issues, i.severity(), i.module(), i.code(), i.subject(), i.message()); }
             case FUTURES -> checkFutures(issues);
             case FUND -> checkFunds(issues, mcDay);
             case INSURANCE -> checkInsurance(issues);

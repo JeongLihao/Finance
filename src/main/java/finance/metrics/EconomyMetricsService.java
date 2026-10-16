@@ -158,6 +158,11 @@ public final class EconomyMetricsService {
     }
 
     private static double calculatePriceIndex() {
+        // 宏观经济启用且有聚落需求数据时，用消费篮子 CPI 代替等权指数
+        double cpi = finance.macro.MacroIndicators.cpiOrNegative();
+        if (cpi > 0) {
+            return cpi;
+        }
         double total = 0.0;
         int count = 0;
         for (MarketPrice price : NpcMarketMaker.getAllMarketPrices().values()) {

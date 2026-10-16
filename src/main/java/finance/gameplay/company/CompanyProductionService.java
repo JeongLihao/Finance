@@ -51,6 +51,13 @@ public final class CompanyProductionService {
         int throughput = finance.config.FinanceConfig.factoryThroughput(facility.productionLevel());
         Map<String, Integer> inputs = scaled(company.getType().getDailyConsumption(), throughput);
         Map<String, Integer> outputs = scaled(company.getType().getDailyProduction(), throughput);
+        // 宏观经济雇工：按在岗比例缩放投入与产出，没人上班就停产
+        int staffing = finance.macro.MacroLaborService.staffingBps(facility);
+        if (staffing < 10_000) {
+            inputs = finance.macro.MacroLaborService.scale(inputs, staffing);
+            outputs = finance.macro.MacroLaborService.scale(outputs, staffing);
+            if (outputs.isEmpty()) { facility.setStatus(CompanyFacilityStatus.UNDERSTAFFED,day); return false; }
+        }
         if (!CompanyInventoryFacade.canAddOutput(company, outputs)) { facility.setStatus(CompanyFacilityStatus.OUTPUT_FULL,day); return false; }
         for (var e : inputs.entrySet()) if (CompanyInventoryFacade.availableInput(company, e.getKey()) < e.getValue()) {
             facility.setStatus(CompanyFacilityStatus.MISSING_INPUT,day); return false;

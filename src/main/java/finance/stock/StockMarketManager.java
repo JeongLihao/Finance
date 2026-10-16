@@ -293,6 +293,10 @@ public class StockMarketManager {
             case RAW_MATERIALS -> "铁锭";
             case BUILDING_BLOCKS -> "石头";
             case FOOD -> "小麦";
+            case FOOD_PROCESSING -> "面包";
+            case FORESTRY -> "木头";
+            case COAL_MINING -> "煤";
+            case TEXTILE -> "羊毛";
         };
     }
 

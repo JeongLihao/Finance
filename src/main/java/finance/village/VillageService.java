@@ -149,7 +149,9 @@ public final class VillageService {
         UUID settlementId = village.settlementId();
         topUpBudget(village);
 
-        Map<String, Long> needs = computeNeeds(village);
+        // 宏观经济启用时按需求类别和替代品分摊，否则用旧的职业篮子
+        Map<String, Long> planned = finance.macro.MacroEconomyService.planNeeds(village);
+        Map<String, Long> needs = planned != null ? planned : computeNeeds(village);
         Map<UUID, Integer> fairFavorGiven = new HashMap<>();
         Map<UUID, Integer> dumpFavorGiven = new HashMap<>();
         long caravanSoldToday = 0;
@@ -248,13 +250,14 @@ public final class VillageService {
         // 库存覆盖率 → 溢价（直接计算目标值，钳制 [minBps, maxBps]；不做跨日平滑）
         int villageStock = Math.max(0, CommodityInventoryManager.getCommodityAmount(settlementId, commodity));
         double coverage = (double) villageStock / Math.max(1L, need);
-        int premium = premiumForCoverage(coverage);
+        int premium = finance.macro.MacroEconomyService.premiumBps(settlementId, commodity,
+                premiumForCoverage(coverage));
         long wtp = computeWtp(mid, base, premium);
         if (wtp <= 0) {
             return 0;
         }
 
-        long caravanPrice = caravanPriceOf(mp, premium);
+        long caravanPrice = finance.macro.MacroEconomyService.applyTradePolicy(caravanPriceOf(mp, premium));
         boolean caravanAvailable = caravanPresent && caravanPrice > 0
                 && !SUSPENDED_CARAVAN.contains(settlementId);
 
@@ -290,6 +293,12 @@ public final class VillageService {
             }
             return Integer.compare(village.favorOf(b.ownerId()), village.favorOf(a.ownerId()));
         });
+
+        long stallSupply = 0;
+        for (VillageStall s : stalls) stallSupply += Math.max(0, s.stock());
+        long caravanSupply = caravanAvailable ? Math.min(need * 12 / 10, (long) Math.max(0,
+                CommodityInventoryManager.getCommodityAmount(NpcMarketMaker.NPC_UUID, commodity))) : 0;
+        long supplySeen = stallSupply + villageStock + caravanSupply;
 
         long fairLine = multiplyDivide(wtp, FinanceConfig.villageFairToleranceBps());
         long gougeLine = multiplyDivide(wtp, FinanceConfig.villageGougeToleranceBps());
@@ -371,6 +380,7 @@ public final class VillageService {
         if (consumed > 0) {
             CommodityInventoryManager.removeCommodity(settlementId, commodity, consumed);
         }
+        finance.macro.MacroEconomyService.recordProcurement(settlementId, commodity, need, supplySeen, consumed);
         return caravanSold;
     }
 
