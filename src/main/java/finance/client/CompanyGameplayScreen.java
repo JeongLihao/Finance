@@ -116,7 +116,7 @@ public final class CompanyGameplayScreen extends AbstractContainerScreen<Company
         for (int i = facilityOffset; i < facilityEnd; i++) {
             CompanyGameplayMenu.FacilityRow row = menu.facilities().get(i);
             if (i == facility) graphics.fill(162, y - 2, 312, y + 10, 0xFFD5E3C7);
-            drawClipped(graphics, row.id().toString().substring(0, 8) + " L" + row.level() + " " + row.status(),
+            drawClipped(graphics, row.id().toString().substring(0, 8) + " L" + row.level() + " " + FinanceFormat.facilityStatusLabel(row.status()),
                     166, y, 142, 0xFF202020);
             y += 12;
         }

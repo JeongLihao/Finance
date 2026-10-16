@@ -219,6 +219,21 @@ public final class FinanceFormat {
         return price * quantity;
     }
 
+    /** 设施状态的中文名；未知状态原样返回。 */
+    public static String facilityStatusLabel(String status) {
+        if (status == null) return "";
+        return switch (status) {
+            case "ACTIVE" -> "生产中";
+            case "MISSING_INPUT" -> "缺原料";
+            case "OUTPUT_FULL" -> "仓库满";
+            case "DISABLED" -> "已停用";
+            case "BANKRUPTCY_HOLD" -> "破产冻结";
+            case "ORPHANED" -> "失联";
+            case "UNDERSTAFFED" -> "缺工人";
+            default -> status;
+        };
+    }
+
     public static String getTypeDescription(CompanyType type) {
         return switch (type) {
             case RAW_MATERIALS -> "产出: 铁锭×100/天";

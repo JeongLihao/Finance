@@ -78,14 +78,14 @@ public final class MacroTabs {
         int y = top + 12;
         for (MacroResponsePacket.GroupRow row : groups) {
             FinanceGui.drawClippedString(font, g, row.name(), LEFT_X, y, 56, FinanceGui.COL_TEXT);
-            int barX = LEFT_X + 58, barW = 70;
+            int barX = LEFT_X + 58, barW = 64;
             g.fill(barX, y + 1, barX + barW, y + 8, FinanceGui.COL_ROW_ODD);
             int filled = (int) Math.round(barW * Math.max(0, Math.min(10_000, row.cloutBps())) / 10_000.0);
             g.fill(barX, y + 1, barX + filled, y + 8, FinanceGui.COL_ACCENT);
             FinanceGui.drawClippedString(font, g, pct(row.cloutBps()), barX + barW + 3, y, 34, FinanceGui.COL_TEXT_DIM);
             int color = row.approval() > 0 ? FinanceGui.COL_GOOD : row.approval() <= -5 ? FinanceGui.COL_BAD
                     : row.approval() < 0 ? FinanceGui.COL_WARN : FinanceGui.COL_TEXT;
-            FinanceGui.drawClippedString(font, g, String.format(Locale.ROOT, "%+d", row.approval()), LEFT_X + 168, y, 18, color);
+            FinanceGui.drawClippedString(font, g, String.format(Locale.ROOT, "%+d", row.approval()), LEFT_X + 164, y, 24, color);
             y += 12;
         }
     }
