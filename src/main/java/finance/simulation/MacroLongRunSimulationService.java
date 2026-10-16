@@ -71,7 +71,7 @@ public final class MacroLongRunSimulationService {
     public static final int MAX_DAYS = 1_000;
     /** 每家公司的初始现金。 */
     public static final long COMPANY_START_CASH = 20_000L;
-    /** 国际市场库存磨合期结束、开始计算稳态 CPI 通胀的日子。 */
+    /** 开服磨合期结束、开始计算稳态 CPI 通胀的日子。 */
     public static final int STEADY_STATE_DAY = 120;
     /** 铁厂停工冲击的起止日：检验人口能否因失业下降、迁移，并在复工后恢复。 */
     public static final int SHOCK_START = 150;
@@ -109,8 +109,8 @@ public final class MacroLongRunSimulationService {
         }
 
         /**
-         * 从第 fromDay 天到最后一天的 CPI 年化变化（%）。前 ~120 天国际市场库存从初始 60k 回补到参考库存 100k，
-         * NPC 中间价随之回落，这段属于开服磨合，稳态通胀从 {@link #STEADY_STATE_DAY} 起算。
+         * 从第 fromDay 天到最后一天的 CPI 年化变化（%）。开服头几十天本地价格系数从 10000 落到 NPC 供货的 8500 附近，
+         * 公司开始向国际市场卖货、NPC 库存略高于参考库存，这段属于磨合，稳态通胀从 {@link #STEADY_STATE_DAY} 起算。
          */
         public double annualizedCpiInflationPct(long fromDay) {
             Daily start = null;

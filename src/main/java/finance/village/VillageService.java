@@ -125,7 +125,7 @@ public final class VillageService {
             processVillage(village, day, netBuy);
             EconomySavedData.markDirty();
         }
-        // 全球联动：只产生动量，不碰 NPC 中央库存
+        // 全球联动：只产生动量，不碰 NPC 中央库存。村民买货是需求，相当于国际市场卖出（npcWasBuyer=false，利多）
         for (Map.Entry<String, Long> e : netBuy.entrySet()) {
             long total = e.getValue();
             if (total <= 0) {
@@ -137,7 +137,7 @@ public final class VillageService {
             }
             int qty = total > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) total;
             int npcStock = CommodityInventoryManager.getCommodityAmount(NpcMarketMaker.NPC_UUID, e.getKey());
-            mp.onNpcTrade(npcStock, true, qty);
+            mp.onNpcTrade(npcStock, false, qty);
         }
     }
 
