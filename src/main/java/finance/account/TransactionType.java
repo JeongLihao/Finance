@@ -124,5 +124,13 @@ public enum TransactionType {
     /** NPC 资金池向 NPC 投资者注资或每日补足。 */
     NPC_INVESTOR_FUNDING,
     /** NPC 投资者残差配售：资金销毁（系统水槽），股份从系统流动性残差转入投资者。 */
-    NPC_FLOAT_PLACEMENT
+    NPC_FLOAT_PLACEMENT,
+    /** 宏观经济：公司向聚落发放工资（公司现金 → 聚落预算账户）。 */
+    MACRO_WAGE,
+    /** 宏观经济：福利法律下 NPC 资金池拨给聚落的福利。 */
+    MACRO_WELFARE,
+    /** 宏观经济：法律提案费与游说捐款（玩家 → NPC 资金池）。 */
+    MACRO_POLITICS,
+    /** 宏观经济：聚落预算超出上限的部分作为村民消费回流 NPC 资金池。 */
+    MACRO_VILLAGE_SPENDING
 }

@@ -126,6 +126,9 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
     final ServiceTabs serviceTabs = new ServiceTabs(this);
     final RecordTabs recordTabs = new RecordTabs(this);
     final AdminTabs adminTabs = new AdminTabs(this);
+    final MacroTabs macroTabs = new MacroTabs(this);
+    /** 宏观经济页签的索引（不在 BASE_TABS/ADMIN_TABS 数组里）。 */
+    static final int MACRO_TAB = 12;
 
     // ---- 供同包 *Tabs 类访问的 protected 继承成员（font/menu 等声明在 MC 包内，跨包子类外不可见） ----
     Font font() { return font; }
@@ -279,7 +282,7 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
             case MARKET -> new int[]{0, 1, 2};
             case COMPANY -> new int[]{4};
             case BANK -> new int[]{9};
-            case ADVANCED -> new int[]{0, 5, 6, 7, 8, 9};
+            case ADVANCED -> new int[]{0, 5, 6, 7, 8, 9, MACRO_TAB};
             case ADMIN -> isAdmin ? new int[]{10, 11} : new int[]{10};
             case WAREHOUSE -> new int[]{3};
             case WALLET -> new int[]{7};
@@ -288,7 +291,7 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         tabNames = new String[allowedTabIndices.length];
         for (int i = 0; i < allowedTabIndices.length; i++) {
             int index = allowedTabIndices[i];
-            tabNames[i] = index < labels.length ? labels[index] : BASE_TABS[Math.min(index, BASE_TABS.length - 1)];
+            tabNames[i] = index == MACRO_TAB ? "宏观" : index < labels.length ? labels[index] : BASE_TABS[Math.min(index, BASE_TABS.length - 1)];
         }
         currentTab = allowedTabIndices[0];
         if (safeMode == FinanceScreenMode.BANK) financialSubTab = 7;
@@ -405,6 +408,7 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
             case 9 -> this.serviceTabs.renderFinancialProductsTab(g, mouseX, mouseY);
             case 10 -> { if (isAdmin) this.recordTabs.renderDashboardTab(g); }
             case 11 -> { if (isAdmin) this.adminTabs.renderAdminTab(g); }
+            case MACRO_TAB -> this.macroTabs.render(g);
         }
     }
 
@@ -458,6 +462,7 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
                     rememberUiState();
                     dropdownOpen = false;
                     updateInputVisibility();
+                    if (currentTab == MACRO_TAB) this.macroTabs.request();
                     if (currentTab == 9) { if(financialSubTab==6)this.serviceTabs.requestFutures();else if(financialSubTab==7)this.serviceTabs.requestBanks();else if(financialSubTab==8)this.serviceTabs.requestFunds();else if(financialSubTab==9)this.serviceTabs.requestInsurance();else if(financialSubTab==10)this.serviceTabs.requestRegionalRisk();else this.serviceTabs.requestFinancialProducts(); }
                     return true;
                 }
@@ -483,6 +488,7 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
             case 8 -> this.recordTabs.handleAlertClick(mx, my);
             case 9 -> this.serviceTabs.handleFinancialProductsClick(mx, my);
             case 11 -> isAdmin && this.adminTabs.handleAdminClick(mx, my);
+            case MACRO_TAB -> this.macroTabs.handleClick(mx, my);
             default -> false;
         };
         if (handled) {

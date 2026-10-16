@@ -148,6 +148,10 @@ public final class FinanceFormat {
             case "ADMIN_COMMODITY" -> "商品管理";
             case "NPC_INVESTOR_FUNDING" -> "NPC 投资者注资";
             case "NPC_FLOAT_PLACEMENT" -> "NPC 残差配售";
+            case "MACRO_WAGE" -> "工资";
+            case "MACRO_WELFARE" -> "社会福利";
+            case "MACRO_POLITICS" -> "政治捐款";
+            case "MACRO_VILLAGE_SPENDING" -> "村民消费";
             default -> type;
         };
     }
@@ -212,6 +216,10 @@ public final class FinanceFormat {
             case RAW_MATERIALS -> "产出: 铁锭×100/天";
             case BUILDING_BLOCKS -> "产出: 石头×120/天";
             case FOOD -> "产出: 小麦×80/天";
+            case FOOD_PROCESSING -> "产出: 面包×30/天 投入: 小麦×60";
+            case FORESTRY -> "产出: 木头×100/天";
+            case COAL_MINING -> "产出: 煤×80/天 投入: 铁锭×5";
+            case TEXTILE -> "产出: 羊毛×40/天 投入: 小麦×20";
         };
     }
 

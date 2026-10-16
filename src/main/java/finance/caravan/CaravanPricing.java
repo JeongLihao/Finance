@@ -44,7 +44,9 @@ public final class CaravanPricing {
         if (mid <= 0) {
             return 0;
         }
-        int mult = RegionalCommodityMetricsService.quoteMultiplierBps(source, commodityId);
+        // 宏观经济启用时，用本地供需价格系数代替区域报价修正
+        int mult = finance.macro.MacroEconomyService.caravanQuoteBps(source, commodityId,
+                RegionalCommodityMetricsService.quoteMultiplierBps(source, commodityId));
         long scaled = MathUtil.multiplyExactOrNegative1(mid, Math.max(1, mult));
         if (scaled <= 0) {
             return 0;
@@ -69,7 +71,8 @@ public final class CaravanPricing {
         if (mid <= 0) {
             return 0;
         }
-        int mult = RegionalCommodityMetricsService.quoteMultiplierBps(dest, commodityId);
+        int mult = finance.macro.MacroEconomyService.caravanQuoteBps(dest, commodityId,
+                RegionalCommodityMetricsService.quoteMultiplierBps(dest, commodityId));
         long scaled = MathUtil.multiplyExactOrNegative1(mid, Math.max(1, mult));
         if (scaled <= 0) {
             return 0;
