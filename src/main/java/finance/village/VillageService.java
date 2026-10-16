@@ -334,6 +334,7 @@ public final class VillageService {
             }
             remaining -= qty;
             netBuy.merge(commodity, (long) qty, Long::sum);
+            finance.macro.EconomyAchievements.recordStallSale(stall.ownerId(), settlementId, commodity, qty);
             AccountManager.addTransactionRecord(new TransactionRecord(
                     village.budgetAccountId(), stall.ownerId(), payment,
                     TransactionType.VILLAGE_STALL_SALE, stall.ownerId(), commodity, qty));

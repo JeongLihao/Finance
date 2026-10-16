@@ -147,6 +147,21 @@ public final class MacroPersistence {
         }
         data.put("LawHistory", results);
         data.put("Fiscal", saveFiscal());
+        CompoundTag ach = new CompoundTag();
+        ach.putLong("LastDay", EconomyAchievements.lastProcessedDay());
+        ach.putLong("DebtFreeStreak", EconomyAchievements.debtFreeStreak());
+        ach.putBoolean("LastStrike", EconomyAchievements.lastStrike());
+        ListTag pending = new ListTag();
+        EconomyAchievements.pendingDirect().forEach((player, events) -> {
+            CompoundTag t = new CompoundTag();
+            t.putUUID("Player", player);
+            ListTag list = new ListTag();
+            for (String e : events) list.add(net.minecraft.nbt.StringTag.valueOf(e));
+            t.put("Events", list);
+            pending.add(t);
+        });
+        ach.put("Pending", pending);
+        data.put("Achievements", ach);
         root.put(ROOT, data);
     }
 
@@ -336,6 +351,22 @@ public final class MacroPersistence {
             }
         }
         if (data.contains("Fiscal", Tag.TAG_COMPOUND)) skipped += loadFiscal(data.getCompound("Fiscal"));
+        if (data.contains("Achievements", Tag.TAG_COMPOUND)) {
+            CompoundTag ach = data.getCompound("Achievements");
+            Map<UUID, java.util.Set<String>> pending = new java.util.LinkedHashMap<>();
+            for (Tag raw : ach.getList("Pending", Tag.TAG_COMPOUND)) {
+                try {
+                    CompoundTag t = (CompoundTag) raw;
+                    java.util.Set<String> events = new java.util.LinkedHashSet<>();
+                    for (Tag e : t.getList("Events", Tag.TAG_STRING)) events.add(e.getAsString());
+                    pending.put(t.getUUID("Player"), events);
+                } catch (Exception e) {
+                    skipped++;
+                }
+            }
+            EconomyAchievements.restore(ach.contains("LastDay", Tag.TAG_LONG) ? ach.getLong("LastDay") : Long.MIN_VALUE,
+                    ach.getLong("DebtFreeStreak"), ach.getBoolean("LastStrike"), pending);
+        }
         if (invalid || skipped > 0) {
             ModuleHealthRegistry.restrict(ModuleHealthRegistry.Module.MACRO_ECONOMY,
                     ModuleRunState.READ_ONLY, "宏观经济存档 " + skipped + " 条损坏已跳过", -1);
