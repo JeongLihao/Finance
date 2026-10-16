@@ -129,6 +129,8 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
     final MacroTabs macroTabs = new MacroTabs(this);
     /** 宏观经济页签的索引（不在 BASE_TABS/ADMIN_TABS 数组里）。 */
     static final int MACRO_TAB = 12;
+    /** 行情表滚动到的第一行。商品多于可见行数时用滚轮翻看。 */
+    int marketScroll = 0;
 
     // ---- 供同包 *Tabs 类访问的 protected 继承成员（font/menu 等声明在 MC 包内，跨包子类外不可见） ----
     Font font() { return font; }
@@ -513,6 +515,13 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
             int maxScroll = Math.max(0, totalHeight - 116);
             dropdownScroll = Math.max(0, Math.min(maxScroll, dropdownScroll - (int)(delta * 14)));
             return true;
+        }
+        if (currentTab == 0 && !commodityChartVisible) {
+            int max = this.marketTabs.maxMarketScroll();
+            if (max > 0) {
+                marketScroll = Math.max(0, Math.min(max, marketScroll - (int) Math.signum(delta)));
+                return true;
+            }
         }
         if (currentTab == 11 && isAdmin) {
             if (adminSubTab == 1) {
