@@ -263,6 +263,7 @@ public final class PoliticsService {
         MacroEconomyManager.addLawResult(new MacroEconomyManager.LawResult(p.level(), passed, t[0], t[1], day));
         MacroEconomyManager.setProposal(null);
         EconomyAchievements.onProposalResolved(p.proposer(), passed);
+        MacroWorldFeedback.onLawResolved(p.level(), passed, t[0], t[1]);
         if (passed) recompute();
         EconomySavedData.markDirty();
     }
