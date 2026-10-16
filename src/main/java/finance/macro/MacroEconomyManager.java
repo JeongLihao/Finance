@@ -205,5 +205,6 @@ public final class MacroEconomyManager {
         lastProcessedDay = Long.MIN_VALUE;
         lastLaborDay = Long.MIN_VALUE;
         Treasury.clearDirect();
+        EconomyAchievements.clearDirect();
     }
 }

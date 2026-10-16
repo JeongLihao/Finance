@@ -338,6 +338,8 @@ public final class CaravanService {
             pushSellMomentum(commodityId, soldQty);
             // 宏观经济：卖出的货真的进入目的地聚落托管，供人口消费（只进不出，玩家取不出来）
             if (revenue > 0) {
+                // 成就判定要看送达前的饥荒状态，所以先判定再入库
+                finance.macro.EconomyAchievements.onCaravanDelivered(ownerId, dest.id(), commodityId);
                 finance.macro.MacroEconomyService.deliverImport(dest.id(), commodityId, soldQty);
             }
         }

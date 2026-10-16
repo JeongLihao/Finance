@@ -103,6 +103,8 @@ public final class EconomyCycleService {
         finance.feedback.WorldTerminalStateService.auditDay(server, mcDay);
         finance.policy.PolicyMeetingService.onDayTick(server, mcDay);
         finance.caravan.CaravanService.processDay(server, mcDay);
+        // 经济成就：只读当天收盘后的状态
+        finance.macro.EconomyAchievements.processDay(server, mcDay);
     }
 
     private static void tickNoiseAndMomentum(MinecraftServer server) {

@@ -249,6 +249,7 @@ public final class PoliticsService {
         AccountManager.addTransactionRecord(new TransactionRecord(player, NpcMarketMaker.NPC_UUID, cost,
                 TransactionType.MACRO_POLITICS, player, "lobby:" + ig.name(), points));
         MacroEconomyManager.setLobby(ig, current + (int) points);
+        EconomyAchievements.onLobbied(player, current + (int) points);
         MacroEconomyManager.setApproval(ig, approvalOf(ig));
         EconomySavedData.markDirty();
         return Result.ok("向 " + ig.displayName() + " 捐款 " + cost + "，满意度 +" + points + "（每天衰减 1）。");
@@ -261,6 +262,7 @@ public final class PoliticsService {
         if (passed) MacroEconomyManager.setLaw(p.level());
         MacroEconomyManager.addLawResult(new MacroEconomyManager.LawResult(p.level(), passed, t[0], t[1], day));
         MacroEconomyManager.setProposal(null);
+        EconomyAchievements.onProposalResolved(p.proposer(), passed);
         if (passed) recompute();
         EconomySavedData.markDirty();
     }
