@@ -12,10 +12,10 @@ public enum CompanyType {
     BUILDING_BLOCKS("建筑方块", List.of("stone"),            Map.of("stone", 120),            Map.of()),
     FOOD("食物",            List.of("wheat"),              Map.of("wheat", 80),             Map.of()),
     // ---- 宏观经济生产链（见 docs/MACRO_ECONOMY.md）----
-    FOOD_PROCESSING("食品加工", List.of("bread"),            Map.of("bread", 30),             Map.of("wheat", 60)),
+    FOOD_PROCESSING("食品加工", List.of("bread"),            Map.of("bread", 30),             Map.of("wheat", 40)),
     FORESTRY("林业",        List.of("wood"),               Map.of("wood", 100),             Map.of()),
     COAL_MINING("煤矿",     List.of("coal"),               Map.of("coal", 80),              Map.of("iron", 5)),
-    TEXTILE("纺织",         List.of("wool"),               Map.of("wool", 40),              Map.of("wheat", 20));
+    TEXTILE("纺织",         List.of("wool"),               Map.of("wool", 40),              Map.of("wheat", 10));
 
     private final String displayName;
     private final List<String> commodityIds;

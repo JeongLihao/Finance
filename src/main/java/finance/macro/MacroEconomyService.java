@@ -185,7 +185,7 @@ public final class MacroEconomyService {
             byDimension.computeIfAbsent(settlement.dimensionId(), k -> new ArrayList<>()).add(settlement.id());
         }
         MacroEconomyManager.retainSettlements(known);
-        for (List<UUID> ids : byDimension.values()) migrate(ids);
+        for (List<UUID> ids : byDimension.values()) migrate(ids, day);
         MacroIndicators.closeDay(day);
         PoliticsService.processDay(day);
         EconomySavedData.markDirty();
@@ -216,7 +216,9 @@ public final class MacroEconomyService {
         econ.lastIncome = econ.incomeToday;
         econ.incomeToday = 0;
         double incomePerCapita = population <= 0 ? 0 : (double) econ.lastIncome / population;
-        econ.solBps = MacroFormulas.smoothSol(econ.solBps, MacroFormulas.targetSol(fulfilment, incomePerCapita, solBonus));
+        int subsistence = MacroFormulas.subsistenceSol(population, FinanceConfig.villagePopulation());
+        econ.solBps = MacroFormulas.smoothSol(econ.solBps,
+                MacroFormulas.targetSol(fulfilment, incomePerCapita, solBonus + subsistence));
 
         econ.growthMilli += MacroFormulas.growthMilli(population, econ.solBps, growthBps, unrest);
         long whole = econ.growthMilli / 1000;
@@ -251,8 +253,8 @@ public final class MacroEconomyService {
         }
     }
 
-    /** 同一维度内，从最不宜居的聚落迁一部分人口到最宜居的聚落。 */
-    static void migrate(List<UUID> settlementIds) {
+    /** 同一维度内，从最不宜居的聚落迁一部分人口到最宜居的聚落（人数见 {@link MacroFormulas#migrants}）。 */
+    static void migrate(List<UUID> settlementIds, long day) {
         if (settlementIds.size() < 2) return;
         int gap = FinanceConfig.macroMigrationGapBps();
         int rate = FinanceConfig.macroMigrationMaxBps();
@@ -272,7 +274,7 @@ public final class MacroEconomyService {
         if (from == null || to == null) return;
         int min = FinanceConfig.macroMinPopulation();
         int max = FinanceConfig.macroMaxPopulation();
-        long movers = Math.max(1, (long) from.population() * rate / 10_000);
+        long movers = MacroFormulas.migrants(from.population(), rate, day);
         movers = Math.min(movers, Math.max(0, from.population() - min));
         movers = Math.min(movers, Math.max(0, max - to.population()));
         if (movers <= 0) return;

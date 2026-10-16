@@ -2,8 +2,11 @@ package finance.macro;
 
 import finance.village.VillageProfession;
 
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Predicate;
 import java.util.function.ToLongFunction;
@@ -105,10 +108,22 @@ public final class MacroNeeds {
             if (qty > 0) out.put(e.getKey(), qty);
             covered += qty * perItem;
         }
-        // 余数交给最便宜的商品，仍按整件向下取整
+        // 余数交给最便宜的商品，仍按整件向下取整；最便宜的一件装不下余数时（如 1.6 份取暖、煤一块 2 份），
+        // 按每份价格从低到高交给装得下的替代品，避免小聚落整类需求被取整成 0
         if (cheapest != null) {
             long extra = (long) Math.floor((units - covered) / pool.get(cheapest) + 1e-9);
-            if (extra > 0) out.merge(cheapest, extra, Long::sum);
+            if (extra > 0) {
+                out.merge(cheapest, extra, Long::sum);
+                covered += extra * pool.get(cheapest);
+            }
+            List<String> byPrice = new ArrayList<>(pool.keySet());
+            byPrice.sort(Comparator.comparingDouble(id -> unitPrice.applyAsLong(id) / pool.get(id)));
+            for (String id : byPrice) {
+                long more = (long) Math.floor((units - covered) / pool.get(id) + 1e-9);
+                if (more <= 0) continue;
+                out.merge(id, more, Long::sum);
+                covered += more * pool.get(id);
+            }
         }
         return out;
     }
