@@ -35,8 +35,8 @@ class MacroWorldFeedbackTest {
         EconomySavedData.resetRuntimeState();
     }
 
-    private static List<String> keys() {
-        return MacroWorldFeedback.queued().stream().map(MacroWorldFeedback.Announcement::key).toList();
+    private static List<String> headlines() {
+        return NewsService.pool().stream().map(NewsService.Item::headline).toList();
     }
 
     @Test void moodAndComplaintFollowTheWorstNeed() {
@@ -61,31 +61,29 @@ class MacroWorldFeedbackTest {
         econ.lastFulfilment.put(NeedCategory.FOOD, 0.2);
         MacroEconomyManager.setUnrestFlags(true, true);
         MacroWorldFeedback.onDayClosed();
-        assertTrue(MacroWorldFeedback.queued().isEmpty(), "重启前就在的罢工和饥荒不再公告");
+        assertTrue(NewsService.pool().isEmpty(), "重启前就在的罢工和饥荒不再上报");
     }
 
-    @Test void stateFlipsAreAnnouncedOnce() {
+    @Test void stateFlipsGoToTheNewsDeskOnce() {
         MacroWorldFeedback.onDayClosed();
         econ.lastFulfilment.put(NeedCategory.FOOD, 0.2);
         MacroEconomyManager.setUnrestFlags(true, false);
         MacroWorldFeedback.onDayClosed();
-        assertEquals(List.of("finance.macro.announce.strike_start", "finance.macro.announce.famine_start"), keys());
-        assertEquals(List.of("alpha", "20"), MacroWorldFeedback.queued().get(1).args());
-        MacroWorldFeedback.clearDirectQueueForTest();
+        assertEquals(List.of("alpha闹饥荒", "工人大罢工！"), headlines(), "按新闻价值排序");
+        assertTrue(MacroWorldFeedback.queued().isEmpty(), "大事交给报社，不再直接刷聊天栏");
         MacroWorldFeedback.onDayClosed();
-        assertTrue(MacroWorldFeedback.queued().isEmpty(), "状态没变就不重复公告");
+        assertEquals(2, NewsService.pool().size(), "状态没变就不重复上报");
         econ.lastFulfilment.put(NeedCategory.FOOD, 1.0);
         MacroEconomyManager.setUnrestFlags(false, false);
         MacroWorldFeedback.onDayClosed();
-        assertEquals(List.of("finance.macro.announce.strike_end", "finance.macro.announce.famine_end"), keys());
+        assertTrue(headlines().containsAll(List.of("alpha饥荒结束", "罢工落幕，工人复工")));
     }
 
-    @Test void lawResultsAreAnnounced() {
+    @Test void lawResultsAreReported() {
         MacroWorldFeedback.onLawResolved(LawLevel.HIGH_TAX, true, 9_000, 4_000);
-        MacroWorldFeedback.Announcement a = MacroWorldFeedback.queued().get(0);
-        assertEquals("finance.macro.announce.law_passed", a.key());
-        assertEquals(MacroWorldFeedback.Tone.GOOD, a.tone());
-        assertEquals(List.of("税制", "高税", "9000", "4000"), a.args());
+        NewsService.Item item = NewsService.pool().get(0);
+        assertEquals("议会通过：税制改为「高税」", item.headline());
+        assertTrue(item.body().contains("9000"));
     }
 
     @Test void queueIsBounded() {
@@ -96,10 +94,9 @@ class MacroWorldFeedbackTest {
     @Test void everyMessageKeyIsTranslated() throws Exception {
         JsonObject zh = json("assets/finance/lang/zh_cn.json");
         JsonObject en = json("assets/finance/lang/en_us.json");
-        List<String> keys = new java.util.ArrayList<>(List.of("finance.macro.announce.law_passed", "finance.macro.announce.law_failed",
-                "finance.macro.announce.strike_start", "finance.macro.announce.strike_end", "finance.macro.announce.unrest_start",
-                "finance.macro.announce.unrest_end", "finance.macro.announce.famine_start", "finance.macro.announce.famine_end",
-                "finance.macro.announce.austerity", "finance.macro.caravan_arrived", "finance.macro.factory_strike",
+        List<String> keys = new java.util.ArrayList<>(List.of("finance.macro.announce.brief", "finance.macro.announce.extra",
+                "finance.macro.announce.weekly", "finance.macro.news.claimed", "finance.macro.news.waiting",
+                "finance.macro.caravan_arrived", "finance.macro.factory_strike",
                 "finance.macro.complaint.unrest", "finance.macro.complaint.happy"));
         for (NeedCategory c : NeedCategory.values()) keys.add("finance.macro.complaint." + c.name().toLowerCase(java.util.Locale.ROOT));
         for (String k : keys) {

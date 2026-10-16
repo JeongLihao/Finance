@@ -105,6 +105,8 @@ public final class EconomyCycleService {
         finance.caravan.CaravanService.processDay(server, mcDay);
         // 经济成就：只读当天收盘后的状态
         finance.macro.EconomyAchievements.processDay(server, mcDay);
+        // 《金融周报》：到期出周刊，有大事出号外
+        finance.macro.NewsService.processDay(server, mcDay);
     }
 
     private static void tickNoiseAndMomentum(MinecraftServer server) {

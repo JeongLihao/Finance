@@ -166,6 +166,7 @@ public final class MacroEconomyService {
     public static void afterVillages(long day) {
         if (!active() || day <= MacroEconomyManager.lastProcessedDay()) return;
         MacroEconomyManager.setLastProcessedDay(day);
+        NewsService.observeDay(day);
         int step = FinanceConfig.macroPriceStepBps();
         int growthBps = FinanceConfig.macroGrowthMaxBps();
         int solBonus = FinanceConfig.macroPoliticsEnabled()

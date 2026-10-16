@@ -49,6 +49,8 @@ public final class MacroCommand {
                                                 StringArgumentType.getString(ctx, "level")))))))
                 .then(Commands.literal("ig").executes(ctx -> interestGroups(ctx.getSource())))
                 .then(Commands.literal("budget").executes(ctx -> budget(ctx.getSource())))
+                .then(Commands.literal("news").executes(ctx -> news(ctx.getSource())))
+                .then(Commands.literal("radar").executes(ctx -> radar(ctx.getSource())))
                 .then(Commands.literal("lobby")
                         .then(Commands.argument("group", StringArgumentType.word())
                                 .then(Commands.argument("amount", LongArgumentType.longArg(1))
@@ -222,6 +224,48 @@ public final class MacroCommand {
             lines.add(in.toString().trim());
             lines.add(out.toString().trim());
         }
+        send(source, lines);
+        return 1;
+    }
+
+    private static int news(CommandSourceStack source) {
+        ServerPlayer player = source.getPlayer();
+        if (player == null) {
+            source.sendFailure(Component.literal("只有玩家可以领报纸。"));
+            return 0;
+        }
+        if (!NewsService.enabled()) {
+            source.sendFailure(Component.literal("《金融周报》未启用（配置 macroEconomy.newsEnabled）。"));
+            return 0;
+        }
+        int n = NewsService.claim(player);
+        if (n > 0) {
+            source.sendSuccess(() -> Component.literal("领到 " + n + " 份报纸，已放进背包。"), false);
+            return 1;
+        }
+        List<NewsService.Issue> archive = NewsService.archive();
+        String next = "下一期周报约在第 " + (NewsService.lastWeeklyDay() == Long.MIN_VALUE ? "?"
+                : String.valueOf(NewsService.lastWeeklyDay() + finance.config.FinanceConfig.macroNewsIntervalDays())) + " 天出版。";
+        source.sendSuccess(() -> Component.literal((archive.isEmpty() ? "还没有出过报纸。" : "最近的报纸你都领过了。") + next), false);
+        return 1;
+    }
+
+    private static int radar(CommandSourceStack source) {
+        ServerPlayer player = source.getPlayer();
+        if (player == null) {
+            source.sendFailure(Component.literal("只有玩家可以做商情调查。"));
+            return 0;
+        }
+        MacroRadar.Purchase r = MacroRadar.purchase(player.getUUID(), EconomyCycleService.currentMcDay(source.getServer()));
+        if (!r.success()) {
+            source.sendFailure(Component.literal(r.message()));
+            return 0;
+        }
+        List<String> lines = new ArrayList<>();
+        lines.add("====== " + r.message() + " ======");
+        if (r.opportunities().isEmpty()) lines.add("调查员转了一圈，暂时没发现明显的商机。");
+        for (MacroRadar.Opportunity o : r.opportunities()) lines.add("· " + o.text());
+        lines.add("§7情报会过时：价格会被商队和村民拉平，两三天后最好重新调查。");
         send(source, lines);
         return 1;
     }
