@@ -27,6 +27,9 @@ public enum InterestGroup {
             case NO_WELFARE -> pick(-1, 0, 0, -1, 1, 1);
             case POOR_RELIEF -> pick(1, 0, 0, 1, 0, -1);
             case PUBLIC_HEALTH -> pick(2, 1, 0, 2, -1, -2);
+            case LOW_TAX -> pick(-1, 1, 0, -1, 2, 1);
+            case MEDIUM_TAX -> pick(0, 0, 0, 0, 0, 0);
+            case HIGH_TAX -> pick(1, -1, 0, 1, -2, -2);
         };
     }
 

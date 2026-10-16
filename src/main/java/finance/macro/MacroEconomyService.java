@@ -158,7 +158,9 @@ public final class MacroEconomyService {
 
     public static void beforeVillages(long day) {
         if (!active() || day <= MacroEconomyManager.lastProcessedDay()) return;
-        PoliticsService.payWelfare(day);
+        // 财政启用时由国库付利息、行政开支和福利；否则福利仍由 NPC 资金池支付
+        if (MacroFiscalService.active()) MacroFiscalService.processDay(day);
+        else PoliticsService.payWelfare(day);
     }
 
     public static void afterVillages(long day) {

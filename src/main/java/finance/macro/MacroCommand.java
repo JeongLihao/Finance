@@ -48,6 +48,7 @@ public final class MacroCommand {
                                                 StringArgumentType.getString(ctx, "group"),
                                                 StringArgumentType.getString(ctx, "level")))))))
                 .then(Commands.literal("ig").executes(ctx -> interestGroups(ctx.getSource())))
+                .then(Commands.literal("budget").executes(ctx -> budget(ctx.getSource())))
                 .then(Commands.literal("lobby")
                         .then(Commands.argument("group", StringArgumentType.word())
                                 .then(Commands.argument("amount", LongArgumentType.longArg(1))
@@ -76,6 +77,11 @@ public final class MacroCommand {
                     s.population(), pct(s.avgSol()), s.employed(), s.wages(), s.consumptionValue()));
         }
         lines.add("法律：" + lawLine());
+        if (MacroFiscalService.active()) {
+            long[] t = MacroFiscalService.lastDayTotals();
+            lines.add(String.format(Locale.ROOT, "国库 %,d  债务 %,d  昨日收入 %,d  支出 %,d%s", MacroFiscalService.balance(),
+                    Treasury.debt(), t[0], t[1], Treasury.austerity() ? "  §c紧缩中" : ""));
+        }
         if (MacroEconomyManager.strike()) lines.add("§c工会罢工中：雇工产量减半");
         if (MacroEconomyManager.unrest()) lines.add("§c民众骚乱：人口增长减半，迁入意愿下降");
         MacroEconomyManager.Proposal p = MacroEconomyManager.proposal();
@@ -185,6 +191,37 @@ public final class MacroCommand {
                     MacroEconomyManager.approval(ig), MacroEconomyManager.lobby(ig)));
         }
         lines.add("游说：/macro lobby <集团> <金额>");
+        send(source, lines);
+        return 1;
+    }
+
+    private static int budget(CommandSourceStack source) {
+        List<String> lines = new ArrayList<>();
+        lines.add("====== 国家财政 ======");
+        if (!MacroFiscalService.active()) {
+            lines.add("国家财政未启用（配置 macroEconomy.fiscalEnabled）。");
+            send(source, lines);
+            return 0;
+        }
+        lines.add(String.format(Locale.ROOT, "国库 %,d  债务 %,d / 上限 %,d（%s）  税制 %s", MacroFiscalService.balance(),
+                Treasury.debt(), finance.config.FinanceConfig.macroDebtCeiling(), pct(MacroFiscalService.debtRatioBps()),
+                MacroEconomyManager.law(LawGroup.TAXATION).displayName()));
+        lines.add("明日利息 " + MacroFiscalService.dailyInterest(Treasury.debt()) + "  累计央行增发 " + Treasury.cumulativeIssuance()
+                + (Treasury.austerity() ? "  §c紧缩中：福利停发" : ""));
+        Treasury.Day d = Treasury.lastDay();
+        if (d == null) {
+            lines.add("还没有完整的一天账目。");
+        } else {
+            StringBuilder in = new StringBuilder("第 " + d.day() + " 天收入：");
+            StringBuilder out = new StringBuilder("第 " + d.day() + " 天支出：");
+            for (Treasury.Item item : Treasury.Item.values()) {
+                long v = d.flows().getOrDefault(item, 0L);
+                if (v <= 0) continue;
+                (item.inflow() ? in : out).append(item.displayName()).append(' ').append(v).append("  ");
+            }
+            lines.add(in.toString().trim());
+            lines.add(out.toString().trim());
+        }
         send(source, lines);
         return 1;
     }
