@@ -40,8 +40,11 @@ public class NpcMarketMaker {
     /** 国际市场日常交易池初始资金：央行加入后，市场本身不再承担无限流动性。 */
     private static final long INITIAL_NPC_BALANCE = 2_000_000L;
 
-    /** 每种商品日常流通库存。战略储备由中央银行持有。 */
-    private static final int INITIAL_NPC_STOCK = 60_000;
+    /**
+     * 每种商品日常流通库存，等于参考库存：开服价格就是基准价，不会在头几个月随补货一路下跌（见 docs/MACRO_ECONOMY.md
+     * “平衡基线”）。战略储备由中央银行持有。
+     */
+    private static final int INITIAL_NPC_STOCK = (int) MarketPrice.REFERENCE_STOCK;
 
     /** 国际市场低于参考库存时的每日基础补货比例 */
     private static final double DAILY_RESTOCK_RATIO = 0.035;
