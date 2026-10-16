@@ -546,15 +546,6 @@
   "advancement.finance.macro_failed_bill.desc": "你的提案被利益集团否决了",
   "advancement.finance.macro_debt_free": "百日无债",
   "advancement.finance.macro_debt_free.desc": "国库连续 100 天没有负债",
-  "finance.macro.announce.law_passed": "§6[议会] %s 改为「%s」，法案通过（支持 %s / 反对 %s）",
-  "finance.macro.announce.law_failed": "§7[议会] 将 %s 改为「%s」的法案被否决（支持 %s / 反对 %s）",
-  "finance.macro.announce.strike_start": "§c[工会] 工人宣布罢工！雇工产量减半，直到工会满意为止。",
-  "finance.macro.announce.strike_end": "§a[工会] 罢工结束，工人回到了岗位。",
-  "finance.macro.announce.unrest_start": "§c[民众] 民众走上街头抗议，人口增长放缓，有人开始离开。",
-  "finance.macro.announce.unrest_end": "§a[民众] 抗议平息了。",
-  "finance.macro.announce.famine_start": "§c[饥荒] %s 的村民在挨饿！粮食只够 %s%%。",
-  "finance.macro.announce.famine_end": "§a[饥荒] %s 的饥荒结束了。",
-  "finance.macro.announce.austerity": "§c[国库] 国库触及债务上限，开始紧缩，福利停发！",
   "finance.macro.caravan_arrived": "§e[商队] 你的商队抵达 %s：卖出 %s ×%s，本趟盈亏 %s",
   "finance.macro.factory_strike": "§c工人在门口罢工……产量减半",
   "finance.macro.complaint.unrest": "§c[%s] 村民：「再这样下去，我们就上街！」",
@@ -563,5 +554,10 @@
   "finance.macro.complaint.tools": "§6[%s] 村民：「锄头坏了，铁匠铺却没铁。」",
   "finance.macro.complaint.heating": "§6[%s] 村民：「晚上冷得睡不着，煤都去哪儿了？」",
   "finance.macro.complaint.clothing": "§6[%s] 村民：「衣服都磨破了，哪儿有羊毛卖？」",
-  "finance.macro.complaint.happy": "§a[%s] 村民：「这日子是越过越好了。」"
+  "finance.macro.complaint.happy": "§a[%s] 村民：「这日子是越过越好了。」",
+  "finance.macro.announce.brief": "§6【快讯】%s（详见下期《金融周报》）",
+  "finance.macro.announce.extra": "§c【号外】第 %s 期：%s —— 到贸易站或用 /macro news 领取",
+  "finance.macro.announce.weekly": "§e《金融周报》第 %s 期出版：%s —— 到贸易站或用 /macro news 领取",
+  "finance.macro.news.claimed": "§e领到 %s 份《金融周报》",
+  "finance.macro.news.waiting": "§e你有 %s 份《金融周报》没领，到任意贸易站或用 /macro news 领取"
 }

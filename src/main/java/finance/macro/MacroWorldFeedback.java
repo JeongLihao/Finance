@@ -95,13 +95,17 @@ public final class MacroWorldFeedback {
         boolean unrest = politics && MacroEconomyManager.unrest();
         boolean austerity = MacroFiscalService.active() && Treasury.austerity();
         boolean speak = primed;
-        if (speak && strike != lastStrike) announce(strike ? "finance.macro.announce.strike_start"
-                : "finance.macro.announce.strike_end", strike ? Tone.BAD : Tone.GOOD);
-        if (speak && unrest != lastUnrest) announce(unrest ? "finance.macro.announce.unrest_start"
-                : "finance.macro.announce.unrest_end", unrest ? Tone.BAD : Tone.GOOD);
+        if (speak && strike != lastStrike) {
+            if (strike) news(80, "工人大罢工！", "工会满意度跌破底线，工人放下工具，雇工产量减半。提高工资或改善劳工法才能让他们回来。", true);
+            else news(35, "罢工落幕，工人复工", "工会情绪缓和，工厂恢复生产。", false);
+        }
+        if (speak && unrest != lastUnrest) {
+            if (unrest) news(70, "民众走上街头", "乡村民众和小资产阶级的不满爆发，人口增长放缓，有人开始离开。", true);
+            else news(35, "街头恢复平静", "抗议平息，生活回到正轨。", false);
+        }
         lastStrike = strike;
         lastUnrest = unrest;
-        if (speak && austerity && !lastAusterity) announce("finance.macro.announce.austerity", Tone.BAD);
+        if (speak && austerity && !lastAusterity) news(75, "国库见底，福利停发", "国库债务触及上限，政府开始紧缩，福利停止发放。", true);
         lastAusterity = austerity;
         for (SettlementEconomy econ : MacroEconomyManager.settlements()) {
             Double food = econ.lastFulfilment.get(NeedCategory.FOOD);
@@ -110,8 +114,9 @@ public final class MacroWorldFeedback {
             boolean before = FAMINE.getOrDefault(econ.settlementId, false);
             SettlementRecord s = SettlementManager.get(econ.settlementId);
             String name = s == null ? "?" : s.displayName();
-            if (speak && famine && !before) announce("finance.macro.announce.famine_start", Tone.BAD, name, String.valueOf(Math.round(food * 100)));
-            if (speak && !famine && before) announce("finance.macro.announce.famine_end", Tone.GOOD, name);
+            if (speak && famine && !before) news(90, name + "闹饥荒", String.format("%s的粮食只够 %d%%，村民在挨饿。谁能运来粮食？",
+                    name, Math.round(food * 100)), true);
+            if (speak && !famine && before) news(40, name + "饥荒结束", name + "的粮仓重新满了。", false);
             FAMINE.put(econ.settlementId, famine);
         }
         primed = true;
@@ -120,8 +125,20 @@ public final class MacroWorldFeedback {
     /** 法律表决结束（PoliticsService 调用）。 */
     static void onLawResolved(LawLevel level, boolean passed, long support, long opposition) {
         if (!enabled() || level == null) return;
-        announce(passed ? "finance.macro.announce.law_passed" : "finance.macro.announce.law_failed", passed ? Tone.GOOD : Tone.NEUTRAL,
-                level.group().displayName(), level.displayName(), String.valueOf(support), String.valueOf(opposition));
+        String what = level.group().displayName() + "改为「" + level.displayName() + "」";
+        if (passed) news(70, "议会通过：" + what, String.format("支持 %d，反对 %d。新法律即日生效。", support, opposition), true);
+        else news(50, "法案受挫：" + what + "被否决", String.format("支持 %d，反对 %d。", support, opposition), true);
+    }
+
+    /**
+     * 报社开启时交给报社（大事出号外，小事只上周报）；报社关闭时退回原来的全服公告。
+     */
+    private static void news(int score, String headline, String body, boolean major) {
+        if (NewsService.enabled()) {
+            NewsService.report(score, headline, body, major);
+        } else if (major) {
+            announce("finance.macro.announce.brief", Tone.BAD, headline);
+        }
     }
 
     // ================================================================ 商队
@@ -147,6 +164,7 @@ public final class MacroWorldFeedback {
             level.addFreshEntity(new FireworkRocketEntity(level, pos.getX() + .5, pos.getY() + 1.2, pos.getZ() + .5, rocket));
             level.playSound(null, pos, SoundEvents.BELL_BLOCK, SoundSource.BLOCKS, 1.0f, 1.0f);
         }
+        NewsService.recordPersonal(owner, String.format("商队抵达%s，卖出%s ×%d，盈亏 %+d", dest.displayName(), commodityName, soldQty, profit));
         ServerPlayer player = owner == null ? null : server.getPlayerList().getPlayer(owner);
         if (player != null) {
             player.sendSystemMessage(Component.translatable("finance.macro.caravan_arrived", dest.displayName(), commodityName,

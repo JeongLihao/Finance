@@ -162,7 +162,132 @@ public final class MacroPersistence {
         });
         ach.put("Pending", pending);
         data.put("Achievements", ach);
+        data.put("News", saveNews());
         root.put(ROOT, data);
+    }
+
+    private static ListTag strings(java.util.List<String> values) {
+        ListTag list = new ListTag();
+        for (String v : values) list.add(net.minecraft.nbt.StringTag.valueOf(v));
+        return list;
+    }
+
+    private static java.util.List<String> readStrings(ListTag list) {
+        java.util.List<String> out = new java.util.ArrayList<>();
+        for (Tag t : list) out.add(t.getAsString());
+        return out;
+    }
+
+    private static ListTag personal(Map<UUID, java.util.List<String>> map) {
+        ListTag list = new ListTag();
+        map.forEach((player, lines) -> {
+            CompoundTag t = new CompoundTag();
+            t.putUUID("Player", player);
+            t.put("Lines", strings(lines));
+            list.add(t);
+        });
+        return list;
+    }
+
+    private static Map<UUID, java.util.List<String>> readPersonal(ListTag list) {
+        Map<UUID, java.util.List<String>> out = new java.util.LinkedHashMap<>();
+        for (Tag raw : list) {
+            CompoundTag t = (CompoundTag) raw;
+            out.put(t.getUUID("Player"), java.util.List.copyOf(readStrings(t.getList("Lines", Tag.TAG_STRING))));
+        }
+        return out;
+    }
+
+    private static CompoundTag saveNews() {
+        CompoundTag t = new CompoundTag();
+        t.putInt("Counter", NewsService.counter());
+        t.putLong("LastWeekly", NewsService.lastWeeklyDay());
+        t.putLong("LastExtra", NewsService.lastExtraDay());
+        ListTag pool = new ListTag();
+        for (NewsService.Item i : NewsService.pool()) {
+            CompoundTag c = new CompoundTag();
+            c.putLong("D", i.day());
+            c.putInt("Score", i.score());
+            c.putString("Headline", i.headline());
+            c.putString("Body", i.body());
+            pool.add(c);
+        }
+        t.put("Pool", pool);
+        ListTag issues = new ListTag();
+        for (NewsService.Issue i : NewsService.archive()) {
+            CompoundTag c = new CompoundTag();
+            c.putInt("Number", i.number());
+            c.putLong("D", i.day());
+            c.putBoolean("Extra", i.extra());
+            c.putString("Headline", i.headline());
+            c.put("Pages", strings(i.pages()));
+            c.put("Personal", personal(i.personal()));
+            ListTag claimed = new ListTag();
+            for (UUID id : NewsService.claimedDirect().getOrDefault(i.number(), java.util.Set.of())) {
+                claimed.add(net.minecraft.nbt.NbtUtils.createUUID(id));
+            }
+            c.put("Claimed", claimed);
+            issues.add(c);
+        }
+        t.put("Issues", issues);
+        t.put("Personal", personal(NewsService.personalDirect()));
+        ListTag radar = new ListTag();
+        NewsService.radarDirect().forEach((id, day) -> {
+            CompoundTag c = new CompoundTag();
+            c.putUUID("Player", id);
+            c.putLong("D", day);
+            radar.add(c);
+        });
+        t.put("Radar", radar);
+        return t;
+    }
+
+    /** 读报社子标签，返回跳过的坏记录数。 */
+    private static int loadNews(CompoundTag t) {
+        int skipped = 0;
+        java.util.List<NewsService.Item> pool = new java.util.ArrayList<>();
+        for (Tag raw : t.getList("Pool", Tag.TAG_COMPOUND)) {
+            CompoundTag c = (CompoundTag) raw;
+            String headline = c.getString("Headline");
+            if (headline.isBlank()) { skipped++; continue; }
+            pool.add(new NewsService.Item(c.getLong("D"), c.getInt("Score"), headline, c.getString("Body")));
+        }
+        java.util.List<NewsService.Issue> issues = new java.util.ArrayList<>();
+        Map<Integer, java.util.Set<UUID>> claimed = new java.util.LinkedHashMap<>();
+        for (Tag raw : t.getList("Issues", Tag.TAG_COMPOUND)) {
+            try {
+                CompoundTag c = (CompoundTag) raw;
+                int number = c.getInt("Number");
+                java.util.List<String> pages = readStrings(c.getList("Pages", Tag.TAG_STRING));
+                if (number <= 0 || pages.isEmpty()) { skipped++; continue; }
+                issues.add(new NewsService.Issue(number, c.getLong("D"), c.getBoolean("Extra"), c.getString("Headline"),
+                        java.util.List.copyOf(pages), readPersonal(c.getList("Personal", Tag.TAG_COMPOUND))));
+                java.util.Set<UUID> ids = new java.util.LinkedHashSet<>();
+                for (Tag id : c.getList("Claimed", Tag.TAG_INT_ARRAY)) ids.add(net.minecraft.nbt.NbtUtils.loadUUID(id));
+                claimed.put(number, ids);
+            } catch (Exception e) {
+                skipped++;
+            }
+        }
+        Map<UUID, Long> radar = new java.util.LinkedHashMap<>();
+        for (Tag raw : t.getList("Radar", Tag.TAG_COMPOUND)) {
+            try {
+                CompoundTag c = (CompoundTag) raw;
+                radar.put(c.getUUID("Player"), c.getLong("D"));
+            } catch (Exception e) {
+                skipped++;
+            }
+        }
+        Map<UUID, java.util.List<String>> personal;
+        try {
+            personal = readPersonal(t.getList("Personal", Tag.TAG_COMPOUND));
+        } catch (Exception e) {
+            personal = Map.of();
+            skipped++;
+        }
+        NewsService.restore(t.getInt("Counter"), t.contains("LastWeekly", Tag.TAG_LONG) ? t.getLong("LastWeekly") : Long.MIN_VALUE,
+                t.contains("LastExtra", Tag.TAG_LONG) ? t.getLong("LastExtra") : Long.MIN_VALUE, pool, issues, claimed, personal, radar);
+        return skipped;
     }
 
     private static CompoundTag saveFiscal() {
@@ -367,6 +492,7 @@ public final class MacroPersistence {
             EconomyAchievements.restore(ach.contains("LastDay", Tag.TAG_LONG) ? ach.getLong("LastDay") : Long.MIN_VALUE,
                     ach.getLong("DebtFreeStreak"), ach.getBoolean("LastStrike"), pending);
         }
+        if (data.contains("News", Tag.TAG_COMPOUND)) skipped += loadNews(data.getCompound("News"));
         if (invalid || skipped > 0) {
             ModuleHealthRegistry.restrict(ModuleHealthRegistry.Module.MACRO_ECONOMY,
                     ModuleRunState.READ_ONLY, "宏观经济存档 " + skipped + " 条损坏已跳过", -1);

@@ -207,5 +207,6 @@ public final class MacroEconomyManager {
         Treasury.clearDirect();
         EconomyAchievements.clearDirect();
         MacroWorldFeedback.clearDirect();
+        NewsService.clearDirect();
     }
 }

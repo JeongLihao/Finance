@@ -69,7 +69,7 @@ public final class MacroTabs {
         renderGroups(g, data.groups(), y);
         renderSettlement(g, data.settlements(), y);
         FinanceGui.drawButton(font, g, "刷新", 340, 228, 48, entry.state() == MacroClientCache.State.LOADING);
-        FinanceGui.drawClippedString(font, g, "操作：/macro wage|law|lobby", LEFT_X, 231, 300, FinanceGui.COL_TEXT_DIM);
+        FinanceGui.drawClippedString(font, g, "周报 /macro news · 商情 /macro radar", LEFT_X, 231, 300, FinanceGui.COL_TEXT_DIM);
     }
 
     private void renderGroups(GuiGraphics g, List<MacroResponsePacket.GroupRow> groups, int top) {

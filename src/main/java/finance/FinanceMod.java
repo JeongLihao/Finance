@@ -216,6 +216,7 @@ public class FinanceMod {
         if (event.getEntity() instanceof net.minecraft.server.level.ServerPlayer player) {
             finance.feedback.WorldEconomyFeedbackService.deliverPending(player);
             finance.macro.EconomyAchievements.deliverPending(player);
+            finance.macro.NewsService.notifyOnLogin(player);
             finance.account.AccountManager.getAccount(player.getUUID());
             finance.company.Company playerCompany=finance.company.CompanyManager.getCompanyByOwner(player.getUUID());
             if(playerCompany==null)playerCompany=finance.company.CompanyManager.getCompanies().stream().filter(company->

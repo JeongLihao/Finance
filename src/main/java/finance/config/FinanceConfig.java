@@ -140,6 +140,11 @@ public final class FinanceConfig {
     private static final long MACRO_DEBT_CEILING_VALUE = 200000L;
     private static final int MACRO_DEBT_SPREAD_BPS_VALUE = 100;
     private static final boolean MACRO_WORLD_FEEDBACK_VALUE = true;
+    private static final boolean MACRO_NEWS_ENABLED_VALUE = true;
+    private static final int MACRO_NEWS_INTERVAL_DAYS_VALUE = 7;
+    private static final int MACRO_NEWS_EXTRA_GAP_DAYS_VALUE = 3;
+    private static final long MACRO_RADAR_COST_VALUE = 200L;
+    private static final int MACRO_RADAR_COOLDOWN_DAYS_VALUE = 1;
     // ---- 商队商路 ----
     private static final int CARAVAN_MAX_ROUTES_PER_PLAYER_VALUE = 8;
     private static final int CARAVAN_MAX_QTY_PER_TRIP_VALUE = 1_024;
@@ -299,6 +304,11 @@ public final class FinanceConfig {
     private static final ForgeConfigSpec.LongValue MACRO_DEBT_CEILING;
     private static final ForgeConfigSpec.IntValue MACRO_DEBT_SPREAD_BPS;
     private static final ForgeConfigSpec.BooleanValue MACRO_WORLD_FEEDBACK;
+    private static final ForgeConfigSpec.BooleanValue MACRO_NEWS_ENABLED;
+    private static final ForgeConfigSpec.IntValue MACRO_NEWS_INTERVAL_DAYS;
+    private static final ForgeConfigSpec.IntValue MACRO_NEWS_EXTRA_GAP_DAYS;
+    private static final ForgeConfigSpec.LongValue MACRO_RADAR_COST;
+    private static final ForgeConfigSpec.IntValue MACRO_RADAR_COOLDOWN_DAYS;
     private static final ForgeConfigSpec.IntValue CARAVAN_MAX_ROUTES_PER_PLAYER;
     private static final ForgeConfigSpec.IntValue CARAVAN_MAX_QTY_PER_TRIP;
     private static final ForgeConfigSpec.LongValue CARAVAN_BLOCKS_PER_DAY;
@@ -1046,6 +1056,11 @@ public final class FinanceConfig {
         MACRO_DEBT_CEILING = builder.comment("国库向央行借款的债务上限；到上限后付不起的开支停发（紧缩）。").defineInRange("debtCeiling", MACRO_DEBT_CEILING_VALUE, 0L, Long.MAX_VALUE);
         MACRO_DEBT_SPREAD_BPS = builder.comment("国库债务利率 = 基准利率 + 该点差（基点）。").defineInRange("debtSpreadBps", MACRO_DEBT_SPREAD_BPS_VALUE, 0, 10000);
         MACRO_WORLD_FEEDBACK = builder.comment("宏观经济的世界反馈：聚落心情粒子与村民抱怨、罢工工厂冒烟、商队到货烟花、议会/罢工/饥荒全服公告。只影响表现，不影响数值。").define("worldFeedback", MACRO_WORLD_FEEDBACK_VALUE);
+        MACRO_NEWS_ENABLED = builder.comment("《金融周报》与号外：每周汇总经济大事，到贸易站或用 /macro news 领取。").define("newsEnabled", MACRO_NEWS_ENABLED_VALUE);
+        MACRO_NEWS_INTERVAL_DAYS = builder.comment("周报出刊间隔（MC 天）。").defineInRange("newsIntervalDays", MACRO_NEWS_INTERVAL_DAYS_VALUE, 1, 365);
+        MACRO_NEWS_EXTRA_GAP_DAYS = builder.comment("两期号外之间的最短间隔（MC 天）。").defineInRange("newsExtraGapDays", MACRO_NEWS_EXTRA_GAP_DAYS_VALUE, 1, 365);
+        MACRO_RADAR_COST = builder.comment("一次商情调查（/macro radar）的费用，进国库。").defineInRange("radarCost", MACRO_RADAR_COST_VALUE, 0L, 100000000L);
+        MACRO_RADAR_COOLDOWN_DAYS = builder.comment("同一玩家两次商情调查的最短间隔（MC 天）。").defineInRange("radarCooldownDays", MACRO_RADAR_COOLDOWN_DAYS_VALUE, 0, 365);
         builder.pop();
 
         COMMON_SPEC = builder.build();
@@ -1364,6 +1379,11 @@ public final class FinanceConfig {
     public static long macroDebtCeiling() { return getLong(MACRO_DEBT_CEILING, MACRO_DEBT_CEILING_VALUE); }
     public static int macroDebtSpreadBps() { return getInt(MACRO_DEBT_SPREAD_BPS, MACRO_DEBT_SPREAD_BPS_VALUE); }
     public static boolean macroWorldFeedback() { return getBoolean(MACRO_WORLD_FEEDBACK, MACRO_WORLD_FEEDBACK_VALUE); }
+    public static boolean macroNewsEnabled() { return getBoolean(MACRO_NEWS_ENABLED, MACRO_NEWS_ENABLED_VALUE); }
+    public static int macroNewsIntervalDays() { return getInt(MACRO_NEWS_INTERVAL_DAYS, MACRO_NEWS_INTERVAL_DAYS_VALUE); }
+    public static int macroNewsExtraGapDays() { return getInt(MACRO_NEWS_EXTRA_GAP_DAYS, MACRO_NEWS_EXTRA_GAP_DAYS_VALUE); }
+    public static long macroRadarCost() { return getLong(MACRO_RADAR_COST, MACRO_RADAR_COST_VALUE); }
+    public static int macroRadarCooldownDays() { return getInt(MACRO_RADAR_COOLDOWN_DAYS, MACRO_RADAR_COOLDOWN_DAYS_VALUE); }
 
     // ---- 商队商路 ----
     public static int caravanMaxRoutesPerPlayer() {
