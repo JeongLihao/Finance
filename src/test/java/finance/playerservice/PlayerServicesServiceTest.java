@@ -109,11 +109,24 @@ class PlayerServicesServiceTest {
         assertTrue(macro.active());
         assertEquals("My Farm", macro.company());
         assertEquals(9, macro.wage());
-        assertFalse(macro.laws().isEmpty());
-        assertFalse(macro.groups().isEmpty());
-        assertTrue(macro.laws().stream().allMatch(l -> l.active() >= 0 && l.active() < l.levelIds().size()));
-        assertFalse(act(Action.MACRO_PROPOSE, "NOT_A_LAW", 0, 0, 0, 0).success());
-        assertFalse(act(Action.MACRO_LOBBY, "NOT_A_GROUP", 100, 0, 0, 0).success());
+    }
+
+    @Test void centralBankBondSubscribeRedeemAndEarlyExit() {
+        var page = snapshot().centralBank();
+        assertEquals(java.util.List.of(30, 90, 180), page.offers().stream().map(PlayerServicesResponsePacket.BondOffer::termDays).toList());
+        assertTrue(page.offers().stream().allMatch(o -> o.yieldBps() > 0));
+        long amount = Math.max(page.bondMinAmount(), 10_000);
+        var r = act(Action.CB_BOND_SUBSCRIBE, "", 90, amount, 0, 0);
+        assertTrue(r.success(), r.message());
+        var bonds = snapshot().centralBank().bonds();
+        assertEquals(1, bonds.size());
+        assertEquals(amount, bonds.get(0).principal());
+        assertFalse(act(Action.CB_BOND_SUBSCRIBE, "", 45, amount, 0, 0).success(), "只有 30/90/180 天");
+        var redeem = act(Action.CB_BOND_REDEEM, bonds.get(0).id().toString(), 0, 0, 0, 0);
+        assertTrue(redeem.success(), redeem.message());
+        assertTrue(snapshot().centralBank().bonds().isEmpty());
+        assertTrue(finance.macro.EconomyAchievements.pending(player).contains(finance.macro.EconomyAchievements.EARLY_EXIT));
+        assertFalse(act(Action.TIME_DEPOSIT_EARLY, "not-a-uuid", 0, 0, 0, 0).success());
     }
 
     @Test void earningsReportIsKeptAsDetailUntilNextQuery() {

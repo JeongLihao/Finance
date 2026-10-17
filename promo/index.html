@@ -1,0 +1,845 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Finance Trailer</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #050708; }
+  body { display: flex; flex-direction: column; align-items: center; justify-content: center;
+         font-family: "Segoe UI", "Microsoft YaHei", sans-serif; color: #cfd8d6; }
+  #stage { width: min(100vw, calc((100vh - 60px) * 16 / 9)); aspect-ratio: 16 / 9; display: block; background: #0d1214; }
+  #bar { display: flex; gap: 12px; align-items: center; box-sizing: border-box; padding: 12px 16px;
+         width: min(100vw, calc((100vh - 60px) * 16 / 9)); }
+  #bar button { background: #1b2629; color: #e9efed; border: 1px solid #2f4044; border-radius: 6px;
+                padding: 6px 14px; font-size: 14px; cursor: pointer; min-width: 64px; }
+  #scrub { flex: 1; accent-color: #2fc4b2; }
+  #time { font-family: Consolas, monospace; font-size: 13px; min-width: 96px; text-align: right; }
+  body.capture { display: block; }
+  body.capture #bar { display: none; }
+  body.capture #stage { width: 1920px; height: 1080px; }
+</style>
+</head>
+<body>
+<canvas id="stage"></canvas>
+<div id="bar">
+  <button id="play">暂停</button>
+  <input id="scrub" type="range" min="0" max="66" step="0.01" value="0">
+  <span id="time">0.0 / 66.0</span>
+</div>
+<script src="textures.js"></script>
+<script>
+// Finance 宣传片：所有画面由 render(t) 按时间确定性绘制，导出时逐帧调用。
+const W = 1920, H = 1080, DURATION = 66;
+const C = {
+  bg: '#0d1214', teal: '#2fc4b2', tealD: '#1b6f66', brass: '#e0ac4a', walnut: '#8a5a35',
+  red: '#ef4d55', green: '#3fd07a', yellow: '#f2c94c', text: '#eef3f1', dim: '#8b9c99',
+  panel: 'rgba(20,30,33,0.92)', line: 'rgba(255,255,255,0.09)'
+};
+const FONT = '"Segoe UI", "Microsoft YaHei UI", "Microsoft YaHei", sans-serif';
+const MONO = 'Consolas, "Cascadia Mono", monospace';
+
+const cv = document.getElementById('stage');
+cv.width = W; cv.height = H;
+const ctx = cv.getContext('2d');
+
+// ---------- 工具 ----------
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const prog = (t, a, b) => clamp((t - a) / (b - a));
+const lerp = (a, b, x) => a + (b - a) * x;
+const eOut = x => 1 - Math.pow(1 - x, 3);
+const eInOut = x => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+const eBack = x => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2); };
+const fadeWin = (t, a, b, f = .4) => Math.min(prog(t, a, a + f), 1 - prog(t, b - f, b));
+function rng(seed) {
+  return function () {
+    seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+    let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+const hash = n => rng(n * 9973 + 17)();
+const fmt = n => Math.round(n).toLocaleString('en-US');
+
+function txt(s, x, y, o = {}) {
+  ctx.save();
+  ctx.font = `${o.w || 500} ${o.size || 32}px ${o.font || FONT}`;
+  ctx.fillStyle = o.color || C.text;
+  ctx.textAlign = o.align || 'left';
+  ctx.textBaseline = o.base || 'alphabetic';
+  ctx.letterSpacing = (o.ls || 0) + 'px';
+  if (o.alpha != null) ctx.globalAlpha *= o.alpha;
+  if (o.glow) { ctx.shadowColor = o.glow; ctx.shadowBlur = o.blur || 24; }
+  ctx.fillText(s, x, y);
+  const w = ctx.measureText(s).width;
+  ctx.restore();
+  return w;
+}
+function panel(x, y, w, h, o = {}) {
+  ctx.save();
+  ctx.beginPath(); ctx.roundRect(x, y, w, h, o.r ?? 16);
+  ctx.fillStyle = o.fill || C.panel; ctx.fill();
+  ctx.strokeStyle = o.stroke || C.line; ctx.lineWidth = o.lw || 2; ctx.stroke();
+  ctx.restore();
+}
+function tex(name, cx, cy, size, o = {}) {
+  const im = IMG[name]; if (!im) return;
+  ctx.save();
+  ctx.imageSmoothingEnabled = false;
+  if (o.alpha != null) ctx.globalAlpha *= o.alpha;
+  if (o.glow) { ctx.shadowColor = o.glow; ctx.shadowBlur = o.blur || 40; }
+  ctx.drawImage(im, Math.round(cx - size / 2), Math.round(cy - size / 2), size, size);
+  ctx.restore();
+}
+function pmap(rows, pal, cx, cy, cell) {
+  const h = rows.length, w = rows[0].length;
+  for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
+    const ch = rows[j][i]; if (ch === '.') continue;
+    ctx.fillStyle = pal[ch];
+    ctx.fillRect(Math.round(cx - w * cell / 2 + i * cell), Math.round(cy - h * cell / 2 + j * cell), Math.ceil(cell), Math.ceil(cell));
+  }
+}
+function glow(x, y, r, color, a) {
+  const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+  g.addColorStop(0, color.replace('A', a)); g.addColorStop(1, color.replace('A', 0));
+  ctx.fillStyle = g; ctx.fillRect(x - r, y - r, r * 2, r * 2);
+}
+
+// ---------- 像素图标 ----------
+const INGOT = ['................', '......aaaaaaaa..', '.....abbbbbbbba.', '....abbbbbbbbac.',
+  '...aaaaaaaaaacc.', '...bbbbbbbbbbcd.', '...bbbbbbbbbbd..', '...cccccccccc...'];
+const INGOT_P = { a: '#f4f6f6', b: '#d3d8d8', c: '#9aa3a3', d: '#6c7474' };
+const WHEAT = ['....y..y....', '...yYyyYy...', '....yYYy....', '...yYyyYy...', '....yYYy....',
+  '...yYyyYy...', '.....gg.....', '.....gg.....', '....g.g.....', '.....gg.....', '.....gg.....'];
+const WHEAT_P = { y: '#ecc65c', Y: '#b88a2c', g: '#7c9a3a' };
+const BREAD = ['...bbbbbb...', '..bBBBBBBb..', '.bBbBBbBBBb.', '.bBBBBBBBBb.', '.dbbbbbbbbd.', '..dddddddd..'];
+const BREAD_P = { b: '#c98a45', B: '#e7b066', d: '#8a5626' };
+const HEAD = ['hhhhhhhh', 'hhhhhhhh', 'hsssssss', 'swbsswbs', 'ssssssss', 'ssmmmmss', 'ssssssss', 'tttttttt'];
+const HEAD_P = { h: '#4a2f1a', s: '#c99a72', w: '#ffffff', b: '#3b5bb5', m: '#8a5a45', t: '#2fa6a0' };
+const icon = { ingot: (x, y, s) => pmap(INGOT, INGOT_P, x, y, s), wheat: (x, y, s) => pmap(WHEAT, WHEAT_P, x, y, s),
+  bread: (x, y, s) => pmap(BREAD, BREAD_P, x, y, s), head: (x, y, s) => pmap(HEAD, HEAD_P, x, y, s) };
+
+// 5×7 像素字
+const GLYPH = {
+  F: ['11111', '10000', '10000', '11110', '10000', '10000', '10000'],
+  I: ['11111', '00100', '00100', '00100', '00100', '00100', '11111'],
+  N: ['10001', '11001', '10101', '10011', '10001', '10001', '10001'],
+  A: ['01110', '10001', '10001', '11111', '10001', '10001', '10001'],
+  C: ['01111', '10000', '10000', '10000', '10000', '10000', '01111'],
+  E: ['11111', '10000', '10000', '11110', '10000', '10000', '11111'],
+  P: ['11110', '10001', '10001', '11110', '10000', '10000', '10000'],
+  O: ['01110', '10001', '10001', '10001', '10001', '10001', '01110']
+};
+function pixelWord(word, x, y, cell, lt, start, stagger = .07) {
+  for (let li = 0; li < word.length; li++) {
+    const a = prog(lt, start + li * stagger, start + li * stagger + .45);
+    if (a <= 0) continue;
+    const dy = (1 - eBack(a)) * -70;
+    const g = GLYPH[word[li]];
+    const lx = x + li * 6 * cell;
+    ctx.save(); ctx.globalAlpha *= clamp(a * 2);
+    for (let j = 0; j < 7; j++) for (let i = 0; i < 5; i++) {
+      if (g[j][i] !== '1') continue;
+      const px = lx + i * cell, py = y + j * cell + dy;
+      ctx.fillStyle = '#5a3d15'; ctx.fillRect(px + cell * .22, py + cell * .22, cell, cell);
+      ctx.fillStyle = `rgb(${lerp(255, 214, j / 6)},${lerp(212, 146, j / 6)},${lerp(122, 52, j / 6)})`;
+      ctx.fillRect(px, py, cell, cell);
+      ctx.fillStyle = 'rgba(255,255,255,0.22)'; ctx.fillRect(px, py, cell, cell * .2);
+    }
+    ctx.restore();
+  }
+}
+
+// ---------- 通用元素 ----------
+function background(t) {
+  ctx.fillStyle = C.bg; ctx.fillRect(0, 0, W, H);
+  glow(W / 2, H * .42, 1100, 'rgba(47,196,178,A)', .09);
+  ctx.fillStyle = 'rgba(140,190,180,0.07)';
+  const off = (t * 12) % 60;
+  for (let x = -60; x < W + 60; x += 60) for (let y = -60; y < H + 60; y += 60) ctx.fillRect(x + off, y + off * .5, 3, 3);
+  for (let i = 0; i < 26; i++) {
+    const r = rng(i * 31 + 7);
+    const sx = r() * W, sp = 10 + r() * 25, sz = 6 + r() * 18, ph = r() * H * 2, teal = r() < .5, al = .04 + r() * .06;
+    const y = (H + 100) - ((t * sp + ph) % (H + 200));
+    ctx.fillStyle = teal ? `rgba(47,196,178,${al})` : `rgba(224,172,74,${al})`;
+    ctx.fillRect(sx, y, sz, sz);
+  }
+}
+function vignette() {
+  const v = ctx.createRadialGradient(W / 2, H / 2, H * .45, W / 2, H / 2, H * 1.05);
+  v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,0.6)');
+  ctx.fillStyle = v; ctx.fillRect(0, 0, W, H);
+}
+function sub(zh, en, lt, a, b) {
+  const al = fadeWin(lt, a, b, .35); if (al <= 0) return;
+  ctx.save(); ctx.globalAlpha *= al;
+  const g = ctx.createLinearGradient(0, H - 210, 0, H);
+  g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,0.6)');
+  ctx.fillStyle = g; ctx.fillRect(0, H - 210, W, 210);
+  const dy = (1 - eOut(prog(lt, a, a + .5))) * 14;
+  txt(zh, W / 2, H - 104 + dy, { size: 46, w: 700, align: 'center', ls: 2 });
+  txt(en, W / 2, H - 58 + dy, { size: 27, w: 400, align: 'center', color: '#a9bbb8', ls: 1 });
+  ctx.restore();
+}
+function chapter(n, zh, en, lt) {
+  const al = eOut(prog(lt, .1, .7)); if (al <= 0) return;
+  ctx.save(); ctx.globalAlpha *= al;
+  const x = 90 - (1 - al) * 40;
+  ctx.fillStyle = C.brass; ctx.fillRect(x, 70, 6, 44);
+  txt(n, x + 22, 104, { size: 34, w: 800, color: C.brass, font: MONO });
+  const wz = txt(zh, x + 82, 102, { size: 30, w: 700 });
+  txt(en, x + 82 + wz + 18, 101, { size: 19, color: C.dim, ls: 4 });
+  ctx.restore();
+}
+function chip(label, x, y, color, o = {}) {
+  ctx.save();
+  ctx.font = `${o.w || 600} ${o.size || 22}px ${FONT}`;
+  const w = ctx.measureText(label).width + 36, h = (o.size || 22) + 22;
+  const x0 = o.align === 'center' ? x - w / 2 : x;
+  ctx.beginPath(); ctx.roundRect(x0, y - h / 2, w, h, h / 2);
+  ctx.fillStyle = o.fill || color.replace('rgb', 'rgba').replace(')', ',0.16)'); ctx.fill();
+  ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.stroke();
+  ctx.fillStyle = o.textColor || color; ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
+  ctx.fillText(label, x0 + 18, y + 1);
+  ctx.restore();
+  return w;
+}
+const RGB = { teal: 'rgb(47,196,178)', brass: 'rgb(224,172,74)', red: 'rgb(239,77,85)', green: 'rgb(63,208,122)', yellow: 'rgb(242,201,76)', grey: 'rgb(139,156,153)' };
+
+// ---------- 场景 1：片头 ----------
+let PIX = [];
+function initPix() {
+  const c = document.createElement('canvas'); c.width = c.height = 16;
+  const g = c.getContext('2d'); g.drawImage(IMG.market_terminal, 0, 0);
+  const d = g.getImageData(0, 0, 16, 16).data;
+  for (let j = 0; j < 16; j++) for (let i = 0; i < 16; i++) {
+    const k = (j * 16 + i) * 4; if (d[k + 3] < 10) continue;
+    const r = rng(j * 16 + i + 1);
+    PIX.push({ i, j, col: `rgba(${d[k]},${d[k + 1]},${d[k + 2]},${d[k + 3] / 255})`,
+      a: r() * Math.PI * 2, dist: 700 + r() * 500, del: r() * .5, rot: (r() - .5) * 6 });
+  }
+}
+function intro(lt) {
+  const mv = eInOut(prog(lt, 1.8, 2.6));
+  const cell = lerp(22, 15, mv), bx = lerp(W / 2, 420, mv), by = lerp(H / 2 - 40, H / 2 - 70, mv);
+  glow(bx, by, 420, 'rgba(47,196,178,A)', .3 * prog(lt, .6, 1.5));
+  for (const p of PIX) {
+    const k = eOut(prog(lt, .05 + p.del, .95 + p.del));
+    const tx = bx + (p.i - 8) * cell, ty = by + (p.j - 8) * cell;
+    const x = lerp(bx + Math.cos(p.a) * p.dist, tx, k), y = lerp(by + Math.sin(p.a) * p.dist, ty, k);
+    const s = cell * lerp(.4, 1, k);
+    ctx.save(); ctx.translate(x + s / 2, y + s / 2); ctx.rotate(p.rot * (1 - k));
+    ctx.globalAlpha *= clamp(k * 3); ctx.fillStyle = p.col; ctx.fillRect(-s / 2, -s / 2, s + .6, s + .6);
+    ctx.restore();
+  }
+  // 拼合闪光与冲击环
+  const fl = 1 - prog(lt, 1.45, 1.9);
+  if (lt > 1.45 && fl > 0) {
+    ctx.save(); ctx.globalAlpha *= fl * .55; ctx.fillStyle = '#fff';
+    ctx.fillRect(bx - 8 * cell, by - 8 * cell, 16 * cell, 16 * cell); ctx.restore();
+    const rr = lerp(180, 620, eOut(prog(lt, 1.45, 2.2)));
+    ctx.save(); ctx.globalAlpha *= fl; ctx.strokeStyle = C.teal; ctx.lineWidth = 6;
+    ctx.beginPath(); ctx.arc(bx, by, rr, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
+  }
+  pixelWord('FINANCE', 620, by - 98, 26, lt, 2.1);
+  const sa = eOut(prog(lt, 2.75, 3.3));
+  if (sa > 0) {
+    ctx.save(); ctx.globalAlpha *= sa;
+    ctx.fillStyle = C.teal; ctx.fillRect(620, by + 112, 1066 * sa, 4);
+    txt('MINECRAFT 金融经济模组', 620, by + 168, { size: 34, w: 700, color: C.teal, ls: 6 });
+    txt('FORGE 1.20.1', 1686, by + 168, { size: 26, w: 600, color: C.dim, ls: 4, align: 'right', font: MONO });
+    ctx.restore();
+  }
+  sub('让方块世界拥有真正的经济', 'A living economy for your blocky world', lt, 3.4, 6.2);
+}
+
+// ---------- 场景 2：核心循环 ----------
+const NODES = [
+  { zh: '采集', en: 'GATHER', icon: 'ingot', tag: '+64 铁锭 Iron' },
+  { zh: '仓储', en: 'STORE', tex: 'warehouse_controller', tag: '入库 Stored ×64' },
+  { zh: '交易', en: 'TRADE', tex: 'market_terminal', tag: '成交 Sold $1,280' },
+  { zh: '生产', en: 'PRODUCE', tex: 'company_factory_controller', tag: '产出 Output ×192' },
+  { zh: '上市', en: 'GO PUBLIC', tex: 'securities_terminal', tag: 'IPO ▲ +38%' }
+];
+function loop(lt) {
+  chapter('01', '核心循环', 'THE CORE LOOP', lt);
+  const xs = [360, 660, 960, 1260, 1560], y = 470, T0 = 3.4, SEG = 1.05;
+  const arrive = i => i === 0 ? T0 : T0 + (i - 1 + .8) * SEG;
+  for (let i = 0; i < 4; i++) {
+    const a = eInOut(prog(lt, 1.1 + i * .5, 1.6 + i * .5)); if (a <= 0) continue;
+    const x1 = xs[i] + 118, x2 = lerp(x1, xs[i + 1] - 118, a);
+    ctx.save(); ctx.strokeStyle = 'rgba(47,196,178,0.6)'; ctx.lineWidth = 4;
+    ctx.setLineDash([14, 10]); ctx.lineDashOffset = -lt * 60;
+    ctx.beginPath(); ctx.moveTo(x1, y); ctx.lineTo(x2, y); ctx.stroke(); ctx.restore();
+    if (a >= 1) { ctx.fillStyle = C.teal; ctx.beginPath(); ctx.moveTo(x2 + 2, y); ctx.lineTo(x2 - 14, y - 10); ctx.lineTo(x2 - 14, y + 10); ctx.fill(); }
+  }
+  for (let i = 0; i < 5; i++) {
+    const a = prog(lt, .4 + i * .5, 1 + i * .5); if (a <= 0) continue;
+    const pulse = Math.max(0, 1 - Math.abs(lt - arrive(i)) / .35);
+    const s = eBack(a) * (1 + pulse * .08);
+    ctx.save(); ctx.translate(xs[i], y); ctx.scale(s, s);
+    if (pulse > 0) { ctx.save(); ctx.globalAlpha *= pulse; glow(0, 0, 200, 'rgba(47,196,178,A)', .5); ctx.restore(); }
+    panel(-110, -110, 220, 220, { stroke: lt >= arrive(i) ? 'rgba(47,196,178,0.75)' : C.line, lw: 3 });
+    txt(String(i + 1), -92, -80, { size: 20, w: 800, color: C.brass, font: MONO });
+    if (NODES[i].icon) icon[NODES[i].icon](0, 0, 9); else tex(NODES[i].tex, 0, 0, 128);
+    ctx.restore();
+    ctx.save(); ctx.globalAlpha *= clamp(a * 1.5);
+    txt(NODES[i].zh, xs[i], y + 168, { size: 40, w: 700, align: 'center' });
+    txt(NODES[i].en, xs[i], y + 204, { size: 19, color: C.dim, align: 'center', ls: 4 });
+    ctx.restore();
+    const ta = eOut(prog(lt, arrive(i), arrive(i) + .5));
+    if (ta > 0) {
+      ctx.save(); ctx.globalAlpha *= ta;
+      chip(NODES[i].tag, xs[i], y - 160 - ta * 14, i === 4 ? RGB.green : RGB.brass, { align: 'center', size: 20 });
+      ctx.restore();
+    }
+  }
+  // 沿链路移动的物品
+  const seg = (lt - T0) / SEG;
+  if (seg >= 0 && lt < 8.8) {
+    const i = Math.min(3, Math.floor(seg)), f = seg >= 4 ? 1 : eInOut(clamp((seg - i) * 1.25));
+    const x = lerp(xs[i], xs[i + 1], f), hop = Math.sin(f * Math.PI) * 60;
+    ctx.save(); ctx.globalAlpha *= 1 - prog(lt, 8.2, 8.8);
+    glow(x, y - 150 - hop, 60, 'rgba(224,172,74,A)', .6);
+    icon.ingot(x, y - 150 - hop, 4);
+    ctx.restore();
+  }
+  sub('从一块铁锭开始：采集、入库、交易、生产、上市', 'Start with one iron ingot: gather, store, trade, produce, go public', lt, 1.0, 9.2);
+}
+
+// ---------- 场景 3：商品市场 ----------
+function genCandles(n, seed) {
+  const r = rng(seed); let p = 100; const out = [];
+  for (let i = 0; i < n; i++) {
+    let d = .007;
+    if (i >= 52 && i < 56) d = -.14; else if (i >= 56 && i < 62) d = .04; else if (i >= 62) d = .012;
+    const o = p, c = o * (1 + d + (r() - .5) * .05);
+    out.push({ o, c, h: Math.max(o, c) * (1 + r() * .025), l: Math.min(o, c) * (1 - r() * .025),
+      v: .25 + r() * .6 + (Math.abs(d) > .03 ? 1 : 0) });
+    p = c;
+  }
+  return out;
+}
+const CANDLES = genCandles(70, 42);
+const CMAX = Math.max(...CANDLES.map(c => c.h)) * 1.03, CMIN = Math.min(...CANDLES.map(c => c.l)) * .95;
+const CRASH = Math.round((1 - CANDLES[55].c / CANDLES[51].c) * 100);
+function market(lt) {
+  chapter('02', '商品市场', 'COMMODITY MARKET', lt);
+  const ap = eOut(prog(lt, .1, .8)), off = (1 - ap) * 50;
+  const RATE = 7.5, T = .7, tc = T + 52 / RATE;
+  const n = clamp((lt - T) * RATE, 0, CANDLES.length);
+  const vis = Math.floor(n), frac = n - vis;
+  const shake = lt > tc && lt < tc + .5 ? Math.sin(lt * 90) * 10 * (1 - prog(lt, tc, tc + .5)) : 0;
+  ctx.save(); ctx.globalAlpha *= ap; ctx.translate(shake, off);
+  const X0 = 100, Y0 = 160, PW = 1180, PH = 720;
+  panel(X0, Y0, PW, PH);
+  // 表头
+  icon.ingot(158, 216, 4);
+  txt('铁锭', 205, 228, { size: 34, w: 700 });
+  txt('IRON INGOT · 日K', 292, 226, { size: 18, color: C.dim, ls: 3 });
+  const last = vis < CANDLES.length ? CANDLES[Math.min(vis, CANDLES.length - 1)] : CANDLES[CANDLES.length - 1];
+  const price = vis < CANDLES.length ? lerp(last.o, last.c, frac) : last.c;
+  const prev = vis > 0 ? CANDLES[Math.min(vis, CANDLES.length) - 1].o : CANDLES[0].o;
+  const chg = (price / prev - 1) * 100, up = chg >= 0;
+  txt('$' + price.toFixed(2), 1100, 232, { size: 46, w: 700, align: 'right', font: MONO, color: up ? C.green : C.red });
+  txt((up ? '▲ +' : '▼ ') + chg.toFixed(2) + '%', 1250, 228, { size: 24, w: 700, align: 'right', font: MONO, color: up ? C.green : C.red });
+  // 网格
+  const cx0 = 140, cx1 = 1240, py0 = 290, py1 = 700, vy1 = 850;
+  const Y = v => lerp(py1, py0, (v - CMIN) / (CMAX - CMIN));
+  ctx.strokeStyle = 'rgba(255,255,255,0.06)'; ctx.lineWidth = 1;
+  for (let k = 0; k <= 4; k++) { const yy = lerp(py0, py1, k / 4); ctx.beginPath(); ctx.moveTo(cx0, yy); ctx.lineTo(cx1, yy); ctx.stroke(); }
+  const cw = (cx1 - cx0) / CANDLES.length, bw = cw * .62;
+  const VMAX = Math.max(...CANDLES.map(c => c.v));
+  const count = Math.min(CANDLES.length, vis + 1);
+  for (let i = 0; i < count; i++) {
+    const c = CANDLES[i], isLast = i === vis;
+    const cc = isLast ? lerp(c.o, c.c, frac) : c.c;
+    const hh = isLast ? lerp(Math.max(c.o, cc), c.h, frac) : c.h, ll = isLast ? lerp(Math.min(c.o, cc), c.l, frac) : c.l;
+    const col = cc >= c.o ? C.green : C.red, x = cx0 + i * cw + cw / 2;
+    ctx.fillStyle = col; ctx.fillRect(x - 1, Y(hh), 2, Y(ll) - Y(hh));
+    const top = Y(Math.max(c.o, cc)), bot = Y(Math.min(c.o, cc));
+    ctx.fillRect(x - bw / 2, top, bw, Math.max(2, bot - top));
+    ctx.globalAlpha *= .55; const vh = (c.v / VMAX) * 120 * (isLast ? frac : 1);
+    ctx.fillRect(x - bw / 2, vy1 - vh, bw, vh); ctx.globalAlpha /= .55;
+  }
+  // MA5
+  ctx.strokeStyle = C.brass; ctx.lineWidth = 3; ctx.beginPath();
+  for (let i = 4; i < Math.min(vis, CANDLES.length); i++) {
+    let s = 0; for (let k = i - 4; k <= i; k++) s += CANDLES[k].c;
+    const x = cx0 + i * cw + cw / 2, yy = Y(s / 5); i === 4 ? ctx.moveTo(x, yy) : ctx.lineTo(x, yy);
+  }
+  ctx.stroke();
+  txt('MA5', cx0, py0 - 14, { size: 16, w: 700, color: C.brass, font: MONO });
+  txt('VOL', cx0, vy1 - 128, { size: 16, w: 700, color: C.dim, font: MONO });
+  // 央行介入徽章
+  const cb = eOut(prog(lt, tc + 1.7, tc + 2.3));
+  if (cb > 0) {
+    ctx.save(); ctx.globalAlpha *= cb;
+    panel(820, 300, 400, 92, { stroke: 'rgba(224,172,74,0.8)', fill: 'rgba(40,32,18,0.94)', r: 12 });
+    tex('central_bank_console', 868, 346, 56);
+    txt('央行介入 · 稳定市场', 910, 340, { size: 26, w: 700, color: C.brass });
+    txt('CENTRAL BANK STEPS IN', 910, 370, { size: 16, color: C.dim, ls: 3 });
+    ctx.restore();
+  }
+  ctx.restore();
+  // 右侧：盘口与成交
+  const bp = eOut(prog(lt, .35, 1.05));
+  ctx.save(); ctx.globalAlpha *= bp; ctx.translate((1 - bp) * 60 + shake, 0);
+  panel(1320, 160, 500, 720);
+  txt('买卖五档', 1350, 212, { size: 26, w: 700 }); txt('ORDER BOOK', 1470, 211, { size: 16, color: C.dim, ls: 3 });
+  const tick = Math.floor(lt * 5);
+  for (let k = 0; k < 10; k++) {
+    const ask = k < 5, lvl = ask ? 4 - k : k - 5;
+    const p = price * (1 + (ask ? 1 : -1) * (lvl + 1) * .004);
+    const q = 20 + Math.floor(hash(tick * 13 + k) * 180);
+    const yy = 262 + k * 34 + (ask ? 0 : 14);
+    ctx.fillStyle = ask ? 'rgba(239,77,85,0.16)' : 'rgba(63,208,122,0.16)';
+    ctx.fillRect(1790 - q * 1.6, yy - 22, q * 1.6, 28);
+    txt((ask ? '卖' : '买') + (lvl + 1), 1350, yy, { size: 19, color: ask ? C.red : C.green });
+    txt(p.toFixed(2), 1520, yy, { size: 20, font: MONO, align: 'right', color: ask ? C.red : C.green });
+    txt(String(q), 1790, yy, { size: 20, font: MONO, align: 'right', color: C.text });
+  }
+  ctx.fillStyle = C.line; ctx.fillRect(1350, 618, 440, 2);
+  txt('最近成交', 1350, 660, { size: 22, w: 700 }); txt('TRADES', 1452, 659, { size: 15, color: C.dim, ls: 3 });
+  const tt = Math.floor(lt * 3), tf = lt * 3 - tt;
+  ctx.save(); ctx.beginPath(); ctx.rect(1340, 672, 460, 196); ctx.clip();
+  for (let k = 0; k < 6; k++) {
+    const id = tt - k, r = rng(id * 7 + 3), buy = r() < .55;
+    const yy = 700 + (k - 1 + eOut(clamp(tf * 3))) * 32;
+    const p = price * (1 + (r() - .5) * .006);
+    const mins = 480 + id * 7;
+    txt(`D12 ${String(Math.floor(mins / 60) % 24).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`, 1350, yy, { size: 18, font: MONO, color: C.dim });
+    txt(buy ? '买入' : '卖出', 1520, yy, { size: 18, color: buy ? C.green : C.red });
+    txt(p.toFixed(2), 1690, yy, { size: 18, font: MONO, align: 'right' });
+    txt(String(1 + Math.floor(r() * 64)), 1790, yy, { size: 18, font: MONO, align: 'right' });
+  }
+  ctx.restore();
+  ctx.restore();
+  // 黑天鹅
+  const fl = 1 - prog(lt, tc, tc + .7);
+  if (lt > tc && fl > 0) { ctx.save(); ctx.globalAlpha *= fl * .28; ctx.fillStyle = C.red; ctx.fillRect(0, 0, W, H); ctx.restore(); }
+  const ba = fadeWin(lt, tc, tc + 2.2, .25);
+  if (ba > 0) {
+    const s = eBack(prog(lt, tc, tc + .4));
+    ctx.save(); ctx.globalAlpha *= ba; ctx.translate(690, 520); ctx.scale(s, s); ctx.rotate(-.03);
+    panel(-300, -78, 600, 156, { fill: 'rgba(120,20,26,0.95)', stroke: C.red, lw: 4, r: 10 });
+    txt('黑天鹅事件  −' + CRASH + '%', 0, -6, { size: 50, w: 800, align: 'center' });
+    txt('BLACK SWAN EVENT', 0, 42, { size: 22, w: 600, align: 'center', color: '#ffc9cc', ls: 8 });
+    ctx.restore();
+  }
+  sub('供需、随机事件与 NPC 做市商共同决定每一个价格', 'Supply, demand, random events and NPC market makers drive every price', lt, .9, 11.2);
+}
+
+// ---------- 场景 4：公司与工厂 ----------
+function company(lt) {
+  chapter('03', '公司经营', 'RUN A COMPANY', lt);
+  const FX = 960, FY = 470, WX = 400, MX = 1520;
+  const shortage = lt > 4.6 && lt < 6.4;
+  const ap = i => eBack(prog(lt, .3 + i * .25, .9 + i * .25));
+  // 传送带
+  const belt = (x1, x2, a) => {
+    if (a <= 0) return;
+    ctx.save(); ctx.globalAlpha *= a;
+    ctx.fillStyle = 'rgba(255,255,255,0.05)'; ctx.fillRect(x1, FY + 70, x2 - x1, 16);
+    ctx.fillStyle = 'rgba(47,196,178,0.35)';
+    for (let x = x1 + ((lt * 80) % 40); x < x2; x += 40) ctx.fillRect(x, FY + 74, 18, 8);
+    ctx.restore();
+  };
+  belt(WX + 110, FX - 150, prog(lt, 1, 1.5));
+  belt(FX + 150, MX - 110, prog(lt, 1.2, 1.7));
+  // 原料流入（缺料时停止）
+  for (let k = 0; k < 40; k++) {
+    const t0 = 1.4 + k * .32; if (t0 > 4.6 && t0 < 6.0) continue;
+    const f = prog(lt, t0, t0 + 1.3); if (f <= 0 || f >= 1) continue;
+    icon.wheat(lerp(WX + 110, FX - 150, f), FY + 40, 4);
+  }
+  for (let k = 0; k < 40; k++) {
+    const t0 = 2.4 + k * .32; if (t0 > 5.6 && t0 < 7.0) continue;
+    const f = prog(lt, t0, t0 + 1.2); if (f <= 0 || f >= 1) continue;
+    icon.bread(lerp(FX + 150, MX - 110, f), FY + 46, 4.4);
+  }
+  // 设施
+  const node = (i, x, y, size, draw, zh, en) => {
+    const s = ap(i); if (s <= 0) return;
+    ctx.save(); ctx.translate(x, y); ctx.scale(s, s); draw(); ctx.restore();
+    ctx.save(); ctx.globalAlpha *= clamp(prog(lt, .3 + i * .25, .9 + i * .25) * 1.5);
+    txt(zh, x, y + size / 2 + 50, { size: 30, w: 700, align: 'center' });
+    txt(en, x, y + size / 2 + 80, { size: 16, color: C.dim, align: 'center', ls: 3 });
+    ctx.restore();
+  };
+  node(0, WX, FY, 160, () => { panel(-90, -90, 180, 180); tex('warehouse_controller', 0, 0, 112); }, '公司仓库', 'COMPANY WAREHOUSE');
+  const fstate = shortage ? { c: RGB.yellow, zh: '缺料', en: 'Short on input', tex: 'indicator_warning' } : { c: RGB.green, zh: '运行中', en: 'Running', tex: 'indicator_normal' };
+  node(1, FX, FY, 260, () => {
+    glow(0, 0, 260, shortage ? 'rgba(242,201,76,A)' : 'rgba(63,208,122,A)', .22 + .08 * Math.sin(lt * 6));
+    panel(-140, -140, 280, 280, { stroke: fstate.c, lw: 3 });
+    tex('company_factory_controller', 0, 0, 200);
+    tex(fstate.tex, 108, -108, 40);
+  }, '工厂控制器', 'FACTORY CONTROLLER');
+  node(2, MX, FY, 160, () => { panel(-90, -90, 180, 180); tex('market_terminal', 0, 0, 112); }, '自动出售', 'AUTO-SELL');
+  const sa = prog(lt, 1.2, 1.7);
+  if (sa > 0) { ctx.save(); ctx.globalAlpha *= sa; chip(`${fstate.zh} · ${fstate.en}`, FX, FY - 186, fstate.c, { align: 'center', size: 20 }); ctx.restore(); }
+  // 聚落工人
+  const ta = prog(lt, 1.6, 2.2);
+  if (ta > 0) {
+    ctx.save(); ctx.globalAlpha *= ta;
+    tex('settlement_trade_station_green', 330, 215, 72);
+    txt('附近聚落 · 招工', 230, 290, { size: 22, w: 700 });
+    txt('NEARBY SETTLEMENT · HIRING', 230, 314, { size: 14, color: C.dim, ls: 2 });
+    ctx.restore();
+    // 工人从聚落走进工厂
+    for (let k = 0; k < 12; k++) {
+      const t0 = 2.0 + k * .28, f = prog(lt, t0, t0 + 1.6); if (f <= 0 || f >= 1) continue;
+      const x = lerp(380, FX - 150, f), y = lerp(215, FY - 120, f) - Math.abs(Math.sin(f * Math.PI * 5)) * 10;
+      ctx.save(); ctx.globalAlpha *= clamp(f * 5) * clamp((1 - f) * 5); icon.head(x, y, 2.6); ctx.restore();
+    }
+  }
+  // 数据卡
+  const cards = [
+    ['在岗', 'STAFFED', () => `${Math.min(12, Math.floor(clamp((lt - 2.2) / 3.4) * 12.99))} / 12`, C.teal],
+    ['今日产出', 'OUTPUT TODAY', () => '+' + fmt(clamp((lt - 2.6) / 6.5) * 384), C.green],
+    ['日薪', 'DAILY WAGE', () => '$18', C.brass],
+    ['公司现金', 'CASH', () => '$' + fmt(48200 + clamp((lt - 3) / 6) * 6930), C.text]
+  ];
+  cards.forEach(([zh, en, val, col], i) => {
+    const a = eOut(prog(lt, 2.4 + i * .18, 3 + i * .18)); if (a <= 0) return;
+    const x = 250 + i * 365, y = 742 + (1 - a) * 40;
+    ctx.save(); ctx.globalAlpha *= a;
+    panel(x, y, 330, 112, { r: 12 });
+    txt(zh, x + 24, y + 40, { size: 22, w: 700 }); txt(en, x + 24 + zh.length * 23 + 10, y + 39, { size: 13, color: C.dim, ls: 2 });
+    txt(val(), x + 24, y + 92, { size: 38, w: 700, font: MONO, color: col });
+    ctx.restore();
+  });
+  sub('开公司、建工厂、雇工人、真生产', 'Found a company. Build factories. Hire workers. Produce for real.', lt, .9, 10.2);
+}
+
+// ---------- 场景 5：上市与股东 ----------
+const STOCKS = [['北岭矿业', 'NRTH', 42.1], ['金穗食品', 'GRAN', 18.6], ['青松林业', 'PINE', 27.3], ['黑石煤业', 'COAL', 12.9], ['云织纺织', 'WEAV', 33.4]];
+const INVESTORS = [['分红派', 'DIVIDEND', '#e0ac4a', 14], ['成长派', 'GROWTH', '#3fd07a', 11], ['短线派', 'MOMENTUM', '#ef4d55', 6], ['价值派', 'VALUE', '#2fc4b2', 12]];
+function stockPrice(i, k) { let p = STOCKS[i][2]; const r = rng(i * 101 + 5); for (let s = 0; s < k; s++) p *= 1 + (r() - .46) * .03; return p; }
+function stocks(lt) {
+  // IPO 敲钟
+  const ia = fadeWin(lt, 0, 1.9, .3);
+  if (ia > 0) {
+    const s = eBack(prog(lt, 0, .5));
+    ctx.save(); ctx.globalAlpha *= ia; ctx.translate(W / 2, H / 2 - 40); ctx.scale(s, s);
+    glow(0, 0, 500, 'rgba(224,172,74,A)', .35);
+    for (let k = 0; k < 16; k++) {
+      const a = k / 16 * Math.PI * 2 + lt * .4, r1 = 230 + 40 * eOut(prog(lt, .2, 1)), r2 = r1 + 60;
+      ctx.strokeStyle = 'rgba(224,172,74,0.5)'; ctx.lineWidth = 6;
+      ctx.beginPath(); ctx.moveTo(Math.cos(a) * r1, Math.sin(a) * r1); ctx.lineTo(Math.cos(a) * r2, Math.sin(a) * r2); ctx.stroke();
+    }
+    pixelWord('IPO', -17 * 16 / 2 - 8, -56, 16 * 1.0 + 0, lt, .05, .08);
+    txt('首次公开募股', 0, 130, { size: 34, w: 700, align: 'center', ls: 6 });
+    ctx.restore();
+  }
+  if (lt < 1.6) return;
+  const L = lt - 1.6;
+  chapter('04', '股票与股东', 'STOCKS & SHAREHOLDERS', L);
+  // 行情表
+  const ta = eOut(prog(L, .1, .7));
+  ctx.save(); ctx.globalAlpha *= ta; ctx.translate(0, (1 - ta) * 40);
+  panel(100, 160, 780, 560);
+  txt('上市公司', 130, 212, { size: 26, w: 700 }); txt('LISTED COMPANIES', 248, 211, { size: 15, color: C.dim, ls: 3 });
+  const tick = Math.floor(lt * 4);
+  STOCKS.forEach((s, i) => {
+    const yy = 290 + i * 86, p = stockPrice(i, tick + 20), p0 = stockPrice(i, 20), ch = (p / p0 - 1) * 100, up = ch >= 0;
+    const flash = tick !== Math.floor((lt - .1) * 4);
+    if (i === 1 && L > .3) { ctx.fillStyle = 'rgba(224,172,74,0.10)'; ctx.fillRect(112, yy - 46, 756, 76); }
+    txt(s[0], 130, yy, { size: 28, w: 700 });
+    txt(s[1], 130, yy + 24, { size: 15, color: C.dim, font: MONO, ls: 2 });
+    if (i === 1) chip('NEW', 258, yy - 10, RGB.brass, { size: 13 });
+    // 迷你走势
+    ctx.strokeStyle = up ? C.green : C.red; ctx.lineWidth = 2.5; ctx.beginPath();
+    for (let k = 0; k <= 24; k++) { const v = stockPrice(i, tick - 4 + k), x = 400 + k * 8, y = yy - 8 - (v / p0 - 1) * 260; k ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
+    ctx.stroke();
+    txt('$' + p.toFixed(2), 740, yy, { size: 26, w: 700, font: MONO, align: 'right', color: flash ? '#ffffff' : C.text });
+    txt((up ? '+' : '') + ch.toFixed(2) + '%', 860, yy, { size: 20, w: 700, font: MONO, align: 'right', color: up ? C.green : C.red });
+  });
+  ctx.restore();
+  // NPC 投资者
+  INVESTORS.forEach((v, i) => {
+    const a = eBack(prog(L, .5 + i * .15, 1.1 + i * .15)); if (a <= 0) return;
+    const x = 940 + (i % 2) * 450, y = 160 + Math.floor(i / 2) * 190;
+    ctx.save(); ctx.translate(x + 210, y + 85); ctx.scale(a, a); ctx.translate(-210, -85);
+    panel(0, 0, 420, 170, { stroke: v[2] + '88' });
+    ctx.fillStyle = v[2]; ctx.globalAlpha *= .9; ctx.beginPath(); ctx.roundRect(24, 28, 56, 56, 10); ctx.fill(); ctx.globalAlpha /= .9;
+    icon.head(52, 56, 4.5);
+    txt(v[0], 100, 58, { size: 28, w: 700 }); txt('NPC · ' + v[1], 100, 84, { size: 15, color: C.dim, ls: 2 });
+    const fill = eOut(prog(L, 1.4 + i * .2, 3.2 + i * .2)) * v[3];
+    ctx.fillStyle = 'rgba(255,255,255,0.07)'; ctx.fillRect(24, 118, 372, 14);
+    ctx.fillStyle = v[2]; ctx.fillRect(24, 118, 372 * fill / 25, 14);
+    txt('持股 ' + fill.toFixed(1) + '%', 396, 104, { size: 18, w: 700, font: MONO, align: 'right', color: v[2] });
+    ctx.restore();
+  });
+  const na = prog(L, 3.3, 3.8);
+  if (na > 0) txt('NPC 合计持股 < 50%，永远不会夺走控制权 · NPCs never take control', 1390, 562, { size: 17, color: C.dim, align: 'center', alpha: na });
+  // 股东投票
+  const va = eOut(prog(L, 3.4, 4));
+  if (va > 0) {
+    ctx.save(); ctx.globalAlpha *= va; ctx.translate(0, (1 - va) * 30);
+    panel(940, 600, 870, 120);
+    txt('提案 #12 · 季度分红', 970, 644, { size: 24, w: 700 }); txt('PROPOSAL · QUARTERLY DIVIDEND', 1218, 643, { size: 14, color: C.dim, ls: 2 });
+    const f = eOut(prog(L, 3.8, 5.6)), yes = 68 * f, no = 32 * f;
+    ctx.fillStyle = 'rgba(255,255,255,0.07)'; ctx.fillRect(970, 670, 640, 22);
+    ctx.fillStyle = C.green; ctx.fillRect(970, 670, 640 * yes / 100, 22);
+    ctx.fillStyle = C.red; ctx.fillRect(1610 - 640 * no / 100, 670, 640 * no / 100, 22);
+    txt(`赞成 ${yes.toFixed(0)}%`, 1640, 690, { size: 20, w: 700, color: C.green, font: MONO });
+    const st = prog(L, 5.8, 6.1);
+    if (st > 0) {
+      const s = lerp(1.8, 1, eOut(st));
+      ctx.save(); ctx.globalAlpha *= st; ctx.translate(1700, 632); ctx.rotate(-.12); ctx.scale(s, s);
+      ctx.strokeStyle = C.green; ctx.lineWidth = 4; ctx.strokeRect(-70, -26, 140, 52);
+      txt('通过 PASSED', 0, 9, { size: 22, w: 800, color: C.green, align: 'center' });
+      ctx.restore();
+    }
+    ctx.restore();
+  }
+  sub('IPO、增发、分红、股东投票与要约收购', 'IPOs, share offerings, dividends, shareholder votes and takeovers', L, .3, 7.6);
+}
+
+// ---------- 场景 6：银行与金融工具 ----------
+function bank(lt) {
+  chapter('05', '银行与央行', 'BANKS & THE CENTRAL BANK', lt);
+  const ga = eOut(prog(lt, .2, .9));
+  const GX = 470, GY = 560, R = 270;
+  ctx.save(); ctx.globalAlpha *= ga; ctx.translate(0, (1 - ga) * 40);
+  panel(100, 160, 740, 640);
+  tex('central_bank_console', 160, 222, 64);
+  txt('基准利率', 210, 218, { size: 28, w: 700 }); txt('POLICY RATE', 210, 246, { size: 15, color: C.dim, ls: 3 });
+  ctx.lineCap = 'round';
+  for (let k = 0; k <= 40; k++) {
+    const a = Math.PI + k / 40 * Math.PI, r1 = k % 5 ? R - 18 : R - 34;
+    ctx.strokeStyle = k % 5 ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.4)'; ctx.lineWidth = k % 5 ? 2 : 4;
+    ctx.beginPath(); ctx.moveTo(GX + Math.cos(a) * r1, GY + Math.sin(a) * r1); ctx.lineTo(GX + Math.cos(a) * R, GY + Math.sin(a) * R); ctx.stroke();
+  }
+  const hike = eInOut(prog(lt, 2.2, 3.2));
+  const rate = lerp(3.25, 3.5, hike) + Math.sin(lt * 3) * .01 * (1 - hike);
+  const ang = Math.PI + (rate / 8) * Math.PI;
+  ctx.strokeStyle = C.teal; ctx.lineWidth = 14; ctx.beginPath(); ctx.arc(GX, GY, R + 22, Math.PI, ang); ctx.stroke();
+  ctx.strokeStyle = C.brass; ctx.lineWidth = 7; ctx.beginPath(); ctx.moveTo(GX, GY); ctx.lineTo(GX + Math.cos(ang) * (R - 50), GY + Math.sin(ang) * (R - 50)); ctx.stroke();
+  ctx.fillStyle = C.brass; ctx.beginPath(); ctx.arc(GX, GY, 16, 0, Math.PI * 2); ctx.fill();
+  txt(rate.toFixed(2) + '%', GX, GY + 96, { size: 72, w: 800, font: MONO, align: 'center' });
+  if (hike > 0) chip('加息 +25bp · RATE HIKE', GX, GY + 156, RGB.brass, { align: 'center', size: 20, });
+  txt('中性利率 + 通胀缺口 − 衰退指标', GX, 770, { size: 20, color: C.dim, align: 'center', alpha: prog(lt, .8, 1.3) });
+  ctx.restore();
+  // 银行挤兑
+  const pa = eOut(prog(lt, .5, 1.2));
+  ctx.save(); ctx.globalAlpha *= pa; ctx.translate((1 - pa) * 60, 0);
+  panel(900, 160, 920, 300);
+  tex('bank_counter', 960, 222, 64);
+  txt('商业银行', 1010, 218, { size: 28, w: 700 }); txt('COMMERCIAL BANK', 1010, 246, { size: 15, color: C.dim, ls: 3 });
+  const panic = 72 * eInOut(prog(lt, 1.6, 4.6)), limited = panic >= 60;
+  txt('挤兑恐慌度', 940, 318, { size: 22, w: 700 }); txt('BANK-RUN PANIC', 1062, 317, { size: 14, color: C.dim, ls: 2 });
+  const BX = 940, BW = 840;
+  ctx.fillStyle = 'rgba(255,255,255,0.07)'; ctx.fillRect(BX, 340, BW, 30);
+  const pg = ctx.createLinearGradient(BX, 0, BX + BW, 0);
+  pg.addColorStop(0, C.green); pg.addColorStop(.5, C.yellow); pg.addColorStop(.8, C.red); pg.addColorStop(1, C.red);
+  ctx.fillStyle = pg; ctx.fillRect(BX, 340, BW * panic / 100, 30);
+  ctx.fillStyle = '#fff'; ctx.fillRect(BX + BW * .6 - 1, 330, 3, 50);
+  txt('60 限提线', BX + BW * .6 + 8, 402, { size: 16, color: C.dim });
+  txt(panic.toFixed(0), BX + BW * panic / 100, 328, { size: 22, w: 800, font: MONO, align: 'center', color: limited ? C.red : C.text });
+  txt('存款保险 Deposit insurance  $100,000', 940, 434, { size: 19, color: C.dim });
+  if (limited) {
+    const s = eBack(prog(lt, 4.1, 4.5));
+    ctx.save(); ctx.translate(1600, 216); ctx.scale(s, s);
+    chip('全行限提 · WITHDRAWALS LIMITED', 0, 0, RGB.red, { align: 'center', size: 17 });
+    ctx.restore();
+  }
+  ctx.restore();
+  // 金融工具
+  const tools = [['股票', 'Stocks', RGB.green], ['公司债', 'Bonds', RGB.teal], ['指数基金', 'Funds', RGB.brass],
+    ['商品期货', 'Futures', RGB.red], ['企业保险', 'Insurance', RGB.yellow], ['融资融券', 'Margin', RGB.teal],
+    ['央行票据', 'Bills', RGB.brass], ['公司贷款', 'Loans', RGB.green]];
+  const ha = prog(lt, 3.6, 4.1);
+  if (ha > 0) { txt('一整套金融工具', 900, 528, { size: 26, w: 700, alpha: ha }); txt('THE FULL TOOLKIT', 1100, 527, { size: 15, color: C.dim, ls: 3, alpha: ha }); }
+  tools.forEach((tl, i) => {
+    const a = eBack(prog(lt, 3.8 + i * .12, 4.3 + i * .12)); if (a <= 0) return;
+    const x = 900 + (i % 4) * 232, y = 560 + Math.floor(i / 4) * 120;
+    ctx.save(); ctx.translate(x + 105, y + 50); ctx.scale(a, a); ctx.translate(-105, -50);
+    panel(0, 0, 210, 100, { stroke: tl[2].replace('rgb', 'rgba').replace(')', ',0.6)'), r: 12 });
+    ctx.fillStyle = tl[2]; ctx.fillRect(0, 22, 5, 56);
+    txt(tl[0], 26, 48, { size: 26, w: 700 }); txt(tl[1].toUpperCase(), 26, 76, { size: 14, color: C.dim, ls: 3 });
+    ctx.restore();
+  });
+  sub('银行、利率、国债、期货与保险：一整套金融体系', 'Banks, interest rates, bonds, futures and insurance: a full financial system', lt, .9, 8.2);
+}
+
+// ---------- 场景 7：宏观实体经济 ----------
+const TOWNS = [
+  { x: 330, y: 330, tex: 'settlement_trade_station_green', zh: '橡木镇', en: 'Oakvale', bread: 9.4, mood: 1 },
+  { x: 820, y: 260, tex: 'settlement_trade_station_yellow', zh: '石桥村', en: 'Stonebridge', bread: 12.8, mood: 0 },
+  { x: 560, y: 640, tex: 'settlement_trade_station_green', zh: '麦田镇', en: 'Wheatfield', bread: 7.1, mood: 1 },
+  { x: 1080, y: 590, tex: 'settlement_trade_station_red', zh: '黑石矿镇', en: 'Blackrock', bread: 17.5, mood: -1 }
+];
+const ROUTES = [[0, 1], [0, 2], [1, 3], [2, 3], [1, 2]];
+function macro(lt) {
+  chapter('06', '宏观实体经济', 'A LIVING WORLD', lt);
+  const ma = eOut(prog(lt, .1, .8));
+  ctx.save(); ctx.globalAlpha *= ma; ctx.translate(0, (1 - ma) * 40);
+  // 地图
+  const MX = 100, MY = 160, TS = 50, cols = 24, rows = 14;
+  ctx.save(); ctx.beginPath(); ctx.roundRect(MX, MY, cols * TS, rows * TS, 16); ctx.clip();
+  for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) {
+    const n = hash(i * 57 + j * 131), river = Math.abs(j - (7 + Math.sin(i * .45) * 2.2)) < .7;
+    ctx.fillStyle = river ? (n < .5 ? '#2b6a8f' : '#2f7399') : n < .15 ? '#3c6b2e' : n < .6 ? '#4d7f37' : n < .9 ? '#55893c' : '#6b6b5a';
+    ctx.fillRect(MX + i * TS, MY + j * TS, TS, TS);
+  }
+  ctx.fillStyle = 'rgba(10,16,18,0.35)'; ctx.fillRect(MX, MY, cols * TS, rows * TS);
+  ctx.restore();
+  // 商路与商队
+  ROUTES.forEach(([a, b], ri) => {
+    const A = TOWNS[a], B = TOWNS[b], ra = prog(lt, .9 + ri * .15, 1.5 + ri * .15); if (ra <= 0) return;
+    ctx.save(); ctx.strokeStyle = 'rgba(240,220,170,0.55)'; ctx.lineWidth = 4; ctx.setLineDash([10, 10]); ctx.lineDashOffset = -lt * 30;
+    ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.lineTo(lerp(A.x, B.x, ra), lerp(A.y, B.y, ra)); ctx.stroke(); ctx.restore();
+    if (ra >= 1) for (let c = 0; c < 2; c++) {
+      const f = ((lt - 1.5) * .22 + c * .5 + ri * .17) % 1, back = ri % 2 === 1;
+      const x = lerp(A.x, B.x, back ? 1 - f : f), y = lerp(A.y, B.y, back ? 1 - f : f);
+      ctx.fillStyle = '#6b4424'; ctx.fillRect(x - 11, y - 9, 22, 16); ctx.fillStyle = '#c99a5a'; ctx.fillRect(x - 11, y - 9, 22, 5);
+    }
+  });
+  // 聚落
+  TOWNS.forEach((tw, i) => {
+    const a = eBack(prog(lt, .4 + i * .15, .9 + i * .15)); if (a <= 0) return;
+    ctx.save(); ctx.translate(tw.x, tw.y); ctx.scale(a, a);
+    ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.beginPath(); ctx.ellipse(0, 40, 46, 12, 0, 0, Math.PI * 2); ctx.fill();
+    tex(tw.tex, 0, 0, 80);
+    ctx.restore();
+    // 情绪粒子
+    for (let k = 0; k < 5; k++) {
+      if (tw.mood === 0) break;
+      const f = ((lt + k * .37 + i) * .6) % 1, px = tw.x - 30 + hash(k + i * 9) * 60;
+      ctx.save(); ctx.globalAlpha *= (1 - f) * a;
+      ctx.fillStyle = tw.mood > 0 ? C.green : C.red;
+      if (tw.mood > 0) { ctx.fillRect(px - 4, tw.y - 50 - f * 70, 8, 8); }
+      else { ctx.font = `800 26px ${FONT}`; ctx.fillText('!', px, tw.y - 50 - f * 70); }
+      ctx.restore();
+    }
+    const la = prog(lt, 1 + i * .15, 1.4 + i * .15);
+    ctx.save(); ctx.globalAlpha *= la;
+    txt(tw.zh, tw.x, tw.y + 78, { size: 22, w: 700, align: 'center' });
+    txt(tw.en.toUpperCase(), tw.x, tw.y + 98, { size: 12, color: '#c5d2cf', align: 'center', ls: 2 });
+    const pr = tw.bread * (1 + Math.sin(lt * 1.3 + i) * .03), hi = tw.bread > 11;
+    ctx.translate(tw.x + 52, tw.y - 34);
+    panel(0, -20, 128, 40, { r: 20, fill: 'rgba(12,18,20,0.92)', stroke: hi ? C.red : C.green });
+    icon.bread(22, 0, 2.2);
+    txt('$' + pr.toFixed(1), 42, 8, { size: 19, w: 700, font: MONO, color: hi ? C.red : C.green });
+    ctx.restore();
+  });
+  ctx.restore();
+  // 金融周报
+  const na = eOut(prog(lt, 1.6, 2.4));
+  if (na > 0) {
+    ctx.save(); ctx.translate(1580 + (1 - na) * 500, 500); ctx.rotate(.035 * na);
+    ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 40;
+    ctx.fillStyle = '#efe6d2'; ctx.fillRect(-250, -330, 500, 640); ctx.shadowBlur = 0;
+    const ink = '#2a2420';
+    txt('金融周报', 0, -262, { size: 52, w: 900, align: 'center', color: ink, font: '"SimSun","Songti SC",serif' });
+    txt('THE FINANCE WEEKLY · 第 37 期', 0, -228, { size: 15, align: 'center', color: '#6a5d50', ls: 3 });
+    ctx.fillStyle = ink; ctx.fillRect(-220, -212, 440, 4); ctx.fillRect(-220, -204, 440, 1);
+    txt('号外！黑石矿工罢工', 0, -150, { size: 40, w: 900, align: 'center', color: '#9a1d22' });
+    txt('EXTRA! Blackrock miners strike', 0, -112, { size: 20, w: 600, align: 'center', color: ink });
+    for (let k = 0; k < 7; k++) {
+      const w1 = 120 + hash(k * 3) * 80, w2 = 120 + hash(k * 3 + 1) * 80;
+      ctx.fillStyle = 'rgba(42,36,32,0.35)'; ctx.fillRect(-220, -78 + k * 20, w1, 8); ctx.fillRect(10, -78 + k * 20, w2, 8);
+    }
+    // CPI 迷你图
+    txt('CPI', -220, 108, { size: 18, w: 800, color: ink, font: MONO });
+    txt('+2.8%', 220, 108, { size: 18, w: 800, color: '#9a1d22', font: MONO, align: 'right' });
+    ctx.strokeStyle = '#9a1d22'; ctx.lineWidth = 3; ctx.beginPath();
+    const cp = prog(lt, 2.4, 5);
+    for (let k = 0; k <= 30 * cp; k++) { const x = -220 + k * 440 / 30, y = 230 - k * 2.2 - Math.sin(k * .7) * 10 - hash(k + 40) * 14; k ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
+    ctx.stroke();
+    txt('— 每周一期，到聚落贸易站领取', 0, 288, { size: 16, align: 'center', color: '#6a5d50' });
+    ctx.restore();
+  }
+  sub('聚落、人口、物价、商路与罢工：一个会自己运转的世界', 'Settlements, people, local prices, trade routes and strikes: a world that runs itself', lt, .9, 7.2);
+}
+
+// ---------- 场景 8：片尾 ----------
+const OUTRO_TEX = ['portable_ledger', 'market_terminal', 'warehouse_controller', 'bank_counter', 'company_desk',
+  'company_factory_controller', 'securities_terminal', 'boardroom_table', 'central_bank_console',
+  'settlement_trade_station_green', 'survey_board', 'sealed_cargo_crate', 'finance_guide'];
+function outro(lt) {
+  const n = OUTRO_TEX.length, gap = 128, x0 = W / 2 - (n - 1) * gap / 2;
+  OUTRO_TEX.forEach((k, i) => {
+    const a = eBack(prog(lt, .1 + i * .06, .55 + i * .06)); if (a <= 0) return;
+    const bob = Math.sin(lt * 2 + i * .6) * 6;
+    ctx.save(); ctx.translate(x0 + i * gap, 270 + bob); ctx.scale(a, a); tex(k, 0, 0, 96); ctx.restore();
+  });
+  glow(W / 2, 520, 600, 'rgba(224,172,74,A)', .12 * prog(lt, .8, 1.6));
+  pixelWord('FINANCE', W / 2 - 41 * 24 / 2, 440, 24, lt, .9);
+  const a = eOut(prog(lt, 1.8, 2.4));
+  if (a > 0) {
+    ctx.save(); ctx.globalAlpha *= a;
+    txt('从一块铁锭，到一个经济体', W / 2, 720, { size: 50, w: 800, align: 'center', ls: 4 });
+    txt('From one iron ingot to a whole economy', W / 2, 772, { size: 28, color: '#a9bbb8', align: 'center', ls: 1 });
+    ctx.restore();
+  }
+  const b = eOut(prog(lt, 2.6, 3.2));
+  if (b > 0) {
+    ctx.save(); ctx.globalAlpha *= b;
+    const tags = ['Minecraft 1.20.1', 'Forge 47', 'by H-Jeong'];
+    let ws = tags.map(s => { ctx.font = `600 22px ${FONT}`; return ctx.measureText(s).width + 36; });
+    let x = W / 2 - (ws.reduce((s, w) => s + w, 0) + 16 * (tags.length - 1)) / 2;
+    tags.forEach((s, i) => { chip(s, x, 868, i === 2 ? RGB.brass : RGB.teal, { size: 22 }); x += ws[i] + 16; });
+    ctx.restore();
+  }
+}
+
+// ---------- 时间线 ----------
+const SCENES = [[0, 6.2, intro], [6, 15.2, loop], [15, 26.2, market], [26, 36.2, company],
+  [36, 45.2, stocks], [45, 53.2, bank], [53, 60.2, macro], [60, 66, outro]];
+function render(t) {
+  ctx.save();
+  ctx.globalAlpha = 1;
+  background(t);
+  for (const [s, e, fn] of SCENES) {
+    if (t < s || t >= e) continue;
+    ctx.save();
+    ctx.globalAlpha = fadeWin(t, s, e, s === 0 ? .6 : .45);
+    if (ctx.globalAlpha > 0) fn(t - s);
+    ctx.restore();
+  }
+  vignette();
+  // 进度条
+  ctx.fillStyle = 'rgba(47,196,178,0.7)'; ctx.fillRect(0, H - 4, W * t / DURATION, 4);
+  // 片尾淡出与片头淡入
+  const black = Math.max(1 - prog(t, 0, .5), prog(t, DURATION - .8, DURATION));
+  if (black > 0) { ctx.fillStyle = `rgba(0,0,0,${black})`; ctx.fillRect(0, 0, W, H); }
+  ctx.restore();
+}
+
+// ---------- 启动 ----------
+const IMG = {};
+const ready = Promise.all(Object.entries(TEX).map(([k, src]) => new Promise(res => {
+  const im = new Image(); im.onload = () => { IMG[k] = im; res(); }; im.onerror = res; im.src = src;
+}))).then(() => document.fonts.ready).then(initPix);
+
+window.DURATION = DURATION;
+window.renderFrame = t => render(t);
+window.trailerReady = ready;
+
+if (new URLSearchParams(location.search).has('capture')) {
+  document.body.classList.add('capture');
+} else {
+  const playBtn = document.getElementById('play'), scrub = document.getElementById('scrub'), time = document.getElementById('time');
+  let playing = true, t = 0, last = null;
+  playBtn.onclick = () => { playing = !playing; playBtn.textContent = playing ? '暂停' : '播放'; if (playing && t >= DURATION) t = 0; };
+  scrub.oninput = () => { t = +scrub.value; };
+  document.addEventListener('keydown', e => { if (e.code === 'Space') { e.preventDefault(); playBtn.click(); } });
+  ready.then(() => {
+    const step = now => {
+      if (last != null && playing) t += (now - last) / 1000;
+      last = now;
+      if (t >= DURATION) { t = DURATION; playing = false; playBtn.textContent = '播放'; }
+      render(Math.min(t, DURATION - 1e-3));
+      scrub.value = t; time.textContent = `${t.toFixed(1)} / ${DURATION.toFixed(1)}`;
+      requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  });
+}
+</script>
+</body>
+</html>

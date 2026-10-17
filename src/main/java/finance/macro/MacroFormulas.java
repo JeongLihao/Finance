@@ -56,10 +56,10 @@ public final class MacroFormulas {
 
     /**
      * 当日目标生活水平：各类别满足率（0..1）按权重加权后乘以 {@link #NEEDS_SOL_MAX}，再乘饥荒系数
-     * {@code 0.5 + 0.5 × 食物满足率}，最后加收入加成和其他修正（自给加成、法律）。吃不饱时其他需求满足得再好也过不好。
+     * {@code 0.5 + 0.5 × 食物满足率}，最后加收入加成和其他修正（自给加成）。吃不饱时其他需求满足得再好也过不好。
      *
      * @param fulfilment      类别 → 满足率；缺项按 0
-     * @param incomePerCapita 人均日收入（工资 + 福利）
+     * @param incomePerCapita 人均日收入（工资等）
      * @param bonusBps        其他修正（自给加成、劳工保护），可为负
      */
     public static int targetSol(Map<NeedCategory, Double> fulfilment, double incomePerCapita, int bonusBps) {

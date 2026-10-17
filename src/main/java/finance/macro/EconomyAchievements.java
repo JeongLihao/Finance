@@ -25,24 +25,29 @@ import java.util.UUID;
  * 经济成就：把宏观经济里本来就在发生的事变成原版进度（{@code finance:progress} 触发器）。
  *
  * <p>判定只读经济状态，不改任何数值。大多数条件在日结末尾统一检查（{@link #processDay}），
- * 少数瞬间事件（商队救灾、提案表决、游说封顶、摊位成交）由对应服务直接通知。
+ * 少数瞬间事件（商队救灾、摊位成交、央行议息、提前支取）由对应服务直接通知。
  * 达成时玩家不在线就先记进待发队列（随存档保存），上线时补发。</p>
  */
 public final class EconomyAchievements {
     public static final String FIRST_HIRE = "macro_first_hire";
     public static final String GOOD_BOSS = "macro_good_boss";
     public static final String SWEATSHOP = "macro_sweatshop";
-    public static final String STRIKE = "macro_strike";
     public static final String BOOMTOWN = "macro_boomtown";
     public static final String GOLDEN_AGE = "macro_golden_age";
     public static final String FAMINE_RELIEF = "macro_famine_relief";
     public static final String MONOPOLY = "macro_monopoly";
     public static final String HOARDER = "macro_hoarder";
     public static final String CARAVAN_TYCOON = "macro_caravan_tycoon";
-    public static final String LOBBYIST = "macro_lobbyist";
-    public static final String LAWMAKER = "macro_lawmaker";
-    public static final String FAILED_BILL = "macro_failed_bill";
-    public static final String DEBT_FREE = "macro_debt_free";
+    /** 央行降息前的前瞻窗口里认购央行债券或开定存，锁住了更高的利率。 */
+    public static final String RATE_CALL = "cb_rate_call";
+    /** 央行下调存款准备金率时你拥有一家银行。 */
+    public static final String RESERVE_CUT = "cb_reserve_cut";
+    /** 通胀连续 30 天落在央行目标区间内（全服在线玩家）。 */
+    public static final String PRICE_STABILITY = "cb_price_stability";
+    /** 隐藏：通胀高出央行目标 5 个百分点以上（全服在线玩家）。 */
+    public static final String RUNAWAY_INFLATION = "cb_runaway_inflation";
+    /** 隐藏：提前支取定期存款或提前赎回央行债券，利息全部放弃。 */
+    public static final String EARLY_EXIT = "cb_early_exit";
     /** 第一次有工厂进入工业档。 */
     public static final String INDUSTRIAL_REVOLUTION = "macro_industrial_revolution";
     /** 同一家公司至少三座工厂都坚持手工档，并且盈利。 */
@@ -51,9 +56,9 @@ public final class EconomyAchievements {
     public static final String SHAREHOLDER_DEMOCRACY = "solo_shareholder_democracy";
 
     /** 全部成就 id（顺序即展示顺序）。 */
-    public static final java.util.List<String> ALL = java.util.List.of(FIRST_HIRE, GOOD_BOSS, SWEATSHOP, STRIKE, BOOMTOWN,
-            GOLDEN_AGE, FAMINE_RELIEF, MONOPOLY, HOARDER, CARAVAN_TYCOON, LOBBYIST, LAWMAKER, FAILED_BILL, DEBT_FREE,
-            INDUSTRIAL_REVOLUTION, ARTISAN, SHAREHOLDER_DEMOCRACY);
+    public static final java.util.List<String> ALL = java.util.List.of(FIRST_HIRE, GOOD_BOSS, SWEATSHOP, BOOMTOWN,
+            GOLDEN_AGE, FAMINE_RELIEF, MONOPOLY, HOARDER, CARAVAN_TYCOON, RATE_CALL, RESERVE_CUT, PRICE_STABILITY,
+            RUNAWAY_INFLATION, EARLY_EXIT, INDUSTRIAL_REVOLUTION, ARTISAN, SHAREHOLDER_DEMOCRACY);
 
     // ---- 阈值 ----
     static final int GOOD_BOSS_WORKERS = 20;
@@ -65,7 +70,6 @@ public final class EconomyAchievements {
     static final long MONOPOLY_MIN_UNITS = 20;
     static final int HOARDER_FACTOR_BPS = 16_000;
     static final long CARAVAN_TYCOON_PROFIT = 10_000;
-    static final int DEBT_FREE_DAYS = 100;
 
     public static final int MAX_PENDING_PLAYERS = 1_024;
 
@@ -74,8 +78,6 @@ public final class EconomyAchievements {
     private static final Map<String, Map<UUID, Long>> STALL_SALES = new HashMap<>();
     private static MinecraftServer server;
     private static long lastProcessedDay = Long.MIN_VALUE;
-    private static long debtFreeStreak;
-    private static boolean lastStrike;
 
     private EconomyAchievements() { }
 
@@ -97,6 +99,14 @@ public final class EconomyAchievements {
             PENDING.put(player, queue);
         }
         queue.add(event);
+    }
+
+    /** 发给当前所有在线玩家（全服性的成就，如物价稳定）。拿不到服务器时不发。 */
+    public static void awardOnline(String event) {
+        if (!ALL.contains(event)) return;
+        MinecraftServer current = server != null ? server : net.minecraftforge.server.ServerLifecycleHooks.getCurrentServer();
+        if (current == null) return;
+        for (ServerPlayer p : current.getPlayerList().getPlayers()) FinanceAdvancementTriggers.trigger(p, event);
     }
 
     /** 补发给当前在线、但之前因为拿不到服务器引用而进了队列的玩家。 */
@@ -144,16 +154,6 @@ public final class EconomyAchievements {
         if (food != null && food < FAMINE_FOOD_FULFILMENT) award(owner, FAMINE_RELIEF);
     }
 
-    /** 提案表决结束（PoliticsService 调用）。 */
-    public static void onProposalResolved(UUID proposer, boolean passed) {
-        award(proposer, passed ? LAWMAKER : FAILED_BILL);
-    }
-
-    /** 游说后（PoliticsService 调用）：把某集团的游说加成推到上限。 */
-    public static void onLobbied(UUID player, int lobbyLevel) {
-        if (lobbyLevel >= PoliticsService.MAX_LOBBY) award(player, LOBBYIST);
-    }
-
     // ================================================================ 日结检查
 
     /** 每天日结末尾调用（在商队结算之后）。 */
@@ -168,7 +168,6 @@ public final class EconomyAchievements {
         checkEmployers();
         checkMarkets();
         checkCaravans();
-        checkTreasury();
         checkFactories();
         STALL_SALES.clear();
     }
@@ -211,7 +210,6 @@ public final class EconomyAchievements {
                 employerSettlements.computeIfAbsent(company.getOwnerId(), k -> new LinkedHashSet<>()).add(source);
             }
         }
-        boolean strike = finance.config.FinanceConfig.macroPoliticsEnabled() && MacroEconomyManager.strike();
         for (Map.Entry<UUID, Long> e : employedByCompany.entrySet()) {
             Company company = CompanyManager.getCompany(e.getKey());
             if (company == null || company.getOwnerId() == null) continue;
@@ -221,9 +219,7 @@ public final class EconomyAchievements {
             award(owner, FIRST_HIRE);
             if (workers >= GOOD_BOSS_WORKERS && wage >= reservation * 2) award(owner, GOOD_BOSS);
             if (workers >= SWEATSHOP_WORKERS && wage <= reservation) award(owner, SWEATSHOP);
-            if (strike && !lastStrike) award(owner, STRIKE);
         }
-        lastStrike = strike;
         for (Map.Entry<UUID, Set<UUID>> e : employerSettlements.entrySet()) {
             for (UUID settlementId : e.getValue()) {
                 VillageRecord village = VillageManager.get(settlementId);
@@ -259,27 +255,12 @@ public final class EconomyAchievements {
         profit.forEach((owner, p) -> { if (p >= CARAVAN_TYCOON_PROFIT) award(owner, CARAVAN_TYCOON); });
     }
 
-    private static void checkTreasury() {
-        if (!MacroFiscalService.active()) {
-            debtFreeStreak = 0;
-            return;
-        }
-        debtFreeStreak = Treasury.debt() == 0 ? debtFreeStreak + 1 : 0;
-        if (debtFreeStreak >= DEBT_FREE_DAYS && server != null) {
-            for (ServerPlayer p : server.getPlayerList().getPlayers()) FinanceAdvancementTriggers.trigger(p, DEBT_FREE);
-        }
-    }
-
     // ================================================================ 存档与隔离
 
-    public static long debtFreeStreak() { return debtFreeStreak; }
-    public static boolean lastStrike() { return lastStrike; }
     public static long lastProcessedDay() { return lastProcessedDay; }
 
-    static void restore(long lastDay, long streak, boolean strike, Map<UUID, Set<String>> pending) {
+    static void restore(long lastDay, Map<UUID, Set<String>> pending) {
         lastProcessedDay = lastDay;
-        debtFreeStreak = Math.max(0, streak);
-        lastStrike = strike;
         PENDING.clear();
         if (pending == null) return;
         for (Map.Entry<UUID, Set<String>> e : pending.entrySet()) {
@@ -295,7 +276,5 @@ public final class EconomyAchievements {
         STALL_SALES.clear();
         server = null;
         lastProcessedDay = Long.MIN_VALUE;
-        debtFreeStreak = 0;
-        lastStrike = false;
     }
 }

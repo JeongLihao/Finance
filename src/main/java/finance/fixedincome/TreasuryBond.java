@@ -6,7 +6,7 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * 国债 —— 央行发行的长期限无风险债券。同一天同期限的认购并入同一只债券，
+ * 央行债券 —— 央行发行的长期限无风险债券。同一天同期限的认购并入同一只债券，
  * 收益率在认购瞬间锁定，之后基准利率变动不追溯。
  */
 public final class TreasuryBond {

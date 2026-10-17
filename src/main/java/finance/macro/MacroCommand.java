@@ -40,23 +40,9 @@ public final class MacroCommand {
                         .then(Commands.argument("wage", LongArgumentType.longArg(0, 1_000_000))
                                 .executes(ctx -> wage(ctx.getSource(), LongArgumentType.getLong(ctx, "wage")))))
                 .then(Commands.literal("jobs").executes(ctx -> jobs(ctx.getSource())))
-                .then(Commands.literal("laws").executes(ctx -> laws(ctx.getSource())))
-                .then(Commands.literal("law").then(Commands.literal("propose")
-                        .then(Commands.argument("group", StringArgumentType.word())
-                                .then(Commands.argument("level", StringArgumentType.word())
-                                        .executes(ctx -> propose(ctx.getSource(),
-                                                StringArgumentType.getString(ctx, "group"),
-                                                StringArgumentType.getString(ctx, "level")))))))
-                .then(Commands.literal("ig").executes(ctx -> interestGroups(ctx.getSource())))
-                .then(Commands.literal("budget").executes(ctx -> budget(ctx.getSource())))
+                .then(Commands.literal("cb").executes(ctx -> centralBank(ctx.getSource())))
                 .then(Commands.literal("news").executes(ctx -> news(ctx.getSource())))
-                .then(Commands.literal("radar").executes(ctx -> radar(ctx.getSource())))
-                .then(Commands.literal("lobby")
-                        .then(Commands.argument("group", StringArgumentType.word())
-                                .then(Commands.argument("amount", LongArgumentType.longArg(1))
-                                        .executes(ctx -> lobby(ctx.getSource(),
-                                                StringArgumentType.getString(ctx, "group"),
-                                                LongArgumentType.getLong(ctx, "amount")))))));
+                .then(Commands.literal("radar").executes(ctx -> radar(ctx.getSource()))));
     }
 
     // ================================================================ 查看
@@ -68,7 +54,6 @@ public final class MacroCommand {
             send(source, lines);
             return 0;
         }
-        PoliticsService.recompute();
         MacroEconomyManager.Snapshot s = MacroEconomyManager.latestSnapshot();
         double cpi = MacroIndicators.cpiOrNegative();
         lines.add("====== 宏观经济 ======");
@@ -78,16 +63,7 @@ public final class MacroCommand {
             lines.add(String.format(Locale.ROOT, "人口 %,d  平均生活水平 %s  就业 %,d  工资 %,d/天  消费 %,d/天",
                     s.population(), pct(s.avgSol()), s.employed(), s.wages(), s.consumptionValue()));
         }
-        lines.add("法律：" + lawLine());
-        if (MacroFiscalService.active()) {
-            long[] t = MacroFiscalService.lastDayTotals();
-            lines.add(String.format(Locale.ROOT, "国库 %,d  债务 %,d  昨日收入 %,d  支出 %,d%s", MacroFiscalService.balance(),
-                    Treasury.debt(), t[0], t[1], Treasury.austerity() ? "  §c紧缩中" : ""));
-        }
-        if (MacroEconomyManager.strike()) lines.add("§c工会罢工中：雇工产量减半");
-        if (MacroEconomyManager.unrest()) lines.add("§c民众骚乱：人口增长减半，迁入意愿下降");
-        MacroEconomyManager.Proposal p = MacroEconomyManager.proposal();
-        if (p != null) lines.add(proposalLine(p));
+        lines.addAll(centralBankLines());
         send(source, lines);
         return 1;
     }
@@ -101,10 +77,9 @@ public final class MacroCommand {
             if (village == null) continue;
             int pop = village.population();
             long income = econ == null ? 0 : econ.lastIncome;
-            lines.add(String.format(Locale.ROOT, "%s：人口 %d  生活水平 %s  就业 %d  人均收入 %.1f%s",
+            lines.add(String.format(Locale.ROOT, "%s：人口 %d  生活水平 %s  就业 %d  人均收入 %.1f",
                     settlement.displayName(), pop, econ == null ? "—" : pct(econ.solBps),
-                    econ == null ? 0 : econ.employed, pop <= 0 ? 0.0 : (double) income / pop,
-                    econ != null && econ.unrest ? "  §c骚乱" : ""));
+                    econ == null ? 0 : econ.employed, pop <= 0 ? 0.0 : (double) income / pop));
         }
         if (lines.size() == 1) lines.add("还没有登记的聚落（放置聚落贸易站并使用后才会出现）。");
         send(source, lines);
@@ -156,73 +131,6 @@ public final class MacroCommand {
                     f.facilityId().toString().substring(0, 8), f.productionLevel(),
                     MacroEconomyManager.employment(f.facilityId()), MacroLaborService.jobs(f),
                     pct(MacroLaborService.staffingBps(f)), src == null ? "无（附近没有聚落）" : src.displayName(), f.status()));
-        }
-        send(source, lines);
-        return 1;
-    }
-
-    private static int laws(CommandSourceStack source) {
-        List<String> lines = new ArrayList<>();
-        lines.add("====== 法律 ======");
-        for (LawGroup g : LawGroup.values()) {
-            StringBuilder b = new StringBuilder(g.displayName() + "（" + g.name().toLowerCase(Locale.ROOT) + "）：");
-            for (LawLevel l : LawLevel.levelsOf(g)) {
-                boolean on = MacroEconomyManager.law(g) == l;
-                b.append(on ? "§a[" : "").append(l.displayName()).append('(').append(l.key()).append(')').append(on ? "]§r" : "").append(' ');
-            }
-            lines.add(b.toString().trim());
-        }
-        MacroEconomyManager.Proposal p = MacroEconomyManager.proposal();
-        if (p != null) lines.add(proposalLine(p));
-        for (MacroEconomyManager.LawResult r : MacroEconomyManager.lawHistory()) {
-            lines.add(String.format(Locale.ROOT, "第 %d 天 %s → %s：%s（支持 %d / 反对 %d）", r.day(),
-                    r.level().group().displayName(), r.level().displayName(), r.passed() ? "通过" : "未通过", r.support(), r.opposition()));
-        }
-        lines.add("发起提案：/macro law propose <组> <级别>");
-        send(source, lines);
-        return 1;
-    }
-
-    private static int interestGroups(CommandSourceStack source) {
-        PoliticsService.recompute();
-        List<String> lines = new ArrayList<>();
-        lines.add("====== 利益集团 ======");
-        for (InterestGroup ig : InterestGroup.values()) {
-            lines.add(String.format(Locale.ROOT, "%s（%s）  影响力 %s  满意度 %+d  游说 %+d", ig.displayName(),
-                    ig.name().toLowerCase(Locale.ROOT), pct(MacroEconomyManager.cloutBps(ig)),
-                    MacroEconomyManager.approval(ig), MacroEconomyManager.lobby(ig)));
-        }
-        lines.add("游说：/macro lobby <集团> <金额>");
-        send(source, lines);
-        return 1;
-    }
-
-    private static int budget(CommandSourceStack source) {
-        List<String> lines = new ArrayList<>();
-        lines.add("====== 国家财政 ======");
-        if (!MacroFiscalService.active()) {
-            lines.add("国家财政未启用（配置 macroEconomy.fiscalEnabled）。");
-            send(source, lines);
-            return 0;
-        }
-        lines.add(String.format(Locale.ROOT, "国库 %,d  债务 %,d / 上限 %,d（%s）  税制 %s", MacroFiscalService.balance(),
-                Treasury.debt(), finance.config.FinanceConfig.macroDebtCeiling(), pct(MacroFiscalService.debtRatioBps()),
-                MacroEconomyManager.law(LawGroup.TAXATION).displayName()));
-        lines.add("明日利息 " + MacroFiscalService.dailyInterest(Treasury.debt()) + "  累计央行增发 " + Treasury.cumulativeIssuance()
-                + (Treasury.austerity() ? "  §c紧缩中：福利停发" : ""));
-        Treasury.Day d = Treasury.lastDay();
-        if (d == null) {
-            lines.add("还没有完整的一天账目。");
-        } else {
-            StringBuilder in = new StringBuilder("第 " + d.day() + " 天收入：");
-            StringBuilder out = new StringBuilder("第 " + d.day() + " 天支出：");
-            for (Treasury.Item item : Treasury.Item.values()) {
-                long v = d.flows().getOrDefault(item, 0L);
-                if (v <= 0) continue;
-                (item.inflow() ? in : out).append(item.displayName()).append(' ').append(v).append("  ");
-            }
-            lines.add(in.toString().trim());
-            lines.add(out.toString().trim());
         }
         send(source, lines);
         return 1;
@@ -285,52 +193,31 @@ public final class MacroCommand {
         return 1;
     }
 
-    private static int propose(CommandSourceStack source, String groupName, String levelName) {
-        ServerPlayer player = source.getPlayer();
-        if (player == null) {
-            source.sendFailure(Component.literal("只有玩家可以发起提案。"));
-            return 0;
+    // ================================================================ 央行
+
+    private static int centralBank(CommandSourceStack source) {
+        List<String> lines = new ArrayList<>();
+        lines.add("====== 中央银行 ======");
+        lines.addAll(centralBankLines());
+        for (finance.centralbank.CentralBankService.Decision d : finance.centralbank.CentralBankService.decisions()) {
+            lines.add(String.format(Locale.ROOT, "第 %d 天：利率 %.2f%%→%.2f%%  准备金率 %.1f%%→%.1f%%  通胀 %.1f%%",
+                    d.day(), d.rateBefore() / 100.0, d.rateAfter() / 100.0, d.reserveBefore() / 100.0,
+                    d.reserveAfter() / 100.0, d.inflationBps() / 100.0));
         }
-        LawGroup group = parseGroup(groupName);
-        LawLevel level = LawLevel.parse(group, levelName);
-        if (group == null || level == null) {
-            source.sendFailure(Component.literal("未知法律。用 /macro laws 查看可选的组和级别。"));
-            return 0;
-        }
-        PoliticsService.recompute();
-        long[] t = PoliticsService.tally(level);
-        PoliticsService.Result r = PoliticsService.propose(player.getUUID(), level,
-                EconomyCycleService.currentMcDay(source.getServer()));
-        if (!r.success()) {
-            source.sendFailure(Component.literal(r.message()));
-            return 0;
-        }
-        source.sendSuccess(() -> Component.literal(r.message() + " 当前预估：支持 " + t[0] + " / 反对 " + t[1]), false);
+        send(source, lines);
         return 1;
     }
 
-    private static int lobby(CommandSourceStack source, String groupName, long amount) {
-        ServerPlayer player = source.getPlayer();
-        if (player == null) {
-            source.sendFailure(Component.literal("只有玩家可以游说。"));
-            return 0;
-        }
-        InterestGroup ig = null;
-        for (InterestGroup g : InterestGroup.values()) {
-            if (g.name().equalsIgnoreCase(groupName) || g.displayName().equals(groupName)) ig = g;
-        }
-        if (ig == null) {
-            source.sendFailure(Component.literal("未知利益集团。用 /macro ig 查看。"));
-            return 0;
-        }
-        PoliticsService.recompute();
-        PoliticsService.Result r = PoliticsService.lobby(player.getUUID(), ig, amount);
-        if (!r.success()) {
-            source.sendFailure(Component.literal(r.message()));
-            return 0;
-        }
-        source.sendSuccess(() -> Component.literal(r.message()), false);
-        return 1;
+    /** 央行概况几行：利率与物价目标、准备金率、议息前瞻、公开市场操作和商品平准。 */
+    static List<String> centralBankLines() {
+        var cb = MacroSnapshotBuilder.centralBankRow();
+        List<String> lines = new ArrayList<>();
+        lines.add(String.format(Locale.ROOT, "央行基准利率 %.2f%%  通胀 %.1f%%（目标 %.1f%%）  活期准备金率 %.1f%%",
+                cb.rateBps() / 100.0, cb.inflationBps() / 100.0, cb.targetBps() / 100.0, cb.reserveBps() / 100.0));
+        if (cb.nextMeetingDay() >= 0) lines.add("下次议息第 " + cb.nextMeetingDay() + " 天，倾向" + cb.guidance());
+        lines.add("公开市场操作：银行持有央行票据 " + cb.absorbed() + "，回购投放 " + cb.injected());
+        lines.add(cb.stabilization().isEmpty() ? "商品平准：昨日无操作" : "商品平准：" + String.join("、", cb.stabilization()));
+        return lines;
     }
 
     // ================================================================ 工具
@@ -355,25 +242,6 @@ public final class MacroCommand {
             }
         }
         return found;
-    }
-
-    private static LawGroup parseGroup(String name) {
-        for (LawGroup g : LawGroup.values()) {
-            if (g.name().equalsIgnoreCase(name) || g.displayName().equals(name)) return g;
-        }
-        return null;
-    }
-
-    private static String lawLine() {
-        StringBuilder b = new StringBuilder();
-        for (LawGroup g : LawGroup.values()) b.append(g.displayName()).append('·').append(MacroEconomyManager.law(g).displayName()).append("  ");
-        return b.toString().trim();
-    }
-
-    public static String proposalLine(MacroEconomyManager.Proposal p) {
-        long[] t = PoliticsService.tally(p.level());
-        return "进行中提案：" + p.level().group().displayName() + " → " + p.level().displayName()
-                + "，第 " + p.endDay() + " 天表决（当前支持 " + t[0] + " / 反对 " + t[1] + "）";
     }
 
     static String pct(int bps) {

@@ -153,6 +153,8 @@ public final class PolicyMeetingService {
                 }
             }
         }
+        finance.centralbank.CentralBankService.onMeeting(mcDay, eval, current,
+                MonetaryPolicyService.benchmarkRateBasisPoints(), "MANUAL".equals(mode));
         lastMeetingDay = mcDay;
         nextMeetingDay = mcDay + interval;
         guidanceSentForMeeting = -1;
@@ -186,6 +188,11 @@ public final class PolicyMeetingService {
                         PolicyRuleService.directionLabel(eval.direction()), formatBps(current)),
                 FeedbackSeverity.NOTICE);
         EconomySavedData.markDirty();
+    }
+
+    /** 按当前利率和实时经济度量做一次评估（央行面板、准备金率和公开市场操作共用）；异常时返回 null。 */
+    public static PolicyRuleService.Evaluation currentEvaluation() {
+        return evaluateNow(MonetaryPolicyService.benchmarkRateBasisPoints());
     }
 
     /** 用实时经济度量评估；无可用数据时返回 null（保持静默）。 */

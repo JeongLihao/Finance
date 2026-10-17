@@ -132,13 +132,4 @@ class ReviewFixesTest {
         assertFalse(arbitrage.isEmpty());
         assertTrue(arbitrage.get(0).text().startsWith("商路 alpha → beta"), arbitrage.get(0).text());
     }
-
-    @Test void snapshotWagesExcludeWelfare() {
-        MacroEconomyManager.setLaw(LawLevel.PUBLIC_HEALTH);
-        MacroEconomyServiceTest.runDay(1);
-        MacroEconomyServiceTest.runDay(2);
-        MacroEconomyManager.Snapshot s = MacroEconomyManager.latestSnapshot();
-        assertEquals(0, s.wages(), "没人雇工时工资为 0，福利不算工资");
-        assertTrue(MacroEconomyManager.settlement(alpha.id()).lastIncome() > 0, "福利仍计入收入");
-    }
 }

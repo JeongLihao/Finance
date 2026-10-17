@@ -140,7 +140,6 @@ public final class FinanceConfig {
     // ---- 宏观实体经济 ----
     private static final boolean MACRO_ENABLED_VALUE = true;
     private static final boolean MACRO_LABOR_ENABLED_VALUE = true;
-    private static final boolean MACRO_POLITICS_ENABLED_VALUE = true;
     private static final int MACRO_MIN_POPULATION_VALUE = 5;
     private static final int MACRO_MAX_POPULATION_VALUE = 400;
     private static final int MACRO_GROWTH_MAX_BPS_VALUE = 150;
@@ -151,18 +150,6 @@ public final class FinanceConfig {
     private static final int MACRO_JOBS_PER_LEVEL_VALUE = 10;
     private static final long MACRO_DEFAULT_WAGE_VALUE = 12L;
     private static final long MACRO_BASE_RESERVATION_WAGE_VALUE = 4L;
-    private static final long MACRO_MINIMUM_WAGE_VALUE = 10L;
-    private static final int MACRO_LAW_DEBATE_DAYS_VALUE = 5;
-    private static final long MACRO_LAW_PROPOSAL_FEE_VALUE = 2000L;
-    private static final long MACRO_LOBBY_PER_POINT_VALUE = 1000L;
-    private static final long MACRO_CLOUT_VALUE_SCALE_VALUE = 100L;
-    private static final long MACRO_WELFARE_RELIEF_PER_CAPITA_VALUE = 2L;
-    private static final long MACRO_WELFARE_HEALTH_PER_CAPITA_VALUE = 4L;
-    private static final long MACRO_POOL_RESERVE_FLOOR_VALUE = 1000000L;
-    private static final boolean MACRO_FISCAL_ENABLED_VALUE = true;
-    private static final long MACRO_ADMIN_COST_PER_CAPITA_VALUE = 1L;
-    private static final long MACRO_DEBT_CEILING_VALUE = 200000L;
-    private static final int MACRO_DEBT_SPREAD_BPS_VALUE = 100;
     private static final boolean MACRO_WORLD_FEEDBACK_VALUE = true;
     private static final boolean MACRO_NEWS_ENABLED_VALUE = true;
     private static final int MACRO_NEWS_INTERVAL_DAYS_VALUE = 7;
@@ -326,7 +313,6 @@ public final class FinanceConfig {
     private static final ForgeConfigSpec.IntValue CASH_DAILY_EMERALD_BUY_LIMIT;
     private static final ForgeConfigSpec.BooleanValue MACRO_ENABLED;
     private static final ForgeConfigSpec.BooleanValue MACRO_LABOR_ENABLED;
-    private static final ForgeConfigSpec.BooleanValue MACRO_POLITICS_ENABLED;
     private static final ForgeConfigSpec.IntValue MACRO_MIN_POPULATION;
     private static final ForgeConfigSpec.IntValue MACRO_MAX_POPULATION;
     private static final ForgeConfigSpec.IntValue MACRO_GROWTH_MAX_BPS;
@@ -337,18 +323,6 @@ public final class FinanceConfig {
     private static final ForgeConfigSpec.IntValue MACRO_JOBS_PER_LEVEL;
     private static final ForgeConfigSpec.LongValue MACRO_DEFAULT_WAGE;
     private static final ForgeConfigSpec.LongValue MACRO_BASE_RESERVATION_WAGE;
-    private static final ForgeConfigSpec.LongValue MACRO_MINIMUM_WAGE;
-    private static final ForgeConfigSpec.IntValue MACRO_LAW_DEBATE_DAYS;
-    private static final ForgeConfigSpec.LongValue MACRO_LAW_PROPOSAL_FEE;
-    private static final ForgeConfigSpec.LongValue MACRO_LOBBY_PER_POINT;
-    private static final ForgeConfigSpec.LongValue MACRO_CLOUT_VALUE_SCALE;
-    private static final ForgeConfigSpec.LongValue MACRO_WELFARE_RELIEF_PER_CAPITA;
-    private static final ForgeConfigSpec.LongValue MACRO_WELFARE_HEALTH_PER_CAPITA;
-    private static final ForgeConfigSpec.LongValue MACRO_POOL_RESERVE_FLOOR;
-    private static final ForgeConfigSpec.BooleanValue MACRO_FISCAL_ENABLED;
-    private static final ForgeConfigSpec.LongValue MACRO_ADMIN_COST_PER_CAPITA;
-    private static final ForgeConfigSpec.LongValue MACRO_DEBT_CEILING;
-    private static final ForgeConfigSpec.IntValue MACRO_DEBT_SPREAD_BPS;
     private static final ForgeConfigSpec.BooleanValue MACRO_WORLD_FEEDBACK;
     private static final ForgeConfigSpec.BooleanValue MACRO_NEWS_ENABLED;
     private static final ForgeConfigSpec.IntValue MACRO_NEWS_INTERVAL_DAYS;
@@ -389,6 +363,12 @@ public final class FinanceConfig {
     private static final ForgeConfigSpec.IntValue POLICY_MIN_STEP_BPS;
     private static final ForgeConfigSpec.DoubleValue POLICY_INFLATION_RESPONSE;
     private static final ForgeConfigSpec.DoubleValue POLICY_SLACK_RESPONSE;
+    // ---- 中央银行（物价目标、准备金率、公开市场操作、商品平准） ----
+    private static final ForgeConfigSpec.IntValue CB_INFLATION_TARGET_BPS, CB_INFLATION_BAND_BPS, CB_RESERVE_MIN_BPS,
+            CB_RESERVE_MAX_BPS, CB_RESERVE_STEP_BPS, CB_OMO_MAX_DAILY_BPS, CB_OMO_EXCESS_TARGET_BPS,
+            CB_STABILIZATION_BAND_BPS, CB_STABILIZATION_MAX_DAILY_BPS;
+    private static final ForgeConfigSpec.BooleanValue CB_RESERVE_AUTO, CB_OMO_ENABLED, CB_STABILIZATION_ENABLED;
+    private static final ForgeConfigSpec.DoubleValue CB_OMO_GAP_RESPONSE;
     private static final ForgeConfigSpec.IntValue MAX_BONDS;
     private static final ForgeConfigSpec.LongValue TREASURY_BOND_MIN_AMOUNT;
     private static final ForgeConfigSpec.LongValue TREASURY_BOND_MAX_PER_PLAYER;
@@ -647,6 +627,35 @@ public final class FinanceConfig {
         PLAYER_BANK_DIVIDEND_LEVERAGE_BPS=builder.comment("玩家银行分红后权益不得低于存款总额的比例（基点，默认 800=8%）；防范分红掏空后破产转嫁保险基金。").defineInRange("dividendLeverageBasisPoints",PLAYER_BANK_DIVIDEND_LEVERAGE_BPS_VALUE,0,10_000);
         builder.pop();
 
+        builder.push("centralBank");
+        CB_INFLATION_TARGET_BPS = builder.comment("央行物价目标：年化通胀率（基点），200 = 2%。议息按实际通胀与目标的差距调利率。")
+                .defineInRange("inflationTargetBps", 200, -1000, 2000);
+        CB_INFLATION_BAND_BPS = builder.comment("物价目标的容忍区间（基点）：通胀在目标 ± 该值以内视为物价稳定。")
+                .defineInRange("inflationBandBps", 100, 0, 2000);
+        CB_RESERVE_AUTO = builder.comment("央行是否在议息日自动调整存款准备金率（MANUAL 利率模式下不调）。")
+                .define("reserveRatioAuto", true);
+        CB_RESERVE_MIN_BPS = builder.comment("活期存款准备金率下限（基点）；定期为活期的一半。")
+                .defineInRange("reserveRatioMinBps", 500, 0, 10_000);
+        CB_RESERVE_MAX_BPS = builder.comment("活期存款准备金率上限（基点）。")
+                .defineInRange("reserveRatioMaxBps", 2_000, 0, 10_000);
+        CB_RESERVE_STEP_BPS = builder.comment("每次议息调整准备金率的幅度（基点）。")
+                .defineInRange("reserveRatioStepBps", 50, 1, 1_000);
+        CB_OMO_ENABLED = builder.comment("公开市场操作：央行每天向商业银行卖出或买回央行票据，把超额准备金调向目标。")
+                .define("openMarketEnabled", true);
+        CB_OMO_MAX_DAILY_BPS = builder.comment("单家银行每天公开市场操作上限，占其存款的基点。")
+                .defineInRange("openMarketMaxDailyBps", 200, 0, 10_000);
+        CB_OMO_EXCESS_TARGET_BPS = builder.comment("物价在目标时，商业银行超额准备金的目标（占存款的基点）。")
+                .defineInRange("openMarketExcessTargetBps", 500, 0, 10_000);
+        CB_OMO_GAP_RESPONSE = builder.comment("通胀每高出目标 1 个基点，超额准备金目标下调多少基点（负缺口则上调）。")
+                .defineInRange("openMarketGapResponse", 1.0D, 0.0D, 20.0D);
+        CB_STABILIZATION_ENABLED = builder.comment("商品平准：消费品价格偏离基准价超过区间时，央行用战略储备吞吐商品稳定物价。")
+                .define("stabilizationEnabled", true);
+        CB_STABILIZATION_BAND_BPS = builder.comment("商品平准的价格区间（基点）：中间价偏离基准价超过该比例才出手。")
+                .defineInRange("stabilizationBandBps", 1_500, 100, 10_000);
+        CB_STABILIZATION_MAX_DAILY_BPS = builder.comment("每种商品每天平准数量上限，占国际市场参考库存的基点。")
+                .defineInRange("stabilizationMaxDailyBps", 500, 0, 10_000);
+        builder.pop();
+
         builder.push("financialProducts");
         DEFAULT_BENCHMARK_RATE_BPS = builder
                 .comment("基准年利率，单位为基点；500 表示 5%。修改后只影响新债券和新贷款。")
@@ -680,16 +689,16 @@ public final class FinanceConfig {
                 .comment("单个世界最多保留的公司债券合约数量，超过上限时拒绝新发行。")
                 .defineInRange("maxCorporateBonds", MAX_BONDS_VALUE, 1, 10_000);
         TREASURY_BOND_MIN_AMOUNT = builder
-                .comment("国债起认金额。")
+                .comment("央行债券起认金额。")
                 .defineInRange("treasuryBondMinAmount", TREASURY_BOND_MIN_AMOUNT_VALUE, 1L, Long.MAX_VALUE);
         TREASURY_BOND_MAX_PER_PLAYER = builder
-                .comment("单名玩家国债 ACTIVE 本金合计上限。")
+                .comment("单名玩家央行债券 ACTIVE 本金合计上限。")
                 .defineInRange("treasuryBondMaxPerPlayer", TREASURY_BOND_MAX_PER_PLAYER_VALUE, 0L, Long.MAX_VALUE);
         TREASURY_BOND_MAX_ISSUE_PER_TERM = builder
-                .comment("每期限档国债未到期发行余额上限。")
+                .comment("每期限档央行债券未到期发行余额上限。")
                 .defineInRange("treasuryBondMaxIssuePerTerm", TREASURY_BOND_MAX_ISSUE_PER_TERM_VALUE, 0L, Long.MAX_VALUE);
         TREASURY_BOND_EARLY_FEE = builder
-                .comment("国债提前赎回手续费，从本金扣除且不超过本金。")
+                .comment("央行债券提前赎回手续费，从本金扣除且不超过本金。")
                 .defineInRange("treasuryBondEarlyFee", TREASURY_BOND_EARLY_FEE_VALUE, 0L, Long.MAX_VALUE);
         MAX_LOANS = builder
                 .comment("单个世界最多保留的公司贷款合约数量，超过上限时拒绝新贷款。")
@@ -1078,7 +1087,6 @@ public final class FinanceConfig {
         builder.push("macroEconomy");
         MACRO_ENABLED = builder.comment("宏观实体经济总开关：人口需求类别、聚落本地价格、人口增长与迁移、CPI。关闭后村庄、商队、价格指数回到旧逻辑。").define("enabled", MACRO_ENABLED_VALUE);
         MACRO_LABOR_ENABLED = builder.comment("公司设施是否需要从附近聚落雇工并发工资；关闭后设施按满员生产。").define("laborEnabled", MACRO_LABOR_ENABLED_VALUE);
-        MACRO_POLITICS_ENABLED = builder.comment("利益集团与法律是否生效；关闭后法律固定为默认级别，不能提案。").define("politicsEnabled", MACRO_POLITICS_ENABLED_VALUE);
         MACRO_MIN_POPULATION = builder.comment("聚落人口下限。").defineInRange("minPopulation", MACRO_MIN_POPULATION_VALUE, 1, 10000);
         MACRO_MAX_POPULATION = builder.comment("聚落人口上限。").defineInRange("maxPopulation", MACRO_MAX_POPULATION_VALUE, 1, 10000);
         MACRO_GROWTH_MAX_BPS = builder.comment("生活水平满分或零分时的日人口增减率（基点，150 = 1.5%）。").defineInRange("growthMaxBps", MACRO_GROWTH_MAX_BPS_VALUE, 0, 1000);
@@ -1089,23 +1097,11 @@ public final class FinanceConfig {
         MACRO_JOBS_PER_LEVEL = builder.comment("设施每级提供的岗位数。").defineInRange("jobsPerLevel", MACRO_JOBS_PER_LEVEL_VALUE, 1, 1000);
         MACRO_DEFAULT_WAGE = builder.comment("公司未设定工资时的默认日工资（每人每天）。").defineInRange("defaultWage", MACRO_DEFAULT_WAGE_VALUE, 0L, 1000000L);
         MACRO_BASE_RESERVATION_WAGE = builder.comment("工人接受工作的最低日工资（劳工法可抬高）。").defineInRange("baseReservationWage", MACRO_BASE_RESERVATION_WAGE_VALUE, 0L, 1000000L);
-        MACRO_MINIMUM_WAGE = builder.comment("“最低工资”法律规定的日工资下限。").defineInRange("minimumWage", MACRO_MINIMUM_WAGE_VALUE, 0L, 1000000L);
-        MACRO_LAW_DEBATE_DAYS = builder.comment("法律提案的辩论天数。").defineInRange("lawDebateDays", MACRO_LAW_DEBATE_DAYS_VALUE, 1, 60);
-        MACRO_LAW_PROPOSAL_FEE = builder.comment("发起法律提案的费用（转入 NPC 资金池）。").defineInRange("lawProposalFee", MACRO_LAW_PROPOSAL_FEE_VALUE, 0L, 100000000L);
-        MACRO_LOBBY_PER_POINT = builder.comment("游说时每 +1 满意度需要的捐款。").defineInRange("lobbyPerPoint", MACRO_LOBBY_PER_POINT_VALUE, 1L, 100000000L);
-        MACRO_CLOUT_VALUE_SCALE = builder.comment("资本类利益集团的影响力 = √(价值 / 该值)。").defineInRange("cloutValueScale", MACRO_CLOUT_VALUE_SCALE_VALUE, 1L, 100000000L);
-        MACRO_WELFARE_RELIEF_PER_CAPITA = builder.comment("“济贫法”每人每天从 NPC 资金池拨给聚落的福利。").defineInRange("welfareReliefPerCapita", MACRO_WELFARE_RELIEF_PER_CAPITA_VALUE, 0L, 1000000L);
-        MACRO_WELFARE_HEALTH_PER_CAPITA = builder.comment("“公共卫生”每人每天从 NPC 资金池拨给聚落的福利。").defineInRange("welfareHealthPerCapita", MACRO_WELFARE_HEALTH_PER_CAPITA_VALUE, 0L, 1000000L);
-        MACRO_POOL_RESERVE_FLOOR = builder.comment("NPC 资金池低于该值时停发福利。").defineInRange("poolReserveFloor", MACRO_POOL_RESERVE_FLOOR_VALUE, 0L, Long.MAX_VALUE);
-        MACRO_FISCAL_ENABLED = builder.comment("国家财政：国库收税（利润税、关税）、付行政开支和福利、赤字时向央行借款。关闭后福利回到由 NPC 资金池支付。").define("fiscalEnabled", MACRO_FISCAL_ENABLED_VALUE);
-        MACRO_ADMIN_COST_PER_CAPITA = builder.comment("国库每人每天的行政开支（转入 NPC 资金池）。").defineInRange("adminCostPerCapita", MACRO_ADMIN_COST_PER_CAPITA_VALUE, 0L, 1000000L);
-        MACRO_DEBT_CEILING = builder.comment("国库向央行借款的债务上限；到上限后付不起的开支停发（紧缩）。").defineInRange("debtCeiling", MACRO_DEBT_CEILING_VALUE, 0L, Long.MAX_VALUE);
-        MACRO_DEBT_SPREAD_BPS = builder.comment("国库债务利率 = 基准利率 + 该点差（基点）。").defineInRange("debtSpreadBps", MACRO_DEBT_SPREAD_BPS_VALUE, 0, 10000);
         MACRO_WORLD_FEEDBACK = builder.comment("宏观经济的世界反馈：聚落心情粒子与村民抱怨、罢工工厂冒烟、商队到货烟花、议会/罢工/饥荒全服公告。只影响表现，不影响数值。").define("worldFeedback", MACRO_WORLD_FEEDBACK_VALUE);
         MACRO_NEWS_ENABLED = builder.comment("《金融周报》与号外：每周汇总经济大事，到贸易站或用 /macro news 领取。").define("newsEnabled", MACRO_NEWS_ENABLED_VALUE);
         MACRO_NEWS_INTERVAL_DAYS = builder.comment("周报出刊间隔（MC 天）。").defineInRange("newsIntervalDays", MACRO_NEWS_INTERVAL_DAYS_VALUE, 1, 365);
         MACRO_NEWS_EXTRA_GAP_DAYS = builder.comment("两期号外之间的最短间隔（MC 天）。").defineInRange("newsExtraGapDays", MACRO_NEWS_EXTRA_GAP_DAYS_VALUE, 1, 365);
-        MACRO_RADAR_COST = builder.comment("一次商情调查（/macro radar）的费用，进国库。").defineInRange("radarCost", MACRO_RADAR_COST_VALUE, 0L, 100000000L);
+        MACRO_RADAR_COST = builder.comment("一次商情调查（/macro radar 或“更多操作”）的费用，进 NPC 资金池。").defineInRange("radarCost", MACRO_RADAR_COST_VALUE, 0L, 100000000L);
         MACRO_RADAR_COOLDOWN_DAYS = builder.comment("同一玩家两次商情调查的最短间隔（MC 天）。").defineInRange("radarCooldownDays", MACRO_RADAR_COOLDOWN_DAYS_VALUE, 0, 365);
         builder.pop();
 
@@ -1478,10 +1474,24 @@ public final class FinanceConfig {
         };
     }
 
+    // ---- 中央银行 ----
+    public static int cbInflationTargetBps() { return getInt(CB_INFLATION_TARGET_BPS, 200); }
+    public static int cbInflationBandBps() { return getInt(CB_INFLATION_BAND_BPS, 100); }
+    public static boolean cbReserveAuto() { return getBoolean(CB_RESERVE_AUTO, true); }
+    public static int cbReserveMinBps() { return getInt(CB_RESERVE_MIN_BPS, 500); }
+    public static int cbReserveMaxBps() { return Math.max(cbReserveMinBps(), getInt(CB_RESERVE_MAX_BPS, 2_000)); }
+    public static int cbReserveStepBps() { return getInt(CB_RESERVE_STEP_BPS, 50); }
+    public static boolean cbOmoEnabled() { return getBoolean(CB_OMO_ENABLED, true); }
+    public static int cbOmoMaxDailyBps() { return getInt(CB_OMO_MAX_DAILY_BPS, 200); }
+    public static int cbOmoExcessTargetBps() { return getInt(CB_OMO_EXCESS_TARGET_BPS, 500); }
+    public static double cbOmoGapResponse() { return getDouble(CB_OMO_GAP_RESPONSE, 1.0D); }
+    public static boolean cbStabilizationEnabled() { return getBoolean(CB_STABILIZATION_ENABLED, true); }
+    public static int cbStabilizationBandBps() { return getInt(CB_STABILIZATION_BAND_BPS, 1_500); }
+    public static int cbStabilizationMaxDailyBps() { return getInt(CB_STABILIZATION_MAX_DAILY_BPS, 500); }
+
     // ---- 宏观实体经济 ----
     public static boolean macroEnabled() { return getBoolean(MACRO_ENABLED, MACRO_ENABLED_VALUE); }
     public static boolean macroLaborEnabled() { return getBoolean(MACRO_LABOR_ENABLED, MACRO_LABOR_ENABLED_VALUE); }
-    public static boolean macroPoliticsEnabled() { return getBoolean(MACRO_POLITICS_ENABLED, MACRO_POLITICS_ENABLED_VALUE); }
     public static int macroMinPopulation() { return getInt(MACRO_MIN_POPULATION, MACRO_MIN_POPULATION_VALUE); }
     public static int macroMaxPopulation() { return getInt(MACRO_MAX_POPULATION, MACRO_MAX_POPULATION_VALUE); }
     public static int macroGrowthMaxBps() { return getInt(MACRO_GROWTH_MAX_BPS, MACRO_GROWTH_MAX_BPS_VALUE); }
@@ -1492,18 +1502,6 @@ public final class FinanceConfig {
     public static int macroJobsPerLevel() { return getInt(MACRO_JOBS_PER_LEVEL, MACRO_JOBS_PER_LEVEL_VALUE); }
     public static long macroDefaultWage() { return getLong(MACRO_DEFAULT_WAGE, MACRO_DEFAULT_WAGE_VALUE); }
     public static long macroBaseReservationWage() { return getLong(MACRO_BASE_RESERVATION_WAGE, MACRO_BASE_RESERVATION_WAGE_VALUE); }
-    public static long macroMinimumWage() { return getLong(MACRO_MINIMUM_WAGE, MACRO_MINIMUM_WAGE_VALUE); }
-    public static int macroLawDebateDays() { return getInt(MACRO_LAW_DEBATE_DAYS, MACRO_LAW_DEBATE_DAYS_VALUE); }
-    public static long macroLawProposalFee() { return getLong(MACRO_LAW_PROPOSAL_FEE, MACRO_LAW_PROPOSAL_FEE_VALUE); }
-    public static long macroLobbyPerPoint() { return getLong(MACRO_LOBBY_PER_POINT, MACRO_LOBBY_PER_POINT_VALUE); }
-    public static long macroCloutValueScale() { return getLong(MACRO_CLOUT_VALUE_SCALE, MACRO_CLOUT_VALUE_SCALE_VALUE); }
-    public static long macroWelfareReliefPerCapita() { return getLong(MACRO_WELFARE_RELIEF_PER_CAPITA, MACRO_WELFARE_RELIEF_PER_CAPITA_VALUE); }
-    public static long macroWelfareHealthPerCapita() { return getLong(MACRO_WELFARE_HEALTH_PER_CAPITA, MACRO_WELFARE_HEALTH_PER_CAPITA_VALUE); }
-    public static long macroPoolReserveFloor() { return getLong(MACRO_POOL_RESERVE_FLOOR, MACRO_POOL_RESERVE_FLOOR_VALUE); }
-    public static boolean macroFiscalEnabled() { return getBoolean(MACRO_FISCAL_ENABLED, MACRO_FISCAL_ENABLED_VALUE); }
-    public static long macroAdminCostPerCapita() { return getLong(MACRO_ADMIN_COST_PER_CAPITA, MACRO_ADMIN_COST_PER_CAPITA_VALUE); }
-    public static long macroDebtCeiling() { return getLong(MACRO_DEBT_CEILING, MACRO_DEBT_CEILING_VALUE); }
-    public static int macroDebtSpreadBps() { return getInt(MACRO_DEBT_SPREAD_BPS, MACRO_DEBT_SPREAD_BPS_VALUE); }
     public static boolean macroWorldFeedback() { return getBoolean(MACRO_WORLD_FEEDBACK, MACRO_WORLD_FEEDBACK_VALUE); }
     public static boolean macroNewsEnabled() { return getBoolean(MACRO_NEWS_ENABLED, MACRO_NEWS_ENABLED_VALUE); }
     public static int macroNewsIntervalDays() { return getInt(MACRO_NEWS_INTERVAL_DAYS, MACRO_NEWS_INTERVAL_DAYS_VALUE); }

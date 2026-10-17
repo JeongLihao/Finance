@@ -52,10 +52,12 @@ class PolicyRateTest {
 
     @Test
     void noiseBelowMinStepHolds() {
-        // 0.01% 的月度波动 → 年化约 0.12%，缺口 18bps < 25 → 维持
-        PolicyRuleService.Evaluation e = PolicyRuleService.evaluate(500, 100.01, 100.0, 0.0);
+        // 通胀正好落在央行目标附近（再加 0.01% 的月度噪音）→ 缺口小于最小调整单位 → 维持
+        double atTarget = 100.0 * (1 + finance.config.FinanceConfig.cbInflationTargetBps() / 10_000.0 * 30.0 / 365.0);
+        int neutral = finance.config.FinanceConfig.policyNeutralRateBps();
+        PolicyRuleService.Evaluation e = PolicyRuleService.evaluate(neutral, atTarget + 0.01, 100.0, 0.0);
         assertEquals(PolicyRuleService.Direction.HOLD, e.direction());
-        assertEquals(500, e.recommendedBps());
+        assertEquals(neutral, e.recommendedBps());
     }
 
     @Test

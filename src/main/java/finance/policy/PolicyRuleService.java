@@ -5,7 +5,7 @@ import finance.config.FinanceConfig;
 /**
  * 基准利率政策规则 —— 纯函数，不触碰世界状态，可单测。
  *
- * <p>类 Taylor 规则：目标利率 = 中性利率 ＋ a×通胀缺口 − b×衰退指标，
+ * <p>类 Taylor 规则：目标利率 = 中性利率 ＋ a×(通胀 − 物价目标) − b×衰退指标，
  * 再经单次步长钳制与上下限钳制。噪音（缺口小于最小调整单位）直接维持。</p>
  */
 public final class PolicyRuleService {
@@ -44,8 +44,9 @@ public final class PolicyRuleService {
         int neutral = FinanceConfig.policyNeutralRateBps();
         double a = FinanceConfig.policyInflationResponse();
         double b = FinanceConfig.policySlackResponse();
-        // 通胀缺口单位：基点（2% 通胀 = 200bps）；衰退单位：基点（10% 占比 = 1000bps）
-        long target = Math.round(neutral + a * inflation * 100.0 - b * slack * 10_000.0);
+        // 通胀缺口 = 实际通胀 − 央行物价目标，单位基点（高出目标 1% = 100bps）；衰退单位：基点（10% 占比 = 1000bps）
+        double gapBps = inflation * 100.0 - FinanceConfig.cbInflationTargetBps();
+        long target = Math.round(neutral + a * gapBps - b * slack * 10_000.0);
         int min = FinanceConfig.minBenchmarkRateBasisPoints();
         int max = FinanceConfig.maxBenchmarkRateBasisPoints();
         int targetClamped = (int) Math.min(max, Math.max(min, target));
@@ -66,7 +67,8 @@ public final class PolicyRuleService {
         }
 
         String explanation = String.format(java.util.Locale.ROOT,
-                "通胀%.2f%%/衰退%.1f%%/目标%d基点", inflation, slack * 100.0, targetClamped);
+                "通胀%.2f%%（目标%.2f%%）/衰退%.1f%%/目标利率%d基点", inflation,
+                FinanceConfig.cbInflationTargetBps() / 100.0, slack * 100.0, targetClamped);
         return new Evaluation(currentBps, inflation, slack, targetClamped,
                 recommended, direction, explanation);
     }

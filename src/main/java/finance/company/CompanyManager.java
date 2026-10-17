@@ -109,8 +109,6 @@ public class CompanyManager {
 
     public static void settleDailyProfits(long mcDay) {
         for (Company c : COMPANIES.values()) {
-            // 国家财政：结算前按税制扣缴利润税（宏观经济或财政关闭时不扣）
-            finance.macro.MacroFiscalService.collectProfitTax(c);
             c.settleDailyProfits(mcDay);
         }
         EconomySavedData.markDirty();

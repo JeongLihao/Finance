@@ -27,10 +27,10 @@
 | NPC 投资者注资 | NPC 资金池 → NPC 投资者账户（`NPC_INVESTOR_FUNDING`） | 资金池扣除后不低于 `poolReserveFloor`；投资者账户先以系统账户建立，不领新手资金 | 同一 MC 日只执行一次；资金池不足时跳过，不透支 |
 | NPC 残差配售 | NPC 投资者资金 → 销毁（`NPC_FLOAT_PLACEMENT`，显式去向）；系统流动性残差 → 投资者持仓 | 仅 NPC 投资者账户；残差股本核对一致且足量；单原型、NPC 合计、每日成交三道上限 | 先扣款再入持仓，入持仓失败退款；配售款不付给公司（IPO 已按全部发行量铸造募资） |
 | 宏观经济工资 | 公司现金 → 聚落预算账户（`MACRO_WAGE`） | 按工资只雇付得起的人数；存款失败退回公司 | 同一 MC 日只招工发薪一次 |
-| 宏观经济福利/回流 | NPC 资金池 ⇄ 聚落预算账户（`MACRO_WELFARE` / `MACRO_VILLAGE_SPENDING`） | 福利在资金池低于 `poolReserveFloor` 时停发；回流只转出超过补足上限两倍的部分 | 日结幂等标记 `LastProcessedDay` |
-| 政治捐款 | 玩家 → NPC 资金池（`MACRO_POLITICS`） | 余额足够才扣；游说只收整点金额 | 一次提案或一次游说一笔流水 |
-| 国家财政收入 | 公司现金 → 国库（`MACRO_TAX`）；NPC 资金池 → 国库（`MACRO_TARIFF`） | 税额不超过公司现金；关税只取含税价与不含税价之差 | 利润税随日利润结算一次；关税随每笔行商成交一次 |
-| 国家财政支出与债务 | 国库 → NPC 资金池 / 聚落预算 / 央行（`MACRO_ADMIN` / `MACRO_WELFARE` / `MACRO_DEBT_INTEREST`）；央行 ⇄ 国库（`MACRO_DEBT_BORROW` / `MACRO_DEBT_REPAY`） | 借款受 `debtCeiling` 约束；央行准备金不足时的增发显式记 `MACRO_DEBT_ISSUANCE` | 国库日结标记 `Fiscal.LastDay`，同一天只付一次 |
+| 宏观经济回流 | 聚落预算账户 → NPC 资金池（`MACRO_VILLAGE_SPENDING`） | 只转出超过补足上限两倍的部分 | 日结幂等标记 `LastProcessedDay` |
+| 央行商品平准 | 央行 ⇄ 国际市场：商品在两边库存之间转移，货款按市价反向转移（`CENTRAL_BANK_STABILIZATION`） | 卖出只动央行已有储备，国际市场付不起的部分央行不收；收储时央行余额不足先扩表；市场库存低于参考量一半不收 | 每种商品每天一次，数量不超过参考库存的 `stabilizationMaxDailyBps` |
+| 公开市场操作 | 商业银行总账内：准备金 ⇄ 央行票据（`ASSET_BOND`）或回购款（`LIABILITY_CENTRAL_BANK`），不经过玩家钱包 | 只吸收超额准备金；回购只借给权益为正的银行；每行每天不超过存款的 `openMarketMaxDailyBps` | 引用号按银行 + 动作 + 日期确定，同一天不重复记账 |
+| 旧国库并入 | 旧国库账户 → 央行（`LEGACY_TREASURY_MERGE`） | 只转移国库现有余额，国库对央行的债务注销 | 余额为 0 后不再执行 |
 | 商队进口实物 | 抽象市场 → 目的地聚落托管 | 聚落托管只能被人口消费，玩家无法提取 | 每趟货运结算一次（与卖出货款同一次） |
 | NPC 竞争公司新建 | NPC 资金池 → 新公司现金（`RIVAL_SEED`） | 无主公司数低于上限、冷却期已过、资金池扣除后不低于 `poolReserveFloor` | 先扣资金池再入公司，入账失败退回；同一 MC 日只执行一次 |
 | NPC 竞争公司升级 | 公司现金 → NPC 资金池（`RIVAL_UPGRADE`，视为采购建材） | 现金 ≥ 升级费 × 人格倍数、距上次升级 ≥ 7 天 | 升级失败退回公司现金 |

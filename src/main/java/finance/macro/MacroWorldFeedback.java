@@ -37,9 +37,8 @@ import java.util.UUID;
  *
  * <ul>
  *   <li>环境效果（每 {@value #AMBIENT_INTERVAL} tick，只处理已加载且附近有玩家的贸易站和工厂）：
- *       生活好的聚落冒开心粒子，挨饿或骚乱的聚落冒愤怒粒子，村民在动作栏抱怨最缺的东西；
- *       罢工时工厂冒浓烟、村民摇头，缺人的工厂冒烟。</li>
- *   <li>全服公告（议会表决、罢工/骚乱开始与结束、饥荒开始与结束、国库紧缩）：先进队列，
+ *       生活好的聚落冒开心粒子，挨饿的聚落冒愤怒粒子，村民在动作栏抱怨最缺的东西；缺人的工厂冒烟。</li>
+ *   <li>全服公告（饥荒开始与结束）：先进队列，
  *       下一个服务器 tick 统一发出并配钟声或号角音效。</li>
  *   <li>商队到货：目的地贸易站放一枚烟花并敲钟，在线的商队主人收到盈亏消息。</li>
  * </ul>
@@ -62,10 +61,7 @@ public final class MacroWorldFeedback {
     private static final ArrayDeque<Announcement> QUEUE = new ArrayDeque<>();
     private static final LinkedHashMap<String, Long> COMPLAINTS = new LinkedHashMap<>();
     private static final Map<UUID, Boolean> FAMINE = new HashMap<>();
-    private static boolean lastStrike;
-    private static boolean lastUnrest;
-    private static boolean lastAusterity;
-    /** 开服后的第一次日结只记基线、不发公告，避免把重启前就存在的罢工、饥荒再公告一遍。 */
+    /** 开服后的第一次日结只记基线、不发公告，避免把重启前就存在的饥荒再公告一遍。 */
     private static boolean primed;
 
     private MacroWorldFeedback() { }
@@ -91,23 +87,7 @@ public final class MacroWorldFeedback {
     static void onDayClosed() {
         // 报社和视觉反馈各自有开关：两者都关时才不必追踪状态翻转
         if (!enabled() && !NewsService.enabled()) return;
-        boolean politics = FinanceConfig.macroPoliticsEnabled();
-        boolean strike = politics && MacroEconomyManager.strike();
-        boolean unrest = politics && MacroEconomyManager.unrest();
-        boolean austerity = MacroFiscalService.active() && Treasury.austerity();
         boolean speak = primed;
-        if (speak && strike != lastStrike) {
-            if (strike) news(80, "工人大罢工！", "工会满意度跌破底线，工人放下工具，雇工产量减半。提高工资或改善劳工法才能让他们回来。", true);
-            else news(35, "罢工落幕，工人复工", "工会情绪缓和，工厂恢复生产。", false);
-        }
-        if (speak && unrest != lastUnrest) {
-            if (unrest) news(70, "民众走上街头", "乡村民众和小资产阶级的不满爆发，人口增长放缓，有人开始离开。", true);
-            else news(35, "街头恢复平静", "抗议平息，生活回到正轨。", false);
-        }
-        lastStrike = strike;
-        lastUnrest = unrest;
-        if (speak && austerity && !lastAusterity) news(75, "国库见底，福利停发", "国库债务触及上限，政府开始紧缩，福利停止发放。", true);
-        lastAusterity = austerity;
         for (SettlementEconomy econ : MacroEconomyManager.settlements()) {
             Double food = econ.lastFulfilment.get(NeedCategory.FOOD);
             if (food == null) continue;
@@ -121,14 +101,6 @@ public final class MacroWorldFeedback {
             FAMINE.put(econ.settlementId, famine);
         }
         primed = true;
-    }
-
-    /** 法律表决结束（PoliticsService 调用）。 */
-    static void onLawResolved(LawLevel level, boolean passed, long support, long opposition) {
-        if ((!enabled() && !NewsService.enabled()) || level == null) return;
-        String what = level.group().displayName() + "改为「" + level.displayName() + "」";
-        if (passed) news(70, "议会通过：" + what, String.format("支持 %d，反对 %d。新法律即日生效。", support, opposition), true);
-        else news(50, "法案受挫：" + what + "被否决", String.format("支持 %d，反对 %d。", support, opposition), true);
     }
 
     /**
@@ -187,8 +159,7 @@ public final class MacroWorldFeedback {
         long time = server.overworld().getGameTime();
         if (time % AMBIENT_INTERVAL != 0) return;
         for (SettlementEconomy econ : MacroEconomyManager.settlements()) ambientSettlement(server, econ, time);
-        boolean strike = FinanceConfig.macroPoliticsEnabled() && MacroEconomyManager.strike();
-        for (CompanyFacilityRecord facility : CompanyFacilityManager.all()) ambientFacility(server, facility, strike, time);
+        for (CompanyFacilityRecord facility : CompanyFacilityManager.all()) ambientFacility(server, facility);
     }
 
     private static void flush(MinecraftServer server) {
@@ -231,12 +202,11 @@ public final class MacroWorldFeedback {
         }
     }
 
-    private static void ambientFacility(MinecraftServer server, CompanyFacilityRecord facility, boolean strike, long time) {
+    private static void ambientFacility(MinecraftServer server, CompanyFacilityRecord facility) {
         // 缺工人和缺设备都是所有者可控的停产，沿用同一种冒烟表现
         boolean understaffed = facility.status() == CompanyFacilityStatus.UNDERSTAFFED
                 || facility.status() == CompanyFacilityStatus.EQUIPMENT_MISSING;
-        boolean striking = strike && MacroLaborService.active() && MacroEconomyManager.employment(facility.facilityId()) > 0;
-        if (!understaffed && !striking) {
+        if (!understaffed) {
             // 运转表现：生产中的工厂，厂区里被计入的设备偶尔冒工作粒子
             if (facility.status() == CompanyFacilityStatus.ACTIVE) {
                 ServerLevel level = level(server, facility.dimensionId());
@@ -249,15 +219,7 @@ public final class MacroWorldFeedback {
         ServerLevel level = level(server, facility.dimensionId());
         BlockPos pos = facility.blockPos();
         if (level == null || !level.isLoaded(pos) || !anyPlayerNear(level, pos, NEAR)) return;
-        particles(level, pos, striking ? ParticleTypes.CAMPFIRE_COSY_SMOKE : ParticleTypes.SMOKE, striking ? 2 : 4);
-        if (striking && time % (AMBIENT_INTERVAL * 3) == 0) {
-            level.playSound(null, pos, SoundEvents.VILLAGER_NO, SoundSource.NEUTRAL, 0.8f, 0.8f);
-            for (ServerPlayer p : level.players()) {
-                if (p.distanceToSqr(pos.getX() + .5, pos.getY() + .5, pos.getZ() + .5) <= NEAR * NEAR) {
-                    p.displayClientMessage(Component.translatable("finance.macro.factory_strike"), true);
-                }
-            }
-        }
+        particles(level, pos, ParticleTypes.SMOKE, 4);
     }
 
     // ================================================================ 判定（纯函数，便于测试）
@@ -267,15 +229,14 @@ public final class MacroWorldFeedback {
     static Mood mood(SettlementEconomy econ) {
         if (econ == null) return Mood.CALM;
         Double food = econ.lastFulfilment.get(NeedCategory.FOOD);
-        if (econ.unrest || (food != null && food < FAMINE_LINE)) return Mood.ANGRY;
+        if (food != null && food < FAMINE_LINE) return Mood.ANGRY;
         if (econ.solBps >= HAPPY_SOL) return Mood.HAPPY;
         return Mood.CALM;
     }
 
-    /** 村民该抱怨什么：骚乱 → 要上街；否则满足率最低且低于 60% 的类别；过得好时偶尔夸两句；都不满足返回 null。 */
+    /** 村民该抱怨什么：满足率最低且低于 60% 的类别；过得好时偶尔夸两句；都不满足返回 null。 */
     static String complaintKey(SettlementEconomy econ) {
         if (econ == null) return null;
-        if (econ.unrest) return "finance.macro.complaint.unrest";
         NeedCategory worst = null;
         double worstValue = 0.6;
         for (NeedCategory c : NeedCategory.values()) {
@@ -312,9 +273,6 @@ public final class MacroWorldFeedback {
         QUEUE.clear();
         COMPLAINTS.clear();
         FAMINE.clear();
-        lastStrike = false;
-        lastUnrest = false;
-        lastAusterity = false;
         primed = false;
     }
 }

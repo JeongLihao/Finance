@@ -14,7 +14,7 @@ import java.math.BigInteger;
 import java.util.*;
 
 /**
- * 国债管理器 —— 央行长期限无风险债券（30/90/180 天），玩家认购持有到期。
+ * 央行债券管理器 —— 央行长期限无风险债券（30/90/180 天），玩家认购持有到期。
  *
  * <p>与央行票据的区别：期限更长、利率更高（期限溢价单调递增）、支持提前赎回
  * （仅返还本金，利息全额罚没）。收益率 = 基准利率 ＋ 期限溢价，认购瞬间锁定。</p>
@@ -27,7 +27,8 @@ public final class TreasuryBondManager {
     private static final Logger LOGGER = LogUtils.getLogger();
     public static final int MAX_BONDS = 4_096;
     /** 期限白名单（MC 天），与票据/定存错开定位；有意写死，期限相关的耗时/数值参数走 config。 */
-    private static final Set<Integer> TERMS = Set.of(30, 90, 180);
+    public static final java.util.List<Integer> TERM_DAYS = java.util.List.of(30, 90, 180);
+    private static final Set<Integer> TERMS = Set.copyOf(TERM_DAYS);
     private static final Map<UUID, TreasuryBond> BONDS = new LinkedHashMap<>();
     private static long cumulativeIssuance;
     private static long lastIssuance;
@@ -36,8 +37,8 @@ public final class TreasuryBondManager {
 
     public static Result subscribe(UUID playerId, int termDays, long principal, long currentDay) {
         if (playerId == null || playerId.equals(CentralBank.UUID) || !TERMS.contains(termDays)
-                || principal <= 0 || currentDay < 0) return Result.fail("国债认购参数无效");
-        if (principal < FinanceConfig.treasuryBondMinAmount()) return Result.fail("国债未达起认金额");
+                || principal <= 0 || currentDay < 0) return Result.fail("央行债券认购参数无效");
+        if (principal < FinanceConfig.treasuryBondMinAmount()) return Result.fail("央行债券未达起认金额");
         long maturity;
         try { maturity = Math.addExact(currentDay, termDays); }
         catch (ArithmeticException ignored) { return Result.fail("到期日溢出"); }
@@ -45,48 +46,48 @@ public final class TreasuryBondManager {
         long playerActive = activePrincipalByPlayer(playerId);
         if (playerActive > Long.MAX_VALUE - principal
                 || playerActive + principal > FinanceConfig.treasuryBondMaxPerPlayer())
-            return Result.fail("国债已达个人持有上限");
+            return Result.fail("央行债券已达个人持有上限");
         // 分期限档发行余额上限
         long termOutstanding = outstandingByTerm(termDays);
         if (termOutstanding > Long.MAX_VALUE - principal
                 || termOutstanding + principal > FinanceConfig.treasuryBondMaxIssuePerTerm())
-            return Result.fail("本期限国债发行额度已满");
+            return Result.fail("本期限央行债券发行额度已满");
         int rate = YieldCurveService.treasuryYieldBasisPoints(termDays);
-        if (rate <= 0) return Result.fail("国债收益率异常");
+        if (rate <= 0) return Result.fail("央行债券收益率异常");
         TreasuryBond bond = BONDS.values().stream().filter(b -> b.status() == TreasuryBondStatus.ACTIVE
                 && b.issueDay() == currentDay && b.termDays() == termDays).findFirst().orElse(null);
         if (bond == null) {
-            if (BONDS.size() >= MAX_BONDS) return Result.fail("国债数量达到上限");
+            if (BONDS.size() >= MAX_BONDS) return Result.fail("央行债券数量达到上限");
             bond = new TreasuryBond(UUID.randomUUID(), termDays, rate, currentDay, maturity, TreasuryBondStatus.ACTIVE);
             BONDS.put(bond.id(), bond);
         }
         long old = bond.principalByPlayer().getOrDefault(playerId, 0L);
         if (old > Long.MAX_VALUE - principal || !AccountManager.moveFunds(playerId, CentralBank.UUID, principal)) {
             if (bond.principalByPlayer().isEmpty()) BONDS.remove(bond.id());
-            return Result.fail("资金不足或国债持仓溢出");
+            return Result.fail("资金不足或央行债券持仓溢出");
         }
         if (!bond.addPrincipal(playerId, principal)) {
             AccountManager.moveFunds(CentralBank.UUID, playerId, principal);
             if (bond.principalByPlayer().isEmpty()) BONDS.remove(bond.id());
-            return Result.fail("国债持仓结算失败");
+            return Result.fail("央行债券持仓结算失败");
         }
         // 审计 quantity 统一为 0：资金划转无物品数量概念（见 TransactionRecord 文档）
         AccountManager.addTransactionRecord(new TransactionRecord(playerId, CentralBank.UUID, principal,
-                TransactionType.TREASURY_BOND_SUBSCRIBE, playerId, "国债/" + termDays + "日", 0));
+                TransactionType.TREASURY_BOND_SUBSCRIBE, playerId, "央行债券/" + termDays + "日", 0));
         EconomySavedData.markDirty();
-        return Result.ok(bond.id(), "国债认购成功");
+        return Result.ok(bond.id(), "央行债券认购成功");
     }
 
     /**
      * 提前赎回：仅返还本金（扣除手续费），已计利息全额罚没，恒无利可图。
      */
     public static Result earlyRedeem(UUID playerId, UUID bondId, long currentDay) {
-        if (playerId == null || bondId == null || currentDay < 0) return Result.fail("国债赎回参数无效");
+        if (playerId == null || bondId == null || currentDay < 0) return Result.fail("央行债券赎回参数无效");
         TreasuryBond bond = BONDS.get(bondId);
-        if (bond == null || bond.status() != TreasuryBondStatus.ACTIVE) return Result.fail("国债不存在或已到期");
+        if (bond == null || bond.status() != TreasuryBondStatus.ACTIVE) return Result.fail("央行债券不存在或已到期");
         long principal = bond.removePrincipal(playerId);
         // removePrincipal 仅返回 -1（无持仓）或 >0（持仓本金恒 >0），==0 不可达
-        if (principal <= 0) return Result.fail("未持有该国债");
+        if (principal <= 0) return Result.fail("未持有该央行债券");
         long fee = Math.min(Math.max(0L, FinanceConfig.treasuryBondEarlyFee()), principal);
         long payout = principal - fee;
         if (payout > 0 && !AccountManager.canDeposit(playerId, payout)) {
@@ -96,13 +97,13 @@ public final class TreasuryBondManager {
         // P1-7：payout==0（手续费吃掉全部本金）时跳过转账直接视为成功，手续费留存央行
         if (payout > 0 && !AccountManager.moveFunds(CentralBank.UUID, playerId, payout)) {
             bond.putPrincipalDirect(playerId, principal);
-            return Result.fail("国债赎回结算失败");
+            return Result.fail("央行债券赎回结算失败");
         }
         if (bond.principalByPlayer().isEmpty()) BONDS.remove(bond.id());
         AccountManager.addTransactionRecord(new TransactionRecord(CentralBank.UUID, playerId, payout,
-                TransactionType.TREASURY_BOND_EARLY_REDEEM, playerId, "国债提前赎回/" + bond.termDays() + "日", 0));
+                TransactionType.TREASURY_BOND_EARLY_REDEEM, playerId, "央行债券提前赎回/" + bond.termDays() + "日", 0));
         EconomySavedData.markDirty();
-        return Result.ok(bondId, fee > 0 ? "国债提前赎回完成，已扣除手续费" : "国债提前赎回完成，仅返还本金");
+        return Result.ok(bondId, fee > 0 ? "央行债券提前赎回完成，已扣除手续费" : "央行债券提前赎回完成，仅返还本金");
     }
 
     public static void processDay(long day) {
@@ -127,7 +128,7 @@ public final class TreasuryBondManager {
             if (amount <= 0 || !AccountManager.canDeposit(holding.getKey(), amount)) {
                 // 单个持有人暂时无法兑付：跳过，份额留待次日重试，不拖死整只债券
                 skipped++;
-                LOGGER.warn("国债 {} 持有人 {} 本期跳过兑付（份额留待次日）", bond.id(), holding.getKey());
+                LOGGER.warn("央行债券 {} 持有人 {} 本期跳过兑付（份额留待次日）", bond.id(), holding.getKey());
                 continue;
             }
             payouts.put(holding.getKey(), amount); total = total.add(due);
@@ -143,13 +144,13 @@ public final class TreasuryBondManager {
                 boolean rollbackOk = true;
                 for (Map.Entry<UUID, Long> rollback : paid) {
                     if (!AccountManager.moveFunds(rollback.getKey(), CentralBank.UUID, rollback.getValue())) {
-                        LOGGER.error("国债兑付回滚失败：债券 {} 持有人 {} 已收款 {} 无法追回，暂停自动重试",
+                        LOGGER.error("央行债券兑付回滚失败：债券 {} 持有人 {} 已收款 {} 无法追回，暂停自动重试",
                                 bond.id(), rollback.getKey(), rollback.getValue());
                         rollbackOk = false;
                     }
                 }
                 if (issuance > 0 && !AccountManager.withdraw(CentralBank.UUID, issuance)) {
-                    LOGGER.error("国债兑付回滚失败：债券 {} 缺口投放 {} 无法收回，暂停自动重试", bond.id(), issuance);
+                    LOGGER.error("央行债券兑付回滚失败：债券 {} 缺口投放 {} 无法收回，暂停自动重试", bond.id(), issuance);
                     rollbackOk = false;
                 }
                 if (!rollbackOk) {
@@ -157,7 +158,7 @@ public final class TreasuryBondManager {
                     bond.setStatus(TreasuryBondStatus.SETTLEMENT_FAILED);
                     AccountManager.addTransactionRecord(new TransactionRecord(CentralBank.UUID, CentralBank.UUID, 0,
                             TransactionType.TREASURY_BOND_MATURITY, CentralBank.UUID,
-                            "国债兑付异常/暂停自动重试:" + bond.id(), 0));
+                            "央行债券兑付异常/暂停自动重试:" + bond.id(), 0));
                     EconomySavedData.markDirty();
                 }
                 return false;
@@ -168,11 +169,11 @@ public final class TreasuryBondManager {
             cumulativeIssuance = MathUtil.saturatedAddNonNegative(cumulativeIssuance, issuance);
             lastIssuance = issuance; lastIssuanceDay = day;
             AccountManager.addTransactionRecord(new TransactionRecord(CentralBank.UUID, CentralBank.UUID, issuance,
-                    TransactionType.CENTRAL_BANK_MONETARY_ISSUE, CentralBank.UUID, "国债兑付缺口投放", 0));
+                    TransactionType.CENTRAL_BANK_MONETARY_ISSUE, CentralBank.UUID, "央行债券兑付缺口投放", 0));
         }
         for (Map.Entry<UUID, Long> payout : payouts.entrySet()) {
             AccountManager.addTransactionRecord(new TransactionRecord(CentralBank.UUID, payout.getKey(), payout.getValue(),
-                    TransactionType.TREASURY_BOND_MATURITY, payout.getKey(), "国债到期/" + bond.termDays() + "日", 0));
+                    TransactionType.TREASURY_BOND_MATURITY, payout.getKey(), "央行债券到期/" + bond.termDays() + "日", 0));
             bond.removePrincipal(payout.getKey());
         }
         if (bond.principalByPlayer().isEmpty()) {
@@ -180,7 +181,7 @@ public final class TreasuryBondManager {
             bond.setStatus(TreasuryBondStatus.MATURED);
             BONDS.remove(bond.id());
         } else {
-            LOGGER.warn("国债 {} 本期部分兑付：{} 人已兑付，{} 人份额留待次日", bond.id(), payouts.size(), skipped);
+            LOGGER.warn("央行债券 {} 本期部分兑付：{} 人已兑付，{} 人份额留待次日", bond.id(), payouts.size(), skipped);
         }
         EconomySavedData.markDirty(); return true;
     }
@@ -228,7 +229,7 @@ public final class TreasuryBondManager {
         if (bond == null) return;
         if (BONDS.size() >= MAX_BONDS) {
             // P1-8：超 cap 丢弃必须留痕（该债券的认购审计见 TransactionRecord）
-            LOGGER.warn("国债注册表已满（{}），数据恢复时丢弃债券 {}", MAX_BONDS, bond.id());
+            LOGGER.warn("央行债券注册表已满（{}），数据恢复时丢弃债券 {}", MAX_BONDS, bond.id());
             return;
         }
         BONDS.put(bond.id(), bond);

@@ -85,7 +85,7 @@ public final class EconomyMetricsService {
             if (NpcMarketMaker.NPC_UUID.equals(accountId)
                     || finance.npcinvestor.NpcInvestorArchetype.isInvestorAccount(accountId)
                     || finance.rival.RivalManager.isInvestmentAccount(accountId)
-                    || finance.macro.Treasury.UUID.equals(accountId)) {
+                    || finance.centralbank.LegacyTreasuryMigration.LEGACY_TREASURY.equals(accountId)) {
                 npcCash = saturatedAdd(npcCash, saturatedAdd(available, frozen));
             } else if (CentralBank.UUID.equals(accountId)) {
                 centralBankReserve = saturatedAdd(centralBankReserve, saturatedAdd(available, frozen));
@@ -157,6 +157,11 @@ public final class EconomyMetricsService {
         currentStockVolume = 0;
         lastClosedMcDay = -1;
         DAILY_SNAPSHOTS.clear();
+    }
+
+    /** 当前价格指数（宏观日结用它在第一次有 CPI 数据时确定链接系数）。 */
+    public static double priceIndex() {
+        return calculatePriceIndex();
     }
 
     private static double calculatePriceIndex() {

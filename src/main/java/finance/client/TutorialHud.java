@@ -9,6 +9,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.RenderGuiOverlayEvent;
+import net.minecraftforge.client.gui.overlay.VanillaGuiOverlay;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
@@ -20,6 +21,8 @@ public final class TutorialHud {
 
     @SubscribeEvent
     public static void render(RenderGuiOverlayEvent.Post event) {
+        // Post 对每个 overlay 都会触发一次；只挂在聊天栏之后，每帧只画一次
+        if (!event.getOverlay().id().equals(VanillaGuiOverlay.CHAT_PANEL.id())) return;
         Minecraft minecraft = Minecraft.getInstance();
         TutorialStage stage = TutorialClientState.stage();
         if (!TutorialClientState.visible() || stage == null || minecraft.options.hideGui

@@ -70,7 +70,6 @@ class MacroEconomyServiceTest {
     }
 
     static void runDay(long day) {
-        MacroEconomyService.beforeVillages(day);
         VillageService.processDay(null, day);
         MacroEconomyService.afterVillages(day);
     }
@@ -181,14 +180,6 @@ class MacroEconomyServiceTest {
         runDay(2);
         assertEquals(sol, econ().solBps(), "集市没开的日子不更新生活水平");
         assertEquals(30, village.population());
-    }
-
-    @Test void welfareIsPaidOncePerDay() {
-        MacroEconomyManager.setLaw(LawLevel.POOR_RELIEF);
-        runDay(1);
-        long pool = AccountManager.getBalance(NpcMarketMaker.NPC_UUID);
-        MacroEconomyService.beforeVillages(1);
-        assertEquals(pool, AccountManager.getBalance(NpcMarketMaker.NPC_UUID), "同一天重复调用不重复发福利");
     }
 
     @Test void readOnlyModuleFallsBackToLegacyVillageLogic() {

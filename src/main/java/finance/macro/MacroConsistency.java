@@ -46,14 +46,6 @@ public final class MacroConsistency {
                         e.getKey().toString(), "Employment exceeds facility jobs"));
             }
         }
-        if (Treasury.debt() < 0 || Treasury.debt() > Math.max(0, finance.config.FinanceConfig.macroDebtCeiling()) * 2) {
-            out.add(new DiagnosticIssue(DiagnosticSeverity.WARN, MODULE, "TREASURY_DEBT",
-                    Treasury.UUID.toString(), "Treasury debt is negative or far above the ceiling"));
-        }
-        if (MacroFiscalService.balance() < 0) {
-            out.add(new DiagnosticIssue(DiagnosticSeverity.ERROR, MODULE, "TREASURY_BALANCE",
-                    Treasury.UUID.toString(), "Treasury balance is negative"));
-        }
         return out;
     }
 }

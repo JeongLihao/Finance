@@ -79,13 +79,15 @@ public final class EconomyCycleService {
         EventManager.onDayTick(server);
         finance.event.EventContractService.processDay(server,mcDay);
         finance.settlement.SettlementService.processDay(server, mcDay);
-        // 宏观经济：福利 → 村庄集市（按类别需求采购并回报供需）→ 价格/人口/政治收盘
-        finance.macro.MacroEconomyService.beforeVillages(mcDay);
+        // 宏观经济：村庄集市（按类别需求采购并回报供需）→ 本地价格/人口收盘
         finance.village.VillageService.processDay(server, mcDay);
         finance.macro.MacroEconomyService.afterVillages(mcDay);
         finance.exploration.ExplorationService.processDay(mcDay);
         NpcMarketMaker.naturalConsumeAll();
         NpcMarketMaker.centralBankIntervention();
+        // 中央银行：旧存档国库余额并入央行（一次性）→ 公开市场操作、商品平准、物价稳定判定
+        finance.centralbank.LegacyTreasuryMigration.run();
+        finance.centralbank.CentralBankService.processDay(mcDay);
         // 厂房：扫描设备并判定当天的生产方式，岗位和产量都取决于它，所以在招工之前
         finance.gameplay.company.factory.FactoryService.processDay(server, mcDay);
         // 招工和发工资必须在设施生产之前

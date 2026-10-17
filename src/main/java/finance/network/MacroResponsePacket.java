@@ -13,9 +13,7 @@ import java.util.function.Supplier;
  * 宏观经济页签快照（服务端 → 客户端）。只含公开的聚合数据：不含玩家身份、坐标或账户。
  */
 public record MacroResponsePacket(long requestId, boolean enabled, long cpiX100, int inflationX10, long population,
-                                  int avgSol, long employed, long wages, boolean strike, boolean unrest,
-                                  long treasury, long debt, long revenue, long expense, boolean austerity,
-                                  List<String> laws, String proposal, List<GroupRow> groups,
+                                  int avgSol, long employed, long wages, CentralBankRow centralBank,
                                   List<SettlementRow> settlements, List<Integer> factoryTiers, List<RivalRow> rivals) {
     public static final int MAX_RIVALS = 8;
 
@@ -24,20 +22,30 @@ public record MacroResponsePacket(long requestId, boolean enabled, long cpiX100,
                            String lastAction) { }
     /** 全服工厂档位统计的项数：手工、改良、工业、停产或临时作坊。 */
     public static final int FACTORY_TIER_BUCKETS = 4;
-    public static final int MAX_SETTLEMENTS = 16, MAX_GOODS = 16, MAX_LAWS = 8, MAX_GROUPS = 8, CATEGORIES = 5;
+    public static final int MAX_SETTLEMENTS = 16, MAX_GOODS = 16, CATEGORIES = 5, MAX_STABILIZATION = 4;
 
-    public record GroupRow(String name, int cloutBps, int approval, int lobby) { }
+    /**
+     * 中央银行概况：基准利率、物价目标与实际通胀（基点）、活期准备金率、下次议息日与倾向、
+     * 公开市场操作的存量（银行持有的央行票据 / 欠央行的回购款）、最近一天的商品平准动作。
+     */
+    public record CentralBankRow(int rateBps, int targetBps, int inflationBps, int reserveBps, long nextMeetingDay,
+                                 String guidance, long absorbed, long injected, List<String> stabilization) {
+        public CentralBankRow {
+            guidance = guidance == null ? "" : guidance;
+            stabilization = bound(stabilization, MAX_STABILIZATION);
+        }
+
+        public static final CentralBankRow EMPTY = new CentralBankRow(0, 0, 0, 0, -1, "", 0, 0, List.of());
+    }
 
     public record GoodRow(String commodity, int factorBps, long demand, long supply, long localPrice) { }
 
-    public record SettlementRow(String name, int population, int sol, long employed, long income, boolean unrest,
+    public record SettlementRow(String name, int population, int sol, long employed, long income,
                                 List<Integer> fulfilmentPct, List<GoodRow> goods) { }
 
     public MacroResponsePacket {
-        laws = bound(laws, MAX_LAWS);
-        groups = bound(groups, MAX_GROUPS);
+        centralBank = centralBank == null ? CentralBankRow.EMPTY : centralBank;
         settlements = bound(settlements, MAX_SETTLEMENTS);
-        proposal = proposal == null ? "" : proposal;
         factoryTiers = bound(factoryTiers, FACTORY_TIER_BUCKETS);
         rivals = bound(rivals, MAX_RIVALS);
     }
@@ -55,23 +63,17 @@ public record MacroResponsePacket(long requestId, boolean enabled, long cpiX100,
         b.writeVarInt(p.avgSol);
         b.writeLong(p.employed);
         b.writeLong(p.wages);
-        b.writeBoolean(p.strike);
-        b.writeBoolean(p.unrest);
-        b.writeLong(p.treasury);
-        b.writeLong(p.debt);
-        b.writeLong(p.revenue);
-        b.writeLong(p.expense);
-        b.writeBoolean(p.austerity);
-        b.writeVarInt(p.laws.size());
-        for (String s : p.laws) b.writeUtf(s, 64);
-        b.writeUtf(p.proposal, 160);
-        b.writeVarInt(p.groups.size());
-        for (GroupRow g : p.groups) {
-            b.writeUtf(g.name, 32);
-            b.writeVarInt(g.cloutBps);
-            b.writeVarInt(g.approval);
-            b.writeVarInt(g.lobby);
-        }
+        CentralBankRow cb = p.centralBank;
+        b.writeVarInt(cb.rateBps());
+        b.writeVarInt(cb.targetBps());
+        b.writeVarInt(cb.inflationBps());
+        b.writeVarInt(cb.reserveBps());
+        b.writeLong(cb.nextMeetingDay());
+        b.writeUtf(cut(cb.guidance(), 16), 16);
+        b.writeLong(cb.absorbed());
+        b.writeLong(cb.injected());
+        b.writeVarInt(cb.stabilization().size());
+        for (String s : cb.stabilization()) b.writeUtf(cut(s, 64), 64);
         b.writeVarInt(p.settlements.size());
         for (SettlementRow s : p.settlements) {
             b.writeUtf(s.name, 64);
@@ -79,7 +81,6 @@ public record MacroResponsePacket(long requestId, boolean enabled, long cpiX100,
             b.writeVarInt(s.sol);
             b.writeLong(s.employed);
             b.writeLong(s.income);
-            b.writeBoolean(s.unrest);
             List<Integer> f = s.fulfilmentPct == null ? List.of() : s.fulfilmentPct.subList(0, Math.min(CATEGORIES, s.fulfilmentPct.size()));
             b.writeVarInt(f.size());
             for (int v : f) b.writeVarInt(v);
@@ -120,20 +121,14 @@ public record MacroResponsePacket(long requestId, boolean enabled, long cpiX100,
         int avgSol = b.readVarInt();
         long employed = b.readLong();
         long wages = b.readLong();
-        boolean strike = b.readBoolean();
-        boolean unrest = b.readBoolean();
-        long treasury = b.readLong();
-        long debt = b.readLong();
-        long revenue = b.readLong();
-        long expense = b.readLong();
-        boolean austerity = b.readBoolean();
-        int n = count(b, MAX_LAWS);
-        List<String> laws = new ArrayList<>(n);
-        for (int i = 0; i < n; i++) laws.add(b.readUtf(64));
-        String proposal = b.readUtf(160);
-        n = count(b, MAX_GROUPS);
-        List<GroupRow> groups = new ArrayList<>(n);
-        for (int i = 0; i < n; i++) groups.add(new GroupRow(b.readUtf(32), b.readVarInt(), b.readVarInt(), b.readVarInt()));
+        int rate = b.readVarInt(), target = b.readVarInt(), cbInflation = b.readVarInt(), reserve = b.readVarInt();
+        long nextMeeting = b.readLong();
+        String guidance = b.readUtf(16);
+        long absorbed = b.readLong(), injected = b.readLong();
+        int n = count(b, MAX_STABILIZATION);
+        List<String> stabilization = new ArrayList<>(n);
+        for (int i = 0; i < n; i++) stabilization.add(b.readUtf(64));
+        CentralBankRow cb = new CentralBankRow(rate, target, cbInflation, reserve, nextMeeting, guidance, absorbed, injected, stabilization);
         n = count(b, MAX_SETTLEMENTS);
         List<SettlementRow> settlements = new ArrayList<>(n);
         for (int i = 0; i < n; i++) {
@@ -142,14 +137,13 @@ public record MacroResponsePacket(long requestId, boolean enabled, long cpiX100,
             int sol = b.readVarInt();
             long emp = b.readLong();
             long income = b.readLong();
-            boolean u = b.readBoolean();
             int fc = count(b, CATEGORIES);
             List<Integer> f = new ArrayList<>(fc);
             for (int j = 0; j < fc; j++) f.add(b.readVarInt());
             int gc = count(b, MAX_GOODS);
             List<GoodRow> goods = new ArrayList<>(gc);
             for (int j = 0; j < gc; j++) goods.add(new GoodRow(b.readUtf(64), b.readVarInt(), b.readLong(), b.readLong(), b.readLong()));
-            settlements.add(new SettlementRow(name, pop, sol, emp, income, u, f, goods));
+            settlements.add(new SettlementRow(name, pop, sol, emp, income, f, goods));
         }
         n = count(b, FACTORY_TIER_BUCKETS);
         List<Integer> factoryTiers = new ArrayList<>(n);
@@ -157,8 +151,8 @@ public record MacroResponsePacket(long requestId, boolean enabled, long cpiX100,
         n = count(b, MAX_RIVALS);
         List<RivalRow> rivals = new ArrayList<>(n);
         for (int i = 0; i < n; i++) rivals.add(new RivalRow(b.readUtf(32), b.readUtf(64), b.readUtf(16), b.readUtf(16), b.readBoolean(), b.readUtf(64)));
-        return new MacroResponsePacket(id, enabled, cpi, inflation, population, avgSol, employed, wages, strike, unrest,
-                treasury, debt, revenue, expense, austerity, laws, proposal, groups, settlements, factoryTiers, rivals);
+        return new MacroResponsePacket(id, enabled, cpi, inflation, population, avgSol, employed, wages, cb,
+                settlements, factoryTiers, rivals);
     }
 
     private static int count(FriendlyByteBuf b, int max) {

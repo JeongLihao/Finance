@@ -23,11 +23,10 @@ public final class SettlementEconomy {
     int solBps = 5_000;
     long growthMilli;
     long lastProcessedDay = -1;
-    boolean unrest;
     long employed;
     long incomeToday;
     long lastIncome;
-    /** 收入中的工资部分（不含福利），用于宏观快照的“工资”口径。 */
+    /** 收入中的工资部分，用于宏观快照的“工资”口径。 */
     long wagesToday;
     long lastWages;
     final TreeMap<String, GoodBook> goods = new TreeMap<>();
@@ -44,7 +43,6 @@ public final class SettlementEconomy {
 
     public UUID settlementId() { return settlementId; }
     public int solBps() { return solBps; }
-    public boolean unrest() { return unrest; }
     public long employed() { return employed; }
     public long lastIncome() { return lastIncome; }
     public long lastWages() { return lastWages; }

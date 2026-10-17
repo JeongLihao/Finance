@@ -8,11 +8,12 @@ public final class BankRegulatoryService {
     public static long requiredReserves(CommercialBank bank) {
         if (bank == null) return Long.MAX_VALUE;
         BankBalanceSheet s=bank.ledger().balanceSheet();
-        BigInteger required=BigInteger.valueOf(s.demandDeposits()).multiply(BigInteger.valueOf(FinanceConfig.bankDemandReserveBps()))
-                .add(BigInteger.valueOf(s.timeDeposits()).multiply(BigInteger.valueOf(FinanceConfig.bankTimeReserveBps()))).divide(BigInteger.valueOf(10_000));
+        BigInteger required=BigInteger.valueOf(s.demandDeposits()).multiply(BigInteger.valueOf(finance.centralbank.CentralBankService.demandReserveBps()))
+                .add(BigInteger.valueOf(s.timeDeposits()).multiply(BigInteger.valueOf(finance.centralbank.CentralBankService.timeReserveBps()))).divide(BigInteger.valueOf(10_000));
         return required.max(BigInteger.valueOf(FinanceConfig.bankMinimumReserve())).min(BigInteger.valueOf(Long.MAX_VALUE)).longValue();
     }
-    public static long riskWeightedAssets(CommercialBank bank){if(bank==null)return Long.MAX_VALUE;BankBalanceSheet s=bank.ledger().balanceSheet();BigInteger rwa=BigInteger.valueOf(s.companyLoans()).add(BigInteger.valueOf(s.interbankAssets()).divide(BigInteger.TWO)).add(BigInteger.valueOf(s.bondAssets()).divide(BigInteger.valueOf(5)));return rwa.min(BigInteger.valueOf(Long.MAX_VALUE)).longValue();}
+    /** 风险加权资产：公开市场操作买入的央行票据无风险，不计入（其余债券按 20%）。 */
+    public static long riskWeightedAssets(CommercialBank bank){if(bank==null)return Long.MAX_VALUE;BankBalanceSheet s=bank.ledger().balanceSheet();BigInteger rwa=BigInteger.valueOf(s.companyLoans()).add(BigInteger.valueOf(s.interbankAssets()).divide(BigInteger.TWO)).add(BigInteger.valueOf(Math.max(0,s.bondAssets()-Math.max(0,finance.centralbank.CentralBankService.positions().getOrDefault(bank.id(),0L)))).divide(BigInteger.valueOf(5)));return rwa.min(BigInteger.valueOf(Long.MAX_VALUE)).longValue();}
     public static int capitalAdequacyBps(CommercialBank bank){long rwa=riskWeightedAssets(bank);long equity=bank==null?Long.MIN_VALUE:bank.ledger().balanceSheet().equity();if(rwa==0)return equity>=0?100_000:Integer.MIN_VALUE;return ratio(equity,rwa);}
     /**
      * 真实杠杆口径（权益 ÷ 存款总额，基点）：rwa==0 时 capitalAdequacyBps 恒返回 100000，
