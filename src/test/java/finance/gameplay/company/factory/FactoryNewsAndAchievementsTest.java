@@ -53,6 +53,22 @@ class FactoryNewsAndAchievementsTest {
         return f;
     }
 
+    @Test void readOnlyCompanyGameplayFreezesFactoryState() {
+        CompanyFacilityRecord f = facility(0, 3);
+        f.factory().recordScan(Map.of(COMPOSTER, 6), 1, 16);
+        var module = finance.diagnostic.ModuleHealthRegistry.Module.COMPANY_GAMEPLAY;
+        finance.diagnostic.ModuleHealthRegistry.restrict(module, finance.diagnostic.ModuleRunState.READ_ONLY, "test", 1);
+        try {
+            FactoryService.processDay(null, 1);
+            FactoryService.prepare(f, 1);
+            assertTrue(f.factory().lastResolvedDay() < 1, "只读时不应判定当天的生产方式");
+        } finally {
+            finance.diagnostic.ModuleHealthRegistry.resume(module);
+        }
+        FactoryService.processDay(null, 1);
+        assertEquals(1, f.factory().lastResolvedDay(), "恢复后照常判定");
+    }
+
     @Test void industrialSwitchMakesTheNewsWithLayoffsAndUnlocksIndustrialRevolution() {
         CompanyFacilityRecord f = facility(0, 3);
         // 人力耕作摆了 6 个堆肥桶：30 个岗位

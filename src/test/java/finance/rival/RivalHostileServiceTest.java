@@ -122,9 +122,49 @@ class RivalHostileServiceTest {
         assertNotNull(proposal, "长期不分红时激进股东应发起提案");
         assertEquals(CompanyProposalType.DIVIDEND, proposal.getType());
         assertTrue(proposal.getValue1() >= 30);
+        var vote = proposal.getVotes().get(account);
+        assertNotNull(vote, "激进股东应给自己的提案投票");
+        assertTrue(vote.support());
         // 30 天内不重复提
         RivalHostileService.processDay(2, new RivalHostileService.Settings(false, true));
         assertEquals(1, CompanyProposalManager.getProposalsForCompany(player.getCompanyId()).size());
+    }
+
+    @Test void activismIgnoresSharesLockedInSellOrders() {
+        Company player = new Company(UUID.randomUUID(), "玩家公司", CompanyType.FOOD, 1_000, UUID.randomUUID());
+        player.setPublic(true);
+        CompanyManager.registerDirect(player);
+        StockMarketManager.putStockDirect(new Stock("WJGS", "玩家公司", player.getCompanyId(), 10_000, 4_000, 6_000, 5, 5));
+        UUID account = RivalProfile.investmentAccount(rival.getCompanyId());
+        RivalService.processDay(1, PROFILES_ONLY);
+        AccountManager.getOrCreateSystemAccount(account);
+        assertTrue(StockPortfolioManager.addHolding(account, "WJGS", 2_400, 5)); // 可用 24%，不够资格
+        var holder = finance.governance.ShareholderRegistryService.holder(player.getCompanyId(), account, 1);
+        assertNotNull(holder);
+        assertEquals(2_400, holder.available());
+        RivalHostileService.processDay(1, new RivalHostileService.Settings(false, true));
+        assertTrue(CompanyProposalManager.getProposalsForCompany(player.getCompanyId()).isEmpty());
+    }
+
+    @Test void staleRivalOrdersAreCancelledEachDay() {
+        RivalService.processDay(1, PROFILES_ONLY);
+        UUID account = RivalProfile.investmentAccount(rival.getCompanyId());
+        AccountManager.getOrCreateSystemAccount(account).deposit(10_000);
+        // 一笔挂在 1 元的买单：没有卖家，会一直挂着
+        assertTrue(StockMarketManager.placeLimitBuy(account, "MTNZ", 1, 100).success());
+        assertTrue(StockMarketManager.getOrders().stream().anyMatch(o -> account.equals(o.getPlayerId())));
+        RivalHostileService.processDay(2, new RivalHostileService.Settings(false, true));
+        assertTrue(StockMarketManager.getOrders().stream().noneMatch(o -> account.equals(o.getPlayerId())),
+                "竞争公司投资账户的旧挂单应在每日开始时撤掉");
+        assertEquals(10_000, AccountManager.getBalance(account), "冻结资金退回投资账户");
+    }
+
+    @Test void rivalInvestmentCashIsNpcMoneyInMetrics() {
+        RivalService.processDay(1, PROFILES_ONLY);
+        UUID account = RivalProfile.investmentAccount(rival.getCompanyId());
+        long before = finance.metrics.EconomyMetricsService.getCurrentMetrics().playerCash();
+        AccountManager.getOrCreateSystemAccount(account).deposit(200_000);
+        assertEquals(before, finance.metrics.EconomyMetricsService.getCurrentMetrics().playerCash());
     }
 
     @Test void hostileStateSurvivesSaveLoad() {

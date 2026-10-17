@@ -17,6 +17,7 @@ import finance.governance.TakeoverService;
 import finance.npcinvestor.NpcFloatPlacementService;
 import finance.stock.Stock;
 import finance.stock.StockMarketManager;
+import finance.stock.StockOrder;
 
 import java.math.BigInteger;
 import java.util.ArrayList;
@@ -69,6 +70,7 @@ public final class RivalHostileService {
         for (RivalProfile profile : profiles) {
             Company rival = CompanyManager.getCompany(profile.companyId());
             if (rival == null || rival.isPlayerOwned() || rival.isBankruptcyRisk()) continue;
+            cancelOpenOrders(RivalProfile.investmentAccount(rival.getCompanyId()));
             if (settings.hostileTakeovers()) hostile(rival, profile, day);
             if (settings.activism()) activism(rival, profile, day);
         }
@@ -139,7 +141,9 @@ public final class RivalHostileService {
         if (!fund(rival, account, cost)) return;
         long residual = NpcFloatPlacementService.availableResidual(stock, day);
         long fromResidual = Math.min(qty, residual);
-        if (fromResidual > 0) NpcFloatPlacementService.place(account, stock.getSymbol(), fromResidual, day);
+        if (fromResidual > 0 && !NpcFloatPlacementService.place(account, stock.getSymbol(), fromResidual, day).success()) {
+            fromResidual = 0; // 配售失败就全部改走普通买单
+        }
         long rest = qty - Math.max(0, fromResidual);
         if (rest > 0 && rest <= Integer.MAX_VALUE) StockMarketManager.buy(account, stock.getSymbol(), rest);
     }
@@ -185,7 +189,11 @@ public final class RivalHostileService {
             Company target = CompanyManager.getCompany(stock.getCompanyId());
             if (target == null || !target.isPublic()) continue;
             long voting = stock.getVotingShares();
-            if (voting <= 0 || holding(account, stock, day) * 10_000 < voting * PROPOSAL_BPS) continue;
+            // 提案资格只看可用持股（与 GovernanceAuthorizationService.mayCreateProposal 一致），挂单和要约锁定的不算
+            var holder = ShareholderRegistryService.holder(stock.getCompanyId(), account, day);
+            if (voting <= 0 || holder == null
+                    || BigInteger.valueOf(holder.available()).multiply(BigInteger.valueOf(10_000))
+                    .compareTo(BigInteger.valueOf(voting).multiply(BigInteger.valueOf(PROPOSAL_BPS))) < 0) continue;
             if (!underperforming(target, day)) continue;
             boolean active = CompanyProposalManager.getProposalsForCompany(target.getCompanyId()).stream()
                     .anyMatch(p -> p.getStatus() == CompanyProposalStatus.ACTIVE && account.equals(p.getCreatorId()));
@@ -195,6 +203,7 @@ public final class RivalHostileService {
             var result = CompanyProposalManager.createProposal(account, target.getCompanyId(), CompanyProposalType.DIVIDEND,
                     "", proposed, 0, 0, day, day + 7, 0.5);
             if (!result.success()) continue;
+            voteForOwnProposal(account, target.getCompanyId(), day);
             profile.setLastActivismDay(day);
             profile.record(day, "ACTIVISM", stock.getSymbol() + " 分红 " + current + "% → " + proposed + "%");
             news(50, rival.getName() + "要求" + target.getName() + "提高分红",
@@ -214,10 +223,22 @@ public final class RivalHostileService {
 
     /** 投资账户对该股的持股（含挂单和要约锁定）。 */
     static long holding(UUID account, Stock stock, long day) {
-        for (var h : ShareholderRegistryService.snapshot(stock.getCompanyId(), day).holders()) {
-            if (h.id().equals(account)) return h.total();
+        return ShareholderRegistryService.totalOf(stock.getCompanyId(), account, day);
+    }
+
+    /** 撤掉投资账户前一天没成交的挂单，冻结的资金退回投资账户，避免挂单越积越多、长期占用现金。 */
+    static void cancelOpenOrders(UUID account) {
+        for (StockOrder order : new ArrayList<>(StockMarketManager.getOrders())) {
+            if (account.equals(order.getPlayerId())) StockMarketManager.cancelStockOrder(order.getOrderId(), account);
         }
-        return 0;
+    }
+
+    /** 激进股东对自己刚发起的提案投赞成票（快照投票权在创建时已登记）。 */
+    static void voteForOwnProposal(UUID account, UUID companyId, long day) {
+        CompanyProposalManager.getProposalsForCompany(companyId).stream()
+                .filter(p -> p.getStatus() == CompanyProposalStatus.ACTIVE && account.equals(p.getCreatorId()))
+                .filter(p -> !p.getVotes().containsKey(account))
+                .forEach(p -> CompanyProposalManager.vote(account, p.getProposalId(), true, day));
     }
 
     /** 把公司现金转入投资账户，补足到 amount；转完后公司至少留 RESERVE_CASH。 */
