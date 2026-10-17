@@ -47,11 +47,13 @@ public final class EconomyAchievements {
     public static final String INDUSTRIAL_REVOLUTION = "macro_industrial_revolution";
     /** 同一家公司至少三座工厂都坚持手工档，并且盈利。 */
     public static final String ARTISAN = "macro_artisan";
+    /** 单人经济：自己提出的提案在 NPC 股东赞成下通过。 */
+    public static final String SHAREHOLDER_DEMOCRACY = "solo_shareholder_democracy";
 
     /** 全部成就 id（顺序即展示顺序）。 */
     public static final java.util.List<String> ALL = java.util.List.of(FIRST_HIRE, GOOD_BOSS, SWEATSHOP, STRIKE, BOOMTOWN,
             GOLDEN_AGE, FAMINE_RELIEF, MONOPOLY, HOARDER, CARAVAN_TYCOON, LOBBYIST, LAWMAKER, FAILED_BILL, DEBT_FREE,
-            INDUSTRIAL_REVOLUTION, ARTISAN);
+            INDUSTRIAL_REVOLUTION, ARTISAN, SHAREHOLDER_DEMOCRACY);
 
     // ---- 阈值 ----
     static final int GOOD_BOSS_WORKERS = 20;

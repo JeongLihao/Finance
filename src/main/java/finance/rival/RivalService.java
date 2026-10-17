@@ -242,6 +242,27 @@ public final class RivalService {
                 + " 股，股票代码 " + result.stock().getSymbol() + "。", false);
     }
 
+    /** 宏观页签的竞争对手列表（最多 limit 行，按名称排序）。 */
+    public static List<finance.network.MacroResponsePacket.RivalRow> snapshotRows(int limit) {
+        List<finance.network.MacroResponsePacket.RivalRow> rows = new ArrayList<>();
+        List<RivalProfile> profiles = new ArrayList<>(RivalManager.all());
+        profiles.sort(Comparator.comparing(p -> {
+            Company c = CompanyManager.getCompany(p.companyId());
+            return c == null ? "" : c.getName();
+        }));
+        for (RivalProfile p : profiles) {
+            if (rows.size() >= limit) break;
+            Company c = CompanyManager.getCompany(p.companyId());
+            if (c == null) continue;
+            List<RivalProfile.Decision> history = p.history();
+            String last = history.isEmpty() ? "" : history.get(history.size() - 1).action() + " "
+                    + history.get(history.size() - 1).detail();
+            rows.add(new finance.network.MacroResponsePacket.RivalRow(c.getName(), commodityName(p.mainCommodity()),
+                    p.personality().displayName(), c.getStrategy().getDisplayName(), c.isPublic(), last));
+        }
+        return rows;
+    }
+
     // ---------------------------------------------------------------- 工具
 
     private static String commodityName(String id) {

@@ -394,7 +394,7 @@
   "finance.tutorial.optional.exploration.title": "Complete a Field Survey",
   "finance.tutorial.optional.exploration.hint": "Follow a survey note and interact with its real destination.",
   "finance.tutorial.optional.advanced_finance.title": "Visit Advanced Finance",
-  "finance.tutorial.optional.advanced_finance.hint": "Open a securities terminal; using its professional systems remains optional.",
+  "finance.tutorial.optional.advanced_finance.hint": "Open a securities terminal. Once your company is listed, NPC shareholders vote on your proposals; win their support for the Shareholder Democracy advancement. Using the professional systems remains optional.",
   "screen.finance.company_gameplay.tab.operations": "Operations",
   "screen.finance.company_gameplay.tab.capital": "Capital",
   "screen.finance.company_gameplay.capital_projects": "Linked Physical Capital Projects",
@@ -639,5 +639,7 @@
   "advancement.finance.macro_industrial_revolution": "Industrial Revolution",
   "advancement.finance.macro_industrial_revolution.desc": "Switch a factory to an industrial production method",
   "advancement.finance.macro_artisan": "Artisan",
-  "advancement.finance.macro_artisan.desc": "Keep three factories of one company on manual methods while staying profitable"
+  "advancement.finance.macro_artisan.desc": "Keep three factories of one company on manual methods while staying profitable",
+  "advancement.finance.solo_shareholder_democracy": "Shareholder Democracy",
+  "advancement.finance.solo_shareholder_democracy.desc": "Pass one of your proposals with the support of NPC shareholders"
 }

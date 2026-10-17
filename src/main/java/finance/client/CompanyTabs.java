@@ -197,8 +197,9 @@ public final class CompanyTabs {
             FinanceGui.drawClippedString(screen.font(), g, "暂无提案。", 12, py, 180, FinanceGui.COL_TEXT_DIM);
             return;
         }
-        int maxProposals = Math.min(proposals.size(), Math.max(0, (cardY + cardH - py - 4) / FinanceGui.ROW_HEIGHT));
-        for (int i = 0; i < maxProposals; i++) {
+        int limit = proposalAreaBottom();
+        for (int i = 0; i < proposals.size(); i++) {
+            if (py + FinanceGui.ROW_HEIGHT > limit) break;
             FinanceMenu.CompanyProposalRow row = proposals.get(i);
             boolean active = "ACTIVE".equals(row.status());
             FinanceGui.drawClippedString(screen.font(), g, FinanceFormat.displayProposalType(row.type()) + " " + FinanceFormat.displayProposalValues(row),
@@ -213,7 +214,27 @@ public final class CompanyTabs {
                 FinanceGui.drawButton(screen.font(), g, "反对", 340, py - 2, 36, false);
             }
             py += FinanceGui.ROW_HEIGHT;
+            if (hasDetailLine(row)) {
+                if (py + FinanceGui.ROW_HEIGHT <= limit) {
+                    boolean low = row.participationBps() < row.minParticipationBps();
+                    String detail = (low ? "参与率 " + row.participationBps() / 100 + "%（需 " + row.minParticipationBps() / 100 + "%）  " : "")
+                            + (row.npcSummary().isEmpty() ? "" : "NPC：" + row.npcSummary());
+                    FinanceGui.drawClippedString(screen.font(), g, detail, 20, py, 356, low ? FinanceGui.COL_WARN : FinanceGui.COL_TEXT_DIM);
+                }
+                py += FinanceGui.ROW_HEIGHT;
+            }
         }
+    }
+
+    /** 提案区的下边界（渲染和点击共用，保证行位置一致）。 */
+    int proposalAreaBottom() {
+        return screen.imageHeight() - 12;
+    }
+
+    /** 进行中的提案若有 NPC 表态或参与率不足，下面多占一行显示说明。 */
+    static boolean hasDetailLine(FinanceMenu.CompanyProposalRow row) {
+        return "ACTIVE".equals(row.status())
+                && (!row.npcSummary().isEmpty() || row.participationBps() < row.minParticipationBps());
     }
     public void renderRestructuringTasks(GuiGraphics g,int cardY){
         int cardH=screen.imageHeight()-cardY-8;
@@ -237,6 +258,18 @@ public final class CompanyTabs {
             y+=FinanceGui.ROW_HEIGHT;
         }
     }
+    /** "创始人 60.0% · 分红派 20.0%(+35) · 价值派 12.0%(-10) · 未流通 8.0%" */
+    static String holderLine(List<GovernanceResponsePacket.HolderRow> holders) {
+        StringBuilder sb = new StringBuilder();
+        for (GovernanceResponsePacket.HolderRow h : holders.stream().limit(5).toList()) {
+            if (sb.length() > 0) sb.append(" · ");
+            String name = h.label().isEmpty() ? h.id().toString().substring(0, 8) : h.label();
+            sb.append(name).append(' ').append(String.format(Locale.ROOT, "%.1f%%", h.ownership()));
+            if (h.sentiment() != 0) sb.append(String.format(Locale.ROOT, "(%+d)", h.sentiment()));
+        }
+        return sb.toString();
+    }
+
     public List<FinanceMenu.CompanyProposalRow> executableRestructuringTasks(){
         return screen.menu().getCompanyProposalRows().stream()
                 .filter(p->"PASSED".equals(p.status()))
@@ -276,10 +309,9 @@ public final class CompanyTabs {
                 12, cardY + 70, 360, FinanceGui.COL_WARN);
         FinanceGui.drawSectionTitle(screen.font(), g, "主要股东", 10, cardY + 88);
         int holderY = cardY + 104;
-        for (GovernanceResponsePacket.HolderRow holder : data.holders().stream().limit(1).toList()) {
-            FinanceGui.drawClippedString(screen.font(), g, holder.id().toString().substring(0, 8), 12, holderY, 70, FinanceGui.COL_TEXT);
-            FinanceGui.drawClippedString(screen.font(), g, "持股 " + holder.shares() + "  冻结 " + holder.locked()
-                    + "  表决权 " + String.format(Locale.ROOT, "%.1f%%", holder.voting()), 88, holderY, 280, FinanceGui.COL_TEXT_DIM);
+        // 一行列出前几大股东：身份（NPC 原型、竞争公司、创始人）+ 占比，NPC 附情绪
+        if (!data.holders().isEmpty()) {
+            FinanceGui.drawClippedString(screen.font(), g, holderLine(data.holders()), 12, holderY, 364, FinanceGui.COL_TEXT);
         }
         if (data.holders().isEmpty()) FinanceGui.drawClippedString(screen.font(), g, "暂无股东", 12, holderY, 160, FinanceGui.COL_TEXT_DIM);
         FinanceGui.drawSectionTitle(screen.font(), g, "公司行动", 10, cardY + 120);
@@ -381,8 +413,9 @@ public final class CompanyTabs {
                 }
                 List<FinanceMenu.CompanyProposalRow> proposals = proposalsForCompany(playerCompany.companyId());
                 int py = cardY + 144;
-                int maxProposals = Math.min(proposals.size(), Math.max(0, (screen.imageHeight() - 8 - py - 4) / FinanceGui.ROW_HEIGHT));
-                for (int i = 0; i < maxProposals; i++) {
+                int limit = proposalAreaBottom();
+                for (int i = 0; i < proposals.size(); i++) {
+                    if (py + FinanceGui.ROW_HEIGHT > limit) break;
                     FinanceMenu.CompanyProposalRow row = proposals.get(i);
                     if ("ACTIVE".equals(row.status()) && !row.playerVoted()) {
                         if (mx >= 300 && mx < 336 && my >= py - 2 && my < py + 11) {
@@ -395,6 +428,7 @@ public final class CompanyTabs {
                         }
                     }
                     py += FinanceGui.ROW_HEIGHT;
+                    if (hasDetailLine(row)) py += FinanceGui.ROW_HEIGHT;
                 }
                 return false;
             }
