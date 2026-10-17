@@ -44,7 +44,8 @@ public final class CompanyGameplayDataSerializer {
             tag.putString("Status", facility.status().name()); tag.putLong("LastDay", facility.lastProcessedDay());
             tag.putLong("StatusSince",facility.statusSinceDay());
             if (facility.boundWarehouseId() != null) tag.putUUID("Warehouse", facility.boundWarehouseId());
-            tag.put("Operations", stringList(facility.operationKeys())); facilities.add(tag);
+            tag.put("Operations", stringList(facility.operationKeys()));
+            tag.put("Factory", saveFactory(facility.factory())); facilities.add(tag);
         }
         data.put("Facilities", facilities); root.put(ROOT, data);
     }
@@ -107,9 +108,42 @@ public final class CompanyGameplayDataSerializer {
                 facility.restoreStatusSinceDay(tag.contains("StatusSince")?tag.getLong("StatusSince"):tag.getLong("LastDay"));
                 ListTag ops = tag.getList("Operations", Tag.TAG_STRING);
                 for (int op = Math.max(0, ops.size() - CompanyFacilityRecord.MAX_OPERATION_KEYS); op < ops.size(); op++) facility.recordOperation(ops.getString(op));
+                // DataVersion 40 之前的存档没有 Factory：保持"临时作坊待初始化"，第一次日结开始 14 天兼容期
+                if (tag.contains("Factory", Tag.TAG_COMPOUND)) loadFactory(facility.factory(), tag.getCompound("Factory"));
                 CompanyFacilityManager.restore(facility);
             } catch (RuntimeException ignored) {}
         }
+    }
+
+    private static CompoundTag saveFactory(finance.gameplay.company.factory.FactoryState state) {
+        CompoundTag tag = new CompoundTag();
+        tag.putString("Target", state.targetTier().name());
+        if (state.activeTier() != null) tag.putString("Active", state.activeTier().name());
+        tag.putBoolean("EverActive", state.everActive());
+        tag.putLong("RetoolUntil", state.retoolUntilDay());
+        CompoundTag equipment = new CompoundTag();
+        state.equipment().forEach((e, n) -> equipment.putInt(e.name(), n));
+        tag.put("Equipment", equipment);
+        tag.putLong("ScanDay", state.equipmentScanDay());
+        tag.putLong("ProvisionalUntil", state.provisionalUntilDay());
+        tag.putLong("ResolvedDay", state.lastResolvedDay());
+        return tag;
+    }
+
+    private static void loadFactory(finance.gameplay.company.factory.FactoryState state, CompoundTag tag) {
+        java.util.Map<finance.gameplay.company.factory.FactoryEquipment, Integer> counts =
+                new java.util.EnumMap<>(finance.gameplay.company.factory.FactoryEquipment.class);
+        CompoundTag equipment = tag.getCompound("Equipment");
+        for (String key : equipment.getAllKeys()) {
+            var e = NbtDataSupport.safeEnum(finance.gameplay.company.factory.FactoryEquipment.class, key, null);
+            if (e != null) counts.put(e, equipment.getInt(key));
+        }
+        state.restore(finance.gameplay.company.factory.ProductionTier.parse(tag.getString("Target")),
+                finance.gameplay.company.factory.ProductionTier.parse(tag.getString("Active")),
+                tag.getBoolean("EverActive"), tag.getLong("RetoolUntil"), counts, tag.getLong("ScanDay"),
+                tag.contains("ProvisionalUntil", Tag.TAG_LONG) ? tag.getLong("ProvisionalUntil")
+                        : finance.gameplay.company.factory.FactoryState.PROVISIONAL_UNSET,
+                tag.getLong("ResolvedDay"));
     }
 
     private static ListTag uuidList(Iterable<UUID> values) { ListTag list = new ListTag(); for (UUID id : values) list.add(StringTag.valueOf(id.toString())); return list; }

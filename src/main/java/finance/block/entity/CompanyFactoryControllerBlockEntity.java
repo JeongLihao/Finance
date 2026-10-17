@@ -36,6 +36,7 @@ public final class CompanyFactoryControllerBlockEntity extends BlockEntity {
         CompanyFacilityRecord record = new CompanyFacilityRecord(facilityId, company.getCompanyId(),
                 level.dimension().location().toString(), worldPosition, CompanyFacilityType.FACTORY_CONTROLLER,
                 1, CompanyFacilityStatus.ACTIVE, -1, warehouse);
+        record.factory().markNewBuild(); // 新放置的控制器没有临时作坊，要搭设备才能生产
         if (!CompanyFacilityManager.register(record)) return false;
         companyId = company.getCompanyId(); setChanged(); return true;
     }

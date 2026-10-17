@@ -57,7 +57,7 @@ public final class CompanyFactoryControllerBlock extends BaseEntityBlock {
                 .stream().anyMatch(project -> facilityId.equals(project.targetId()) && !project.status().terminal());
         Indicator next = pending ? Indicator.PROJECT_PENDING : switch (facility.status()) {
             case ACTIVE -> Indicator.ACTIVE;
-            case MISSING_INPUT, UNDERSTAFFED -> Indicator.MISSING_INPUT;
+            case MISSING_INPUT, UNDERSTAFFED, EQUIPMENT_MISSING -> Indicator.MISSING_INPUT;
             case OUTPUT_FULL -> Indicator.OUTPUT_FULL;
             case BANKRUPTCY_HOLD -> Indicator.RISK;
             case DISABLED, ORPHANED -> Indicator.OFF;
