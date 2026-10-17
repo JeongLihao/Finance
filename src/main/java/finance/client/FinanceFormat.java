@@ -230,6 +230,7 @@ public final class FinanceFormat {
             case "BANKRUPTCY_HOLD" -> "破产冻结";
             case "ORPHANED" -> "失联";
             case "UNDERSTAFFED" -> "缺工人";
+            case "EQUIPMENT_MISSING" -> "缺设备";
             default -> status;
         };
     }

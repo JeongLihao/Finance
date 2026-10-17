@@ -232,7 +232,9 @@ public final class MacroWorldFeedback {
     }
 
     private static void ambientFacility(MinecraftServer server, CompanyFacilityRecord facility, boolean strike, long time) {
-        boolean understaffed = facility.status() == CompanyFacilityStatus.UNDERSTAFFED;
+        // 缺工人和缺设备都是所有者可控的停产，沿用同一种冒烟表现
+        boolean understaffed = facility.status() == CompanyFacilityStatus.UNDERSTAFFED
+                || facility.status() == CompanyFacilityStatus.EQUIPMENT_MISSING;
         boolean striking = strike && MacroLaborService.active() && MacroEconomyManager.employment(facility.facilityId()) > 0;
         if (!understaffed && !striking) return;
         ServerLevel level = level(server, facility.dimensionId());
