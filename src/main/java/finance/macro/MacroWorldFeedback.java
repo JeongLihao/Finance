@@ -236,7 +236,16 @@ public final class MacroWorldFeedback {
         boolean understaffed = facility.status() == CompanyFacilityStatus.UNDERSTAFFED
                 || facility.status() == CompanyFacilityStatus.EQUIPMENT_MISSING;
         boolean striking = strike && MacroLaborService.active() && MacroEconomyManager.employment(facility.facilityId()) > 0;
-        if (!understaffed && !striking) return;
+        if (!understaffed && !striking) {
+            // 运转表现：生产中的工厂，厂区里被计入的设备偶尔冒工作粒子
+            if (facility.status() == CompanyFacilityStatus.ACTIVE) {
+                ServerLevel level = level(server, facility.dimensionId());
+                if (level != null && level.isLoaded(facility.blockPos()) && anyPlayerNear(level, facility.blockPos(), NEAR)) {
+                    finance.gameplay.company.factory.FactoryService.workParticles(level, facility);
+                }
+            }
+            return;
+        }
         ServerLevel level = level(server, facility.dimensionId());
         BlockPos pos = facility.blockPos();
         if (level == null || !level.isLoaded(pos) || !anyPlayerNear(level, pos, NEAR)) return;
