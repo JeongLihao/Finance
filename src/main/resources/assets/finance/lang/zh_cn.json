@@ -635,5 +635,9 @@
   "finance.factory.level_too_low": "设施等级不够，先升级设施",
   "finance.factory.equipment_missing": "厂区内设备不够，照清单补齐后再切换",
   "finance.factory.already_selected": "已经是当前目标方式",
-  "finance.factory.method_selected": "已切换，次日生效，随后 3 天改造期"
+  "finance.factory.method_selected": "已切换，次日生效，随后 3 天改造期",
+  "advancement.finance.macro_industrial_revolution": "工业革命",
+  "advancement.finance.macro_industrial_revolution.desc": "让一座工厂启用工业档生产方式",
+  "advancement.finance.macro_artisan": "手艺人",
+  "advancement.finance.macro_artisan.desc": "同一家公司的三座工厂都坚持手工档，并且盈利"
 }

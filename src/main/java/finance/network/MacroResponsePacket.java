@@ -16,7 +16,9 @@ public record MacroResponsePacket(long requestId, boolean enabled, long cpiX100,
                                   int avgSol, long employed, long wages, boolean strike, boolean unrest,
                                   long treasury, long debt, long revenue, long expense, boolean austerity,
                                   List<String> laws, String proposal, List<GroupRow> groups,
-                                  List<SettlementRow> settlements) {
+                                  List<SettlementRow> settlements, List<Integer> factoryTiers) {
+    /** 全服工厂档位统计的项数：手工、改良、工业、停产或临时作坊。 */
+    public static final int FACTORY_TIER_BUCKETS = 4;
     public static final int MAX_SETTLEMENTS = 16, MAX_GOODS = 16, MAX_LAWS = 8, MAX_GROUPS = 8, CATEGORIES = 5;
 
     public record GroupRow(String name, int cloutBps, int approval, int lobby) { }
@@ -31,6 +33,7 @@ public record MacroResponsePacket(long requestId, boolean enabled, long cpiX100,
         groups = bound(groups, MAX_GROUPS);
         settlements = bound(settlements, MAX_SETTLEMENTS);
         proposal = proposal == null ? "" : proposal;
+        factoryTiers = bound(factoryTiers, FACTORY_TIER_BUCKETS);
     }
 
     private static <T> List<T> bound(List<T> list, int max) {
@@ -84,6 +87,8 @@ public record MacroResponsePacket(long requestId, boolean enabled, long cpiX100,
                 b.writeLong(g.localPrice);
             }
         }
+        b.writeVarInt(p.factoryTiers.size());
+        for (int v : p.factoryTiers) b.writeVarInt(Math.max(0, v));
     }
 
     public static MacroResponsePacket decode(FriendlyByteBuf b) {
@@ -126,8 +131,11 @@ public record MacroResponsePacket(long requestId, boolean enabled, long cpiX100,
             for (int j = 0; j < gc; j++) goods.add(new GoodRow(b.readUtf(64), b.readVarInt(), b.readLong(), b.readLong(), b.readLong()));
             settlements.add(new SettlementRow(name, pop, sol, emp, income, u, f, goods));
         }
+        n = count(b, FACTORY_TIER_BUCKETS);
+        List<Integer> factoryTiers = new ArrayList<>(n);
+        for (int i = 0; i < n; i++) factoryTiers.add(b.readVarInt());
         return new MacroResponsePacket(id, enabled, cpi, inflation, population, avgSol, employed, wages, strike, unrest,
-                treasury, debt, revenue, expense, austerity, laws, proposal, groups, settlements);
+                treasury, debt, revenue, expense, austerity, laws, proposal, groups, settlements, factoryTiers);
     }
 
     private static int count(FriendlyByteBuf b, int max) {

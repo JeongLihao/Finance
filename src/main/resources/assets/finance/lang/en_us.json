@@ -635,5 +635,9 @@
   "finance.factory.level_too_low": "Facility level too low; upgrade it first",
   "finance.factory.equipment_missing": "Not enough equipment in the zone; complete the list first",
   "finance.factory.already_selected": "Already the current target",
-  "finance.factory.method_selected": "Switched; takes effect next day with a 3-day retooling period"
+  "finance.factory.method_selected": "Switched; takes effect next day with a 3-day retooling period",
+  "advancement.finance.macro_industrial_revolution": "Industrial Revolution",
+  "advancement.finance.macro_industrial_revolution.desc": "Switch a factory to an industrial production method",
+  "advancement.finance.macro_artisan": "Artisan",
+  "advancement.finance.macro_artisan.desc": "Keep three factories of one company on manual methods while staying profitable"
 }

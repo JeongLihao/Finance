@@ -26,6 +26,12 @@ public final class FactoryState {
     private long equipmentScanDay = -1L;
     private long provisionalUntilDay = PROVISIONAL_UNSET;
     private long lastResolvedDay = -1L;
+    /** 上一次判定后的岗位数（运行时，只用于周报算裁员人数；-1 表示未知）。 */
+    private long lastJobs = -1L;
+
+    public long lastJobs() { return lastJobs; }
+
+    void setLastJobs(long jobs) { lastJobs = jobs; }
 
     public ProductionTier targetTier() { return targetTier; }
     public ProductionTier activeTier() { return activeTier; }
