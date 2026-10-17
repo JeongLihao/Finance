@@ -49,9 +49,11 @@ public final class FactoryState {
     /** 记录一次设备扫描结果。每种设备按上限截断。 */
     public void recordScan(Map<FactoryEquipment, Integer> counts, long day, int maxPerType) {
         if (day < 0) return;
+        // 先复制再清空：调用方可能传入的就是 equipment() 视图
+        Map<FactoryEquipment, Integer> copy = counts == null || counts.isEmpty() ? Map.of() : new EnumMap<>(counts);
         equipment.clear();
-        if (counts != null) {
-            counts.forEach((e, n) -> {
+        if (!copy.isEmpty()) {
+            copy.forEach((e, n) -> {
                 if (e != null && n != null && n > 0) equipment.put(e, Math.min(n, Math.max(1, maxPerType)));
             });
         }
@@ -105,11 +107,16 @@ public final class FactoryState {
         activeTier = resolved;
     }
 
-    /** 当天生效的生产方式：正式档位；临时作坊期按手工档；否则 null（缺少设备）。 */
+    /** 当天生效的生产方式：正式档位；临时作坊期沿用原有规则；否则 null（缺少设备）。 */
     public ProductionMethod effectiveMethod(CompanyType type, long day) {
         if (activeTier != null) return ProductionMethods.get(type, activeTier);
-        if (provisional(day)) return ProductionMethods.get(type, ProductionTier.MANUAL);
+        if (provisional(day) || provisionalUntilDay == PROVISIONAL_UNSET) return ProductionMethods.legacy(type);
         return null;
+    }
+
+    /** 是否处于临时作坊（含尚未初始化的老记录）。 */
+    public boolean provisionalOrUnset(long day) {
+        return activeTier == null && (provisionalUntilDay == PROVISIONAL_UNSET || provisional(day));
     }
 
     /** 反序列化用。 */

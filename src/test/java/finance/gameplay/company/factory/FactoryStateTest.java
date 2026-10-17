@@ -35,7 +35,7 @@ class FactoryStateTest {
         resolve(s, 1, 10);
         assertEquals(24, s.provisionalUntilDay(), "第一次日结开始 14 天兼容期");
         assertNull(s.activeTier());
-        assertEquals(ProductionMethods.get(FOOD, MANUAL), s.effectiveMethod(FOOD, 10), "临时作坊按手工档");
+        assertEquals(ProductionMethods.legacy(FOOD).outputs(), s.effectiveMethod(FOOD, 10).outputs(), "临时作坊沿用原有规则");
         resolve(s, 1, 24);
         assertNotNull(s.effectiveMethod(FOOD, 24), "最后一天仍可生产");
         resolve(s, 1, 25);

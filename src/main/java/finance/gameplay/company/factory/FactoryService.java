@@ -1,0 +1,150 @@
+package finance.gameplay.company.factory;
+
+import finance.company.Company;
+import finance.company.CompanyManager;
+import finance.config.FinanceConfig;
+import finance.data.EconomySavedData;
+import finance.gameplay.company.CompanyFacilityManager;
+import finance.gameplay.company.CompanyFacilityRecord;
+import finance.gameplay.company.CompanyFacilityStatus;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * 厂房日结：扫描厂区设备 → 判定当天生效的生产方式。生产（{@code CompanyProductionService}）和
+ * 雇工（{@code MacroLaborService}）只读判定结果。
+ *
+ * <p>生产只认这里的统一扫描：同一块设备在同一次扫描里只算给一座工厂，"白天把设备搬给两座厂用"没有意义。
+ * 区块未加载时不扫描，沿用最近一次结果（最多 {@code scanStaleDays} 天）。</p>
+ */
+public final class FactoryService {
+    private FactoryService() { }
+
+    public static FactoryZone zone() {
+        return new FactoryZone(FinanceConfig.facilityZoneRadius(), FinanceConfig.facilityZoneBelow(),
+                FinanceConfig.facilityZoneAbove());
+    }
+
+    /** 每天在招工之前调用。server 为 null（测试、模拟）时只做判定，不扫描。 */
+    public static void processDay(MinecraftServer server, long day) {
+        if (day < 0) return;
+        if (server != null) scanAll(server, day);
+        for (CompanyFacilityRecord facility : CompanyFacilityManager.all()) prepare(facility, day);
+        EconomySavedData.markDirty();
+    }
+
+    /** 判定某设施当天的生产方式（幂等）。 */
+    public static void prepare(CompanyFacilityRecord facility, long day) {
+        if (facility == null || !operational(facility)) return;
+        Company company = CompanyManager.getCompany(facility.companyId());
+        if (company == null) return;
+        facility.factory().resolveDay(company.getType(), facility.productionLevel(), day);
+    }
+
+    static boolean operational(CompanyFacilityRecord facility) {
+        return facility.status() != CompanyFacilityStatus.DISABLED && facility.status() != CompanyFacilityStatus.ORPHANED;
+    }
+
+    /** 当天生效的生产方式；null 表示缺少设备。调用前应已 {@link #prepare}。 */
+    public static ProductionMethod effectiveMethod(CompanyFacilityRecord facility, Company company, long day) {
+        if (facility == null || company == null) return null;
+        return facility.factory().effectiveMethod(company.getType(), day);
+    }
+
+    /** 改造期产量系数（基点）。 */
+    public static int retoolBps(CompanyFacilityRecord facility, long day) {
+        if (facility == null || !facility.factory().retooling(day)) return 10_000;
+        return Math.max(0, Math.min(100, FinanceConfig.facilityRetoolOutputPercent())) * 100;
+    }
+
+    /**
+     * 设施岗位：正式档位 = 该方式设备岗位（受等级上限约束）；临时作坊沿用旧规则（等级 × 每级岗位）；缺少设备为 0。
+     */
+    public static long jobs(CompanyFacilityRecord facility) {
+        if (facility == null) return 0;
+        Company company = CompanyManager.getCompany(facility.companyId());
+        if (company == null) return 0;
+        FactoryState state = facility.factory();
+        long day = Math.max(0, state.lastResolvedDay());
+        if (state.activeTier() != null) {
+            return ProductionMethods.jobs(ProductionMethods.get(company.getType(), state.activeTier()),
+                    state.usableEquipment(day, FinanceConfig.facilityScanStaleDays()), facility.productionLevel(),
+                    FinanceConfig.facilityMaxEquipmentPerType(), FinanceConfig.facilityJobsCapPerLevel());
+        }
+        if (state.provisionalOrUnset(day)) {
+            return (long) facility.productionLevel() * Math.max(1, FinanceConfig.macroJobsPerLevel());
+        }
+        return 0;
+    }
+
+    /**
+     * 模拟和测试用：假定玩家已按某档清单搭好厂房，直接写入恰好满足该档的设备快照并设为目标档。
+     * 没有世界可扫描时，需要每天调用一次以保持快照新鲜。
+     */
+    public static void recordBuiltEquipment(CompanyFacilityRecord facility, ProductionTier tier, long day) {
+        if (facility == null || tier == null) return;
+        Company company = CompanyManager.getCompany(facility.companyId());
+        ProductionMethod method = company == null ? null : ProductionMethods.get(company.getType(), tier);
+        if (method == null) return;
+        facility.factory().setTargetTier(tier);
+        facility.factory().recordScan(method.required(), day, FinanceConfig.facilityMaxEquipmentPerType());
+    }
+
+    // ---------------------------------------------------------------- 世界扫描
+
+    static void scanAll(MinecraftServer server, long day) {
+        Map<String, List<CompanyFacilityRecord>> byDimension = new LinkedHashMap<>();
+        for (CompanyFacilityRecord f : CompanyFacilityManager.all()) {
+            if (operational(f)) byDimension.computeIfAbsent(f.dimensionId(), k -> new ArrayList<>()).add(f);
+        }
+        FactoryZone zone = zone();
+        int maxPerType = FinanceConfig.facilityMaxEquipmentPerType();
+        byDimension.forEach((dimension, facilities) -> {
+            ServerLevel level = level(server, dimension);
+            if (level == null) return;
+            List<BlockPos> controllers = facilities.stream().map(CompanyFacilityRecord::blockPos).toList();
+            for (int i = 0; i < facilities.size(); i++) {
+                BlockPos c = controllers.get(i);
+                if (!zoneLoaded(level, c, zone)) continue; // 区块未加载：沿用旧快照
+                facilities.get(i).factory().recordScan(zone.count(i, controllers, pos -> equipmentAt(level, pos), maxPerType),
+                        day, maxPerType);
+            }
+        });
+    }
+
+    /** 界面用的即时扫描：只用于显示清单和校验切换，不写入设施记录。 */
+    public static Map<FactoryEquipment, Integer> scanForDisplay(ServerLevel level, CompanyFacilityRecord facility) {
+        if (level == null || facility == null) return Map.of();
+        List<CompanyFacilityRecord> same = CompanyFacilityManager.all().stream()
+                .filter(f -> operational(f) && f.dimensionId().equals(facility.dimensionId())).toList();
+        List<BlockPos> controllers = same.stream().map(CompanyFacilityRecord::blockPos).toList();
+        int self = same.indexOf(facility);
+        FactoryZone zone = zone();
+        if (self < 0 || !zoneLoaded(level, facility.blockPos(), zone)) return facility.factory().equipment();
+        return zone.count(self, controllers, pos -> equipmentAt(level, pos), FinanceConfig.facilityMaxEquipmentPerType());
+    }
+
+    static boolean zoneLoaded(ServerLevel level, BlockPos controller, FactoryZone zone) {
+        return level.hasChunksAt(controller.getX() - zone.radius(), controller.getZ() - zone.radius(),
+                controller.getX() + zone.radius(), controller.getZ() + zone.radius());
+    }
+
+    static FactoryEquipment equipmentAt(ServerLevel level, BlockPos pos) {
+        ResourceLocation id = BuiltInRegistries.BLOCK.getKey(level.getBlockState(pos).getBlock());
+        return id == null ? null : FactoryEquipment.fromBlockId(id.toString());
+    }
+
+    static ServerLevel level(MinecraftServer server, String dimensionId) {
+        ResourceLocation id = ResourceLocation.tryParse(dimensionId);
+        return id == null ? null : server.getLevel(ResourceKey.create(net.minecraft.core.registries.Registries.DIMENSION, id));
+    }
+}

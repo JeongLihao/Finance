@@ -53,6 +53,11 @@ public final class CompanyGameplayLongRunSimulationService {
                 // not a second copy in Company.inventory.
                 CommodityInventoryManager.addCommodity(CompanyInventoryFacade.custodyId(companyId), "iron",
                         1 + random.nextInt(3));
+                // 厂房：铁矿按手工档清单搭好（3 座熔炉），成员每天送来冶炼用的木头
+                CompanyFacilityRecord built = CompanyFacilityManager.get(facilityId);
+                finance.gameplay.company.factory.FactoryService.recordBuiltEquipment(built,
+                        finance.gameplay.company.factory.ProductionTier.MANUAL, day);
+                CommodityInventoryManager.addCommodity(CompanyInventoryFacade.custodyId(companyId), "wood", 20);
                 int legacyBefore = company.getInventoryAmount("iron");
                 CompanyProductionService.DayResult first = CompanyProductionService.processCompanyDay(company, day);
                 if (first.producedFacilities() > 0) producedDays++;
