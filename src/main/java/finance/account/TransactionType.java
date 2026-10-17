@@ -148,5 +148,9 @@ public enum TransactionType {
     /** 国家财政：央行准备金不足以放款时的增发（货币创造）。 */
     MACRO_DEBT_ISSUANCE,
     /** 商情调查费（玩家 → 国库或 NPC 资金池）。 */
-    MACRO_SURVEY
+    MACRO_SURVEY,
+    /** NPC 竞争公司：NPC 资金池拨给新公司的种子资金。 */
+    RIVAL_SEED,
+    /** NPC 竞争公司：升级产线/仓储，公司现金付给 NPC 资金池（视为采购建材）。 */
+    RIVAL_UPGRADE
 }

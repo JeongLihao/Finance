@@ -101,6 +101,8 @@ public final class EconomyCycleService {
         CompanyFinancingManager.tick(mcDay);
         CompanyProposalManager.tick(mcDay);
         CompanyBankruptcyManager.tick(server, mcDay);
+        // NPC 竞争公司：排在破产处理之后，避免对当天破产的公司做决策
+        finance.rival.RivalService.processDay(mcDay);
         finance.gameplay.company.CompanyFacilityWorldFeedbackService.refresh(server, mcDay);
         finance.feedback.WorldTerminalStateService.auditDay(server, mcDay);
         finance.policy.PolicyMeetingService.onDayTick(server, mcDay);

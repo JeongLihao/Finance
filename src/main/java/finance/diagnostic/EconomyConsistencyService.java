@@ -56,6 +56,7 @@ public final class EconomyConsistencyService {
             case BANKING -> checkBanking(issues);
             case CARAVAN -> checkCaravan(issues);
             case NPC_ECONOMY -> checkNpcEconomy(issues);
+            case RIVALS -> checkRivals(issues);
             case MACRO_ECONOMY -> { for (DiagnosticIssue i : finance.macro.MacroConsistency.check()) add(issues, i.severity(), i.module(), i.code(), i.subject(), i.message()); }
             case FUTURES -> checkFutures(issues);
             case FUND -> checkFunds(issues, mcDay);
@@ -372,6 +373,17 @@ public final class EconomyConsistencyService {
         long observed = finance.cycle.FinancialCycleService.observedMarketDay();
         if (closed > observed && observed >= 0) add(out, DiagnosticSeverity.ERROR, "CYCLE", "CLOSED_AFTER_OBSERVED", "financial-cycle", "Closed market day is later than observed market day");
         if (mcDay >= 0 && (processed > mcDay || observed > mcDay)) add(out, DiagnosticSeverity.WARN, "CYCLE", "CLOCK_ROLLBACK", "financial-cycle", "Stored cycle day is ahead of current world day");
+    }
+
+    private static void checkRivals(List<DiagnosticIssue> out) {
+        // 竞争公司档案只能指向无主公司（破产公司的档案在日结时清理）
+        for (finance.rival.RivalProfile p : finance.rival.RivalManager.all()) {
+            finance.company.Company c = finance.company.CompanyManager.getCompany(p.companyId());
+            if (c != null && c.isPlayerOwned()) {
+                add(out, DiagnosticSeverity.ERROR, "RIVALS", "PROFILE_ON_PLAYER_COMPANY", p.companyId().toString(),
+                        "Rival profile points at a player-owned company");
+            }
+        }
     }
 
     private static void checkNpcEconomy(List<DiagnosticIssue> out) {

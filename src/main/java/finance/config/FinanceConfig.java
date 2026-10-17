@@ -123,6 +123,13 @@ public final class FinanceConfig {
     private static final int FACILITY_RETOOL_OUTPUT_PERCENT_VALUE = 50;
     private static final int FACILITY_PROVISIONAL_DAYS_VALUE = 14;
     private static final int FACILITY_SCAN_STALE_DAYS_VALUE = 7;
+    // ---- 单人经济：NPC 竞争公司 ----
+    private static final boolean RIVALS_ENABLED_VALUE = true;
+    private static final int RIVALS_MAX_COMPANIES_VALUE = 6;
+    private static final int RIVALS_SPAWN_COOLDOWN_DAYS_VALUE = 14;
+    private static final long RIVALS_SEED_CAPITAL_VALUE = 50_000L;
+    private static final boolean RIVALS_IPO_ENABLED_VALUE = true;
+    private static final boolean RIVALS_CONTRACTS_ENABLED_VALUE = true;
     // ---- 宏观实体经济 ----
     private static final boolean MACRO_ENABLED_VALUE = true;
     private static final boolean MACRO_LABOR_ENABLED_VALUE = true;
@@ -297,6 +304,12 @@ public final class FinanceConfig {
     private static final ForgeConfigSpec.IntValue FACILITY_RETOOL_OUTPUT_PERCENT;
     private static final ForgeConfigSpec.IntValue FACILITY_PROVISIONAL_DAYS;
     private static final ForgeConfigSpec.IntValue FACILITY_SCAN_STALE_DAYS;
+    private static final ForgeConfigSpec.BooleanValue RIVALS_ENABLED;
+    private static final ForgeConfigSpec.IntValue RIVALS_MAX_COMPANIES;
+    private static final ForgeConfigSpec.IntValue RIVALS_SPAWN_COOLDOWN_DAYS;
+    private static final ForgeConfigSpec.LongValue RIVALS_SEED_CAPITAL;
+    private static final ForgeConfigSpec.BooleanValue RIVALS_IPO_ENABLED;
+    private static final ForgeConfigSpec.BooleanValue RIVALS_CONTRACTS_ENABLED;
     private static final ForgeConfigSpec.BooleanValue MACRO_ENABLED;
     private static final ForgeConfigSpec.BooleanValue MACRO_LABOR_ENABLED;
     private static final ForgeConfigSpec.BooleanValue MACRO_POLITICS_ENABLED;
@@ -1103,6 +1116,21 @@ public final class FinanceConfig {
                 .defineInRange("scanStaleDays", FACILITY_SCAN_STALE_DAYS_VALUE, 0, 365);
         builder.pop();
 
+        builder.push("rivals");
+        RIVALS_ENABLED = builder.comment("NPC 竞争公司：关闭后不新建、不做经营决策；已有公司照常存在、交易和被收购。")
+                .define("enabled", RIVALS_ENABLED_VALUE);
+        RIVALS_MAX_COMPANIES = builder.comment("无主（NPC）公司总数上限，含 3 家系统公司。")
+                .defineInRange("maxCompanies", RIVALS_MAX_COMPANIES_VALUE, 0, 32);
+        RIVALS_SPAWN_COOLDOWN_DAYS = builder.comment("两次新建竞争公司、或竞争公司破产后补新公司的最短间隔（MC 天）。")
+                .defineInRange("spawnCooldownDays", RIVALS_SPAWN_COOLDOWN_DAYS_VALUE, 1, 365);
+        RIVALS_SEED_CAPITAL = builder.comment("新建竞争公司从 NPC 资金池拨付的种子资金；资金池低于 npcEconomy.poolReserveFloor 时不新建。")
+                .defineInRange("seedCapital", RIVALS_SEED_CAPITAL_VALUE, 0L, 100_000_000L);
+        RIVALS_IPO_ENABLED = builder.comment("竞争公司满足条件时是否上市（遵守玩家 IPO 的全部上限）。")
+                .define("ipoEnabled", RIVALS_IPO_ENABLED_VALUE);
+        RIVALS_CONTRACTS_ENABLED = builder.comment("加工类竞争公司缺原料时是否发布采购合同，和玩家争夺供应。")
+                .define("contractsEnabled", RIVALS_CONTRACTS_ENABLED_VALUE);
+        builder.pop();
+
         COMMON_SPEC = builder.build();
     }
 
@@ -1388,6 +1416,14 @@ public final class FinanceConfig {
     public static int facilityRetoolOutputPercent() { return getInt(FACILITY_RETOOL_OUTPUT_PERCENT, FACILITY_RETOOL_OUTPUT_PERCENT_VALUE); }
     public static int facilityProvisionalDays() { return getInt(FACILITY_PROVISIONAL_DAYS, FACILITY_PROVISIONAL_DAYS_VALUE); }
     public static int facilityScanStaleDays() { return getInt(FACILITY_SCAN_STALE_DAYS, FACILITY_SCAN_STALE_DAYS_VALUE); }
+
+    // ---- 单人经济：NPC 竞争公司 ----
+    public static boolean rivalsEnabled() { return getBoolean(RIVALS_ENABLED, RIVALS_ENABLED_VALUE); }
+    public static int rivalsMaxCompanies() { return getInt(RIVALS_MAX_COMPANIES, RIVALS_MAX_COMPANIES_VALUE); }
+    public static int rivalsSpawnCooldownDays() { return getInt(RIVALS_SPAWN_COOLDOWN_DAYS, RIVALS_SPAWN_COOLDOWN_DAYS_VALUE); }
+    public static long rivalsSeedCapital() { return getLong(RIVALS_SEED_CAPITAL, RIVALS_SEED_CAPITAL_VALUE); }
+    public static boolean rivalsIpoEnabled() { return getBoolean(RIVALS_IPO_ENABLED, RIVALS_IPO_ENABLED_VALUE); }
+    public static boolean rivalsContractsEnabled() { return getBoolean(RIVALS_CONTRACTS_ENABLED, RIVALS_CONTRACTS_ENABLED_VALUE); }
 
     public static boolean npcVotingEnabled() {
         return getBoolean(NPC_VOTING_ENABLED, NPC_VOTING_ENABLED_VALUE);

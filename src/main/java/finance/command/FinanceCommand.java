@@ -145,6 +145,7 @@ public class FinanceCommand {
                                 .then(Commands.literal("banking").executes(c -> resume(c.getSource(), ModuleHealthRegistry.Module.BANKING)))
                                 .then(Commands.literal("caravan").executes(c -> resume(c.getSource(), ModuleHealthRegistry.Module.CARAVAN)))
                                 .then(Commands.literal("npceconomy").executes(c -> resume(c.getSource(), ModuleHealthRegistry.Module.NPC_ECONOMY)))
+                                .then(Commands.literal("rivals").executes(c -> resume(c.getSource(), ModuleHealthRegistry.Module.RIVALS)))
                                 .then(Commands.literal("macro").executes(c -> resume(c.getSource(), ModuleHealthRegistry.Module.MACRO_ECONOMY)))
                                 .then(Commands.literal("futures").executes(c -> resume(c.getSource(), ModuleHealthRegistry.Module.FUTURES)))
                                 .then(Commands.literal("fund").executes(c -> resume(c.getSource(), ModuleHealthRegistry.Module.FUND)))
