@@ -17,8 +17,8 @@ import io.netty.handler.codec.DecoderException;
 
 public record CompanyGameplayActionPacket(Action action,UUID companyId,UUID targetId,String text,
                                           int quantity,long amount,String operationKey) {
-    private static final int MAX_CONTRACT_QUANTITY=1_000_000;
-    private static final long MAX_CONTRACT_REWARD=1_000_000L;
+    public static final int MAX_CONTRACT_QUANTITY=1_000_000;
+    public static final long MAX_CONTRACT_REWARD=1_000_000L;
     public enum Action { MODE_NEXT, AUTO_SELL_NEXT, INVITE, ACCEPT_INVITE, REJECT_INVITE, LEAVE, ROLE_NEXT,
         REMOVE_MEMBER, UPGRADE_FACILITY, PUBLISH_CONTRACT, ACCEPT_SUPPLY_CONTRACT,
         DELIVER_SUPPLY_CONTRACT, OPEN_ADVANCED }

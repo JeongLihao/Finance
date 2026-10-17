@@ -447,9 +447,13 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         mouseX /= layoutScale;
         mouseY /= layoutScale;
+        // 输入框不走 super.mouseClicked，需要手动设置焦点，否则点了也无法输入
+        EditBox clickedBox = null;
         for (EditBox box : getVisibleEditBoxes()) {
-            box.mouseClicked(mouseX, mouseY, button);
+            if (box.mouseClicked(mouseX, mouseY, button)) clickedBox = box;
         }
+        setFocused(clickedBox);
+        if (clickedBox != null) return true;
 
         int mx = (int) mouseX - leftPos;
         int my = (int) mouseY - topPos;
@@ -550,12 +554,8 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        for (EditBox box : getVisibleEditBoxes()) {
-            if (box.isFocused() && box.keyPressed(keyCode, scanCode, modifiers)) {
-                return true;
-            }
-        }
-        return super.keyPressed(keyCode, scanCode, modifiers);
+        return ScreenInput.handleTextBoxKey(getFocused(), keyCode, scanCode, modifiers)
+                || super.keyPressed(keyCode, scanCode, modifiers);
     }
 
 

@@ -36,6 +36,16 @@ public final class FactoryScreen extends AbstractContainerScreen<FactoryMenu> {
         if (fillW > 0) {
             graphics.fill(ax, ay, ax + fillW, ay + ARROW_H, 0xFFFF8C1A);
         }
+        // 槽位底框：纯色背景上不画框，空槽完全看不见。
+        for (net.minecraft.world.inventory.Slot slot : menu.slots) {
+            int sx = leftPos + slot.x - 1;
+            int sy = topPos + slot.y - 1;
+            graphics.fill(sx, sy, sx + 18, sy + 18, 0xFF8B8B8B);
+            graphics.fill(sx, sy, sx + 17, sy + 1, 0xFF373737);
+            graphics.fill(sx, sy, sx + 1, sy + 17, 0xFF373737);
+            graphics.fill(sx + 1, sy + 17, sx + 18, sy + 18, 0xFFFFFFFF);
+            graphics.fill(sx + 17, sy + 1, sx + 18, sy + 18, 0xFFFFFFFF);
+        }
         // 箭头框线。
         graphics.fill(ax - 1, ay - 1, ax + ARROW_W + 1, ay, 0xFF373737);
         graphics.fill(ax - 1, ay + ARROW_H, ax + ARROW_W + 1, ay + ARROW_H + 1, 0xFF373737);
@@ -43,7 +53,6 @@ public final class FactoryScreen extends AbstractContainerScreen<FactoryMenu> {
 
     @Override
     protected void renderLabels(GuiGraphics graphics, int mouseX, int mouseY) {
-        graphics.drawString(font, title.getString(), 8, 6, 0xFF202020, false);
         graphics.drawString(font, Component.translatable("screen.finance.factory.input").getString(),
                 56, 24, 0xFF555555, false);
         graphics.drawString(font, Component.translatable("screen.finance.factory.output").getString(),

@@ -559,5 +559,16 @@
   "finance.macro.announce.extra": "§c【号外】第 %s 期：%s —— 到贸易站或用 /macro news 领取",
   "finance.macro.announce.weekly": "§e《金融周报》第 %s 期出版：%s —— 到贸易站或用 /macro news 领取",
   "finance.macro.news.claimed": "§e领到 %s 份《金融周报》",
-  "finance.macro.news.waiting": "§e你有 %s 份《金融周报》没领，到任意贸易站或用 /macro news 领取"
+  "finance.macro.news.waiting": "§e你有 %s 份《金融周报》没领，到任意贸易站或用 /macro news 领取",
+  "screen.finance.market_overview.col.commodity": "商品",
+  "screen.finance.market_overview.col.price": "价格",
+  "screen.finance.market_overview.col.bid": "买入",
+  "screen.finance.market_overview.col.ask": "卖出",
+  "screen.finance.market_overview.col.change": "涨跌",
+  "screen.finance.market_overview.col.volume": "成交",
+  "screen.finance.market_overview.col.stock": "库存",
+  "screen.finance.market_overview.empty": "暂无国际市场数据",
+  "screen.finance.input.invalid_amount": "请输入 1～%s 的整数",
+  "screen.finance.input.invalid_uuid": "请输入有效的 UUID",
+  "screen.finance.input.missing_commodity": "请输入商品 ID"
 }
