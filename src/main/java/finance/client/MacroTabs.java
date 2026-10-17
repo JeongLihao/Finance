@@ -9,7 +9,7 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * 宏观页签：左侧总览与利益集团，右侧逐个聚落的市场表。只读；操作走 /macro 命令。
+ * 宏观页签：左侧总览与利益集团，右侧逐个聚落的市场表。只读；操作在“更多操作”界面（{@link PlayerServicesScreen}）。
  */
 public final class MacroTabs {
     private static final String[] CATEGORY_SHORT = {"食", "住", "工", "暖", "衣"};
@@ -79,8 +79,8 @@ public final class MacroTabs {
         List<Integer> tiers = data.factoryTiers();
         String footer = tiers.size() == MacroResponsePacket.FACTORY_TIER_BUCKETS
                 ? "工厂 手工" + tiers.get(0) + " 改良" + tiers.get(1) + " 工业" + tiers.get(2) + " 停产" + tiers.get(3)
-                        + " · 周报 /macro news · 商情 /macro radar"
-                : "周报 /macro news · 商情 /macro radar";
+                        + " · 工资/法律/游说：更多操作"
+                : "工资、法律、游说、周报、商情：标题栏“更多操作”";
         FinanceGui.drawClippedString(font, g, footer, LEFT_X, 231, 270, FinanceGui.COL_TEXT_DIM); // 右边留给“对手”和“刷新”按钮
     }
 

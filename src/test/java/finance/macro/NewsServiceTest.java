@@ -154,7 +154,7 @@ class NewsServiceTest {
         wool.lastSupply = 5;
         String page = NewsWriter.opportunityPage(42);
         assertTrue(page.contains("调查于第 42 天"));
-        assertTrue(page.contains("/macro radar"));
+        assertTrue(page.contains("更多操作"), "提示玩家去金融中心做商情调查");
     }
 
     @Test void newsDeskSurvivesSaveLoad() {

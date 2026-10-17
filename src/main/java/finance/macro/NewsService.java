@@ -24,7 +24,7 @@ import java.util.UUID;
 /**
  * 《金融周报》报社：一周里发生的事先进新闻池，每 {@code newsIntervalDays} 天出一期周刊；
  * 大事（罢工、饥荒、法案、紧缩）立刻出号外，号外之间至少隔 {@code newsExtraGapDays} 天，
- * 赶上冷却时只在聊天栏简短提一句，详情等周刊。报纸是实体书，到贸易站右键或 {@code /macro news} 领取，每期每人一份。
+ * 赶上冷却时只在聊天栏简短提一句，详情等周刊。报纸是实体书，到贸易站右键、金融中心“更多操作”或 {@code /macro news} 领取，每期每人一份。
  */
 public final class NewsService {
     public static final int MAX_POOL = 64, MAX_ARCHIVE = 8, MAX_CLAIMS = 512, MAX_PERSONAL_PLAYERS = 512, MAX_PERSONAL_LINES = 8;
