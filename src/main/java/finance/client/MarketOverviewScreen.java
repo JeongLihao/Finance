@@ -64,17 +64,17 @@ public class MarketOverviewScreen extends AbstractContainerScreen<MarketOverview
         graphics.drawString(font, title, 10, 8, 0xEDEFF2, false);
 
         int headerY = 26;
-        drawHeader(graphics, "商品", 10, headerY);
-        drawHeader(graphics, "价格", 58, headerY);
-        drawHeader(graphics, "买入", 96, headerY);
-        drawHeader(graphics, "卖出", 134, headerY);
-        drawHeader(graphics, "涨跌", 174, headerY);
-        drawHeader(graphics, "成交", 214, headerY);
-        drawHeader(graphics, "库存", 256, headerY);
+        drawHeader(graphics, "commodity", 10, headerY, 44);
+        drawHeader(graphics, "price", 58, headerY, 34);
+        drawHeader(graphics, "bid", 96, headerY, 34);
+        drawHeader(graphics, "ask", 134, headerY, 36);
+        drawHeader(graphics, "change", 174, headerY, 36);
+        drawHeader(graphics, "volume", 214, headerY, 38);
+        drawHeader(graphics, "stock", 256, headerY, 44);
 
         List<MarketSnapshot> snapshots = menu.getSnapshots();
         if (snapshots.isEmpty()) {
-            graphics.drawString(font, "暂无国际市场数据", 10, 52, 0xB9C0C8, false);
+            graphics.drawString(font, Component.translatable("screen.finance.market_overview.empty"), 10, 52, 0xB9C0C8, false);
             return;
         }
 
@@ -110,8 +110,15 @@ public class MarketOverviewScreen extends AbstractContainerScreen<MarketOverview
 
     @Override public boolean mouseScrolled(double mouseX,double mouseY,double delta){double x=mouseX-leftPos,y=mouseY-topPos;if(x>=8&&x<=imageWidth-8&&y>=40&&y<168&&delta!=0){int direction=delta>0?-1:1;rowOffset=Math.max(0,Math.min(Math.max(0,menu.getSnapshots().size()-9),rowOffset+direction));selectedRow=Math.max(rowOffset,Math.min(selectedRow,Math.min(menu.getSnapshots().size()-1,rowOffset+8)));return true;}return super.mouseScrolled(mouseX,mouseY,delta);}
 
-    private void drawHeader(GuiGraphics graphics, String label, int x, int y) {
-        graphics.drawString(font, label, x, y, 0x9EA8B3, false);
+    private void drawHeader(GuiGraphics graphics, String column, int x, int y, int width) {
+        drawClipped(graphics, Component.translatable("screen.finance.market_overview.col." + column).getString(),
+                x, y, width, 0x9EA8B3);
+    }
+
+    @Override
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        return ScreenInput.handleTextBoxKey(getFocused(), keyCode, scanCode, modifiers)
+                || super.keyPressed(keyCode, scanCode, modifiers);
     }
 
     private void drawClipped(GuiGraphics graphics, String text, int x, int y, int width, int color) {

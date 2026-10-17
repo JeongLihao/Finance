@@ -112,7 +112,7 @@ public final class MarketTabs {
             FinanceGui.drawClippedString(screen.font(), g, Long.toString(row.askPrice()), 178, y + 5, 46, FinanceGui.COL_WARN);
             FinanceGui.drawClippedString(screen.font(), g, FormatUtil.formatPercent(row.dayChange()), 230, y + 5, 46, FinanceGui.changeColor(row.dayChange()));
             FinanceGui.drawClippedString(screen.font(), g, Integer.toString(row.dayVolume()), 282, y + 5, 38, FinanceGui.COL_TEXT_DIM);
-            FinanceGui.drawClippedString(screen.font(), g, Integer.toString(row.marketStock()), 326, y + 5, 80, FinanceGui.COL_TEXT_DIM);
+            FinanceGui.drawClippedString(screen.font(), g, Integer.toString(row.marketStock()), 326, y + 5, 62, FinanceGui.COL_TEXT_DIM);
         }
 
         // ---- 国际交易区域 ----

@@ -559,5 +559,16 @@
   "finance.macro.announce.extra": "§c[Extra] Issue %s: %s — pick it up at a trade station or with /macro news",
   "finance.macro.announce.weekly": "§eFinance Weekly issue %s is out: %s — pick it up at a trade station or with /macro news",
   "finance.macro.news.claimed": "§eCollected %s Finance Weekly issue(s)",
-  "finance.macro.news.waiting": "§eYou have %s unread Finance Weekly issue(s); collect them at a trade station or with /macro news"
+  "finance.macro.news.waiting": "§eYou have %s unread Finance Weekly issue(s); collect them at a trade station or with /macro news",
+  "screen.finance.market_overview.col.commodity": "Item",
+  "screen.finance.market_overview.col.price": "Price",
+  "screen.finance.market_overview.col.bid": "Bid",
+  "screen.finance.market_overview.col.ask": "Ask",
+  "screen.finance.market_overview.col.change": "Chg",
+  "screen.finance.market_overview.col.volume": "Vol",
+  "screen.finance.market_overview.col.stock": "Stock",
+  "screen.finance.market_overview.empty": "No international market data yet",
+  "screen.finance.input.invalid_amount": "Enter a whole number from 1 to %s",
+  "screen.finance.input.invalid_uuid": "Enter a valid UUID",
+  "screen.finance.input.missing_commodity": "Enter a commodity ID"
 }

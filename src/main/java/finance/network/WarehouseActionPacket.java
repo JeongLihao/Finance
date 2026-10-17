@@ -17,7 +17,7 @@ import io.netty.handler.codec.DecoderException;
 
 public record WarehouseActionPacket(Action action, UUID warehouseId, String commodityId,
                                     int amount, String operationKey) {
-    private static final int MAX_TRANSFER_AMOUNT = 1_000_000;
+    public static final int MAX_TRANSFER_AMOUNT = 1_000_000;
     public enum Action { DEPOSIT, WITHDRAW, BIND_COMPANY, UNBIND_COMPANY, UPGRADE }
 
     public static void encode(WarehouseActionPacket packet, FriendlyByteBuf buffer) {

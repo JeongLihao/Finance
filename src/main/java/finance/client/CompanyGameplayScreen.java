@@ -38,6 +38,9 @@ public final class CompanyGameplayScreen extends AbstractContainerScreen<Company
     private EditBox quantity;
     private EditBox reward;
     private boolean pending;
+    private int pendingTicks;
+    /** 客户端预校验失败的提示（已翻译），优先于服务端状态显示。 */
+    private String localStatus = "";
 
     public CompanyGameplayScreen(CompanyGameplayMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -142,10 +145,14 @@ public final class CompanyGameplayScreen extends AbstractContainerScreen<Company
             y += 12;
         }
 
-        drawClipped(graphics, !menu.statusKey().isBlank()
-                        ? Component.translatable(menu.statusKey()).getString()
-                        : Component.translatable("screen.finance.company_gameplay.input_hint").getString(),
-                10, 173, 300, menu.statusKey().isBlank() ? 0xFF666666 : 0xFF8A4B18);
+        if (!localStatus.isEmpty()) {
+            drawClipped(graphics, localStatus, 10, 173, 300, 0xFF9A2F2F);
+        } else {
+            drawClipped(graphics, !menu.statusKey().isBlank()
+                            ? Component.translatable(menu.statusKey()).getString()
+                            : Component.translatable("screen.finance.company_gameplay.input_hint").getString(),
+                    10, 173, 300, menu.statusKey().isBlank() ? 0xFF666666 : 0xFF8A4B18);
+        }
         boolean invited = "INVITED".equals(menu.role());
         button(graphics, 10, 204, 72, "mode");
         button(graphics, 86, 204, 72, invited ? "accept" : "leave");
@@ -176,7 +183,9 @@ public final class CompanyGameplayScreen extends AbstractContainerScreen<Company
         }
         String diagnosticKey = !menu.statusKey().isBlank() ? menu.statusKey()
                 : menu.projects().isEmpty() ? "" : menu.projects().get(selectedProject).failureKey();
-        if (!diagnosticKey.isBlank()) {
+        if (!localStatus.isEmpty()) {
+            drawClipped(graphics, localStatus, 10, 169, 300, 0xFF9A2F2F);
+        } else if (!diagnosticKey.isBlank()) {
             drawClipped(graphics, Component.translatable(diagnosticKey).getString(),
                     10, 169, 300, diagnosticKey.contains("completed") || diagnosticKey.contains("created")
                             ? 0xFF2D7D32 : 0xFF8A4B18);
@@ -409,8 +418,10 @@ public final class CompanyGameplayScreen extends AbstractContainerScreen<Company
                             : CapitalProjectActionPacket.Action.START_FUNDING;
                     CapitalFundingSource projectSource = CapitalFundingSource.valueOf(
                             menu.projects().get(selectedProject).fundingSource());
-                    if (projectSource == CapitalFundingSource.COMMERCIAL_LOAN && !target.getValue().isBlank())
-                        bankId = UUID.fromString(target.getValue().trim());
+                    if (projectSource == CapitalFundingSource.COMMERCIAL_LOAN && !target.getValue().isBlank()) {
+                        bankId = ScreenInput.parseUuid(target.getValue());
+                        if (bankId == null) return reject("screen.finance.input.invalid_uuid");
+                    }
                 }
                 case "execute" -> action = CapitalProjectActionPacket.Action.EXECUTE;
                 case "cancel" -> action = CapitalProjectActionPacket.Action.CANCEL;
@@ -421,7 +432,7 @@ public final class CompanyGameplayScreen extends AbstractContainerScreen<Company
         }
         FinancePacketHandler.CHANNEL.sendToServer(new CapitalProjectActionPacket(action, projectId, targetId,
                 proposalId, bankId, type, capitalFundingSource, UUID.randomUUID().toString()));
-        pending = true;
+        markPending();
         return true;
     }
 
@@ -457,8 +468,10 @@ public final class CompanyGameplayScreen extends AbstractContainerScreen<Company
         if (!can(action)) return true;
         UUID id = null;
         try {
-            if (action == CompanyGameplayActionPacket.Action.INVITE) id = UUID.fromString(target.getValue());
-            else if (action == CompanyGameplayActionPacket.Action.ROLE_NEXT
+            if (action == CompanyGameplayActionPacket.Action.INVITE) {
+                id = ScreenInput.parseUuid(target.getValue());
+                if (id == null) return reject("screen.finance.input.invalid_uuid");
+            } else if (action == CompanyGameplayActionPacket.Action.ROLE_NEXT
                     || action == CompanyGameplayActionPacket.Action.REMOVE_MEMBER) {
                 id = menu.members().get(member).playerId();
             } else if (action == CompanyGameplayActionPacket.Action.UPGRADE_FACILITY) {
@@ -470,17 +483,52 @@ public final class CompanyGameplayScreen extends AbstractContainerScreen<Company
         } catch (RuntimeException ignored) {
             return true;
         }
+        // 服务端解码器会把越界的数量/奖励当作非法包断开连接，只有合同操作才带上输入框的数值
         int requestedQuantity = 0;
         long requestedReward = 0;
-        try {
-            requestedQuantity = Integer.parseInt(quantity.getValue());
-            requestedReward = Long.parseLong(reward.getValue());
-        } catch (NumberFormatException ignored) {
+        String requestedCommodity = "";
+        if (action == CompanyGameplayActionPacket.Action.PUBLISH_CONTRACT
+                || action == CompanyGameplayActionPacket.Action.DELIVER_SUPPLY_CONTRACT) {
+            requestedQuantity = ScreenInput.parsePositive(quantity.getValue(),
+                    CompanyGameplayActionPacket.MAX_CONTRACT_QUANTITY);
+            if (requestedQuantity < 0) return reject("screen.finance.input.invalid_amount",
+                    CompanyGameplayActionPacket.MAX_CONTRACT_QUANTITY);
+        }
+        if (action == CompanyGameplayActionPacket.Action.PUBLISH_CONTRACT) {
+            requestedCommodity = commodity.getValue().trim();
+            if (requestedCommodity.isEmpty()) return reject("screen.finance.input.missing_commodity");
+            requestedReward = ScreenInput.parsePositive(reward.getValue(),
+                    CompanyGameplayActionPacket.MAX_CONTRACT_REWARD);
+            if (requestedReward < 0) return reject("screen.finance.input.invalid_amount",
+                    CompanyGameplayActionPacket.MAX_CONTRACT_REWARD);
         }
         FinancePacketHandler.CHANNEL.sendToServer(new CompanyGameplayActionPacket(action, menu.companyId(), id,
-                commodity.getValue(), requestedQuantity, requestedReward, UUID.randomUUID().toString()));
-        pending = true;
+                requestedCommodity, requestedQuantity, requestedReward, UUID.randomUUID().toString()));
+        markPending();
         return true;
+    }
+
+    private boolean reject(String key, Object... args) {
+        localStatus = Component.translatable(key, args).getString();
+        return true;
+    }
+
+    private void markPending() {
+        pending = true;
+        pendingTicks = 0;
+        localStatus = "";
+    }
+
+    @Override
+    protected void containerTick() {
+        super.containerTick();
+        if (pending && ++pendingTicks >= ScreenInput.PENDING_TIMEOUT_TICKS) pending = false;
+    }
+
+    @Override
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        return ScreenInput.handleTextBoxKey(getFocused(), keyCode, scanCode, modifiers)
+                || super.keyPressed(keyCode, scanCode, modifiers);
     }
 
     private CompanyGameplayActionPacket.Action contractAction() {

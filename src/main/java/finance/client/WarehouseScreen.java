@@ -28,6 +28,9 @@ public final class WarehouseScreen extends AbstractContainerScreen<WarehouseMenu
     private int shipmentOffset;
     private boolean showShipments;
     private boolean pending;
+    private int pendingTicks;
+    /** 客户端预校验失败的提示（已翻译），优先于服务端状态显示。 */
+    private String localStatus = "";
     private CapitalFundingSource capitalFundingSource = CapitalFundingSource.RETAINED_EARNINGS;
     private EditBox amount;
 
@@ -105,7 +108,9 @@ public final class WarehouseScreen extends AbstractContainerScreen<WarehouseMenu
             }
         }
 
-        if (!menu.statusKey().isBlank() && !menu.companyBound()) {
+        if (!localStatus.isEmpty()) {
+            drawClipped(graphics, localStatus, 10, 177, 300, 0xFF9A2F2F);
+        } else if (!menu.statusKey().isBlank() && !menu.companyBound()) {
             drawClipped(graphics, Component.translatable(menu.statusKey(), menu.statusAmount()).getString(),
                     10, 177, 300,
                     menu.statusKey().contains("success") || menu.statusKey().contains("completed")
@@ -113,7 +118,7 @@ public final class WarehouseScreen extends AbstractContainerScreen<WarehouseMenu
         }
         drawClipped(graphics, Component.translatable("screen.finance.warehouse.tier", menu.tier(),
                 menu.transferLimit(), menu.upgradeMaterials()).getString(), 10, 189, 210, 0xFF555555);
-        if (menu.companyBound()) {
+        if (menu.companyBound() && localStatus.isEmpty()) {
             String project = !menu.statusKey().isBlank()
                     ? Component.translatable(menu.statusKey(), menu.statusAmount()).getString()
                     : menu.capitalProjectId() == null
@@ -193,7 +198,7 @@ public final class WarehouseScreen extends AbstractContainerScreen<WarehouseMenu
                         WarehouseActionPacket.Action.UPGRADE, menu.warehouseId(), "upgrade", 0,
                         UUID.randomUUID().toString()));
             }
-            pending = true;
+            markPending();
             return true;
         }
         if (my >= 202 && my < 218 && selected >= 0 && selected < menu.rows().size()) {
@@ -201,15 +206,16 @@ public final class WarehouseScreen extends AbstractContainerScreen<WarehouseMenu
                     ? WarehouseActionPacket.Action.DEPOSIT
                     : mx >= 170 && mx < 224 ? WarehouseActionPacket.Action.WITHDRAW : null;
             if (action != null) {
-                int requested;
-                try {
-                    requested = Integer.parseInt(amount.getValue());
-                } catch (NumberFormatException exception) {
+                // 服务端只接受 1..MAX_TRANSFER_AMOUNT，越界的包会被当作非法包断开连接
+                int requested = ScreenInput.parsePositive(amount.getValue(), WarehouseActionPacket.MAX_TRANSFER_AMOUNT);
+                if (requested < 0) {
+                    localStatus = Component.translatable("screen.finance.input.invalid_amount",
+                            WarehouseActionPacket.MAX_TRANSFER_AMOUNT).getString();
                     return true;
                 }
                 FinancePacketHandler.CHANNEL.sendToServer(new WarehouseActionPacket(action, menu.warehouseId(),
                         menu.rows().get(selected).id(), requested, UUID.randomUUID().toString()));
-                pending = true;
+                markPending();
                 return true;
             }
         }
@@ -221,7 +227,7 @@ public final class WarehouseScreen extends AbstractContainerScreen<WarehouseMenu
                 FinancePacketHandler.CHANNEL.sendToServer(new ContractActionPacket(action,
                         menu.contracts().get(selectedContract).id(), menu.warehouseId(),
                         UUID.randomUUID().toString()));
-                pending = true;
+                markPending();
                 return true;
             }
         }
@@ -230,10 +236,28 @@ public final class WarehouseScreen extends AbstractContainerScreen<WarehouseMenu
                     : WarehouseActionPacket.Action.UNBIND_COMPANY;
             FinancePacketHandler.CHANNEL.sendToServer(new WarehouseActionPacket(action, menu.warehouseId(),
                     "company", 1, UUID.randomUUID().toString()));
-            pending = true;
+            markPending();
             return true;
         }
         return super.mouseClicked(mouseX, mouseY, button);
+    }
+
+    private void markPending() {
+        pending = true;
+        pendingTicks = 0;
+        localStatus = "";
+    }
+
+    @Override
+    protected void containerTick() {
+        super.containerTick();
+        if (pending && ++pendingTicks >= ScreenInput.PENDING_TIMEOUT_TICKS) pending = false;
+    }
+
+    @Override
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        return ScreenInput.handleTextBoxKey(getFocused(), keyCode, scanCode, modifiers)
+                || super.keyPressed(keyCode, scanCode, modifiers);
     }
 
     private String shortSource() {
