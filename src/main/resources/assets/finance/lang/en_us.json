@@ -641,5 +641,12 @@
   "advancement.finance.macro_artisan": "Artisan",
   "advancement.finance.macro_artisan.desc": "Keep three factories of one company on manual methods while staying profitable",
   "advancement.finance.solo_shareholder_democracy": "Shareholder Democracy",
-  "advancement.finance.solo_shareholder_democracy.desc": "Pass one of your proposals with the support of NPC shareholders"
+  "advancement.finance.solo_shareholder_democracy.desc": "Pass one of your proposals with the support of NPC shareholders",
+  "screen.finance.guide.page": "%s / %s",
+  "screen.finance.guide.prev": "< Prev",
+  "screen.finance.guide.next": "Next >",
+  "screen.finance.guide.close": "Close",
+  "screen.finance.guide.back": "Back",
+  "screen.finance.guide.keys": "← → turn pages",
+  "screen.finance.guide.empty": "The handbook has no pages"
 }
