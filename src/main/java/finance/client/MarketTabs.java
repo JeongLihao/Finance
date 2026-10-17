@@ -229,8 +229,10 @@ public final class MarketTabs {
         // 背景
         g.fill(ddX, ddY, ddX + ddW, ddY + ddH, FinanceGui.COL_DROPDOWN_BG);
         FinanceGui.drawSimpleBorder(g, ddX, ddY, ddW, ddH, FinanceGui.COL_PANEL_BORDER);
-        g.enableScissor(screen.toScreen(ddX + 2), screen.toScreen(ddY + 2),
-                screen.toScreen(ddX + ddW - 2), screen.toScreen(ddY + ddH - 2));
+        // 裁剪框不受 pose 平移影响，要手动扣掉内容上移量
+        int shift = FinanceGui.CONTENT_SHIFT;
+        g.enableScissor(screen.toScreen(ddX + 2), screen.toScreen(ddY + 2 - shift),
+                screen.toScreen(ddX + ddW - 2), screen.toScreen(ddY + ddH - 2 - shift));
 
         int localMx = mouseX - ddX;
         int localMy = mouseY - ddY;

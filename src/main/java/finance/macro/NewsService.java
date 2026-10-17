@@ -2,14 +2,12 @@ package finance.macro;
 
 import finance.config.FinanceConfig;
 import finance.data.EconomySavedData;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.StringTag;
+import finance.item.NewspaperData;
+import finance.registry.ModItems;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -24,7 +22,7 @@ import java.util.UUID;
 /**
  * 《金融周报》报社：一周里发生的事先进新闻池，每 {@code newsIntervalDays} 天出一期周刊；
  * 大事（饥荒等）立刻出号外，号外之间至少隔 {@code newsExtraGapDays} 天，
- * 赶上冷却时只在聊天栏简短提一句，详情等周刊。报纸是实体书，到贸易站右键、金融中心“更多操作”或 {@code /macro news} 领取，每期每人一份。
+ * 赶上冷却时只在聊天栏简短提一句，详情等周刊。报纸是实体物品（{@link finance.item.NewspaperItem}），到贸易站右键、金融中心“更多操作”或 {@code /macro news} 领取，每期每人一份。
  */
 public final class NewsService {
     public static final int MAX_POOL = 64, MAX_ARCHIVE = 8, MAX_CLAIMS = 512, MAX_PERSONAL_PLAYERS = 512, MAX_PERSONAL_LINES = 8;
@@ -156,8 +154,9 @@ public final class NewsService {
             Set<UUID> claimed = CLAIMED.computeIfAbsent(issue.number(), k -> new LinkedHashSet<>());
             if (claimed.size() >= MAX_CLAIMS) continue;
             claimed.add(player.getUUID());
-            ItemStack book = book(issue, NewsWriter.personalPage(player.getUUID(), issue));
-            if (!player.getInventory().add(book)) player.drop(book, false);
+            ItemStack newspaper = new ItemStack(ModItems.NEWSPAPER.get());
+            NewspaperData.write(newspaper, paper(issue, NewsWriter.personalPage(player.getUUID(), issue)));
+            if (!player.getInventory().add(newspaper)) player.drop(newspaper, false);
             n++;
         }
         if (n > 0) EconomySavedData.markDirty();
@@ -178,18 +177,11 @@ public final class NewsService {
         if (n > 0) player.sendSystemMessage(Component.translatable("finance.macro.news.waiting", n));
     }
 
-    static ItemStack book(Issue issue, String personalPage) {
-        ItemStack stack = new ItemStack(Items.WRITTEN_BOOK);
-        CompoundTag tag = stack.getOrCreateTag();
-        tag.putString("title", (issue.extra() ? "号外 第" : "金融周报 第") + issue.number() + "期");
-        tag.putString("author", "金融周报社");
-        tag.putBoolean("resolved", true);
-        ListTag pages = new ListTag();
+    /** 某位读者拿到的那一份：本期各版，加上领报时生成的“你的生意”版。 */
+    static NewspaperData.Paper paper(Issue issue, String personalPage) {
         List<String> all = new ArrayList<>(issue.pages());
         if (personalPage != null && !personalPage.isBlank()) all.addAll(NewsWriter.paginate(personalPage));
-        for (String page : all) pages.add(StringTag.valueOf(Component.Serializer.toJson(Component.literal(page))));
-        tag.put("pages", pages);
-        return stack;
+        return new NewspaperData.Paper(issue.number(), issue.day(), issue.extra(), issue.headline(), all);
     }
 
     // ================================================================ 商情调查

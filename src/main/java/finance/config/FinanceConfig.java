@@ -132,6 +132,11 @@ public final class FinanceConfig {
     private static final boolean RIVALS_CONTRACTS_ENABLED_VALUE = true;
     private static final boolean RIVALS_HOSTILE_TAKEOVERS_VALUE = false;
     private static final boolean RIVALS_ACTIVISM_ENABLED_VALUE = false;
+    private static final boolean CASH_ENABLED_VALUE = true;
+    private static final long CASH_EMERALD_TO_CASH_VALUE = 50L;
+    private static final long CASH_CASH_TO_EMERALD_VALUE = 60L;
+    private static final int CASH_DAILY_EMERALD_SELL_LIMIT_VALUE = 64;
+    private static final int CASH_DAILY_EMERALD_BUY_LIMIT_VALUE = 32;
     // ---- 宏观实体经济 ----
     private static final boolean MACRO_ENABLED_VALUE = true;
     private static final boolean MACRO_LABOR_ENABLED_VALUE = true;
@@ -301,6 +306,11 @@ public final class FinanceConfig {
     private static final ForgeConfigSpec.BooleanValue RIVALS_CONTRACTS_ENABLED;
     private static final ForgeConfigSpec.BooleanValue RIVALS_HOSTILE_TAKEOVERS;
     private static final ForgeConfigSpec.BooleanValue RIVALS_ACTIVISM_ENABLED;
+    private static final ForgeConfigSpec.BooleanValue CASH_ENABLED;
+    private static final ForgeConfigSpec.LongValue CASH_EMERALD_TO_CASH;
+    private static final ForgeConfigSpec.LongValue CASH_CASH_TO_EMERALD;
+    private static final ForgeConfigSpec.IntValue CASH_DAILY_EMERALD_SELL_LIMIT;
+    private static final ForgeConfigSpec.IntValue CASH_DAILY_EMERALD_BUY_LIMIT;
     private static final ForgeConfigSpec.BooleanValue MACRO_ENABLED;
     private static final ForgeConfigSpec.BooleanValue MACRO_LABOR_ENABLED;
     private static final ForgeConfigSpec.IntValue MACRO_MIN_POPULATION;
@@ -1135,6 +1145,19 @@ public final class FinanceConfig {
                 .define("activismEnabled", RIVALS_ACTIVISM_ENABLED_VALUE);
         builder.pop();
 
+        builder.push("cash");
+        CASH_ENABLED = builder.comment("实体现金（硬币、纸币）：可从账户取出、存回账户，并与绿宝石兑换。关闭后现金物品仍在，但不能存取和兑换。")
+                .define("enabled", CASH_ENABLED_VALUE);
+        CASH_EMERALD_TO_CASH = builder.comment("玩家卖出 1 颗绿宝石得到的金币。默认 50 ≈ 盔甲匠收 4 个铁锭（铁锭基准价 10）的价值。")
+                .defineInRange("emeraldToCash", CASH_EMERALD_TO_CASH_VALUE, 1L, 1_000_000L);
+        CASH_CASH_TO_EMERALD = builder.comment("玩家买入 1 颗绿宝石要付的金币；低于 emeraldToCash 时按 emeraldToCash 计，避免来回套利。")
+                .defineInRange("cashToEmerald", CASH_CASH_TO_EMERALD_VALUE, 1L, 1_000_000L);
+        CASH_DAILY_EMERALD_SELL_LIMIT = builder.comment("每名玩家每个 MC 日最多卖出的绿宝石数，防止袭击塔等刷绿宝石无限印钱。0 = 禁止卖出。")
+                .defineInRange("dailyEmeraldSellLimit", CASH_DAILY_EMERALD_SELL_LIMIT_VALUE, 0, 100_000);
+        CASH_DAILY_EMERALD_BUY_LIMIT = builder.comment("每名玩家每个 MC 日最多买入的绿宝石数。0 = 禁止买入。")
+                .defineInRange("dailyEmeraldBuyLimit", CASH_DAILY_EMERALD_BUY_LIMIT_VALUE, 0, 100_000);
+        builder.pop();
+
         COMMON_SPEC = builder.build();
     }
 
@@ -1430,6 +1453,12 @@ public final class FinanceConfig {
     public static boolean rivalsContractsEnabled() { return getBoolean(RIVALS_CONTRACTS_ENABLED, RIVALS_CONTRACTS_ENABLED_VALUE); }
     public static boolean rivalsHostileTakeovers() { return getBoolean(RIVALS_HOSTILE_TAKEOVERS, RIVALS_HOSTILE_TAKEOVERS_VALUE); }
     public static boolean rivalsActivismEnabled() { return getBoolean(RIVALS_ACTIVISM_ENABLED, RIVALS_ACTIVISM_ENABLED_VALUE); }
+
+    public static boolean cashEnabled() { return getBoolean(CASH_ENABLED, CASH_ENABLED_VALUE); }
+    public static long cashEmeraldToCash() { return getLong(CASH_EMERALD_TO_CASH, CASH_EMERALD_TO_CASH_VALUE); }
+    public static long cashCashToEmerald() { return getLong(CASH_CASH_TO_EMERALD, CASH_CASH_TO_EMERALD_VALUE); }
+    public static int cashDailyEmeraldSellLimit() { return getInt(CASH_DAILY_EMERALD_SELL_LIMIT, CASH_DAILY_EMERALD_SELL_LIMIT_VALUE); }
+    public static int cashDailyEmeraldBuyLimit() { return getInt(CASH_DAILY_EMERALD_BUY_LIMIT, CASH_DAILY_EMERALD_BUY_LIMIT_VALUE); }
 
     public static boolean npcVotingEnabled() {
         return getBoolean(NPC_VOTING_ENABLED, NPC_VOTING_ENABLED_VALUE);

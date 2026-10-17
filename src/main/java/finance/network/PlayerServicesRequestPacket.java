@@ -26,6 +26,6 @@ public record PlayerServicesRequestPacket(long requestId) {
                 || !MarketDataRequestLimiter.allow(player.getUUID(), player.server.getTickCount(), "player-services")) return;
         long day = EconomyCycleService.currentMcDay(player.server);
         FinancePacketHandler.CHANNEL.send(PacketDistributor.PLAYER.with(() -> player),
-                PlayerServicesService.snapshot(p.requestId, player.getUUID(), day));
+                PlayerServicesService.snapshot(p.requestId, player.getUUID(), new finance.cash.PlayerCashPurse(player), day));
     }
 }

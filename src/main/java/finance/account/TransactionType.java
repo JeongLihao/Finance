@@ -158,5 +158,13 @@ public enum TransactionType {
     /** 中央银行商品平准：央行与国际市场之间按市价买卖消费品。 */
     CENTRAL_BANK_STABILIZATION,
     /** 国家财政移除：旧存档的国库余额并入央行（一次性）。 */
-    LEGACY_TREASURY_MERGE
+    LEGACY_TREASURY_MERGE,
+    /** 实体现金：背包里的现金存入账户（现金发行处 → 玩家）。 */
+    CASH_DEPOSIT,
+    /** 实体现金：从账户取出现金（玩家 → 现金发行处）。 */
+    CASH_WITHDRAW,
+    /** 实体现金：玩家用绿宝石换现金（新发行货币，数量为绿宝石颗数）。 */
+    EMERALD_SELL,
+    /** 实体现金：玩家用现金买绿宝石（回收货币，数量为绿宝石颗数）。 */
+    EMERALD_BUY
 }

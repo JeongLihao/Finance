@@ -41,11 +41,18 @@ public final class FinanceGui {
     private FinanceGui() {}
 
     public static final int PANEL_WIDTH = 400;
-    public static final int PANEL_HEIGHT = 250;
+    /** 面板高 232：原版“自动”界面尺寸下可用高度常为 240，留 8 像素边距后不必缩放，像素字体保持清晰。 */
+    public static final int PANEL_HEIGHT = 232;
     public static final int ROW_HEIGHT = 16;
     public static final int TAB_X = 10;
-    public static final int TAB_Y = 24;
-    public static final int TAB_H = 16;
+    public static final int TAB_Y = 16;
+    public static final int TAB_H = 12;
+    /** 标题栏与页签栏的总高度（分隔线所在行）。 */
+    public static final int HEADER_H = 28;
+    /** 页签内容按原 250 高布局编写；绘制时整体上移这么多，坐标仍沿用 CONTENT_Y 等常量。 */
+    public static final int CONTENT_SHIFT = 14;
+    /** 页签内容坐标系下的可用高度（相当于原来的面板高）。 */
+    public static final int LAYOUT_HEIGHT = PANEL_HEIGHT + CONTENT_SHIFT;
     public static final int CONTENT_Y = 46;
     public static final int MARKET_TRADE_Y = 166;
     public static final int STOCK_TRADE_Y = 116;

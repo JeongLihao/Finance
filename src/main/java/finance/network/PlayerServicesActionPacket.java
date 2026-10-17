@@ -46,6 +46,6 @@ public record PlayerServicesActionPacket(PlayerServicesService.Action action, St
                 p.a, p.b, p.c, p.d, day);
         GuiFeedbackPacket.send(player, r.message());
         FinancePacketHandler.CHANNEL.send(PacketDistributor.PLAYER.with(() -> player),
-                PlayerServicesService.snapshot(-1, player.getUUID(), day));
+                PlayerServicesService.snapshot(-1, player.getUUID(), new finance.cash.PlayerCashPurse(player), day));
     }
 }
