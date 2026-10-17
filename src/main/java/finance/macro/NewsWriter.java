@@ -150,7 +150,7 @@ public final class NewsWriter {
         List<MacroRadar.Opportunity> top = MacroRadar.scan(1);
         StringBuilder b = new StringBuilder("【商机】\n");
         if (top.isEmpty()) b.append("暂时没有明显的商机。\n");
-        else b.append(top.get(0).text()).append("\n\n（调查于第 ").append(day).append(" 天，消息可能已经过时。想要最新情报：/macro radar）");
+        else b.append(top.get(0).text()).append("\n\n（调查于第 ").append(day).append(" 天，消息可能已经过时。想要最新情报：金融中心“更多操作 → 财报商情”）");
         return b.toString();
     }
 

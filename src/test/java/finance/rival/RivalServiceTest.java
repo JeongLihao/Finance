@@ -122,6 +122,8 @@ class RivalServiceTest {
         Company c = CompanyManager.getCompanies().iterator().next();
         assertEquals(1, c.getProductionLevel(), "系统公司现金 5 万，第一天就升了第一级");
         long cost = c.getUpgradeCost("PRODUCTION");
+        // 系统公司的 ID 随机，人格（升级要求的现金倍数）也随之随机；补足现金，让第二次升级不取决于抽到哪种人格
+        c.deposit(cost * 10);
         long pool = AccountManager.getBalance(NpcMarketMaker.NPC_UUID);
         long cash = c.getCash();
         long money = totalMoney();

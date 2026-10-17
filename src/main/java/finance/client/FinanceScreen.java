@@ -129,6 +129,8 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
     final MacroTabs macroTabs = new MacroTabs(this);
     /** 宏观经济页签的索引（不在 BASE_TABS/ADMIN_TABS 数组里）。 */
     static final int MACRO_TAB = 12;
+    /** 标题栏右侧“更多操作”按钮。 */
+    static final int MORE_BUTTON_W = 56, MORE_BUTTON_X = FinanceGui.PANEL_WIDTH - MORE_BUTTON_W - 6;
     /** 金额、价格、数量类输入框的上限（输入框最多 12 位）。 */
     static final long MAX_INPUT_AMOUNT = 999_999_999_999L;
     /** 行情表滚动到的第一行。商品多于可见行数时用滚轮翻看。 */
@@ -395,8 +397,9 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
     protected void renderLabels(GuiGraphics g, int mouseX, int mouseY) {
         FinanceGui.drawClippedString(font, g, "金融中心", 10, 7, 130, FinanceGui.COL_TEXT);
         if (!statusMessage.isEmpty()) {
-            FinanceGui.drawClippedString(font, g, statusMessage, 118, 7, 250, FinanceGui.COL_ACCENT);
+            FinanceGui.drawClippedString(font, g, statusMessage, 118, 7, MORE_BUTTON_X - 124, FinanceGui.COL_ACCENT);
         }
+        FinanceGui.drawButton(font, g, "更多操作", MORE_BUTTON_X, 4, MORE_BUTTON_W, false);
         renderTabs(g, mouseX, mouseY);
 
         switch (currentTab) {
@@ -459,6 +462,12 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
 
         int mx = (int) mouseX - leftPos;
         int my = (int) mouseY - topPos;
+
+        // 标题栏“更多操作”：原来只能用命令完成的玩家功能
+        if (mx >= MORE_BUTTON_X && mx < MORE_BUTTON_X + MORE_BUTTON_W && my >= 4 && my < 17) {
+            PlayerServicesScreen.open();
+            return true;
+        }
 
         // 标签切换
         if (my >= FinanceGui.TAB_Y && my <= FinanceGui.TAB_Y + FinanceGui.TAB_H) {

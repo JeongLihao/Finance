@@ -14,7 +14,7 @@ import java.util.Optional;
 public class FinancePacketHandler {
 
     // OpenFinanceGuiPacket 从空载荷升级为受校验的入口类型 + 界面模式。
-    private static final String PROTOCOL_VERSION = "19";
+    private static final String PROTOCOL_VERSION = "20";
 
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             ResourceLocation.fromNamespaceAndPath(FinanceMod.MOD_ID, "gui"),
@@ -206,6 +206,9 @@ public class FinancePacketHandler {
         CHANNEL.registerMessage(packetId++,RegionalRiskActionPacket.class,RegionalRiskActionPacket::encode,RegionalRiskActionPacket::decode,RegionalRiskActionPacket::handle,Optional.of(NetworkDirection.PLAY_TO_SERVER));
         CHANNEL.registerMessage(packetId++,MacroRequestPacket.class,MacroRequestPacket::encode,MacroRequestPacket::decode,MacroRequestPacket::handle,Optional.of(NetworkDirection.PLAY_TO_SERVER));
         CHANNEL.registerMessage(packetId++,MacroResponsePacket.class,MacroResponsePacket::encode,MacroResponsePacket::decode,MacroResponsePacket::handle,Optional.of(NetworkDirection.PLAY_TO_CLIENT));
+        CHANNEL.registerMessage(packetId++,PlayerServicesRequestPacket.class,PlayerServicesRequestPacket::encode,PlayerServicesRequestPacket::decode,PlayerServicesRequestPacket::handle,Optional.of(NetworkDirection.PLAY_TO_SERVER));
+        CHANNEL.registerMessage(packetId++,PlayerServicesResponsePacket.class,PlayerServicesResponsePacket::encode,PlayerServicesResponsePacket::decode,PlayerServicesResponsePacket::handle,Optional.of(NetworkDirection.PLAY_TO_CLIENT));
+        CHANNEL.registerMessage(packetId++,PlayerServicesActionPacket.class,PlayerServicesActionPacket::encode,PlayerServicesActionPacket::decode,PlayerServicesActionPacket::handle,Optional.of(NetworkDirection.PLAY_TO_SERVER));
         CHANNEL.registerMessage(packetId++, TutorialProgressPacket.class,
                 TutorialProgressPacket::encode, TutorialProgressPacket::decode, TutorialProgressPacket::handle,
                 Optional.of(NetworkDirection.PLAY_TO_CLIENT));

@@ -12,6 +12,8 @@ public final class GuiFeedbackClientHandler {
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft.screen instanceof FinanceScreen screen) {
             screen.setGuiStatus(message);
+        } else if (minecraft.screen instanceof PlayerServicesScreen screen) {
+            screen.setStatus(message);
         } else if (minecraft.screen instanceof MarketOverviewScreen screen) {
             screen.setGuiStatus(message);
         } else if (minecraft.player != null && message != null && !message.isBlank()) {

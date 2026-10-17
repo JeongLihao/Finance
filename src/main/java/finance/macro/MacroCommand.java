@@ -370,7 +370,7 @@ public final class MacroCommand {
         return b.toString().trim();
     }
 
-    private static String proposalLine(MacroEconomyManager.Proposal p) {
+    public static String proposalLine(MacroEconomyManager.Proposal p) {
         long[] t = PoliticsService.tally(p.level());
         return "进行中提案：" + p.level().group().displayName() + " → " + p.level().displayName()
                 + "，第 " + p.endDay() + " 天表决（当前支持 " + t[0] + " / 反对 " + t[1] + "）";

@@ -55,9 +55,15 @@ public class EarningsCommand {
             source.sendFailure(Component.literal("该命令需由玩家执行。"));
             return 0;
         }
-        int quarterDays = Math.max(1, FinanceConfig.earningsQuarterDays());
-        long today = EconomyCycleService.currentMcDay(player.getServer());
+        for (String line : calendarLines(EconomyCycleService.currentMcDay(player.getServer()), days)) {
+            player.sendSystemMessage(Component.literal(line));
+        }
+        return 1;
+    }
 
+    /** 财报日历（命令与 GUI 共用）：第一行是标题或“没有财报日”。 */
+    public static List<String> calendarLines(long today, int days) {
+        int quarterDays = Math.max(1, FinanceConfig.earningsQuarterDays());
         List<CalendarEntry> entries = new ArrayList<>();
         for (Company company : CompanyManager.getCompanies()) {
             if (!company.isPublic()) {
@@ -76,17 +82,18 @@ public class EarningsCommand {
                 }
             }
         }
+        List<String> lines = new ArrayList<>();
         if (entries.isEmpty()) {
-            player.sendSystemMessage(Component.literal("未来 " + days + " 天没有财报日。"));
-            return 1;
+            lines.add("未来 " + days + " 天没有财报日。");
+            return lines;
         }
         // 按绝对天数排序：字符串排序会把 "D+10" 排到 "D+5" 前面
         entries.sort(Comparator.comparingLong(CalendarEntry::day));
-        player.sendSystemMessage(Component.literal("=== 财报日历（未来 " + days + " 天）==="));
+        lines.add("=== 财报日历（未来 " + days + " 天）===");
         for (CalendarEntry entry : entries) {
-            player.sendSystemMessage(Component.literal(entry.text()));
+            lines.add(entry.text());
         }
-        return 1;
+        return lines;
     }
 
     private static int showReport(CommandSourceStack source, String symbol) {
@@ -97,44 +104,51 @@ public class EarningsCommand {
             source.sendFailure(Component.literal("该命令需由玩家执行。"));
             return 0;
         }
-        Stock stock = StockMarketManager.getStock(StockMarketManager.normalizeSymbol(symbol));
+        Report report = report(symbol);
+        for (String line : report.lines()) {
+            player.sendSystemMessage(Component.literal(line));
+        }
+        return report.found() ? 1 : 0;
+    }
+
+    /** 最新季报的文字（命令与 GUI 共用）。found=false 表示找不到股票或公司。 */
+    public record Report(boolean found, List<String> lines) { }
+
+    public static Report report(String symbol) {
+        List<String> lines = new ArrayList<>();
+        Stock stock = symbol == null ? null : StockMarketManager.getStock(StockMarketManager.normalizeSymbol(symbol));
         if (stock == null) {
-            player.sendSystemMessage(Component.literal("找不到股票：" + symbol));
-            return 0;
+            lines.add("找不到股票：" + symbol);
+            return new Report(false, lines);
         }
         Company company = CompanyManager.getCompanies().stream()
                 .filter(c -> c.getCompanyId().equals(stock.getCompanyId()))
                 .findFirst().orElse(null);
         if (company == null) {
-            player.sendSystemMessage(Component.literal("找不到该股票对应的公司。"));
-            return 0;
+            lines.add("找不到该股票对应的公司。");
+            return new Report(false, lines);
         }
         List<QuarterlyEarningsReport> history = company.getEarningsHistory();
         if (history.isEmpty()) {
-            player.sendSystemMessage(Component.literal(
-                    company.getName() + " [" + stock.getSymbol() + "] 尚未发布过季报。"));
-            return 1;
+            lines.add(company.getName() + " [" + stock.getSymbol() + "] 尚未发布过季报。");
+            return new Report(true, lines);
         }
         QuarterlyEarningsReport latest = history.get(history.size() - 1);
-        player.sendSystemMessage(Component.literal(
-                "=== " + company.getName() + " [" + stock.getSymbol() + "] Q" + latest.quarterIndex()
-                        + " 季报（第 " + latest.mcDay() + " 天发布）==="));
-        player.sendSystemMessage(Component.literal(
-                "营收 " + latest.revenue() + " | 成本 " + latest.expenses()
-                        + " | 净利润 " + latest.netProfit() + " | EPS " + latest.eps()));
-        player.sendSystemMessage(Component.literal(
-                "营收环比 " + fmtBps(latest.revenueQoQBps()) + " | 利润环比 " + fmtBps(latest.profitQoQBps())
-                        + " | 每股分红 " + latest.dividendPerShare()
-                        + " | 覆盖 " + latest.tradingDays() + " 天"
-                        + (latest.hasData() ? "" : "（本期无经营数据）")));
+        lines.add("=== " + company.getName() + " [" + stock.getSymbol() + "] Q" + latest.quarterIndex()
+                + " 季报（第 " + latest.mcDay() + " 天发布）===");
+        lines.add("营收 " + latest.revenue() + " | 成本 " + latest.expenses()
+                + " | 净利润 " + latest.netProfit() + " | EPS " + latest.eps());
+        lines.add("营收环比 " + fmtBps(latest.revenueQoQBps()) + " | 利润环比 " + fmtBps(latest.profitQoQBps())
+                + " | 每股分红 " + latest.dividendPerShare()
+                + " | 覆盖 " + latest.tradingDays() + " 天"
+                + (latest.hasData() ? "" : "（本期无经营数据）"));
         long expected = latest.expectedProfit();
         long surprise = latest.surpriseBps();
         if (expected == Long.MIN_VALUE) {
-            player.sendSystemMessage(Component.literal("市场预期：暂无（首份季报）"));
+            lines.add("市场预期：暂无（首份季报）");
         } else {
-            player.sendSystemMessage(Component.literal(
-                    "市场预期净利润 " + expected + " | 实际 " + latest.netProfit()
-                            + " | 预期差 " + fmtBps(surprise)));
+            lines.add("市场预期净利润 " + expected + " | 实际 " + latest.netProfit()
+                    + " | 预期差 " + fmtBps(surprise));
         }
         if (history.size() > 1) {
             StringBuilder sb = new StringBuilder("历史预期差：");
@@ -143,9 +157,9 @@ public class EarningsCommand {
                 sb.append("Q").append(r.quarterIndex()).append(" ")
                         .append(fmtBps(r.surpriseBps())).append("；");
             }
-            player.sendSystemMessage(Component.literal(sb.toString()));
+            lines.add(sb.toString());
         }
-        return 1;
+        return new Report(true, lines);
     }
 
     private static String fmtBps(long bps) {
