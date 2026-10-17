@@ -38,6 +38,8 @@ public final class ModItems {
             () -> new BlockItem(ModBlocks.SURVEY_BOARD.get(),new Item.Properties()));
     public static final RegistryObject<Item> FACTORY = ITEMS.register("factory",
             () -> new BlockItem(ModBlocks.FACTORY.get(), new Item.Properties()));
+    public static final RegistryObject<Item> NEWSPAPER = ITEMS.register("newspaper",
+            () -> new finance.item.NewspaperItem(new Item.Properties().stacksTo(16)));
     public static final RegistryObject<Item> SURVEY_NOTE = ITEMS.register("survey_note",
             () -> new finance.item.SurveyNoteItem(new Item.Properties().stacksTo(1)));
 

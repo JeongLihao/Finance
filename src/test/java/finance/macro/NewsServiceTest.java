@@ -8,6 +8,7 @@ import finance.company.Company;
 import finance.company.CompanyManager;
 import finance.company.CompanyType;
 import finance.data.EconomySavedData;
+import finance.item.NewspaperData;
 import finance.market.NpcMarketMaker;
 import finance.settlement.SettlementManager;
 import finance.settlement.SettlementRecord;
@@ -104,7 +105,7 @@ class NewsServiceTest {
         assertEquals(NewsService.MAX_ARCHIVE, NewsService.unclaimed(player).size());
     }
 
-    @Test void bookHasTitlePagesAndPersonalSection() {
+    @Test void newspaperHasMetadataSectionsAndPersonalPage() {
         Company company = new Company(UUID.randomUUID(), "Mill", CompanyType.FOOD, 10_000, player);
         CompanyManager.registerDirect(company);
         NewsService.processDay(null, 1);
@@ -114,10 +115,21 @@ class NewsServiceTest {
         String personal = NewsWriter.personalPage(player, issue);
         assertTrue(personal.contains("Mill"));
         assertTrue(personal.contains("商队抵达alpha"), "出版时记下的个人新闻进了你的生意版");
-        ItemStack book = NewsService.book(issue, personal);
-        assertTrue(book.is(Items.WRITTEN_BOOK));
-        assertEquals("金融周报 第1期", book.getTag().getString("title"));
-        assertTrue(book.getTag().getList("pages", 8).size() >= issue.pages().size() + 1);
+        NewspaperData.Paper paper = NewsService.paper(issue, personal);
+        assertEquals(1, paper.number());
+        assertEquals(8, paper.day());
+        assertFalse(paper.extra());
+        assertEquals(issue.headline(), paper.headline());
+        assertTrue(paper.pages().size() >= issue.pages().size() + 1);
+        // 写进物品再读回来，内容不变；版面从头版开始，最后是“你的生意”
+        ItemStack stack = new ItemStack(Items.PAPER);
+        NewspaperData.write(stack, paper);
+        assertEquals(paper, NewspaperData.read(stack));
+        List<NewspaperData.Section> sections = NewspaperData.sections(paper);
+        assertEquals(NewspaperData.FRONT_PAGE, sections.get(0).title());
+        assertEquals("你的生意", sections.get(sections.size() - 1).title());
+        assertTrue(sections.get(sections.size() - 1).body().contains("商队抵达alpha"));
+        assertTrue(sections.stream().anyMatch(sec -> sec.title().equals("市场")));
     }
 
     @Test void paginateRespectsPageLimits() {

@@ -19,9 +19,9 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * 报纸排版：把新闻池和经济状态写成成书的若干页。只读经济状态。
+ * 报纸排版：把新闻池和经济状态写成报纸的若干原文页（按“【版名】”分版）。只读经济状态。
  *
- * <p>成书一页大约 12 行、每行十几个汉字，{@link #paginate} 按行数和字数自动分页。</p>
+ * <p>原文页沿用旧成书的尺寸（约 12 行），{@link #paginate} 按行数和字数分页；报纸界面会按版面重新拼接排版。</p>
  */
 public final class NewsWriter {
     static final int PAGE_LINES = 12;
@@ -187,7 +187,7 @@ public final class NewsWriter {
         return b.toString();
     }
 
-    /** 按行数和字数把一段文字切成成书的若干页。 */
+    /** 按行数和字数把一段文字切成若干原文页。 */
     static List<String> paginate(String text) {
         List<String> pages = new ArrayList<>();
         if (text == null || text.isBlank()) return pages;
