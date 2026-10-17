@@ -11,7 +11,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /** 《金融周报》阅读界面：报头 + 版面页签 + 双栏正文。
- * ← → 换版，↑ ↓ / 滚轮翻栏；头版先排大号头条，再接正文。 */
+ * ← → 换版，↑ ↓ / 滚轮翻栏；头版先排 2 倍大的头条，再接正文。 */
 public final class NewspaperScreen extends Screen {
     static final int PANEL_WIDTH = 320;
     static final int PANEL_HEIGHT = 230;
@@ -25,6 +25,8 @@ public final class NewspaperScreen extends Screen {
     private static final int COLUMN_GAP = 10;
     private static final int COLUMN_W = (PANEL_WIDTH - MARGIN * 2 - COLUMN_GAP) / 2;
     private static final int LINE_H = 10;
+    /** 头条放大倍数必须是整数，否则像素字体会糊；行高与坐标都取偶数，放大后仍对齐像素。 */
+    private static final int HEADLINE_SCALE = 2, HEADLINE_LINE_H = 18;
     private static final int PREV_X = MARGIN, NEXT_X = MARGIN + 56, CLOSE_X = PANEL_WIDTH - MARGIN - 52, BUTTON_W = 52;
 
     private final NewspaperData.Paper paper;
@@ -58,15 +60,15 @@ public final class NewspaperScreen extends Screen {
         columnPage = 0;
         bodyLines = sections.isEmpty() ? List.of()
                 : font.split(Component.literal(sections.get(section).body()), COLUMN_W);
-        // 头条放大 1.5 倍，所以按缩小后的宽度折行
+        // 头条放大 2 倍（整数倍，像素字体不糊），所以按一半宽度折行
         headlineLines = onFront() && paper != null && !paper.headline().isBlank()
-                ? font.split(Component.literal(paper.headline()), (int) ((PANEL_WIDTH - MARGIN * 2) / 1.5F))
+                ? font.split(Component.literal(paper.headline()), (PANEL_WIDTH - MARGIN * 2) / HEADLINE_SCALE)
                 : List.of();
     }
 
     /** 头条占掉的高度。 */
     private int headlineHeight() {
-        return headlineLines.isEmpty() ? 0 : Math.min(2, headlineLines.size()) * 14 + 6;
+        return headlineLines.isEmpty() ? 0 : Math.min(2, headlineLines.size()) * HEADLINE_LINE_H + 6;
     }
 
     /** 每栏能排几行；头版第一屏要让出头条的位置。 */
@@ -179,9 +181,9 @@ public final class NewspaperScreen extends Screen {
         int y = BODY_Y;
         if (columnPage == 0 && !headlineLines.isEmpty()) {
             g.pose().pushPose();
-            g.pose().scale(1.5F, 1.5F, 1.0F);
+            g.pose().scale(HEADLINE_SCALE, HEADLINE_SCALE, 1.0F);
             for (int i = 0; i < Math.min(2, headlineLines.size()); i++) {
-                g.drawString(font, headlineLines.get(i), Math.round(MARGIN / 1.5F), Math.round((y + i * 14) / 1.5F),
+                g.drawString(font, headlineLines.get(i), MARGIN / HEADLINE_SCALE, (y + i * HEADLINE_LINE_H) / HEADLINE_SCALE,
                         paper.extra() ? EXTRA_RED : INK, false);
             }
             g.pose().popPose();

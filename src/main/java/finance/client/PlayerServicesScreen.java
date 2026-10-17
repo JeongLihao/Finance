@@ -27,9 +27,10 @@ import java.util.UUID;
  * 宏观行动（工资、法律提案、游说、领报纸）、财报日历与季报、商情调查。沿用金融中心的米色面板风格，关闭后回到上一个界面。
  */
 public final class PlayerServicesScreen extends Screen {
-    static final int PANEL_WIDTH = 384, PANEL_HEIGHT = 252;
-    private static final int TITLE_H = 22, PAGE_Y = 26, CONTENT_Y = 46, LINE_H = 11;
-    private static final int LABEL_Y = 168, BOX_Y = 178, BUTTON_Y1 = 198, BUTTON_Y2 = 214, STATUS_Y = 236;
+    /** 高 240：原版“自动”界面尺寸下可用高度常为 240，超出部分会被裁掉。 */
+    static final int PANEL_WIDTH = 384, PANEL_HEIGHT = 240;
+    private static final int TITLE_H = 18, PAGE_Y = 20, CONTENT_Y = 40, LINE_H = 11;
+    private static final int LABEL_Y = 162, BOX_Y = 172, BUTTON_Y1 = 192, BUTTON_Y2 = 208, STATUS_Y = 226;
     private static final int BOX_W = 88, BOX_GAP = 6;
 
     private static Page lastPage = Page.MARGIN;
@@ -121,9 +122,9 @@ public final class PlayerServicesScreen extends Screen {
         g.fill(left, top, left + PANEL_WIDTH, top + PANEL_HEIGHT, FinanceGui.COL_BG);
         FinanceGui.drawSimpleBorder(g, left, top, PANEL_WIDTH, PANEL_HEIGHT, FinanceGui.COL_PANEL_BORDER);
         g.fill(left + 1, top + 1, left + PANEL_WIDTH - 1, top + TITLE_H - 1, 0xFFF4F0E2);
-        FinanceGui.drawClippedString(font, g, "更多操作", left + 10, top + 7, 80, FinanceGui.COL_TEXT);
-        FinanceGui.drawClippedString(font, g, "原来要用命令的功能，都可以在这里点按钮完成", left + 70, top + 7, 250, FinanceGui.COL_TEXT_DIM);
-        button(g, "返回", left + PANEL_WIDTH - 46, top + 4, 38, false, this::onClose);
+        FinanceGui.drawClippedString(font, g, "更多操作", left + 10, top + 5, 80, FinanceGui.COL_TEXT);
+        FinanceGui.drawClippedString(font, g, "原来要用命令的功能，都可以在这里点按钮完成", left + 70, top + 5, 250, FinanceGui.COL_TEXT_DIM);
+        button(g, "返回", left + PANEL_WIDTH - 46, top + 2, 38, false, this::onClose);
 
         int x = left + 8;
         int pageW = (PANEL_WIDTH - 16 - (Page.values().length - 1) * 4) / Page.values().length;

@@ -130,7 +130,7 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
     /** 宏观经济页签的索引（不在 BASE_TABS/ADMIN_TABS 数组里）。 */
     static final int MACRO_TAB = 12;
     /** 标题栏右侧“更多操作”按钮。 */
-    static final int MORE_BUTTON_W = 56, MORE_BUTTON_X = FinanceGui.PANEL_WIDTH - MORE_BUTTON_W - 6;
+    static final int MORE_BUTTON_W = 56, MORE_BUTTON_X = FinanceGui.PANEL_WIDTH - MORE_BUTTON_W - 6, MORE_BUTTON_Y = 1;
     /** 金额、价格、数量类输入框的上限（输入框最多 12 位）。 */
     static final long MAX_INPUT_AMOUNT = 999_999_999_999L;
     /** 行情表滚动到的第一行。商品多于可见行数时用滚轮翻看。 */
@@ -140,7 +140,10 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
     Font font() { return font; }
     FinanceMenu menu() { return menu; }
     int imageWidth() { return imageWidth; }
-    int imageHeight() { return imageHeight; }
+    /** 页签内容坐标系下的高度（内容整体上移了 CONTENT_SHIFT，见 FinanceGui）。 */
+    int imageHeight() { return FinanceGui.LAYOUT_HEIGHT; }
+    /** 页签内容坐标系的原点 y：输入框等绝对坐标控件用它定位。 */
+    int contentTop() { return topPos - FinanceGui.CONTENT_SHIFT; }
     int leftPos() { return leftPos; }
     int topPos() { return topPos; }
 
@@ -170,81 +173,81 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         selectedStock = "";
 
         // 行情标签 — 国际交易数量输入框
-        intlQuantityBox = new EditBox(font, leftPos + 40, topPos + FinanceGui.MARKET_TRADE_Y + 53, 48, 16, Component.literal("数量"));
+        intlQuantityBox = new EditBox(font, leftPos + 40, contentTop() + FinanceGui.MARKET_TRADE_Y + 53, 48, 16, Component.literal("数量"));
         intlQuantityBox.setMaxLength(8);
         intlQuantityBox.setValue("1");
         intlQuantityBox.setVisible(false);
         addWidget(intlQuantityBox);
 
         // 交易标签 — 价格/数量输入框
-        priceBox = new EditBox(font, leftPos + 58, topPos + FinanceGui.CONTENT_Y + 24, 86, 16, Component.literal("价格"));
+        priceBox = new EditBox(font, leftPos + 58, contentTop() + FinanceGui.CONTENT_Y + 24, 86, 16, Component.literal("价格"));
         priceBox.setMaxLength(12);
         priceBox.setValue("10");
         priceBox.setVisible(false);
         addWidget(priceBox);
 
-        quantityBox = new EditBox(font, leftPos + 58, topPos + FinanceGui.CONTENT_Y + 50, 86, 16, Component.literal("数量"));
+        quantityBox = new EditBox(font, leftPos + 58, contentTop() + FinanceGui.CONTENT_Y + 50, 86, 16, Component.literal("数量"));
         quantityBox.setMaxLength(8);
         quantityBox.setValue("1");
         quantityBox.setVisible(false);
         addWidget(quantityBox);
 
-        inventoryQuantityBox = new EditBox(font, leftPos + 54, topPos + FinanceGui.CONTENT_Y + 62, 56, 16, Component.literal("数量"));
+        inventoryQuantityBox = new EditBox(font, leftPos + 54, contentTop() + FinanceGui.CONTENT_Y + 62, 56, 16, Component.literal("数量"));
         inventoryQuantityBox.setMaxLength(8);
         inventoryQuantityBox.setValue("64");
         inventoryQuantityBox.setVisible(false);
         addWidget(inventoryQuantityBox);
 
         // 公司名称输入框
-        companyNameBox = new EditBox(font, leftPos + 70, topPos + FinanceGui.CONTENT_Y + 36, 190, 16, Component.literal("公司名称"));
+        companyNameBox = new EditBox(font, leftPos + 70, contentTop() + FinanceGui.CONTENT_Y + 36, 190, 16, Component.literal("公司名称"));
         companyNameBox.setMaxLength(101);
         companyNameBox.setVisible(false);
         addWidget(companyNameBox);
 
-        stockPriceBox = new EditBox(font, leftPos + 54, topPos + FinanceGui.STOCK_TRADE_Y + 18, 64, 16, Component.literal("价格"));
+        stockPriceBox = new EditBox(font, leftPos + 54, contentTop() + FinanceGui.STOCK_TRADE_Y + 18, 64, 16, Component.literal("价格"));
         stockPriceBox.setMaxLength(12);
         stockPriceBox.setValue("1");
         stockPriceBox.setVisible(false);
         addWidget(stockPriceBox);
 
-        stockQuantityBox = new EditBox(font, leftPos + 54, topPos + FinanceGui.STOCK_TRADE_Y + 38, 64, 16, Component.literal("股数"));
+        stockQuantityBox = new EditBox(font, leftPos + 54, contentTop() + FinanceGui.STOCK_TRADE_Y + 38, 64, 16, Component.literal("股数"));
         stockQuantityBox.setMaxLength(8);
         stockQuantityBox.setValue("1");
         stockQuantityBox.setVisible(false);
         addWidget(stockQuantityBox);
 
-        alertPriceBox = new EditBox(font, leftPos + 66, topPos + FinanceGui.CONTENT_Y + 58, 70, 16, Component.literal("提醒价格"));
+        alertPriceBox = new EditBox(font, leftPos + 66, contentTop() + FinanceGui.CONTENT_Y + 58, 70, 16, Component.literal("提醒价格"));
         alertPriceBox.setMaxLength(12);
         alertPriceBox.setValue("10");
         alertPriceBox.setVisible(false);
         addWidget(alertPriceBox);
 
-        ipoPriceBox = new EditBox(font, leftPos + 58, topPos + FinanceGui.CONTENT_Y + 136, 62, 14, Component.literal("发行价"));
+        ipoPriceBox = new EditBox(font, leftPos + 58, contentTop() + FinanceGui.CONTENT_Y + 136, 62, 14, Component.literal("发行价"));
         ipoPriceBox.setMaxLength(12);
         ipoPriceBox.setValue("10");
         ipoPriceBox.setVisible(false);
         addWidget(ipoPriceBox);
 
-        ipoQuantityBox = new EditBox(font, leftPos + 172, topPos + FinanceGui.CONTENT_Y + 136, 72, 14, Component.literal("发行数量"));
+        ipoQuantityBox = new EditBox(font, leftPos + 172, contentTop() + FinanceGui.CONTENT_Y + 136, 72, 14, Component.literal("发行数量"));
         ipoQuantityBox.setMaxLength(12);
         ipoQuantityBox.setValue("4000");
         ipoQuantityBox.setVisible(false);
         addWidget(ipoQuantityBox);
 
-        companyAmountBox = new EditBox(font, leftPos + 58, topPos + FinanceGui.CONTENT_Y + 106, 80, 14, Component.literal("金额"));
+        companyAmountBox = new EditBox(font, leftPos + 58, contentTop() + FinanceGui.CONTENT_Y + 106, 80, 14, Component.literal("金额"));
         companyAmountBox.setMaxLength(12);
         companyAmountBox.setValue("1000");
         companyAmountBox.setVisible(false);
         addWidget(companyAmountBox);
 
         // 管理标签输入框
-        adminBasePriceBox = new EditBox(font, leftPos + 228, topPos + FinanceGui.CONTENT_Y + 42, 60, 14, Component.literal("价格"));
+        adminBasePriceBox = new EditBox(font, leftPos + 228, contentTop() + FinanceGui.CONTENT_Y + 42, 60, 14, Component.literal("价格"));
         adminBasePriceBox.setMaxLength(12);
         adminBasePriceBox.setValue("10");
         adminBasePriceBox.setVisible(false);
         addWidget(adminBasePriceBox);
 
-        int adminFormY = topPos + FinanceGui.CONTENT_Y + 98;
+        int adminFormY = contentTop() + FinanceGui.CONTENT_Y + 98;
         adminCommodityIdBox = new EditBox(font, leftPos + 28, adminFormY, 82, 14, Component.literal("商品ID"));
         adminCommodityIdBox.setMaxLength(32);
         adminCommodityIdBox.setVisible(false);
@@ -360,9 +363,9 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         RenderSystem.enableBlend();
         g.fill(leftPos, topPos, leftPos + imageWidth, topPos + imageHeight, FinanceGui.COL_BG);
         FinanceGui.drawSimpleBorder(g, leftPos, topPos, imageWidth, imageHeight, FinanceGui.COL_PANEL_BORDER);
-        g.fill(leftPos + 1, topPos + 1, leftPos + imageWidth - 1, topPos + 21, 0xFFF4F0E2);
-        g.fill(leftPos + 1, topPos + 22, leftPos + imageWidth - 1, topPos + 42, FinanceGui.COL_TAB_BG);
-        g.fill(leftPos + 1, topPos + 42, leftPos + imageWidth - 1, topPos + 43, FinanceGui.COL_PANEL_BORDER);
+        g.fill(leftPos + 1, topPos + 1, leftPos + imageWidth - 1, topPos + FinanceGui.TAB_Y - 1, 0xFFF4F0E2);
+        g.fill(leftPos + 1, topPos + FinanceGui.TAB_Y - 1, leftPos + imageWidth - 1, topPos + FinanceGui.HEADER_H, FinanceGui.COL_TAB_BG);
+        g.fill(leftPos + 1, topPos + FinanceGui.HEADER_H, leftPos + imageWidth - 1, topPos + FinanceGui.HEADER_H + 1, FinanceGui.COL_PANEL_BORDER);
         RenderSystem.disableBlend();
     }
 
@@ -386,7 +389,10 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         }
         // 下拉菜单渲染在最上层
         if (dropdownOpen && (currentTab == 0 || currentTab == 1)) {
-            this.marketTabs.renderDropdown(graphics, virtualMouseX, virtualMouseY);
+            graphics.pose().pushPose();
+            graphics.pose().translate(0, -FinanceGui.CONTENT_SHIFT, 0);
+            this.marketTabs.renderDropdown(graphics, virtualMouseX, virtualMouseY + FinanceGui.CONTENT_SHIFT);
+            graphics.pose().popPose();
         }
         renderTooltip(graphics, virtualMouseX, virtualMouseY);
         graphics.pose().popPose();
@@ -394,14 +400,20 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
 
 
     @Override
-    protected void renderLabels(GuiGraphics g, int mouseX, int mouseY) {
-        FinanceGui.drawClippedString(font, g, "金融中心", 10, 7, 130, FinanceGui.COL_TEXT);
+    protected void renderLabels(GuiGraphics g, int absoluteMouseX, int absoluteMouseY) {
+        // 原版传进来的是绝对坐标，而标题栏、页签和图表都按面板内坐标判断悬停
+        int mouseX = absoluteMouseX - leftPos;
+        int panelMouseY = absoluteMouseY - topPos;
+        FinanceGui.drawClippedString(font, g, "金融中心", 10, 4, 130, FinanceGui.COL_TEXT);
         if (!statusMessage.isEmpty()) {
-            FinanceGui.drawClippedString(font, g, statusMessage, 118, 7, MORE_BUTTON_X - 124, FinanceGui.COL_ACCENT);
+            FinanceGui.drawClippedString(font, g, statusMessage, 118, 4, MORE_BUTTON_X - 124, FinanceGui.COL_ACCENT);
         }
-        FinanceGui.drawButton(font, g, "更多操作", MORE_BUTTON_X, 4, MORE_BUTTON_W, false);
-        renderTabs(g, mouseX, mouseY);
+        FinanceGui.drawButton(font, g, "更多操作", MORE_BUTTON_X, MORE_BUTTON_Y, MORE_BUTTON_W, false);
+        renderTabs(g, mouseX, panelMouseY);
 
+        int mouseY = panelMouseY + FinanceGui.CONTENT_SHIFT;
+        g.pose().pushPose();
+        g.pose().translate(0, -FinanceGui.CONTENT_SHIFT, 0);
         switch (currentTab) {
             case 0 -> this.marketTabs.renderMarketTab(g, mouseX, mouseY);
             case 1 -> this.marketTabs.renderTradeTab(g);
@@ -417,6 +429,7 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
             case 11 -> { if (isAdmin) this.adminTabs.renderAdminTab(g); }
             case MACRO_TAB -> this.macroTabs.render(g);
         }
+        g.pose().popPose();
     }
 
 
@@ -464,7 +477,7 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         int my = (int) mouseY - topPos;
 
         // 标题栏“更多操作”：原来只能用命令完成的玩家功能
-        if (mx >= MORE_BUTTON_X && mx < MORE_BUTTON_X + MORE_BUTTON_W && my >= 4 && my < 17) {
+        if (mx >= MORE_BUTTON_X && mx < MORE_BUTTON_X + MORE_BUTTON_W && my >= MORE_BUTTON_Y && my < MORE_BUTTON_Y + 13) {
             PlayerServicesScreen.open();
             return true;
         }
@@ -489,25 +502,26 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
 
         // 下拉菜单点击拦截（在其他标签逻辑之前）
         if (dropdownOpen && (currentTab == 0 || currentTab == 1)) {
-            if (this.marketTabs.handleDropdownClick(mx, my)) return true;
+            if (this.marketTabs.handleDropdownClick(mx, my + FinanceGui.CONTENT_SHIFT)) return true;
             // 点击下拉外部关闭
             dropdownOpen = false;
         }
 
+        int contentY = my + FinanceGui.CONTENT_SHIFT;
         boolean handled;
         try {
             handled = switch (currentTab) {
-                case 0 -> this.marketTabs.handleMarketClick(mx, my);
-                case 1 -> this.marketTabs.handleTradeClick(mx, my);
-                case 2 -> this.recordTabs.handleOrdersClick(mx, my);
-                case 3 -> this.recordTabs.handleInventoryClick(mx, my);
-                case 4 -> this.companyTabs.handleCompanyClick(mx, my);
-                case 5 -> this.stockTabs.handleStockClick(mx, my);
-                case 7 -> this.recordTabs.handleAssetClick(mx, my);
-                case 8 -> this.recordTabs.handleAlertClick(mx, my);
-                case 9 -> this.serviceTabs.handleFinancialProductsClick(mx, my);
-                case 11 -> isAdmin && this.adminTabs.handleAdminClick(mx, my);
-                case MACRO_TAB -> this.macroTabs.handleClick(mx, my);
+                case 0 -> this.marketTabs.handleMarketClick(mx, contentY);
+                case 1 -> this.marketTabs.handleTradeClick(mx, contentY);
+                case 2 -> this.recordTabs.handleOrdersClick(mx, contentY);
+                case 3 -> this.recordTabs.handleInventoryClick(mx, contentY);
+                case 4 -> this.companyTabs.handleCompanyClick(mx, contentY);
+                case 5 -> this.stockTabs.handleStockClick(mx, contentY);
+                case 7 -> this.recordTabs.handleAssetClick(mx, contentY);
+                case 8 -> this.recordTabs.handleAlertClick(mx, contentY);
+                case 9 -> this.serviceTabs.handleFinancialProductsClick(mx, contentY);
+                case 11 -> isAdmin && this.adminTabs.handleAdminClick(mx, contentY);
+                case MACRO_TAB -> this.macroTabs.handleClick(mx, contentY);
                 default -> false;
             };
         } catch (InvalidInput invalid) {
@@ -606,16 +620,16 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         boolean manageCompany = ipoCompany;
         if(governance){
             companyNameBox.setX(leftPos+108);
-            companyNameBox.setY(topPos+FinanceGui.CONTENT_Y+144);
+            companyNameBox.setY(contentTop() +FinanceGui.CONTENT_Y+144);
         } else if (companyDetails) {
             companyNameBox.setX(leftPos + 48);
-            companyNameBox.setY(topPos + FinanceGui.CONTENT_Y + 58);
+            companyNameBox.setY(contentTop() + FinanceGui.CONTENT_Y + 58);
         } else if (createCompany) {
             companyNameBox.setX(leftPos + 70);
-            companyNameBox.setY(topPos + FinanceGui.CONTENT_Y + 36);
+            companyNameBox.setY(contentTop() + FinanceGui.CONTENT_Y + 36);
         } else if (manageCompany) {
             companyNameBox.setX(leftPos + 198);
-            companyNameBox.setY(topPos + FinanceGui.CONTENT_Y + 140);
+            companyNameBox.setY(contentTop() + FinanceGui.CONTENT_Y + 140);
         }
         companyNameBox.setVisible(governance || companyDetails || createCompany);
         ipoPriceBox.setVisible(ipoCompany || companyDetails);
@@ -626,29 +640,29 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         stockQuantityBox.setVisible(governance||(currentTab == 5 && !stockChartVisible)
                 || (financial && !futuresChartVisible && (financialSubTab == 1 || financialSubTab == 2 || financialSubTab == 5 || financialSubTab == 6 || financialSubTab == 7 || financialSubTab == 8 || financialSubTab == 9 || financialSubTab == 10)));
         if(governance){
-            stockPriceBox.setX(leftPos+48);stockPriceBox.setY(topPos+FinanceGui.CONTENT_Y+164);
-            stockQuantityBox.setX(leftPos+168);stockQuantityBox.setY(topPos+FinanceGui.CONTENT_Y+164);
-            companyAmountBox.setX(leftPos+288);companyAmountBox.setY(topPos+FinanceGui.CONTENT_Y+164);
+            stockPriceBox.setX(leftPos+48);stockPriceBox.setY(contentTop() +FinanceGui.CONTENT_Y+164);
+            stockQuantityBox.setX(leftPos+168);stockQuantityBox.setY(contentTop() +FinanceGui.CONTENT_Y+164);
+            companyAmountBox.setX(leftPos+288);companyAmountBox.setY(contentTop() +FinanceGui.CONTENT_Y+164);
         } else if (financial) {
-            stockPriceBox.setX(leftPos + 50); stockPriceBox.setY(topPos + 188);
-            stockQuantityBox.setX(leftPos + 162); stockQuantityBox.setY(topPos + 188);
+            stockPriceBox.setX(leftPos + 50); stockPriceBox.setY(contentTop() + 188);
+            stockQuantityBox.setX(leftPos + 162); stockQuantityBox.setY(contentTop() + 188);
             if (financialSubTab == 8) {
                 // 基金页：定投间隔输入框放到第二行，避免与"赎回"按钮重叠
-                companyAmountBox.setX(leftPos + 312); companyAmountBox.setY(topPos + 214);
+                companyAmountBox.setX(leftPos + 312); companyAmountBox.setY(contentTop() + 214);
             } else {
-                companyAmountBox.setX(leftPos + 282); companyAmountBox.setY(topPos + 188);
+                companyAmountBox.setX(leftPos + 282); companyAmountBox.setY(contentTop() + 188);
             }
         } else {
-            stockPriceBox.setX(leftPos + 54); stockPriceBox.setY(topPos + FinanceGui.STOCK_TRADE_Y + 18);
-            stockQuantityBox.setX(leftPos + 54); stockQuantityBox.setY(topPos + FinanceGui.STOCK_TRADE_Y + 38);
-            companyAmountBox.setX(leftPos + 58); companyAmountBox.setY(topPos + FinanceGui.CONTENT_Y + 106);
-            ipoPriceBox.setX(leftPos + 58); ipoPriceBox.setY(topPos + FinanceGui.CONTENT_Y + 136);
-            ipoQuantityBox.setX(leftPos + 172); ipoQuantityBox.setY(topPos + FinanceGui.CONTENT_Y + 136);
+            stockPriceBox.setX(leftPos + 54); stockPriceBox.setY(contentTop() + FinanceGui.STOCK_TRADE_Y + 18);
+            stockQuantityBox.setX(leftPos + 54); stockQuantityBox.setY(contentTop() + FinanceGui.STOCK_TRADE_Y + 38);
+            companyAmountBox.setX(leftPos + 58); companyAmountBox.setY(contentTop() + FinanceGui.CONTENT_Y + 106);
+            ipoPriceBox.setX(leftPos + 58); ipoPriceBox.setY(contentTop() + FinanceGui.CONTENT_Y + 136);
+            ipoQuantityBox.setX(leftPos + 172); ipoQuantityBox.setY(contentTop() + FinanceGui.CONTENT_Y + 136);
         }
         if (companyDetails) {
-            companyAmountBox.setX(leftPos + 48); companyAmountBox.setY(topPos + FinanceGui.CONTENT_Y + 80);
-            ipoPriceBox.setX(leftPos + 168); ipoPriceBox.setY(topPos + FinanceGui.CONTENT_Y + 80);
-            ipoQuantityBox.setX(leftPos + 288); ipoQuantityBox.setY(topPos + FinanceGui.CONTENT_Y + 80);
+            companyAmountBox.setX(leftPos + 48); companyAmountBox.setY(contentTop() + FinanceGui.CONTENT_Y + 80);
+            ipoPriceBox.setX(leftPos + 168); ipoPriceBox.setY(contentTop() + FinanceGui.CONTENT_Y + 80);
+            ipoQuantityBox.setX(leftPos + 288); ipoQuantityBox.setY(contentTop() + FinanceGui.CONTENT_Y + 80);
         }
         companyAmountBox.setVisible(governance || companyDetails || manageCompany
                 || (financial && !futuresChartVisible && financialSubTab != 2 && financialSubTab != 3 && financialSubTab != 9));
@@ -656,10 +670,10 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         boolean admin = (currentTab == 11 && isAdmin);
         boolean adminHand = admin && adminSubTab == 0;
         if (adminHand) {
-            adminBasePriceBox.setX(leftPos + 228); adminBasePriceBox.setY(topPos + FinanceGui.CONTENT_Y + 42);
-            adminCommodityIdBox.setX(leftPos + 28); adminCommodityIdBox.setY(topPos + FinanceGui.CONTENT_Y + 98);
-            adminItemIdBox.setX(leftPos + 140); adminItemIdBox.setY(topPos + FinanceGui.CONTENT_Y + 98);
-            adminDisplayNameBox.setX(leftPos + 296); adminDisplayNameBox.setY(topPos + FinanceGui.CONTENT_Y + 98);
+            adminBasePriceBox.setX(leftPos + 228); adminBasePriceBox.setY(contentTop() + FinanceGui.CONTENT_Y + 42);
+            adminCommodityIdBox.setX(leftPos + 28); adminCommodityIdBox.setY(contentTop() + FinanceGui.CONTENT_Y + 98);
+            adminItemIdBox.setX(leftPos + 140); adminItemIdBox.setY(contentTop() + FinanceGui.CONTENT_Y + 98);
+            adminDisplayNameBox.setX(leftPos + 296); adminDisplayNameBox.setY(contentTop() + FinanceGui.CONTENT_Y + 98);
         }
         adminCommodityIdBox.setVisible(adminHand);
         adminItemIdBox.setVisible(adminHand);
