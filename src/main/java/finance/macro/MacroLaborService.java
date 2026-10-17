@@ -40,10 +40,9 @@ public final class MacroLaborService {
         return MacroEconomyService.active() && FinanceConfig.macroLaborEnabled();
     }
 
-    /** 设施岗位数。 */
+    /** 设施岗位数：由厂房设备决定（见 FactoryService.jobs），老存档临时作坊期沿用"等级 × 每级岗位"。 */
     public static long jobs(CompanyFacilityRecord facility) {
-        if (facility == null) return 0;
-        return (long) facility.productionLevel() * Math.max(1, FinanceConfig.macroJobsPerLevel());
+        return finance.gameplay.company.factory.FactoryService.jobs(facility);
     }
 
     /** 工人接受工作的最低日工资（劳工法可抬高）。 */
@@ -124,6 +123,8 @@ public final class MacroLaborService {
                     || facility.status() == CompanyFacilityStatus.ORPHANED) continue;
             if (CompanyGameplayManager.profileFor(company).operatingMode() == CompanyOperatingMode.LEGACY_AUTOMATIC) continue;
             live.add(facility.facilityId());
+            // 岗位取决于当天的生产方式：先判定（幂等，日结里 FactoryService 已判定过时直接跳过）
+            finance.gameplay.company.factory.FactoryService.prepare(facility, day);
             SettlementRecord source = nearestSettlement(facility);
             if (source == null) {
                 MacroEconomyManager.setEmployment(facility.facilityId(), 0, null);

@@ -48,9 +48,19 @@ public final class CompanyProductionService {
         if (company.isBankruptcyRisk()) { facility.setStatus(CompanyFacilityStatus.BANKRUPTCY_HOLD,day); return false; }
         if (facility.boundWarehouseId() == null || !CompanyGameplayManager.profileFor(company).warehouseIds()
                 .contains(facility.boundWarehouseId())) { facility.setStatus(CompanyFacilityStatus.OUTPUT_FULL,day); return false; }
+        // 厂房：当天生效的生产方式决定投入产出；缺少设备就停产
+        finance.gameplay.company.factory.FactoryService.prepare(facility, day);
+        var method = finance.gameplay.company.factory.FactoryService.effectiveMethod(facility, company, day);
+        if (method == null) { facility.setStatus(CompanyFacilityStatus.EQUIPMENT_MISSING, day); return false; }
         int throughput = finance.config.FinanceConfig.factoryThroughput(facility.productionLevel());
-        Map<String, Integer> inputs = scaled(company.getType().getDailyConsumption(), throughput);
-        Map<String, Integer> outputs = scaled(company.getType().getDailyProduction(), throughput);
+        Map<String, Integer> inputs = scaled(method.inputs(), throughput);
+        Map<String, Integer> outputs = scaled(method.outputs(), throughput);
+        // 改造期：投入产出同比例缩放
+        int retool = finance.gameplay.company.factory.FactoryService.retoolBps(facility, day);
+        if (retool < 10_000) {
+            inputs = finance.macro.MacroLaborService.scale(inputs, retool);
+            outputs = finance.macro.MacroLaborService.scale(outputs, retool);
+        }
         // 宏观经济雇工：按在岗比例缩放投入与产出，没人上班就停产
         int staffing = finance.macro.MacroLaborService.staffingBps(facility);
         if (staffing < 10_000) {

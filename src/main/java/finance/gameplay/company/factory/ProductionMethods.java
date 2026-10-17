@@ -28,7 +28,8 @@ public final class ProductionMethods {
         add(CompanyType.FOOD, INDUSTRIAL, "food.industrial", "机械农场", 2,
                 eq(PISTON, 4, OBSERVER, 2, HOPPER, 2), Map.of("iron", 3, "coal", 6), Map.of("wheat", 180));
 
-        add(CompanyType.FOOD_PROCESSING, MANUAL, "food_processing.manual", "手工作坊", 5,
+        // 长期模拟调平：面包坊利润薄，手工作坊每台 5 岗（共 20）会全年亏损，调为每台 3 岗（共 12）
+        add(CompanyType.FOOD_PROCESSING, MANUAL, "food_processing.manual", "手工作坊", 3,
                 eq(CRAFTING_TABLE, 2, BARREL, 2), Map.of("wheat", 40), Map.of("bread", 30));
         add(CompanyType.FOOD_PROCESSING, IMPROVED, "food_processing.improved", "蒸汽烘焙", 4,
                 eq(SMOKER, 3, BARREL, 2), Map.of("wheat", 60, "coal", 8), Map.of("bread", 48));
@@ -92,6 +93,16 @@ public final class ProductionMethods {
     public static List<ProductionMethod> forType(CompanyType type) {
         List<ProductionMethod> list = type == null ? null : TABLE.get(type);
         return list == null ? List.of() : Collections.unmodifiableList(list);
+    }
+
+    /**
+     * 临时作坊用的方式：完全沿用 {@link CompanyType} 原有的日产量和日消耗，保证老存档更新后产量不变
+     * （手工档的铁矿要额外烧木头，直接套用会让没有木头的老工厂停产）。
+     */
+    public static ProductionMethod legacy(CompanyType type) {
+        if (type == null) return null;
+        return new ProductionMethod(type, MANUAL, type.name().toLowerCase(java.util.Locale.ROOT) + ".provisional",
+                "临时作坊", Map.of(), 0, type.getDailyConsumption(), type.getDailyProduction());
     }
 
     public static ProductionMethod get(CompanyType type, ProductionTier tier) {

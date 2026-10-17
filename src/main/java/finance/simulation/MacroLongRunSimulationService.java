@@ -222,6 +222,13 @@ public final class MacroLongRunSimulationService {
             if (day == SHOCK_START) MacroLaborService.setWage(shocked.company().getOwnerId(), shocked.company().getCompanyId(), 0);
             if (day == SHOCK_END) MacroLaborService.setWage(shocked.company().getOwnerId(), shocked.company().getCompanyId(),
                     finance.config.FinanceConfig.macroDefaultWage());
+            // 玩家已按手工档清单搭好厂房；没有世界可扫描，每天刷新一次设备快照
+            for (Firm f : firms) {
+                for (CompanyFacilityRecord facility : CompanyFacilityManager.forCompany(f.company().getCompanyId())) {
+                    finance.gameplay.company.factory.FactoryService.recordBuiltEquipment(facility,
+                            finance.gameplay.company.factory.ProductionTier.MANUAL, day);
+                }
+            }
             for (Firm f : firms) buyInputs(f.company());
             MacroEconomyService.beforeVillages(day);
             VillageService.processDay(null, day);
@@ -297,7 +304,9 @@ public final class MacroLongRunSimulationService {
         UUID custody = CompanyInventoryFacade.custodyId(company.getCompanyId());
         Account npc = AccountManager.getAccounts().get(NpcMarketMaker.NPC_UUID);
         if (npc == null) return;
-        for (Map.Entry<String, Integer> e : company.getType().getDailyConsumption().entrySet()) {
+        // 按手工档的投入采购（铁矿手工档要烧木头）
+        for (Map.Entry<String, Integer> e : finance.gameplay.company.factory.ProductionMethods
+                .get(company.getType(), finance.gameplay.company.factory.ProductionTier.MANUAL).inputs().entrySet()) {
             int missing = e.getValue() - CommodityInventoryManager.getCommodityAmount(custody, e.getKey());
             MarketPrice mp = NpcMarketMaker.getMarketPrice(e.getKey());
             if (missing <= 0 || mp == null || mp.getAskPrice() <= 0) continue;

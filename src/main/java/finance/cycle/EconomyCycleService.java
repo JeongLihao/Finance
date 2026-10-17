@@ -86,6 +86,8 @@ public final class EconomyCycleService {
         finance.exploration.ExplorationService.processDay(mcDay);
         NpcMarketMaker.naturalConsumeAll();
         NpcMarketMaker.centralBankIntervention();
+        // 厂房：扫描设备并判定当天的生产方式，岗位和产量都取决于它，所以在招工之前
+        finance.gameplay.company.factory.FactoryService.processDay(server, mcDay);
         // 招工和发工资必须在设施生产之前
         finance.macro.MacroLaborService.processDay(mcDay);
         CompanyManager.tickAll(mcDay);
