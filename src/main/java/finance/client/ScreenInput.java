@@ -4,6 +4,7 @@ import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.events.GuiEventListener;
 import org.lwjgl.glfw.GLFW;
 
+import java.util.OptionalLong;
 import java.util.UUID;
 
 /** 各界面共用的输入框按键处理与发包前的客户端预校验。
@@ -33,13 +34,25 @@ final class ScreenInput {
 
     /** 解析 1..max 的长整数；空、非数字、越界都返回 -1。 */
     static long parsePositive(String text, long max) {
-        if (text == null) return -1;
+        return parseInRange(text, 1, max).orElse(-1);
+    }
+
+    /** 解析 min..max 的整数；空、非数字、越界都返回空。 */
+    static OptionalLong parseInRange(String text, long min, long max) {
+        if (text == null) return OptionalLong.empty();
         try {
             long value = Long.parseLong(text.trim());
-            return value >= 1 && value <= max ? value : -1;
+            return value >= min && value <= max ? OptionalLong.of(value) : OptionalLong.empty();
         } catch (NumberFormatException exception) {
-            return -1;
+            return OptionalLong.empty();
         }
+    }
+
+    /** 输入不合法时的状态栏提示。 */
+    static String rangeMessage(String label, long min, long max) {
+        return max >= FinanceScreen.MAX_INPUT_AMOUNT
+                ? label + "须为不小于 " + min + " 的整数"
+                : label + "须为 " + min + "～" + max + " 的整数";
     }
 
     /** 解析 UUID；不合法返回 null。 */
