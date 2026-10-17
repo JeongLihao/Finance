@@ -152,5 +152,7 @@ public enum TransactionType {
     /** NPC 竞争公司：NPC 资金池拨给新公司的种子资金。 */
     RIVAL_SEED,
     /** NPC 竞争公司：升级产线/仓储，公司现金付给 NPC 资金池（视为采购建材）。 */
-    RIVAL_UPGRADE
+    RIVAL_UPGRADE,
+    /** NPC 竞争公司：公司现金转入它的投资账户，用于敌对收购建仓和要约托管。 */
+    RIVAL_INVESTMENT
 }

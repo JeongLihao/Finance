@@ -18,8 +18,23 @@ public final class RivalManager {
     private static long lastProcessedDay = Long.MIN_VALUE;
     private static long lastSpawnDay = Long.MIN_VALUE;
     private static long lastBankruptcyDay = Long.MIN_VALUE;
+    private static long lastHostileDay = Long.MIN_VALUE;
 
     private RivalManager() { }
+
+    /** 该 UUID 是否是某家竞争公司的投资账户。 */
+    public static synchronized boolean isInvestmentAccount(UUID id) {
+        if (id == null) return false;
+        for (UUID companyId : PROFILES.keySet()) if (RivalProfile.investmentAccount(companyId).equals(id)) return true;
+        return false;
+    }
+
+    /** 投资账户 → 所属竞争公司；不是投资账户返回 null。 */
+    public static synchronized UUID companyOfInvestmentAccount(UUID id) {
+        if (id == null) return null;
+        for (UUID companyId : PROFILES.keySet()) if (RivalProfile.investmentAccount(companyId).equals(id)) return companyId;
+        return null;
+    }
 
     public static synchronized RivalProfile get(UUID companyId) { return companyId == null ? null : PROFILES.get(companyId); }
     public static synchronized Collection<RivalProfile> all() { return List.copyOf(PROFILES.values()); }
@@ -31,6 +46,8 @@ public final class RivalManager {
     static synchronized void setLastProcessedDay(long day) { lastProcessedDay = day; }
     static synchronized void setLastSpawnDay(long day) { lastSpawnDay = day; }
     static synchronized void setLastBankruptcyDay(long day) { lastBankruptcyDay = day; }
+    public static synchronized long lastHostileDay() { return lastHostileDay; }
+    static synchronized void setLastHostileDay(long day) { lastHostileDay = day; }
 
     static synchronized boolean put(RivalProfile profile) {
         if (profile == null || PROFILES.size() >= MAX_PROFILES && !PROFILES.containsKey(profile.companyId())) return false;
@@ -56,9 +73,11 @@ public final class RivalManager {
         return before - PROFILES.size();
     }
 
-    public static synchronized void restoreDirect(long processed, long spawn, long bankruptcy, List<RivalProfile> profiles) {
+    public static synchronized void restoreDirect(long processed, long spawn, long bankruptcy, long hostile,
+                                                  List<RivalProfile> profiles) {
         clearDirect();
         lastProcessedDay = processed;
+        lastHostileDay = hostile;
         lastSpawnDay = spawn;
         lastBankruptcyDay = bankruptcy;
         if (profiles != null) profiles.forEach(RivalManager::put);
@@ -69,5 +88,6 @@ public final class RivalManager {
         lastProcessedDay = Long.MIN_VALUE;
         lastSpawnDay = Long.MIN_VALUE;
         lastBankruptcyDay = Long.MIN_VALUE;
+        lastHostileDay = Long.MIN_VALUE;
     }
 }

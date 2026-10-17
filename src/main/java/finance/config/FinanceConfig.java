@@ -130,6 +130,8 @@ public final class FinanceConfig {
     private static final long RIVALS_SEED_CAPITAL_VALUE = 50_000L;
     private static final boolean RIVALS_IPO_ENABLED_VALUE = true;
     private static final boolean RIVALS_CONTRACTS_ENABLED_VALUE = true;
+    private static final boolean RIVALS_HOSTILE_TAKEOVERS_VALUE = false;
+    private static final boolean RIVALS_ACTIVISM_ENABLED_VALUE = false;
     // ---- 宏观实体经济 ----
     private static final boolean MACRO_ENABLED_VALUE = true;
     private static final boolean MACRO_LABOR_ENABLED_VALUE = true;
@@ -310,6 +312,8 @@ public final class FinanceConfig {
     private static final ForgeConfigSpec.LongValue RIVALS_SEED_CAPITAL;
     private static final ForgeConfigSpec.BooleanValue RIVALS_IPO_ENABLED;
     private static final ForgeConfigSpec.BooleanValue RIVALS_CONTRACTS_ENABLED;
+    private static final ForgeConfigSpec.BooleanValue RIVALS_HOSTILE_TAKEOVERS;
+    private static final ForgeConfigSpec.BooleanValue RIVALS_ACTIVISM_ENABLED;
     private static final ForgeConfigSpec.BooleanValue MACRO_ENABLED;
     private static final ForgeConfigSpec.BooleanValue MACRO_LABOR_ENABLED;
     private static final ForgeConfigSpec.BooleanValue MACRO_POLITICS_ENABLED;
@@ -1129,6 +1133,10 @@ public final class FinanceConfig {
                 .define("ipoEnabled", RIVALS_IPO_ENABLED_VALUE);
         RIVALS_CONTRACTS_ENABLED = builder.comment("加工类竞争公司缺原料时是否发布采购合同，和玩家争夺供应。")
                 .define("contractsEnabled", RIVALS_CONTRACTS_ENABLED_VALUE);
+        RIVALS_HOSTILE_TAKEOVERS = builder.comment("激进/投机型竞争公司对股价明显低于基本面的上市公司建仓并发起敌对要约。默认关闭，单人经营预设开启。")
+                .define("hostileTakeovers", RIVALS_HOSTILE_TAKEOVERS_VALUE);
+        RIVALS_ACTIVISM_ENABLED = builder.comment("竞争公司持股达到提案资格（25%）后，被投公司亏损或长期不分红时发起提高分红的提案。默认关闭，单人经营预设开启。")
+                .define("activismEnabled", RIVALS_ACTIVISM_ENABLED_VALUE);
         builder.pop();
 
         COMMON_SPEC = builder.build();
@@ -1424,6 +1432,8 @@ public final class FinanceConfig {
     public static long rivalsSeedCapital() { return getLong(RIVALS_SEED_CAPITAL, RIVALS_SEED_CAPITAL_VALUE); }
     public static boolean rivalsIpoEnabled() { return getBoolean(RIVALS_IPO_ENABLED, RIVALS_IPO_ENABLED_VALUE); }
     public static boolean rivalsContractsEnabled() { return getBoolean(RIVALS_CONTRACTS_ENABLED, RIVALS_CONTRACTS_ENABLED_VALUE); }
+    public static boolean rivalsHostileTakeovers() { return getBoolean(RIVALS_HOSTILE_TAKEOVERS, RIVALS_HOSTILE_TAKEOVERS_VALUE); }
+    public static boolean rivalsActivismEnabled() { return getBoolean(RIVALS_ACTIVISM_ENABLED, RIVALS_ACTIVISM_ENABLED_VALUE); }
 
     public static boolean npcVotingEnabled() {
         return getBoolean(NPC_VOTING_ENABLED, NPC_VOTING_ENABLED_VALUE);
