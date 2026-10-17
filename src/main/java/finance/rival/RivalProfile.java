@@ -19,6 +19,12 @@ public final class RivalProfile {
     private final String mainCommodity;
     private final long createdDay;
     private long lastUpgradeDay = Long.MIN_VALUE;
+    /** 敌对收购：当前目标公司（null 表示没有）、开始建仓日、上次发起要约或放弃的日子。 */
+    private UUID hostileTarget;
+    private long hostileStartDay = Long.MIN_VALUE;
+    private long hostileCooldownDay = Long.MIN_VALUE;
+    /** 股东激进主义：上次发起提案的日子。 */
+    private long lastActivismDay = Long.MIN_VALUE;
     private final ArrayDeque<Decision> history = new ArrayDeque<>();
 
     public RivalProfile(UUID companyId, RivalPersonality personality, String mainCommodity, long createdDay) {
@@ -35,6 +41,19 @@ public final class RivalProfile {
     public long createdDay() { return createdDay; }
     public long lastUpgradeDay() { return lastUpgradeDay; }
     public List<Decision> history() { return List.copyOf(history); }
+    public UUID hostileTarget() { return hostileTarget; }
+    public long hostileStartDay() { return hostileStartDay; }
+    public long hostileCooldownDay() { return hostileCooldownDay; }
+    public long lastActivismDay() { return lastActivismDay; }
+
+    void startHostile(UUID target, long day) { hostileTarget = target; hostileStartDay = day; }
+    void endHostile(long day) { hostileTarget = null; hostileStartDay = Long.MIN_VALUE; hostileCooldownDay = day; }
+    void setLastActivismDay(long day) { lastActivismDay = day; }
+
+    /** 反序列化用。 */
+    public void restoreHostile(UUID target, long start, long cooldown, long activism) {
+        hostileTarget = target; hostileStartDay = start; hostileCooldownDay = cooldown; lastActivismDay = activism;
+    }
 
     /** 竞争公司持股用的确定性投资账户（上市时的创始股记在这里）。 */
     public static UUID investmentAccount(UUID companyId) {

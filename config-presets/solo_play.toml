@@ -1,0 +1,61 @@
+# Solo-play profile: NPC shareholders and rival companies give a single player governance, takeovers and competition.
+# Based on minecraft_first; merge by hand into config/finance-common.toml.
+[gameplay]
+minecraftFirstMode = true
+requirePhysicalTerminal = true
+enablePortableLedger = true
+legacyFullScreenKeybind = false
+warehouseCapacityEnabled = true
+contractsEnabled = true
+playerDrivenCompanyProduction = true
+allowLegacyAutomaticCompanyProduction = true
+newCompaniesPlayerDrivenOnly = false
+hybridLegacyFallbackRatio = 0.25
+advancedFinanceRequiresTerminal = true
+adminConsoleRequiresPermission = true
+terminalInteractionDistance = 8.0
+worldEconomyGlobalBroadcasts = true
+
+[gameplay.logistics]
+maxActivePerPlayer = 8
+maxActivePerCompany = 32
+maxCargoUnits = 1024
+defaultDeadlineDays = 14
+
+[gameplay.settlements]
+maxActivePerPlayer = 4
+maxOpenPerSettlement = 8
+demandDeadlineDays = 5
+rewardBasisPoints = 12000
+
+[gameplay.exploration]
+enabled = true
+worldgenEnabled = false
+requestCooldownDays = 2
+maximumTargetDistance = 4096
+deadlineDays = 7
+reward = 250
+
+[gameplay.regionalRiskFinance]
+regionalHistoryDays = 120
+maxCollateralAgreements = 4096
+maxHedgeObjectives = 4096
+dailyCollateralBatch = 128
+collateralInitialLtvBasisPoints = 6000
+collateralMaintenanceLtvBasisPoints = 7500
+collateralLiquidationLtvBasisPoints = 9000
+
+[npcEconomy]
+npcInvestorsEnabled = true
+npcVotingEnabled = true
+maxHoldingPercentEach = 20
+maxCombinedHoldingPercent = 49
+
+[rivals]
+enabled = true
+maxCompanies = 6
+spawnCooldownDays = 14
+ipoEnabled = true
+contractsEnabled = true
+hostileTakeovers = true
+activismEnabled = true

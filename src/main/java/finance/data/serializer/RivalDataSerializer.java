@@ -29,6 +29,7 @@ public final class RivalDataSerializer {
         data.putLong("LastProcessedDay", RivalManager.lastProcessedDay());
         data.putLong("LastSpawnDay", RivalManager.lastSpawnDay());
         data.putLong("LastBankruptcyDay", RivalManager.lastBankruptcyDay());
+        data.putLong("LastHostileDay", RivalManager.lastHostileDay());
         ListTag profiles = new ListTag();
         for (RivalProfile p : RivalManager.all()) {
             CompoundTag t = new CompoundTag();
@@ -37,6 +38,10 @@ public final class RivalDataSerializer {
             t.putString("Commodity", p.mainCommodity());
             t.putLong("Created", p.createdDay());
             t.putLong("LastUpgrade", p.lastUpgradeDay());
+            if (p.hostileTarget() != null) t.putUUID("HostileTarget", p.hostileTarget());
+            t.putLong("HostileStart", p.hostileStartDay());
+            t.putLong("HostileCooldown", p.hostileCooldownDay());
+            t.putLong("LastActivism", p.lastActivismDay());
             ListTag history = new ListTag();
             for (RivalProfile.Decision d : p.history()) {
                 CompoundTag h = new CompoundTag();
@@ -74,13 +79,15 @@ public final class RivalDataSerializer {
                     history.add(new RivalProfile.Decision(ht.getLong("Day"), ht.getString("Action"), ht.getString("Detail")));
                 }
                 profile.restoreDirect(t.getLong("LastUpgrade"), history);
+                profile.restoreHostile(t.hasUUID("HostileTarget") ? t.getUUID("HostileTarget") : null,
+                        longOr(t, "HostileStart"), longOr(t, "HostileCooldown"), longOr(t, "LastActivism"));
                 profiles.add(profile);
             } catch (Exception e) {
                 skipped++;
             }
         }
         RivalManager.restoreDirect(longOr(data, "LastProcessedDay"), longOr(data, "LastSpawnDay"),
-                longOr(data, "LastBankruptcyDay"), profiles);
+                longOr(data, "LastBankruptcyDay"), longOr(data, "LastHostileDay"), profiles);
         if (invalid || skipped > 0) {
             ModuleHealthRegistry.restrict(ModuleHealthRegistry.Module.RIVALS, ModuleRunState.READ_ONLY,
                     "竞争公司存档 " + skipped + " 条损坏已跳过", -1);

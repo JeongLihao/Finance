@@ -47,7 +47,10 @@ public final class NpcFloatPlacementService {
 
     public static Result place(UUID investor, String symbol, long quantity, long day) {
         NpcInvestorArchetype archetype = NpcInvestorArchetype.fromAccount(investor);
-        if (archetype == null) return Result.fail("只有 NPC 投资者可以参与残差配售。");
+        // 竞争公司的投资账户也可以配售（敌对收购建仓，单人经济 P4），玩家账户不行
+        if (archetype == null && !finance.rival.RivalManager.isInvestmentAccount(investor)) {
+            return Result.fail("只有 NPC 投资者可以参与残差配售。");
+        }
         if (quantity <= 0) return Result.fail("数量必须为正。");
         Stock stock = StockMarketManager.getStock(symbol);
         if (stock == null) return Result.fail("未知股票。");
