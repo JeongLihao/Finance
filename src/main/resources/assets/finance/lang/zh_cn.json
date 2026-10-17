@@ -641,5 +641,12 @@
   "advancement.finance.macro_artisan": "手艺人",
   "advancement.finance.macro_artisan.desc": "同一家公司的三座工厂都坚持手工档，并且盈利",
   "advancement.finance.solo_shareholder_democracy": "股东民主",
-  "advancement.finance.solo_shareholder_democracy.desc": "让 NPC 股东投票支持并通过你提出的提案"
+  "advancement.finance.solo_shareholder_democracy.desc": "让 NPC 股东投票支持并通过你提出的提案",
+  "screen.finance.guide.page": "%s / %s",
+  "screen.finance.guide.prev": "< 上一页",
+  "screen.finance.guide.next": "下一页 >",
+  "screen.finance.guide.close": "关闭",
+  "screen.finance.guide.back": "返回",
+  "screen.finance.guide.keys": "← → 翻页",
+  "screen.finance.guide.empty": "手册暂无内容"
 }
