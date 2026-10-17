@@ -368,23 +368,25 @@ public final class StockTabs {
                 return true;
             }
             if (mx >= 234 && mx < 292) {
-                long price = Math.max(1, FinanceFormat.parseLong(screen.stockPriceBox.getValue()));
+                long price = screen.requireAmount(screen.stockPriceBox, "价格");
+                qty = screen.requireInt(screen.stockQuantityBox, "股数", 1, Integer.MAX_VALUE);
                 screen.setStatus("已提交买入委托");
                 FinancePacketHandler.CHANNEL.sendToServer(
                         new StockOrderPacket(StockOrderPacket.ActionType.PLACE_BUY, screen.selectedStock, price, qty));
                 return true;
             }
             if (mx >= 300 && mx < 358) {
-                long price = Math.max(1, FinanceFormat.parseLong(screen.stockPriceBox.getValue()));
+                long price = screen.requireAmount(screen.stockPriceBox, "价格");
+                qty = screen.requireInt(screen.stockQuantityBox, "股数", 1, Integer.MAX_VALUE);
                 screen.setStatus("已提交卖出委托");
                 FinancePacketHandler.CHANNEL.sendToServer(
                         new StockOrderPacket(StockOrderPacket.ActionType.PLACE_SELL, screen.selectedStock, price, qty));
                 return true;
             }
         }
-        if (my >= tradeY + 64 && my < tradeY + 77) {
-            int qty = Math.max(1, FinanceFormat.parseInt(screen.stockQuantityBox.getValue()));
-            long triggerPrice = Math.max(1, FinanceFormat.parseLong(screen.stockPriceBox.getValue()));
+        if (my >= tradeY + 64 && my < tradeY + 77 && (mx >= 54 && mx < 112 || mx >= 120 && mx < 178)) {
+            int qty = screen.requireInt(screen.stockQuantityBox, "股数", 1, Integer.MAX_VALUE);
+            long triggerPrice = screen.requireAmount(screen.stockPriceBox, "触发价");
             if (mx >= 54 && mx < 112) {
                 screen.setStatus("已提交止盈委托");
                 FinancePacketHandler.CHANNEL.sendToServer(
@@ -403,7 +405,7 @@ public final class StockTabs {
 
         FinanceMenu.CompanyFinancingRow financing = selectedFinancingProject();
         if (financing != null && mx >= 300 && mx < 342 && my >= tradeY + 90 && my < tradeY + 105) {
-            long qty = Math.max(1, FinanceFormat.parseLong(screen.stockQuantityBox.getValue()));
+            long qty = screen.requireAmount(screen.stockQuantityBox, "认购股数");
             screen.setStatus("已提交增发认购");
             FinancePacketHandler.CHANNEL.sendToServer(
                     CompanyFinancingPacket.subscribe(financing.projectId(), qty));

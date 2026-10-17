@@ -203,10 +203,6 @@ public final class FinanceFormat {
         return String.format(Locale.ROOT, "%.1f%%", (double) value / total * 100.0);
     }
 
-    public static int parseInventoryAmount(FinanceScreen screen) {
-        return Math.max(64, FinanceFormat.parseInt(screen.inventoryQuantityBox.getValue()));
-    }
-
     public static long safeMultiply(long price, int quantity) {
         if (price <= 0 || quantity <= 0) return 0;
         if (price > Long.MAX_VALUE / quantity) return Long.MAX_VALUE;
