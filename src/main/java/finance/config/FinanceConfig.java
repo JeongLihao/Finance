@@ -100,6 +100,70 @@ public final class FinanceConfig {
     private static final boolean FUTURES_MM_CIRCUIT_BREAKER_ENABLED_VALUE = true;
     private static final int FUTURES_MM_CIRCUIT_BREAKER_DEVIATION_BPS_VALUE = 3_000;
     private static final long FUTURES_MM_INITIAL_CAPITAL_VALUE = 500_000L;
+    // ---- 单人经济：NPC 投资者 ----
+    private static final boolean NPC_INVESTORS_ENABLED_VALUE = true;
+    private static final long NPC_INITIAL_CAPITAL_EACH_VALUE = 50_000L;
+    private static final long NPC_DAILY_BUDGET_VALUE = 5_000L;
+    private static final long NPC_POOL_RESERVE_FLOOR_VALUE = 1_000_000L;
+    private static final int NPC_MAX_HOLDING_PERCENT_EACH_VALUE = 20;
+    private static final int NPC_MAX_COMBINED_HOLDING_PERCENT_VALUE = 49;
+    private static final int NPC_MAX_FLOAT_PERCENT_PER_DAY_VALUE = 2;
+    private static final boolean NPC_VOTING_ENABLED_VALUE = true;
+    private static final int NPC_TENDER_PREMIUM_DIVIDEND_VALUE = 35;
+    private static final int NPC_TENDER_PREMIUM_GROWTH_VALUE = 30;
+    private static final int NPC_TENDER_PREMIUM_SPECULATOR_VALUE = 10;
+    private static final int NPC_TENDER_PREMIUM_VALUE_VALUE = 25;
+    // ---- 公司厂房与生产方式 ----
+    private static final int FACILITY_ZONE_RADIUS_VALUE = 4;
+    private static final int FACILITY_ZONE_BELOW_VALUE = 1;
+    private static final int FACILITY_ZONE_ABOVE_VALUE = 3;
+    private static final int FACILITY_MAX_EQUIPMENT_PER_TYPE_VALUE = 16;
+    private static final int FACILITY_JOBS_CAP_PER_LEVEL_VALUE = 20;
+    private static final int FACILITY_RETOOL_DAYS_VALUE = 3;
+    private static final int FACILITY_RETOOL_OUTPUT_PERCENT_VALUE = 50;
+    private static final int FACILITY_PROVISIONAL_DAYS_VALUE = 14;
+    private static final int FACILITY_SCAN_STALE_DAYS_VALUE = 7;
+    // ---- 单人经济：NPC 竞争公司 ----
+    private static final boolean RIVALS_ENABLED_VALUE = true;
+    private static final int RIVALS_MAX_COMPANIES_VALUE = 6;
+    private static final int RIVALS_SPAWN_COOLDOWN_DAYS_VALUE = 14;
+    private static final long RIVALS_SEED_CAPITAL_VALUE = 50_000L;
+    private static final boolean RIVALS_IPO_ENABLED_VALUE = true;
+    private static final boolean RIVALS_CONTRACTS_ENABLED_VALUE = true;
+    private static final boolean RIVALS_HOSTILE_TAKEOVERS_VALUE = false;
+    private static final boolean RIVALS_ACTIVISM_ENABLED_VALUE = false;
+    // ---- 宏观实体经济 ----
+    private static final boolean MACRO_ENABLED_VALUE = true;
+    private static final boolean MACRO_LABOR_ENABLED_VALUE = true;
+    private static final boolean MACRO_POLITICS_ENABLED_VALUE = true;
+    private static final int MACRO_MIN_POPULATION_VALUE = 5;
+    private static final int MACRO_MAX_POPULATION_VALUE = 400;
+    private static final int MACRO_GROWTH_MAX_BPS_VALUE = 150;
+    private static final int MACRO_MIGRATION_MAX_BPS_VALUE = 50;
+    private static final int MACRO_MIGRATION_GAP_BPS_VALUE = 500;
+    private static final int MACRO_PRICE_STEP_BPS_VALUE = 1000;
+    private static final int MACRO_LABOR_RADIUS_VALUE = 256;
+    private static final int MACRO_JOBS_PER_LEVEL_VALUE = 10;
+    private static final long MACRO_DEFAULT_WAGE_VALUE = 12L;
+    private static final long MACRO_BASE_RESERVATION_WAGE_VALUE = 4L;
+    private static final long MACRO_MINIMUM_WAGE_VALUE = 10L;
+    private static final int MACRO_LAW_DEBATE_DAYS_VALUE = 5;
+    private static final long MACRO_LAW_PROPOSAL_FEE_VALUE = 2000L;
+    private static final long MACRO_LOBBY_PER_POINT_VALUE = 1000L;
+    private static final long MACRO_CLOUT_VALUE_SCALE_VALUE = 100L;
+    private static final long MACRO_WELFARE_RELIEF_PER_CAPITA_VALUE = 2L;
+    private static final long MACRO_WELFARE_HEALTH_PER_CAPITA_VALUE = 4L;
+    private static final long MACRO_POOL_RESERVE_FLOOR_VALUE = 1000000L;
+    private static final boolean MACRO_FISCAL_ENABLED_VALUE = true;
+    private static final long MACRO_ADMIN_COST_PER_CAPITA_VALUE = 1L;
+    private static final long MACRO_DEBT_CEILING_VALUE = 200000L;
+    private static final int MACRO_DEBT_SPREAD_BPS_VALUE = 100;
+    private static final boolean MACRO_WORLD_FEEDBACK_VALUE = true;
+    private static final boolean MACRO_NEWS_ENABLED_VALUE = true;
+    private static final int MACRO_NEWS_INTERVAL_DAYS_VALUE = 7;
+    private static final int MACRO_NEWS_EXTRA_GAP_DAYS_VALUE = 3;
+    private static final long MACRO_RADAR_COST_VALUE = 200L;
+    private static final int MACRO_RADAR_COOLDOWN_DAYS_VALUE = 1;
     // ---- 商队商路 ----
     private static final int CARAVAN_MAX_ROUTES_PER_PLAYER_VALUE = 8;
     private static final int CARAVAN_MAX_QTY_PER_TRIP_VALUE = 1_024;
@@ -221,6 +285,66 @@ public final class FinanceConfig {
     private static final ForgeConfigSpec.IntValue FACTORY_COOK_TIME_BREAD;
     private static final ForgeConfigSpec.IntValue FACTORY_COOK_TIME_IRON;
     private static final ForgeConfigSpec.IntValue FACTORY_COOK_TIME_PLANKS;
+    private static final ForgeConfigSpec.BooleanValue NPC_INVESTORS_ENABLED;
+    private static final ForgeConfigSpec.LongValue NPC_INITIAL_CAPITAL_EACH;
+    private static final ForgeConfigSpec.LongValue NPC_DAILY_BUDGET;
+    private static final ForgeConfigSpec.LongValue NPC_POOL_RESERVE_FLOOR;
+    private static final ForgeConfigSpec.IntValue NPC_MAX_HOLDING_PERCENT_EACH;
+    private static final ForgeConfigSpec.IntValue NPC_MAX_COMBINED_HOLDING_PERCENT;
+    private static final ForgeConfigSpec.IntValue NPC_MAX_FLOAT_PERCENT_PER_DAY;
+    private static final ForgeConfigSpec.BooleanValue NPC_VOTING_ENABLED;
+    private static final ForgeConfigSpec.IntValue NPC_TENDER_PREMIUM_DIVIDEND;
+    private static final ForgeConfigSpec.IntValue NPC_TENDER_PREMIUM_GROWTH;
+    private static final ForgeConfigSpec.IntValue NPC_TENDER_PREMIUM_SPECULATOR;
+    private static final ForgeConfigSpec.IntValue NPC_TENDER_PREMIUM_VALUE;
+    private static final ForgeConfigSpec.IntValue FACILITY_ZONE_RADIUS;
+    private static final ForgeConfigSpec.IntValue FACILITY_ZONE_BELOW;
+    private static final ForgeConfigSpec.IntValue FACILITY_ZONE_ABOVE;
+    private static final ForgeConfigSpec.IntValue FACILITY_MAX_EQUIPMENT_PER_TYPE;
+    private static final ForgeConfigSpec.IntValue FACILITY_JOBS_CAP_PER_LEVEL;
+    private static final ForgeConfigSpec.IntValue FACILITY_RETOOL_DAYS;
+    private static final ForgeConfigSpec.IntValue FACILITY_RETOOL_OUTPUT_PERCENT;
+    private static final ForgeConfigSpec.IntValue FACILITY_PROVISIONAL_DAYS;
+    private static final ForgeConfigSpec.IntValue FACILITY_SCAN_STALE_DAYS;
+    private static final ForgeConfigSpec.BooleanValue RIVALS_ENABLED;
+    private static final ForgeConfigSpec.IntValue RIVALS_MAX_COMPANIES;
+    private static final ForgeConfigSpec.IntValue RIVALS_SPAWN_COOLDOWN_DAYS;
+    private static final ForgeConfigSpec.LongValue RIVALS_SEED_CAPITAL;
+    private static final ForgeConfigSpec.BooleanValue RIVALS_IPO_ENABLED;
+    private static final ForgeConfigSpec.BooleanValue RIVALS_CONTRACTS_ENABLED;
+    private static final ForgeConfigSpec.BooleanValue RIVALS_HOSTILE_TAKEOVERS;
+    private static final ForgeConfigSpec.BooleanValue RIVALS_ACTIVISM_ENABLED;
+    private static final ForgeConfigSpec.BooleanValue MACRO_ENABLED;
+    private static final ForgeConfigSpec.BooleanValue MACRO_LABOR_ENABLED;
+    private static final ForgeConfigSpec.BooleanValue MACRO_POLITICS_ENABLED;
+    private static final ForgeConfigSpec.IntValue MACRO_MIN_POPULATION;
+    private static final ForgeConfigSpec.IntValue MACRO_MAX_POPULATION;
+    private static final ForgeConfigSpec.IntValue MACRO_GROWTH_MAX_BPS;
+    private static final ForgeConfigSpec.IntValue MACRO_MIGRATION_MAX_BPS;
+    private static final ForgeConfigSpec.IntValue MACRO_MIGRATION_GAP_BPS;
+    private static final ForgeConfigSpec.IntValue MACRO_PRICE_STEP_BPS;
+    private static final ForgeConfigSpec.IntValue MACRO_LABOR_RADIUS;
+    private static final ForgeConfigSpec.IntValue MACRO_JOBS_PER_LEVEL;
+    private static final ForgeConfigSpec.LongValue MACRO_DEFAULT_WAGE;
+    private static final ForgeConfigSpec.LongValue MACRO_BASE_RESERVATION_WAGE;
+    private static final ForgeConfigSpec.LongValue MACRO_MINIMUM_WAGE;
+    private static final ForgeConfigSpec.IntValue MACRO_LAW_DEBATE_DAYS;
+    private static final ForgeConfigSpec.LongValue MACRO_LAW_PROPOSAL_FEE;
+    private static final ForgeConfigSpec.LongValue MACRO_LOBBY_PER_POINT;
+    private static final ForgeConfigSpec.LongValue MACRO_CLOUT_VALUE_SCALE;
+    private static final ForgeConfigSpec.LongValue MACRO_WELFARE_RELIEF_PER_CAPITA;
+    private static final ForgeConfigSpec.LongValue MACRO_WELFARE_HEALTH_PER_CAPITA;
+    private static final ForgeConfigSpec.LongValue MACRO_POOL_RESERVE_FLOOR;
+    private static final ForgeConfigSpec.BooleanValue MACRO_FISCAL_ENABLED;
+    private static final ForgeConfigSpec.LongValue MACRO_ADMIN_COST_PER_CAPITA;
+    private static final ForgeConfigSpec.LongValue MACRO_DEBT_CEILING;
+    private static final ForgeConfigSpec.IntValue MACRO_DEBT_SPREAD_BPS;
+    private static final ForgeConfigSpec.BooleanValue MACRO_WORLD_FEEDBACK;
+    private static final ForgeConfigSpec.BooleanValue MACRO_NEWS_ENABLED;
+    private static final ForgeConfigSpec.IntValue MACRO_NEWS_INTERVAL_DAYS;
+    private static final ForgeConfigSpec.IntValue MACRO_NEWS_EXTRA_GAP_DAYS;
+    private static final ForgeConfigSpec.LongValue MACRO_RADAR_COST;
+    private static final ForgeConfigSpec.IntValue MACRO_RADAR_COOLDOWN_DAYS;
     private static final ForgeConfigSpec.IntValue CARAVAN_MAX_ROUTES_PER_PLAYER;
     private static final ForgeConfigSpec.IntValue CARAVAN_MAX_QTY_PER_TRIP;
     private static final ForgeConfigSpec.LongValue CARAVAN_BLOCKS_PER_DAY;
@@ -900,6 +1024,121 @@ public final class FinanceConfig {
                 .define("exDividend", EARNINGS_EX_DIVIDEND_VALUE);
         builder.pop();
 
+        builder.push("npcEconomy");
+        NPC_INVESTORS_ENABLED = builder
+                .comment("NPC 投资者：关闭后 NPC 不交易不投票，已有持仓保留，仍可被交易、分红和交割。")
+                .define("npcInvestorsEnabled", NPC_INVESTORS_ENABLED_VALUE);
+        NPC_INITIAL_CAPITAL_EACH = builder
+                .comment("每个 NPC 投资者原型首次启用时从 NPC 资金池转入的初始资本。")
+                .defineInRange("initialCapitalEach", NPC_INITIAL_CAPITAL_EACH_VALUE, 0L, 100_000_000L);
+        NPC_DAILY_BUDGET = builder
+                .comment("NPC 投资者现金低于该值时，每天从 NPC 资金池补足到该值。")
+                .defineInRange("dailyBudget", NPC_DAILY_BUDGET_VALUE, 0L, 10_000_000L);
+        NPC_POOL_RESERVE_FLOOR = builder
+                .comment("NPC 资金池低于该值时不再注资或补足，避免把资金池拉到央行托底线以下、间接触发增发。")
+                .defineInRange("poolReserveFloor", NPC_POOL_RESERVE_FLOOR_VALUE, 0L, Long.MAX_VALUE);
+        NPC_MAX_HOLDING_PERCENT_EACH = builder
+                .comment("单个 NPC 原型对单家公司的持股上限（占有表决权股份 %）。短线派按一半计。")
+                .defineInRange("maxHoldingPercentEach", NPC_MAX_HOLDING_PERCENT_EACH_VALUE, 0, 49);
+        NPC_MAX_COMBINED_HOLDING_PERCENT = builder
+                .comment("全部 NPC 投资者对单家公司的合计持股上限（%），低于 50% 以免 NPC 自动取得控制权。")
+                .defineInRange("maxCombinedHoldingPercent", NPC_MAX_COMBINED_HOLDING_PERCENT_VALUE, 0, 49);
+        NPC_MAX_FLOAT_PERCENT_PER_DAY = builder
+                .comment("全部 NPC 投资者每天对单只股票的成交量上限（占流通股 %）。")
+                .defineInRange("maxFloatPercentPerDay", NPC_MAX_FLOAT_PERCENT_PER_DAY_VALUE, 0, 100);
+        NPC_VOTING_ENABLED = builder
+                .comment("NPC 股东是否对提案投票。需要同时开启 npcInvestorsEnabled。")
+                .define("npcVotingEnabled", NPC_VOTING_ENABLED_VALUE);
+        builder.push("tenderPremium");
+        NPC_TENDER_PREMIUM_DIVIDEND = builder
+                .comment("分红派接受要约所需的溢价（要约价 ≥ 公允价 × (1 + 该值%)）。")
+                .defineInRange("dividend", NPC_TENDER_PREMIUM_DIVIDEND_VALUE, 0, 1_000);
+        NPC_TENDER_PREMIUM_GROWTH = builder
+                .comment("成长派接受要约所需的溢价（%）。")
+                .defineInRange("growth", NPC_TENDER_PREMIUM_GROWTH_VALUE, 0, 1_000);
+        NPC_TENDER_PREMIUM_SPECULATOR = builder
+                .comment("短线派接受要约所需的溢价（%）。")
+                .defineInRange("speculator", NPC_TENDER_PREMIUM_SPECULATOR_VALUE, 0, 1_000);
+        NPC_TENDER_PREMIUM_VALUE = builder
+                .comment("价值派接受要约所需的溢价（%）。")
+                .defineInRange("value", NPC_TENDER_PREMIUM_VALUE_VALUE, 0, 1_000);
+        builder.pop();
+        builder.pop();
+
+        builder.push("macroEconomy");
+        MACRO_ENABLED = builder.comment("宏观实体经济总开关：人口需求类别、聚落本地价格、人口增长与迁移、CPI。关闭后村庄、商队、价格指数回到旧逻辑。").define("enabled", MACRO_ENABLED_VALUE);
+        MACRO_LABOR_ENABLED = builder.comment("公司设施是否需要从附近聚落雇工并发工资；关闭后设施按满员生产。").define("laborEnabled", MACRO_LABOR_ENABLED_VALUE);
+        MACRO_POLITICS_ENABLED = builder.comment("利益集团与法律是否生效；关闭后法律固定为默认级别，不能提案。").define("politicsEnabled", MACRO_POLITICS_ENABLED_VALUE);
+        MACRO_MIN_POPULATION = builder.comment("聚落人口下限。").defineInRange("minPopulation", MACRO_MIN_POPULATION_VALUE, 1, 10000);
+        MACRO_MAX_POPULATION = builder.comment("聚落人口上限。").defineInRange("maxPopulation", MACRO_MAX_POPULATION_VALUE, 1, 10000);
+        MACRO_GROWTH_MAX_BPS = builder.comment("生活水平满分或零分时的日人口增减率（基点，150 = 1.5%）。").defineInRange("growthMaxBps", MACRO_GROWTH_MAX_BPS_VALUE, 0, 1000);
+        MACRO_MIGRATION_MAX_BPS = builder.comment("每个维度每天从最不宜居聚落迁往最宜居聚落的人口比例（基点）。").defineInRange("migrationMaxBps", MACRO_MIGRATION_MAX_BPS_VALUE, 0, 1000);
+        MACRO_MIGRATION_GAP_BPS = builder.comment("两地吸引力差距达到该值（基点）才发生迁移。").defineInRange("migrationGapBps", MACRO_MIGRATION_GAP_BPS_VALUE, 0, 10000);
+        MACRO_PRICE_STEP_BPS = builder.comment("本地价格系数每天最多变化的基点。").defineInRange("priceStepBps", MACRO_PRICE_STEP_BPS_VALUE, 1, 10000);
+        MACRO_LABOR_RADIUS = builder.comment("设施从多远（格）以内的聚落招工。").defineInRange("laborRadius", MACRO_LABOR_RADIUS_VALUE, 16, 4096);
+        MACRO_JOBS_PER_LEVEL = builder.comment("设施每级提供的岗位数。").defineInRange("jobsPerLevel", MACRO_JOBS_PER_LEVEL_VALUE, 1, 1000);
+        MACRO_DEFAULT_WAGE = builder.comment("公司未设定工资时的默认日工资（每人每天）。").defineInRange("defaultWage", MACRO_DEFAULT_WAGE_VALUE, 0L, 1000000L);
+        MACRO_BASE_RESERVATION_WAGE = builder.comment("工人接受工作的最低日工资（劳工法可抬高）。").defineInRange("baseReservationWage", MACRO_BASE_RESERVATION_WAGE_VALUE, 0L, 1000000L);
+        MACRO_MINIMUM_WAGE = builder.comment("“最低工资”法律规定的日工资下限。").defineInRange("minimumWage", MACRO_MINIMUM_WAGE_VALUE, 0L, 1000000L);
+        MACRO_LAW_DEBATE_DAYS = builder.comment("法律提案的辩论天数。").defineInRange("lawDebateDays", MACRO_LAW_DEBATE_DAYS_VALUE, 1, 60);
+        MACRO_LAW_PROPOSAL_FEE = builder.comment("发起法律提案的费用（转入 NPC 资金池）。").defineInRange("lawProposalFee", MACRO_LAW_PROPOSAL_FEE_VALUE, 0L, 100000000L);
+        MACRO_LOBBY_PER_POINT = builder.comment("游说时每 +1 满意度需要的捐款。").defineInRange("lobbyPerPoint", MACRO_LOBBY_PER_POINT_VALUE, 1L, 100000000L);
+        MACRO_CLOUT_VALUE_SCALE = builder.comment("资本类利益集团的影响力 = √(价值 / 该值)。").defineInRange("cloutValueScale", MACRO_CLOUT_VALUE_SCALE_VALUE, 1L, 100000000L);
+        MACRO_WELFARE_RELIEF_PER_CAPITA = builder.comment("“济贫法”每人每天从 NPC 资金池拨给聚落的福利。").defineInRange("welfareReliefPerCapita", MACRO_WELFARE_RELIEF_PER_CAPITA_VALUE, 0L, 1000000L);
+        MACRO_WELFARE_HEALTH_PER_CAPITA = builder.comment("“公共卫生”每人每天从 NPC 资金池拨给聚落的福利。").defineInRange("welfareHealthPerCapita", MACRO_WELFARE_HEALTH_PER_CAPITA_VALUE, 0L, 1000000L);
+        MACRO_POOL_RESERVE_FLOOR = builder.comment("NPC 资金池低于该值时停发福利。").defineInRange("poolReserveFloor", MACRO_POOL_RESERVE_FLOOR_VALUE, 0L, Long.MAX_VALUE);
+        MACRO_FISCAL_ENABLED = builder.comment("国家财政：国库收税（利润税、关税）、付行政开支和福利、赤字时向央行借款。关闭后福利回到由 NPC 资金池支付。").define("fiscalEnabled", MACRO_FISCAL_ENABLED_VALUE);
+        MACRO_ADMIN_COST_PER_CAPITA = builder.comment("国库每人每天的行政开支（转入 NPC 资金池）。").defineInRange("adminCostPerCapita", MACRO_ADMIN_COST_PER_CAPITA_VALUE, 0L, 1000000L);
+        MACRO_DEBT_CEILING = builder.comment("国库向央行借款的债务上限；到上限后付不起的开支停发（紧缩）。").defineInRange("debtCeiling", MACRO_DEBT_CEILING_VALUE, 0L, Long.MAX_VALUE);
+        MACRO_DEBT_SPREAD_BPS = builder.comment("国库债务利率 = 基准利率 + 该点差（基点）。").defineInRange("debtSpreadBps", MACRO_DEBT_SPREAD_BPS_VALUE, 0, 10000);
+        MACRO_WORLD_FEEDBACK = builder.comment("宏观经济的世界反馈：聚落心情粒子与村民抱怨、罢工工厂冒烟、商队到货烟花、议会/罢工/饥荒全服公告。只影响表现，不影响数值。").define("worldFeedback", MACRO_WORLD_FEEDBACK_VALUE);
+        MACRO_NEWS_ENABLED = builder.comment("《金融周报》与号外：每周汇总经济大事，到贸易站或用 /macro news 领取。").define("newsEnabled", MACRO_NEWS_ENABLED_VALUE);
+        MACRO_NEWS_INTERVAL_DAYS = builder.comment("周报出刊间隔（MC 天）。").defineInRange("newsIntervalDays", MACRO_NEWS_INTERVAL_DAYS_VALUE, 1, 365);
+        MACRO_NEWS_EXTRA_GAP_DAYS = builder.comment("两期号外之间的最短间隔（MC 天）。").defineInRange("newsExtraGapDays", MACRO_NEWS_EXTRA_GAP_DAYS_VALUE, 1, 365);
+        MACRO_RADAR_COST = builder.comment("一次商情调查（/macro radar）的费用，进国库。").defineInRange("radarCost", MACRO_RADAR_COST_VALUE, 0L, 100000000L);
+        MACRO_RADAR_COOLDOWN_DAYS = builder.comment("同一玩家两次商情调查的最短间隔（MC 天）。").defineInRange("radarCooldownDays", MACRO_RADAR_COOLDOWN_DAYS_VALUE, 0, 365);
+        builder.pop();
+
+        builder.push("companyFacilities");
+        FACILITY_ZONE_RADIUS = builder.comment("厂区水平半径：4 表示以控制器为中心 9×9。")
+                .defineInRange("zoneRadius", FACILITY_ZONE_RADIUS_VALUE, 1, 8);
+        FACILITY_ZONE_BELOW = builder.comment("厂区向控制器下方延伸的格数。")
+                .defineInRange("zoneBelow", FACILITY_ZONE_BELOW_VALUE, 0, 8);
+        FACILITY_ZONE_ABOVE = builder.comment("厂区向控制器上方延伸的格数。")
+                .defineInRange("zoneAbove", FACILITY_ZONE_ABOVE_VALUE, 0, 8);
+        FACILITY_MAX_EQUIPMENT_PER_TYPE = builder.comment("每种设备最多计数的台数，堆再多也只算这么多。")
+                .defineInRange("maxEquipmentPerType", FACILITY_MAX_EQUIPMENT_PER_TYPE_VALUE, 1, 64);
+        FACILITY_JOBS_CAP_PER_LEVEL = builder.comment("设施岗位上限 = 等级 × 该值（默认 20/40/60）。")
+                .defineInRange("jobsCapPerLevel", FACILITY_JOBS_CAP_PER_LEVEL_VALUE, 1, 1000);
+        FACILITY_RETOOL_DAYS = builder.comment("切换生产方式后的改造期天数。")
+                .defineInRange("retoolDays", FACILITY_RETOOL_DAYS_VALUE, 0, 30);
+        FACILITY_RETOOL_OUTPUT_PERCENT = builder.comment("改造期内的产量百分比（投入同比例缩放）。")
+                .defineInRange("retoolOutputPercent", FACILITY_RETOOL_OUTPUT_PERCENT_VALUE, 0, 100);
+        FACILITY_PROVISIONAL_DAYS = builder.comment("老存档设施的“临时作坊”天数：期间按手工档满产，岗位沿用旧规则。")
+                .defineInRange("provisionalDays", FACILITY_PROVISIONAL_DAYS_VALUE, 0, 365);
+        FACILITY_SCAN_STALE_DAYS = builder.comment("区块未加载时沿用最近一次扫描结果的最长天数，超过按缺少设备处理。")
+                .defineInRange("scanStaleDays", FACILITY_SCAN_STALE_DAYS_VALUE, 0, 365);
+        builder.pop();
+
+        builder.push("rivals");
+        RIVALS_ENABLED = builder.comment("NPC 竞争公司：关闭后不新建、不做经营决策；已有公司照常存在、交易和被收购。")
+                .define("enabled", RIVALS_ENABLED_VALUE);
+        RIVALS_MAX_COMPANIES = builder.comment("无主（NPC）公司总数上限，含 3 家系统公司。")
+                .defineInRange("maxCompanies", RIVALS_MAX_COMPANIES_VALUE, 0, 32);
+        RIVALS_SPAWN_COOLDOWN_DAYS = builder.comment("两次新建竞争公司、或竞争公司破产后补新公司的最短间隔（MC 天）。")
+                .defineInRange("spawnCooldownDays", RIVALS_SPAWN_COOLDOWN_DAYS_VALUE, 1, 365);
+        RIVALS_SEED_CAPITAL = builder.comment("新建竞争公司从 NPC 资金池拨付的种子资金；资金池低于 npcEconomy.poolReserveFloor 时不新建。")
+                .defineInRange("seedCapital", RIVALS_SEED_CAPITAL_VALUE, 0L, 100_000_000L);
+        RIVALS_IPO_ENABLED = builder.comment("竞争公司满足条件时是否上市（遵守玩家 IPO 的全部上限）。")
+                .define("ipoEnabled", RIVALS_IPO_ENABLED_VALUE);
+        RIVALS_CONTRACTS_ENABLED = builder.comment("加工类竞争公司缺原料时是否发布采购合同，和玩家争夺供应。")
+                .define("contractsEnabled", RIVALS_CONTRACTS_ENABLED_VALUE);
+        RIVALS_HOSTILE_TAKEOVERS = builder.comment("激进/投机型竞争公司对股价明显低于基本面的上市公司建仓并发起敌对要约。默认关闭，单人经营预设开启。")
+                .define("hostileTakeovers", RIVALS_HOSTILE_TAKEOVERS_VALUE);
+        RIVALS_ACTIVISM_ENABLED = builder.comment("竞争公司持股达到提案资格（25%）后，被投公司亏损或长期不分红时发起提高分红的提案。默认关闭，单人经营预设开启。")
+                .define("activismEnabled", RIVALS_ACTIVISM_ENABLED_VALUE);
+        builder.pop();
+
         COMMON_SPEC = builder.build();
     }
 
@@ -1146,6 +1385,103 @@ public final class FinanceConfig {
             case "oak_log_to_planks" -> getInt(FACTORY_COOK_TIME_PLANKS, safeFallback);
             default -> safeFallback;
         };}
+    // ---- 单人经济：NPC 投资者 ----
+    public static boolean npcInvestorsEnabled() {
+        return getBoolean(NPC_INVESTORS_ENABLED, NPC_INVESTORS_ENABLED_VALUE);
+    }
+
+    public static long npcInitialCapitalEach() {
+        return getLong(NPC_INITIAL_CAPITAL_EACH, NPC_INITIAL_CAPITAL_EACH_VALUE);
+    }
+
+    public static long npcDailyBudget() {
+        return getLong(NPC_DAILY_BUDGET, NPC_DAILY_BUDGET_VALUE);
+    }
+
+    public static long npcPoolReserveFloor() {
+        return getLong(NPC_POOL_RESERVE_FLOOR, NPC_POOL_RESERVE_FLOOR_VALUE);
+    }
+
+    public static int npcMaxHoldingPercentEach() {
+        return getInt(NPC_MAX_HOLDING_PERCENT_EACH, NPC_MAX_HOLDING_PERCENT_EACH_VALUE);
+    }
+
+    public static int npcMaxCombinedHoldingPercent() {
+        return getInt(NPC_MAX_COMBINED_HOLDING_PERCENT, NPC_MAX_COMBINED_HOLDING_PERCENT_VALUE);
+    }
+
+    public static int npcMaxFloatPercentPerDay() {
+        return getInt(NPC_MAX_FLOAT_PERCENT_PER_DAY, NPC_MAX_FLOAT_PERCENT_PER_DAY_VALUE);
+    }
+
+    // ---- 公司厂房与生产方式 ----
+    public static int facilityZoneRadius() { return getInt(FACILITY_ZONE_RADIUS, FACILITY_ZONE_RADIUS_VALUE); }
+    public static int facilityZoneBelow() { return getInt(FACILITY_ZONE_BELOW, FACILITY_ZONE_BELOW_VALUE); }
+    public static int facilityZoneAbove() { return getInt(FACILITY_ZONE_ABOVE, FACILITY_ZONE_ABOVE_VALUE); }
+    public static int facilityMaxEquipmentPerType() { return getInt(FACILITY_MAX_EQUIPMENT_PER_TYPE, FACILITY_MAX_EQUIPMENT_PER_TYPE_VALUE); }
+    public static int facilityJobsCapPerLevel() { return getInt(FACILITY_JOBS_CAP_PER_LEVEL, FACILITY_JOBS_CAP_PER_LEVEL_VALUE); }
+    public static int facilityRetoolDays() { return getInt(FACILITY_RETOOL_DAYS, FACILITY_RETOOL_DAYS_VALUE); }
+    public static int facilityRetoolOutputPercent() { return getInt(FACILITY_RETOOL_OUTPUT_PERCENT, FACILITY_RETOOL_OUTPUT_PERCENT_VALUE); }
+    public static int facilityProvisionalDays() { return getInt(FACILITY_PROVISIONAL_DAYS, FACILITY_PROVISIONAL_DAYS_VALUE); }
+    public static int facilityScanStaleDays() { return getInt(FACILITY_SCAN_STALE_DAYS, FACILITY_SCAN_STALE_DAYS_VALUE); }
+
+    // ---- 单人经济：NPC 竞争公司 ----
+    public static boolean rivalsEnabled() { return getBoolean(RIVALS_ENABLED, RIVALS_ENABLED_VALUE); }
+    public static int rivalsMaxCompanies() { return getInt(RIVALS_MAX_COMPANIES, RIVALS_MAX_COMPANIES_VALUE); }
+    public static int rivalsSpawnCooldownDays() { return getInt(RIVALS_SPAWN_COOLDOWN_DAYS, RIVALS_SPAWN_COOLDOWN_DAYS_VALUE); }
+    public static long rivalsSeedCapital() { return getLong(RIVALS_SEED_CAPITAL, RIVALS_SEED_CAPITAL_VALUE); }
+    public static boolean rivalsIpoEnabled() { return getBoolean(RIVALS_IPO_ENABLED, RIVALS_IPO_ENABLED_VALUE); }
+    public static boolean rivalsContractsEnabled() { return getBoolean(RIVALS_CONTRACTS_ENABLED, RIVALS_CONTRACTS_ENABLED_VALUE); }
+    public static boolean rivalsHostileTakeovers() { return getBoolean(RIVALS_HOSTILE_TAKEOVERS, RIVALS_HOSTILE_TAKEOVERS_VALUE); }
+    public static boolean rivalsActivismEnabled() { return getBoolean(RIVALS_ACTIVISM_ENABLED, RIVALS_ACTIVISM_ENABLED_VALUE); }
+
+    public static boolean npcVotingEnabled() {
+        return getBoolean(NPC_VOTING_ENABLED, NPC_VOTING_ENABLED_VALUE);
+    }
+
+    public static int npcTenderPremiumPercent(finance.npcinvestor.NpcInvestorArchetype archetype) {
+        if (archetype == null) return NPC_TENDER_PREMIUM_DIVIDEND_VALUE;
+        return switch (archetype) {
+            case DIVIDEND -> getInt(NPC_TENDER_PREMIUM_DIVIDEND, NPC_TENDER_PREMIUM_DIVIDEND_VALUE);
+            case GROWTH -> getInt(NPC_TENDER_PREMIUM_GROWTH, NPC_TENDER_PREMIUM_GROWTH_VALUE);
+            case SPECULATOR -> getInt(NPC_TENDER_PREMIUM_SPECULATOR, NPC_TENDER_PREMIUM_SPECULATOR_VALUE);
+            case VALUE -> getInt(NPC_TENDER_PREMIUM_VALUE, NPC_TENDER_PREMIUM_VALUE_VALUE);
+        };
+    }
+
+    // ---- 宏观实体经济 ----
+    public static boolean macroEnabled() { return getBoolean(MACRO_ENABLED, MACRO_ENABLED_VALUE); }
+    public static boolean macroLaborEnabled() { return getBoolean(MACRO_LABOR_ENABLED, MACRO_LABOR_ENABLED_VALUE); }
+    public static boolean macroPoliticsEnabled() { return getBoolean(MACRO_POLITICS_ENABLED, MACRO_POLITICS_ENABLED_VALUE); }
+    public static int macroMinPopulation() { return getInt(MACRO_MIN_POPULATION, MACRO_MIN_POPULATION_VALUE); }
+    public static int macroMaxPopulation() { return getInt(MACRO_MAX_POPULATION, MACRO_MAX_POPULATION_VALUE); }
+    public static int macroGrowthMaxBps() { return getInt(MACRO_GROWTH_MAX_BPS, MACRO_GROWTH_MAX_BPS_VALUE); }
+    public static int macroMigrationMaxBps() { return getInt(MACRO_MIGRATION_MAX_BPS, MACRO_MIGRATION_MAX_BPS_VALUE); }
+    public static int macroMigrationGapBps() { return getInt(MACRO_MIGRATION_GAP_BPS, MACRO_MIGRATION_GAP_BPS_VALUE); }
+    public static int macroPriceStepBps() { return getInt(MACRO_PRICE_STEP_BPS, MACRO_PRICE_STEP_BPS_VALUE); }
+    public static int macroLaborRadius() { return getInt(MACRO_LABOR_RADIUS, MACRO_LABOR_RADIUS_VALUE); }
+    public static int macroJobsPerLevel() { return getInt(MACRO_JOBS_PER_LEVEL, MACRO_JOBS_PER_LEVEL_VALUE); }
+    public static long macroDefaultWage() { return getLong(MACRO_DEFAULT_WAGE, MACRO_DEFAULT_WAGE_VALUE); }
+    public static long macroBaseReservationWage() { return getLong(MACRO_BASE_RESERVATION_WAGE, MACRO_BASE_RESERVATION_WAGE_VALUE); }
+    public static long macroMinimumWage() { return getLong(MACRO_MINIMUM_WAGE, MACRO_MINIMUM_WAGE_VALUE); }
+    public static int macroLawDebateDays() { return getInt(MACRO_LAW_DEBATE_DAYS, MACRO_LAW_DEBATE_DAYS_VALUE); }
+    public static long macroLawProposalFee() { return getLong(MACRO_LAW_PROPOSAL_FEE, MACRO_LAW_PROPOSAL_FEE_VALUE); }
+    public static long macroLobbyPerPoint() { return getLong(MACRO_LOBBY_PER_POINT, MACRO_LOBBY_PER_POINT_VALUE); }
+    public static long macroCloutValueScale() { return getLong(MACRO_CLOUT_VALUE_SCALE, MACRO_CLOUT_VALUE_SCALE_VALUE); }
+    public static long macroWelfareReliefPerCapita() { return getLong(MACRO_WELFARE_RELIEF_PER_CAPITA, MACRO_WELFARE_RELIEF_PER_CAPITA_VALUE); }
+    public static long macroWelfareHealthPerCapita() { return getLong(MACRO_WELFARE_HEALTH_PER_CAPITA, MACRO_WELFARE_HEALTH_PER_CAPITA_VALUE); }
+    public static long macroPoolReserveFloor() { return getLong(MACRO_POOL_RESERVE_FLOOR, MACRO_POOL_RESERVE_FLOOR_VALUE); }
+    public static boolean macroFiscalEnabled() { return getBoolean(MACRO_FISCAL_ENABLED, MACRO_FISCAL_ENABLED_VALUE); }
+    public static long macroAdminCostPerCapita() { return getLong(MACRO_ADMIN_COST_PER_CAPITA, MACRO_ADMIN_COST_PER_CAPITA_VALUE); }
+    public static long macroDebtCeiling() { return getLong(MACRO_DEBT_CEILING, MACRO_DEBT_CEILING_VALUE); }
+    public static int macroDebtSpreadBps() { return getInt(MACRO_DEBT_SPREAD_BPS, MACRO_DEBT_SPREAD_BPS_VALUE); }
+    public static boolean macroWorldFeedback() { return getBoolean(MACRO_WORLD_FEEDBACK, MACRO_WORLD_FEEDBACK_VALUE); }
+    public static boolean macroNewsEnabled() { return getBoolean(MACRO_NEWS_ENABLED, MACRO_NEWS_ENABLED_VALUE); }
+    public static int macroNewsIntervalDays() { return getInt(MACRO_NEWS_INTERVAL_DAYS, MACRO_NEWS_INTERVAL_DAYS_VALUE); }
+    public static int macroNewsExtraGapDays() { return getInt(MACRO_NEWS_EXTRA_GAP_DAYS, MACRO_NEWS_EXTRA_GAP_DAYS_VALUE); }
+    public static long macroRadarCost() { return getLong(MACRO_RADAR_COST, MACRO_RADAR_COST_VALUE); }
+    public static int macroRadarCooldownDays() { return getInt(MACRO_RADAR_COOLDOWN_DAYS, MACRO_RADAR_COOLDOWN_DAYS_VALUE); }
+
     // ---- 商队商路 ----
     public static int caravanMaxRoutesPerPlayer() {
         return getInt(CARAVAN_MAX_ROUTES_PER_PLAYER, CARAVAN_MAX_ROUTES_PER_PLAYER_VALUE);

@@ -20,6 +20,8 @@ public final class CompanyFacilityRecord {
     private long statusSinceDay;
     private UUID boundWarehouseId;
     private final LinkedHashSet<String> operationKeys = new LinkedHashSet<>();
+    /** 厂房：生产方式、设备快照、改造期、临时作坊（见 docs/COMPANY_FACILITIES.md）。 */
+    private final finance.gameplay.company.factory.FactoryState factory = new finance.gameplay.company.factory.FactoryState();
 
     public CompanyFacilityRecord(UUID facilityId, UUID companyId, String dimensionId, BlockPos blockPos,
                                  CompanyFacilityType type, int productionLevel, CompanyFacilityStatus status,
@@ -43,6 +45,7 @@ public final class CompanyFacilityRecord {
     public long statusSinceDay() { return statusSinceDay; }
     public UUID boundWarehouseId() { return boundWarehouseId; }
     public Set<String> operationKeys() { return Set.copyOf(operationKeys); }
+    public finance.gameplay.company.factory.FactoryState factory() { return factory; }
     public void setStatus(CompanyFacilityStatus value) { if (value != null) status = value; }
     public void setStatus(CompanyFacilityStatus value,long day){if(value==null||day<0)return;if(status!=value)statusSinceDay=day;status=value;}
     public void restoreStatusSinceDay(long value){statusSinceDay=Math.max(-1,Math.min(value,lastProcessedDay<0?value:lastProcessedDay));}

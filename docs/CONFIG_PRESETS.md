@@ -1,12 +1,13 @@
 # 服务器配置档
 
-Finance 只注册 Forge `COMMON` 配置 `config/finance-common.toml`。它由服务器权威读取；客户端不能通过自己的配置改变余额、容量、奖励、权限或结算。三个文件位于仓库根目录 [config-presets](../config-presets)，是需要人工合并到正式配置的建议值，不是脚本引擎，也不会自动覆盖现有服务器。
+Finance 只注册 Forge `COMMON` 配置 `config/finance-common.toml`。它由服务器权威读取；客户端不能通过自己的配置改变余额、容量、奖励、权限或结算。四个文件位于仓库根目录 [config-presets](../config-presets)，是需要人工合并到正式配置的建议值，不是脚本引擎，也不会自动覆盖现有服务器。
 
 | 配置档 | 用途 | 关键差异 |
 | --- | --- | --- |
 | `minecraft_first` | 默认新服 | 实体终端、仓库容量、混合公司生产、证券后置 |
 | `casual_server` | 休闲合作服 | 更大容量与吞吐、更长物流/聚落期限、较低维护倍率、关闭全服广播 |
 | `legacy_finance` | 旧版入口兼容 | 恢复完整 GUI 快捷入口与自动公司路径，不取消管理员权限 |
+| `solo_play` | 单人经营 | 以 `minecraft_first` 为底，开启 NPC 股东投票、竞争公司的敌对要约（`rivals.hostileTakeovers`）和股东激进主义（`rivals.activismEnabled`），这两项在默认配置里是关闭的 |
 
 所有值都在 `FinanceConfig` 的安全范围内，并由自动化测试验证。配置关闭只拒绝新业务：已有合同、运输托管、聚落需求、探索 escrow、订单、债务和保单仍会加载并执行退款/到期流程。不要在运行中的结算周期修改利率、保证金、容量或生产倍率；生产服修改后应完整重启。
 

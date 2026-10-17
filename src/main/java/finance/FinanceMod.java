@@ -111,6 +111,12 @@ public class FinanceMod {
                         3
                 )
         );
+
+        // ---- 宏观经济：需求类别的替代品（见 docs/MACRO_ECONOMY.md）----
+        CommodityRegistry.registerDefault(new Commodity("bread", "minecraft:bread", "面包", CommodityCategory.FOOD, 20));
+        CommodityRegistry.registerDefault(new Commodity("wood", "minecraft:oak_log", "木头", CommodityCategory.BUILDING_BLOCKS, 4));
+        CommodityRegistry.registerDefault(new Commodity("coal", "minecraft:coal", "煤", CommodityCategory.RAW_MATERIALS, 6));
+        CommodityRegistry.registerDefault(new Commodity("wool", "minecraft:white_wool", "羊毛", CommodityCategory.MISCELLANEOUS, 9));
     }
 
     /** 注册所有命令 */
@@ -137,6 +143,7 @@ public class FinanceMod {
 
         MarginCommand.register(event.getDispatcher());
         finance.caravan.CaravanCommand.register(event.getDispatcher());
+        finance.macro.MacroCommand.register(event.getDispatcher());
         finance.command.EarningsCommand.register(event.getDispatcher());
         PlayerBankCommand.register(event.getDispatcher());
     }
@@ -199,6 +206,7 @@ public class FinanceMod {
         if (server == null) return;
 
         EconomyCycleService.tick(server);
+        finance.macro.MacroWorldFeedback.tick(server);
         StartupSelfCheckService.tick();
     }
 
@@ -207,6 +215,8 @@ public class FinanceMod {
     public void onPlayerLogin(PlayerEvent.PlayerLoggedInEvent event) {
         if (event.getEntity() instanceof net.minecraft.server.level.ServerPlayer player) {
             finance.feedback.WorldEconomyFeedbackService.deliverPending(player);
+            finance.macro.EconomyAchievements.deliverPending(player);
+            finance.macro.NewsService.notifyOnLogin(player);
             finance.account.AccountManager.getAccount(player.getUUID());
             finance.company.Company playerCompany=finance.company.CompanyManager.getCompanyByOwner(player.getUUID());
             if(playerCompany==null)playerCompany=finance.company.CompanyManager.getCompanies().stream().filter(company->

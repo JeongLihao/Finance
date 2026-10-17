@@ -20,7 +20,7 @@ public final class VillageRecord {
     public static final int MIN_FAVOR = -100, MAX_FAVOR = 100;
 
     private final UUID settlementId;
-    private final int population;
+    private int population;
     private final EnumMap<VillageProfession, Integer> professionMix;
     private final Map<UUID, Integer> favor = new HashMap<>();
     private final UUID budgetAccountId;
@@ -65,6 +65,27 @@ public final class VillageRecord {
     public UUID settlementId() { return settlementId; }
 
     public int population() { return population; }
+
+    /**
+     * 宏观经济的人口增长与迁移：整体替换职业人数。校验规则与构造函数相同，
+     * 不合法时不做任何修改并返回 false。
+     */
+    public boolean resize(Map<VillageProfession, Integer> mix) {
+        if (mix == null || mix.isEmpty()) return false;
+        long sum = 0;
+        EnumMap<VillageProfession, Integer> copy = new EnumMap<>(VillageProfession.class);
+        for (VillageProfession p : VillageProfession.values()) {
+            Integer v = mix.getOrDefault(p, 0);
+            if (v == null || v < 0) return false;
+            sum += v;
+            copy.put(p, v);
+        }
+        if (sum < MIN_POPULATION || sum > MAX_POPULATION) return false;
+        professionMix.clear();
+        professionMix.putAll(copy);
+        population = (int) sum;
+        return true;
+    }
 
     /** 职业人数（防御性拷贝，修改返回值不影响内部状态）。 */
     public Map<VillageProfession, Integer> professionMix() { return new EnumMap<>(professionMix); }

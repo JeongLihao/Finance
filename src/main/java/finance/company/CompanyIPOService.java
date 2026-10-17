@@ -181,6 +181,63 @@ public class CompanyIPOService {
     }
 
     /**
+     * 无主公司（NPC 竞争公司）上市。规则与 {@link #ipo} 完全一致：发行价上限、发行量上限、
+     * 募资总额上限 {@link #MAX_TOTAL_RAISE}、上市费、做市商预留和创始股锁仓都不放宽。差别只有：
+     * <ul>
+     *   <li>只接受 {@code ownerId == null} 的公司；</li>
+     *   <li>上市费从公司现金扣（销毁，与玩家上市费同为去向）；</li>
+     *   <li>60% 创始股记到确定性投资账户 {@code founderAccount}，并照常锁仓。</li>
+     * </ul>
+     */
+    public static IPOResult ipoOwnerless(UUID companyId, UUID founderAccount, long issuePrice, long issueQuantity) {
+        Company company = companyId == null ? null : CompanyManager.getCompany(companyId);
+        if (company == null || founderAccount == null) return fail("公司不存在。");
+        if (company.getOwnerId() != null) return fail("只有无主公司可以走这个入口。");
+        if (company.isPublic()) return fail("公司已上市，无法重复 IPO。");
+        if (issuePrice <= 0 || issueQuantity <= 0) return fail("发行价和数量必须为正。");
+        if (issueQuantity > 100_000L) return fail("发行数量过多（最多 100,000）。");
+        if (issuePrice > MAX_ISSUE_PRICE) return fail("发行价过高（上限 " + MAX_ISSUE_PRICE + "）。");
+        long raisedCapital;
+        try {
+            raisedCapital = Math.multiplyExact(issuePrice, issueQuantity);
+        } catch (ArithmeticException ex) {
+            return fail("募资金额过大。");
+        }
+        if (raisedCapital > MAX_TOTAL_RAISE) return fail("募资总额超过上限 " + MAX_TOTAL_RAISE + "。");
+        long ipoFee = FinanceConfig.ipoFee();
+        long totalShares = Math.round(issueQuantity / DEFAULT_FLOAT_RATIO);
+        long ownerShares = totalShares - issueQuantity;
+        String symbol = generateUniqueSymbol(company.getName());
+        // 投资账户先以系统账户建立：普通账户第一次被访问会领 1000 新手资金
+        AccountManager.getOrCreateSystemAccount(founderAccount);
+        if (company.getCash() < ipoFee || !company.canDeposit(raisedCapital)
+                || !StockPortfolioManager.canAddHolding(founderAccount, symbol, ownerShares)) {
+            return fail("公司现金或持仓容量不足。");
+        }
+        if (!company.withdraw(ipoFee)) return fail("上市费用不足。");
+        Stock stock = new Stock(symbol, company.getName(), companyId, totalShares, issueQuantity, ownerShares,
+                issuePrice, issuePrice);
+        if (!company.deposit(raisedCapital)) {
+            company.deposit(ipoFee);
+            return fail("IPO 募资结算失败。");
+        }
+        if (!StockPortfolioManager.addHolding(founderAccount, symbol, ownerShares, issuePrice)) {
+            company.withdraw(raisedCapital);
+            company.deposit(ipoFee);
+            return fail("创始人股份结算失败。");
+        }
+        stock.setFounderLockup(founderAccount, Stock.FOUNDER_SHARE_LOCKUP_DAYS);
+        company.setPublic(true);
+        company.drainQuarter();
+        StockMarketManager.putStockDirect(stock);
+        reserveForMarketMaker(company, stock, issuePrice, issueQuantity);
+        AccountManager.addTransactionRecord(new TransactionRecord(founderAccount, companyId, raisedCapital,
+                TransactionType.COMPANY_IPO, founderAccount, company.getName() + "/" + symbol, issueQuantity));
+        EconomySavedData.markDirty();
+        return new IPOResult(true, "IPO 成功", stock);
+    }
+
+    /**
      * 生成股票代码（公司名前 4 个字符的大写首字母组合）。
      */
     private static String generateSymbol(String companyName) {

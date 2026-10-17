@@ -192,7 +192,7 @@ public final class CaravanService {
         }
         // 1. 到货结算
         for (CaravanShipment shipment : CaravanManager.arrivalsOn(day)) {
-            settleShipment(shipment, day);
+            settleShipment(server, shipment, day);
         }
         // 2. 饱和度衰减（所有路线，含暂停——停跑的市场自己冷却）
         long decayBps = Math.max(0, FinanceConfig.caravanSaturationDecayBps());
@@ -264,6 +264,8 @@ public final class CaravanService {
         }
         // 负反馈通道 1：买方动量（推高 mid）
         pushBuyMomentum(commodityId, qty);
+        // 宏观经济：采购量计入出发地需求（出口）
+        finance.macro.MacroEconomyService.recordExport(source.id(), commodityId, qty);
         CaravanShipment shipment = new CaravanShipment(UUID.randomUUID(), route.id(), ownerId,
                 commodityId, qty, buyPrice, day, day + travelDays,
                 route.guardLevel(), raidBps, route.insured() ? buyPrice : 0L, total);
@@ -274,7 +276,7 @@ public final class CaravanService {
     // 到货结算
     // ================================================================
 
-    private static void settleShipment(CaravanShipment shipment, long day) {
+    private static void settleShipment(MinecraftServer server, CaravanShipment shipment, long day) {
         UUID ownerId = shipment.ownerId();
         String commodityId = shipment.commodityId();
         CaravanRoute route = CaravanManager.route(shipment.routeId());
@@ -334,6 +336,12 @@ public final class CaravanService {
             }
             // 负反馈通道 1：卖方动量（压低 mid）
             pushSellMomentum(commodityId, soldQty);
+            // 宏观经济：卖出的货真的进入目的地聚落托管，供人口消费（只进不出，玩家取不出来）
+            if (revenue > 0) {
+                // 成就判定要看送达前的饥荒状态，所以先判定再入库
+                finance.macro.EconomyAchievements.onCaravanDelivered(ownerId, dest.id(), commodityId);
+                finance.macro.MacroEconomyService.deliverImport(dest.id(), commodityId, soldQty);
+            }
         }
         // 负反馈通道 2：路线饱和度（按整趟数量累积；只有真实成交才累积，
         // 销售失败（sellPrice≤0）时不累积，否则白跑也压价）
@@ -343,6 +351,12 @@ public final class CaravanService {
         // 记账：利润 = 到账（货款＋赔付）− 发车总成本
         long profit = revenue + insurancePayout - shipment.dispatchCost();
         route.addProfit(profit);
+        // 宏观经济：目的地放烟花、敲钟，通知商队主人
+        if (soldQty > 0 && revenue > 0) {
+            var def = finance.commodity.CommodityRegistry.getCommodity(commodityId);
+            finance.macro.MacroWorldFeedback.onCaravanArrived(server, ownerId, dest,
+                    def == null ? commodityId : def.getDisplayName(), soldQty, profit);
+        }
         shipment.markArrived();
         CaravanManager.removeShipment(shipment.id());
     }

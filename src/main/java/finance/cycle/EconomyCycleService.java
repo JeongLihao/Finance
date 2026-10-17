@@ -79,22 +79,40 @@ public final class EconomyCycleService {
         EventManager.onDayTick(server);
         finance.event.EventContractService.processDay(server,mcDay);
         finance.settlement.SettlementService.processDay(server, mcDay);
+        // 宏观经济：福利 → 村庄集市（按类别需求采购并回报供需）→ 价格/人口/政治收盘
+        finance.macro.MacroEconomyService.beforeVillages(mcDay);
         finance.village.VillageService.processDay(server, mcDay);
+        finance.macro.MacroEconomyService.afterVillages(mcDay);
         finance.exploration.ExplorationService.processDay(mcDay);
         NpcMarketMaker.naturalConsumeAll();
         NpcMarketMaker.centralBankIntervention();
+        // 厂房：扫描设备并判定当天的生产方式，岗位和产量都取决于它，所以在招工之前
+        finance.gameplay.company.factory.FactoryService.processDay(server, mcDay);
+        // 招工和发工资必须在设施生产之前
+        finance.macro.MacroLaborService.processDay(mcDay);
         CompanyManager.tickAll(mcDay);
         CompanyManager.settleDailyProfits(mcDay);
         finance.earnings.EarningsSeasonService.processDay(server, mcDay);
+        finance.npcinvestor.NpcInvestorService.processDay(mcDay);
+        // NPC 投票必须在当天 CompanyProposalManager.tick 结算提案之前
+        finance.npcinvestor.NpcGovernanceService.processDay(mcDay);
         StockMarketManager.tickNewDay();
         CompanyManager.tryDividends(mcDay);
         CompanyFinancingManager.tick(mcDay);
         CompanyProposalManager.tick(mcDay);
         CompanyBankruptcyManager.tick(server, mcDay);
+        // NPC 竞争公司：排在破产处理之后，避免对当天破产的公司做决策
+        finance.rival.RivalService.processDay(mcDay);
+        // 敌对要约与股东激进主义（默认关闭）；提案在明天的日结开始表决，要约在 FinancialCycleService 结算
+        finance.rival.RivalHostileService.processDay(mcDay);
         finance.gameplay.company.CompanyFacilityWorldFeedbackService.refresh(server, mcDay);
         finance.feedback.WorldTerminalStateService.auditDay(server, mcDay);
         finance.policy.PolicyMeetingService.onDayTick(server, mcDay);
         finance.caravan.CaravanService.processDay(server, mcDay);
+        // 经济成就：只读当天收盘后的状态
+        finance.macro.EconomyAchievements.processDay(server, mcDay);
+        // 《金融周报》：到期出周刊，有大事出号外
+        finance.macro.NewsService.processDay(server, mcDay);
     }
 
     private static void tickNoiseAndMomentum(MinecraftServer server) {

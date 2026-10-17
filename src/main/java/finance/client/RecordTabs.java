@@ -401,9 +401,9 @@ public final class RecordTabs {
         int invY = cardY + 44;
 
         if (my >= invY + 20 && my < invY + 33) {
-            int amount = FinanceFormat.parseInventoryAmount(screen);
+            int amount = Math.max(0, FinanceFormat.parseInt(screen.inventoryQuantityBox.getValue()));
             if (mx >= 116 && mx < 148) {
-                screen.inventoryQuantityBox.setValue(Integer.toString(Math.max(64, amount - 64)));
+                screen.inventoryQuantityBox.setValue(Integer.toString(Math.max(1, amount - 64)));
                 return true;
             }
             if (mx >= 152 && mx < 184) {
@@ -418,7 +418,8 @@ public final class RecordTabs {
             if (c != null && c.getItemId() != null) {
                 screen.setStatus("已提交存入请求");
                 FinancePacketHandler.CHANNEL.sendToServer(
-                        new InventoryActionPacket(InventoryActionPacket.ActionType.DEPOSIT, screen.selectedCommodity, FinanceFormat.parseInventoryAmount(screen)));
+                        new InventoryActionPacket(InventoryActionPacket.ActionType.DEPOSIT, screen.selectedCommodity,
+                        screen.requireInt(screen.inventoryQuantityBox, "数量", 1, Integer.MAX_VALUE)));
             } else {
                 screen.setStatus("该商品没有绑定物品");
             }
@@ -429,7 +430,8 @@ public final class RecordTabs {
         if (mx >= 296 && mx < 340 && my >= invY + 20 && my < invY + 33) {
             screen.setStatus("已提交取出请求");
             FinancePacketHandler.CHANNEL.sendToServer(
-                    new InventoryActionPacket(InventoryActionPacket.ActionType.WITHDRAW, screen.selectedCommodity, FinanceFormat.parseInventoryAmount(screen)));
+                    new InventoryActionPacket(InventoryActionPacket.ActionType.WITHDRAW, screen.selectedCommodity,
+                        screen.requireInt(screen.inventoryQuantityBox, "数量", 1, Integer.MAX_VALUE)));
             return true;
         }
 
@@ -474,7 +476,6 @@ public final class RecordTabs {
     }
     public boolean handleAlertClick(int mx, int my) {
         int y = FinanceGui.CONTENT_Y;
-        long targetPrice = FinanceFormat.parseLong(screen.alertPriceBox.getValue());
         if (my >= y + 74 && my < y + 87) {
             if (mx >= 10 && mx < 98) {
                 FinancePacketHandler.CHANNEL.sendToServer(new PriceAlertPacket(
@@ -502,10 +503,7 @@ public final class RecordTabs {
             }
         }
         if (my >= y + 58 && my < y + 71) {
-            if (targetPrice <= 0) {
-                screen.setStatus("请输入有效提醒价格");
-                return true;
-            }
+            long targetPrice = screen.requireAmount(screen.alertPriceBox, "提醒价格");
             if (mx >= 148 && mx < 206) {
                 screen.setStatus("已提交商品涨到提醒");
                 FinancePacketHandler.CHANNEL.sendToServer(new PriceAlertPacket(

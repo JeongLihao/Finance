@@ -125,7 +125,7 @@ public final class VillageService {
             processVillage(village, day, netBuy);
             EconomySavedData.markDirty();
         }
-        // 全球联动：只产生动量，不碰 NPC 中央库存
+        // 全球联动：只产生动量，不碰 NPC 中央库存。村民买货是需求，相当于国际市场卖出（npcWasBuyer=false，利多）
         for (Map.Entry<String, Long> e : netBuy.entrySet()) {
             long total = e.getValue();
             if (total <= 0) {
@@ -137,7 +137,7 @@ public final class VillageService {
             }
             int qty = total > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) total;
             int npcStock = CommodityInventoryManager.getCommodityAmount(NpcMarketMaker.NPC_UUID, e.getKey());
-            mp.onNpcTrade(npcStock, true, qty);
+            mp.onNpcTrade(npcStock, false, qty);
         }
     }
 
@@ -149,7 +149,9 @@ public final class VillageService {
         UUID settlementId = village.settlementId();
         topUpBudget(village);
 
-        Map<String, Long> needs = computeNeeds(village);
+        // 宏观经济启用时按需求类别和替代品分摊，否则用旧的职业篮子
+        Map<String, Long> planned = finance.macro.MacroEconomyService.planNeeds(village);
+        Map<String, Long> needs = planned != null ? planned : computeNeeds(village);
         Map<UUID, Integer> fairFavorGiven = new HashMap<>();
         Map<UUID, Integer> dumpFavorGiven = new HashMap<>();
         long caravanSoldToday = 0;
@@ -248,13 +250,15 @@ public final class VillageService {
         // 库存覆盖率 → 溢价（直接计算目标值，钳制 [minBps, maxBps]；不做跨日平滑）
         int villageStock = Math.max(0, CommodityInventoryManager.getCommodityAmount(settlementId, commodity));
         double coverage = (double) villageStock / Math.max(1L, need);
-        int premium = premiumForCoverage(coverage);
+        int premium = finance.macro.MacroEconomyService.premiumBps(settlementId, commodity,
+                premiumForCoverage(coverage));
         long wtp = computeWtp(mid, base, premium);
         if (wtp <= 0) {
             return 0;
         }
 
-        long caravanPrice = caravanPriceOf(mp, premium);
+        long caravanBasePrice = caravanPriceOf(mp, premium);
+        long caravanPrice = finance.macro.MacroEconomyService.applyTradePolicy(caravanBasePrice);
         boolean caravanAvailable = caravanPresent && caravanPrice > 0
                 && !SUSPENDED_CARAVAN.contains(settlementId);
 
@@ -291,6 +295,12 @@ public final class VillageService {
             return Integer.compare(village.favorOf(b.ownerId()), village.favorOf(a.ownerId()));
         });
 
+        long stallSupply = 0;
+        for (VillageStall s : stalls) stallSupply += Math.max(0, s.stock());
+        long caravanSupply = caravanAvailable ? Math.min(need * 12 / 10, (long) Math.max(0,
+                CommodityInventoryManager.getCommodityAmount(NpcMarketMaker.NPC_UUID, commodity))) : 0;
+        long supplySeen = stallSupply + villageStock + caravanSupply;
+
         long fairLine = multiplyDivide(wtp, FinanceConfig.villageFairToleranceBps());
         long gougeLine = multiplyDivide(wtp, FinanceConfig.villageGougeToleranceBps());
 
@@ -324,6 +334,7 @@ public final class VillageService {
             }
             remaining -= qty;
             netBuy.merge(commodity, (long) qty, Long::sum);
+            finance.macro.EconomyAchievements.recordStallSale(stall.ownerId(), settlementId, commodity, qty);
             AccountManager.addTransactionRecord(new TransactionRecord(
                     village.budgetAccountId(), stall.ownerId(), payment,
                     TransactionType.VILLAGE_STALL_SALE, stall.ownerId(), commodity, qty));
@@ -360,6 +371,8 @@ public final class VillageService {
                     AccountManager.addTransactionRecord(new TransactionRecord(
                             village.budgetAccountId(), NpcMarketMaker.NPC_UUID, payment,
                             TransactionType.VILLAGE_CARAVAN_SALE, NpcMarketMaker.NPC_UUID, commodity, qty));
+                    // 国家财政：保护主义下多付的部分作为关税转入国库
+                    finance.macro.MacroFiscalService.collectTariff(commodity, caravanBasePrice, caravanPrice, qty);
                 }
             }
         }
@@ -371,6 +384,7 @@ public final class VillageService {
         if (consumed > 0) {
             CommodityInventoryManager.removeCommodity(settlementId, commodity, consumed);
         }
+        finance.macro.MacroEconomyService.recordProcurement(settlementId, commodity, need, supplySeen, consumed);
         return caravanSold;
     }
 

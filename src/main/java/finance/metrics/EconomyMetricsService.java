@@ -82,7 +82,9 @@ public final class EconomyMetricsService {
             long available = Math.max(0, entry.getValue().getBalance());
             long frozen = Math.max(0, entry.getValue().getFrozenBalance());
             UUID accountId = entry.getKey();
-            if (NpcMarketMaker.NPC_UUID.equals(accountId)) {
+            if (NpcMarketMaker.NPC_UUID.equals(accountId)
+                    || finance.npcinvestor.NpcInvestorArchetype.isInvestorAccount(accountId)
+                    || finance.macro.Treasury.UUID.equals(accountId)) {
                 npcCash = saturatedAdd(npcCash, saturatedAdd(available, frozen));
             } else if (CentralBank.UUID.equals(accountId)) {
                 centralBankReserve = saturatedAdd(centralBankReserve, saturatedAdd(available, frozen));
@@ -157,6 +159,14 @@ public final class EconomyMetricsService {
     }
 
     private static double calculatePriceIndex() {
+        double legacy = legacyPriceIndex();
+        // 宏观经济启用且有聚落需求数据时，用消费篮子 CPI 代替等权指数；首次切换时按当时的等权指数链接，
+        // 保证指数序列连续，央行的 30 天通胀比较不会把口径变化误读成通缩
+        double linked = finance.macro.MacroIndicators.linkedIndex(legacy);
+        return linked > 0 ? linked : legacy;
+    }
+
+    private static double legacyPriceIndex() {
         double total = 0.0;
         int count = 0;
         for (MarketPrice price : NpcMarketMaker.getAllMarketPrices().values()) {

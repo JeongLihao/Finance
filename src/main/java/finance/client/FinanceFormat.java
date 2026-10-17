@@ -146,6 +146,20 @@ public final class FinanceFormat {
             case "COMPANY_LIQUIDATION" -> "清算分配";
             case "ADMIN_GIVE" -> "管理员";
             case "ADMIN_COMMODITY" -> "商品管理";
+            case "NPC_INVESTOR_FUNDING" -> "NPC 投资者注资";
+            case "NPC_FLOAT_PLACEMENT" -> "NPC 残差配售";
+            case "MACRO_WAGE" -> "工资";
+            case "MACRO_WELFARE" -> "社会福利";
+            case "MACRO_POLITICS" -> "政治捐款";
+            case "MACRO_VILLAGE_SPENDING" -> "村民消费";
+            case "MACRO_TAX" -> "利润税";
+            case "MACRO_TARIFF" -> "关税";
+            case "MACRO_ADMIN" -> "行政开支";
+            case "MACRO_DEBT_BORROW" -> "国库借款";
+            case "MACRO_DEBT_REPAY" -> "国库还款";
+            case "MACRO_DEBT_INTEREST" -> "国债利息";
+            case "MACRO_DEBT_ISSUANCE" -> "央行增发";
+            case "MACRO_SURVEY" -> "商情调查";
             default -> type;
         };
     }
@@ -189,10 +203,6 @@ public final class FinanceFormat {
         return String.format(Locale.ROOT, "%.1f%%", (double) value / total * 100.0);
     }
 
-    public static int parseInventoryAmount(FinanceScreen screen) {
-        return Math.max(64, FinanceFormat.parseInt(screen.inventoryQuantityBox.getValue()));
-    }
-
     public static long safeMultiply(long price, int quantity) {
         if (price <= 0 || quantity <= 0) return 0;
         if (price > Long.MAX_VALUE / quantity) return Long.MAX_VALUE;
@@ -205,11 +215,31 @@ public final class FinanceFormat {
         return price * quantity;
     }
 
+    /** 设施状态的中文名；未知状态原样返回。 */
+    public static String facilityStatusLabel(String status) {
+        if (status == null) return "";
+        return switch (status) {
+            case "ACTIVE" -> "生产中";
+            case "MISSING_INPUT" -> "缺原料";
+            case "OUTPUT_FULL" -> "仓库满";
+            case "DISABLED" -> "已停用";
+            case "BANKRUPTCY_HOLD" -> "破产冻结";
+            case "ORPHANED" -> "失联";
+            case "UNDERSTAFFED" -> "缺工人";
+            case "EQUIPMENT_MISSING" -> "缺设备";
+            default -> status;
+        };
+    }
+
     public static String getTypeDescription(CompanyType type) {
         return switch (type) {
             case RAW_MATERIALS -> "产出: 铁锭×100/天";
             case BUILDING_BLOCKS -> "产出: 石头×120/天";
             case FOOD -> "产出: 小麦×80/天";
+            case FOOD_PROCESSING -> "产出: 面包×30/天 投入: 小麦×40";
+            case FORESTRY -> "产出: 木头×100/天";
+            case COAL_MINING -> "产出: 煤×80/天 投入: 铁锭×5";
+            case TEXTILE -> "产出: 羊毛×40/天 投入: 小麦×10";
         };
     }
 

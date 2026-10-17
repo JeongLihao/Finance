@@ -120,5 +120,39 @@ public enum TransactionType {
     CARAVAN_LOSS,
     BANK_CHARTER_FEE,
     BANK_CHARTER,
-    BANK_DIVIDEND
+    BANK_DIVIDEND,
+    /** NPC 资金池向 NPC 投资者注资或每日补足。 */
+    NPC_INVESTOR_FUNDING,
+    /** NPC 投资者残差配售：资金销毁（系统水槽），股份从系统流动性残差转入投资者。 */
+    NPC_FLOAT_PLACEMENT,
+    /** 宏观经济：公司向聚落发放工资（公司现金 → 聚落预算账户）。 */
+    MACRO_WAGE,
+    /** 宏观经济：福利法律下 NPC 资金池拨给聚落的福利。 */
+    MACRO_WELFARE,
+    /** 宏观经济：法律提案费与游说捐款（玩家 → NPC 资金池）。 */
+    MACRO_POLITICS,
+    /** 宏观经济：聚落预算超出上限的部分作为村民消费回流 NPC 资金池。 */
+    MACRO_VILLAGE_SPENDING,
+    /** 国家财政：公司利润税（公司现金 → 国库）。 */
+    MACRO_TAX,
+    /** 国家财政：保护主义关税（NPC 资金池 → 国库）。 */
+    MACRO_TARIFF,
+    /** 国家财政：行政开支（国库 → NPC 资金池）。 */
+    MACRO_ADMIN,
+    /** 国家财政：国库向央行借款。 */
+    MACRO_DEBT_BORROW,
+    /** 国家财政：国库向央行还款。 */
+    MACRO_DEBT_REPAY,
+    /** 国家财政：国库债务利息（国库 → 央行）。 */
+    MACRO_DEBT_INTEREST,
+    /** 国家财政：央行准备金不足以放款时的增发（货币创造）。 */
+    MACRO_DEBT_ISSUANCE,
+    /** 商情调查费（玩家 → 国库或 NPC 资金池）。 */
+    MACRO_SURVEY,
+    /** NPC 竞争公司：NPC 资金池拨给新公司的种子资金。 */
+    RIVAL_SEED,
+    /** NPC 竞争公司：升级产线/仓储，公司现金付给 NPC 资金池（视为采购建材）。 */
+    RIVAL_UPGRADE,
+    /** NPC 竞争公司：公司现金转入它的投资账户，用于敌对收购建仓和要约托管。 */
+    RIVAL_INVESTMENT
 }
