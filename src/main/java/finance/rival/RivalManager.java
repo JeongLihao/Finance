@@ -4,6 +4,7 @@ import finance.company.Company;
 import finance.company.CompanyManager;
 
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -15,6 +16,8 @@ public final class RivalManager {
     public static final int MAX_PROFILES = 64;
 
     private static final Map<UUID, RivalProfile> PROFILES = new LinkedHashMap<>();
+    /** 投资账户 → 竞争公司，随 PROFILES 一起维护，避免每次查询都重算 MD5。 */
+    private static final Map<UUID, UUID> ACCOUNT_TO_COMPANY = new HashMap<>();
     private static long lastProcessedDay = Long.MIN_VALUE;
     private static long lastSpawnDay = Long.MIN_VALUE;
     private static long lastBankruptcyDay = Long.MIN_VALUE;
@@ -24,16 +27,12 @@ public final class RivalManager {
 
     /** 该 UUID 是否是某家竞争公司的投资账户。 */
     public static synchronized boolean isInvestmentAccount(UUID id) {
-        if (id == null) return false;
-        for (UUID companyId : PROFILES.keySet()) if (RivalProfile.investmentAccount(companyId).equals(id)) return true;
-        return false;
+        return id != null && ACCOUNT_TO_COMPANY.containsKey(id);
     }
 
     /** 投资账户 → 所属竞争公司；不是投资账户返回 null。 */
     public static synchronized UUID companyOfInvestmentAccount(UUID id) {
-        if (id == null) return null;
-        for (UUID companyId : PROFILES.keySet()) if (RivalProfile.investmentAccount(companyId).equals(id)) return companyId;
-        return null;
+        return id == null ? null : ACCOUNT_TO_COMPANY.get(id);
     }
 
     public static synchronized RivalProfile get(UUID companyId) { return companyId == null ? null : PROFILES.get(companyId); }
@@ -52,6 +51,7 @@ public final class RivalManager {
     static synchronized boolean put(RivalProfile profile) {
         if (profile == null || PROFILES.size() >= MAX_PROFILES && !PROFILES.containsKey(profile.companyId())) return false;
         PROFILES.put(profile.companyId(), profile);
+        ACCOUNT_TO_COMPANY.put(RivalProfile.investmentAccount(profile.companyId()), profile.companyId());
         return true;
     }
 
@@ -70,6 +70,7 @@ public final class RivalManager {
     static synchronized int pruneRemoved() {
         int before = PROFILES.size();
         PROFILES.keySet().removeIf(id -> CompanyManager.getCompany(id) == null);
+        ACCOUNT_TO_COMPANY.values().removeIf(id -> !PROFILES.containsKey(id));
         return before - PROFILES.size();
     }
 
@@ -85,6 +86,7 @@ public final class RivalManager {
 
     public static synchronized void clearDirect() {
         PROFILES.clear();
+        ACCOUNT_TO_COMPANY.clear();
         lastProcessedDay = Long.MIN_VALUE;
         lastSpawnDay = Long.MIN_VALUE;
         lastBankruptcyDay = Long.MIN_VALUE;

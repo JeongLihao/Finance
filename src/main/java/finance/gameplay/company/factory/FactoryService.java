@@ -36,7 +36,7 @@ public final class FactoryService {
 
     /** 每天在招工之前调用。server 为 null（测试、模拟）时只做判定，不扫描。 */
     public static void processDay(MinecraftServer server, long day) {
-        if (day < 0) return;
+        if (day < 0 || !writable()) return;
         if (server != null) scanAll(server, day);
         for (CompanyFacilityRecord facility : CompanyFacilityManager.all()) {
             ProductionTier before = facility.factory().activeTier();
@@ -93,12 +93,17 @@ public final class FactoryService {
 
     /** 判定某设施当天的生产方式（幂等）。 */
     public static void prepare(CompanyFacilityRecord facility, long day) {
-        if (facility == null || !operational(facility)) return;
+        if (facility == null || !operational(facility) || !writable()) return;
         Company company = CompanyManager.getCompany(facility.companyId());
         if (company == null) return;
         boolean fresh = facility.factory().lastResolvedDay() < day;
         facility.factory().resolveDay(company.getType(), facility.productionLevel(), day);
         if (fresh) facility.factory().setLastJobs(jobs(facility));
+    }
+
+    /** 公司玩法模块只读或暂停时，厂房状态（档位、改造、临时窗口）也不能变。 */
+    static boolean writable() {
+        return finance.diagnostic.ModuleHealthRegistry.mayWrite(finance.diagnostic.ModuleHealthRegistry.Module.COMPANY_GAMEPLAY);
     }
 
     static boolean operational(CompanyFacilityRecord facility) {

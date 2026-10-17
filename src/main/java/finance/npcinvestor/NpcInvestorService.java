@@ -19,7 +19,9 @@ import finance.stock.StockPortfolioManager;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -123,6 +125,15 @@ public final class NpcInvestorService {
         NpcInvestorScoring.Profile profile = profile(stock, company, day);
         long dayBudgetShares = bpsOf(stock.getFloatShares(), settings.maxFloatBpsPerDay());
         long combinedCapShares = bpsOf(votingShares, settings.maxCombinedBps());
+        // 每只股票只取一次股东快照；之后按本轮各原型的成交量增减，结果与每次重算一致
+        Map<UUID, Long> heldBy = new HashMap<>();
+        long combined = 0;
+        for (ShareholderRegistryService.Holder holder : ShareholderRegistryService.snapshot(stock.getCompanyId(), day).holders()) {
+            if (NpcInvestorArchetype.isInvestorAccount(holder.id())) {
+                heldBy.put(holder.id(), holder.total());
+                combined += holder.total();
+            }
+        }
 
         for (NpcInvestorArchetype archetype : rotation(day)) {
             NpcInvestorScoring.Score score = NpcInvestorScoring.score(archetype, profile);
@@ -133,13 +144,13 @@ public final class NpcInvestorService {
 
             UUID account = archetype.accountId();
             // 含挂卖单和要约锁定的部分，避免锁定后误以为仓位变少而重复买入
-            long held = holdingTotal(stock, account, day);
+            long held = heldBy.getOrDefault(account, 0L);
             long targetShares = bpsOf(votingShares, target);
             long delta = targetShares - held;
             if (Math.abs(delta) < Math.max(1, bpsOf(votingShares, REBALANCE_THRESHOLD_BPS))) continue;
 
             if (delta > 0) {
-                long combinedHeadroom = combinedCapShares - combinedNpcHoldings(stock, day);
+                long combinedHeadroom = combinedCapShares - combined;
                 if (combinedHeadroom <= 0) {
                     log(day, archetype, company, stock, "HOLD", 0, NpcReason.COMBINED_CAP);
                     continue;
@@ -149,6 +160,7 @@ public final class NpcInvestorService {
                 if (fill.total() > 0) {
                     // 挂单部分随时可能成交，同样占用当日额度
                     dayBudgetShares -= fill.total();
+                    combined += fill.total(); // 挂着的买单也算进合计上限，成交后不会超限
                     if (fill.filled() > 0) log(day, archetype, company, stock, "BUY", fill.filled(), score.reason());
                     if (fill.resting() > 0) log(day, archetype, company, stock, "BUY_ORDER", fill.resting(), score.reason());
                 } else {
@@ -168,6 +180,7 @@ public final class NpcInvestorService {
                 }
                 dayBudgetShares -= want;
                 long resting = Math.min(want, openOrderQuantity(account, stock.getSymbol(), StockOrderType.SELL));
+                combined -= want - resting;
                 if (want > resting) log(day, archetype, company, stock, "SELL", want - resting, score.reason());
                 if (resting > 0) log(day, archetype, company, stock, "SELL_ORDER", resting, score.reason());
             }
@@ -227,13 +240,6 @@ public final class NpcInvestorService {
             }
         }
         return total;
-    }
-
-    static long holdingTotal(Stock stock, UUID account, long day) {
-        for (ShareholderRegistryService.Holder holder : ShareholderRegistryService.snapshot(stock.getCompanyId(), day).holders()) {
-            if (holder.id().equals(account)) return holder.total();
-        }
-        return 0;
     }
 
     /** 全部 NPC 投资者对该股的持股合计（含挂卖单锁定的部分）。 */

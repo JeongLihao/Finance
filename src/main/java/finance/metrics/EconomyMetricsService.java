@@ -84,6 +84,7 @@ public final class EconomyMetricsService {
             UUID accountId = entry.getKey();
             if (NpcMarketMaker.NPC_UUID.equals(accountId)
                     || finance.npcinvestor.NpcInvestorArchetype.isInvestorAccount(accountId)
+                    || finance.rival.RivalManager.isInvestmentAccount(accountId)
                     || finance.macro.Treasury.UUID.equals(accountId)) {
                 npcCash = saturatedAdd(npcCash, saturatedAdd(available, frozen));
             } else if (CentralBank.UUID.equals(accountId)) {
