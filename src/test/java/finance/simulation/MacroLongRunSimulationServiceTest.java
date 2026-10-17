@@ -18,6 +18,19 @@ class MacroLongRunSimulationServiceTest {
     @BeforeEach void setup() { EconomySavedData.resetRuntimeState(); }
     @AfterEach void cleanup() { EconomySavedData.resetRuntimeState(); CommodityRegistry.resetToDefaults(); }
 
+    /** 工业化场景：全部工厂 3 级、工业档（厂房见 docs/COMPANY_FACILITIES.md）。只检验稳健性，不要求平衡。 */
+    @Test void fullIndustrialisationStaysConservedAndHealthy() {
+        Result r = MacroLongRunSimulationService.run(STANDARD_DAYS, finance.gameplay.company.factory.ProductionTier.INDUSTRIAL);
+        System.out.println("[工业化] " + r.summary());
+        assertEquals(STANDARD_DAYS, r.daily().size());
+        assertTrue(r.deterministic(), "同样的场景跑两遍结果一致");
+        assertTrue(r.moneyConserved(), "工业化后货币仍须守恒");
+        assertTrue(r.daily().stream().allMatch(d -> Double.isFinite(d.cpi()) && d.cpi() > 0), "CPI 出现 NaN 或非正数");
+        for (String firm : r.companyStartCash().keySet()) {
+            assertTrue(r.minCash(firm) >= 0, firm + " 现金为负：" + r.minCash(firm));
+        }
+    }
+
     @Test void macroEconomyStaysBalancedForAFullYear() {
         Result r = MacroLongRunSimulationService.run(STANDARD_DAYS);
         System.out.println(r.summary());
