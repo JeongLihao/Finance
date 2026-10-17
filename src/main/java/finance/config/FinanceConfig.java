@@ -113,6 +113,16 @@ public final class FinanceConfig {
     private static final int NPC_TENDER_PREMIUM_GROWTH_VALUE = 30;
     private static final int NPC_TENDER_PREMIUM_SPECULATOR_VALUE = 10;
     private static final int NPC_TENDER_PREMIUM_VALUE_VALUE = 25;
+    // ---- 公司厂房与生产方式 ----
+    private static final int FACILITY_ZONE_RADIUS_VALUE = 4;
+    private static final int FACILITY_ZONE_BELOW_VALUE = 1;
+    private static final int FACILITY_ZONE_ABOVE_VALUE = 3;
+    private static final int FACILITY_MAX_EQUIPMENT_PER_TYPE_VALUE = 16;
+    private static final int FACILITY_JOBS_CAP_PER_LEVEL_VALUE = 20;
+    private static final int FACILITY_RETOOL_DAYS_VALUE = 3;
+    private static final int FACILITY_RETOOL_OUTPUT_PERCENT_VALUE = 50;
+    private static final int FACILITY_PROVISIONAL_DAYS_VALUE = 14;
+    private static final int FACILITY_SCAN_STALE_DAYS_VALUE = 7;
     // ---- 宏观实体经济 ----
     private static final boolean MACRO_ENABLED_VALUE = true;
     private static final boolean MACRO_LABOR_ENABLED_VALUE = true;
@@ -278,6 +288,15 @@ public final class FinanceConfig {
     private static final ForgeConfigSpec.IntValue NPC_TENDER_PREMIUM_GROWTH;
     private static final ForgeConfigSpec.IntValue NPC_TENDER_PREMIUM_SPECULATOR;
     private static final ForgeConfigSpec.IntValue NPC_TENDER_PREMIUM_VALUE;
+    private static final ForgeConfigSpec.IntValue FACILITY_ZONE_RADIUS;
+    private static final ForgeConfigSpec.IntValue FACILITY_ZONE_BELOW;
+    private static final ForgeConfigSpec.IntValue FACILITY_ZONE_ABOVE;
+    private static final ForgeConfigSpec.IntValue FACILITY_MAX_EQUIPMENT_PER_TYPE;
+    private static final ForgeConfigSpec.IntValue FACILITY_JOBS_CAP_PER_LEVEL;
+    private static final ForgeConfigSpec.IntValue FACILITY_RETOOL_DAYS;
+    private static final ForgeConfigSpec.IntValue FACILITY_RETOOL_OUTPUT_PERCENT;
+    private static final ForgeConfigSpec.IntValue FACILITY_PROVISIONAL_DAYS;
+    private static final ForgeConfigSpec.IntValue FACILITY_SCAN_STALE_DAYS;
     private static final ForgeConfigSpec.BooleanValue MACRO_ENABLED;
     private static final ForgeConfigSpec.BooleanValue MACRO_LABOR_ENABLED;
     private static final ForgeConfigSpec.BooleanValue MACRO_POLITICS_ENABLED;
@@ -1063,6 +1082,27 @@ public final class FinanceConfig {
         MACRO_RADAR_COOLDOWN_DAYS = builder.comment("同一玩家两次商情调查的最短间隔（MC 天）。").defineInRange("radarCooldownDays", MACRO_RADAR_COOLDOWN_DAYS_VALUE, 0, 365);
         builder.pop();
 
+        builder.push("companyFacilities");
+        FACILITY_ZONE_RADIUS = builder.comment("厂区水平半径：4 表示以控制器为中心 9×9。")
+                .defineInRange("zoneRadius", FACILITY_ZONE_RADIUS_VALUE, 1, 8);
+        FACILITY_ZONE_BELOW = builder.comment("厂区向控制器下方延伸的格数。")
+                .defineInRange("zoneBelow", FACILITY_ZONE_BELOW_VALUE, 0, 8);
+        FACILITY_ZONE_ABOVE = builder.comment("厂区向控制器上方延伸的格数。")
+                .defineInRange("zoneAbove", FACILITY_ZONE_ABOVE_VALUE, 0, 8);
+        FACILITY_MAX_EQUIPMENT_PER_TYPE = builder.comment("每种设备最多计数的台数，堆再多也只算这么多。")
+                .defineInRange("maxEquipmentPerType", FACILITY_MAX_EQUIPMENT_PER_TYPE_VALUE, 1, 64);
+        FACILITY_JOBS_CAP_PER_LEVEL = builder.comment("设施岗位上限 = 等级 × 该值（默认 20/40/60）。")
+                .defineInRange("jobsCapPerLevel", FACILITY_JOBS_CAP_PER_LEVEL_VALUE, 1, 1000);
+        FACILITY_RETOOL_DAYS = builder.comment("切换生产方式后的改造期天数。")
+                .defineInRange("retoolDays", FACILITY_RETOOL_DAYS_VALUE, 0, 30);
+        FACILITY_RETOOL_OUTPUT_PERCENT = builder.comment("改造期内的产量百分比（投入同比例缩放）。")
+                .defineInRange("retoolOutputPercent", FACILITY_RETOOL_OUTPUT_PERCENT_VALUE, 0, 100);
+        FACILITY_PROVISIONAL_DAYS = builder.comment("老存档设施的“临时作坊”天数：期间按手工档满产，岗位沿用旧规则。")
+                .defineInRange("provisionalDays", FACILITY_PROVISIONAL_DAYS_VALUE, 0, 365);
+        FACILITY_SCAN_STALE_DAYS = builder.comment("区块未加载时沿用最近一次扫描结果的最长天数，超过按缺少设备处理。")
+                .defineInRange("scanStaleDays", FACILITY_SCAN_STALE_DAYS_VALUE, 0, 365);
+        builder.pop();
+
         COMMON_SPEC = builder.build();
     }
 
@@ -1337,6 +1377,17 @@ public final class FinanceConfig {
     public static int npcMaxFloatPercentPerDay() {
         return getInt(NPC_MAX_FLOAT_PERCENT_PER_DAY, NPC_MAX_FLOAT_PERCENT_PER_DAY_VALUE);
     }
+
+    // ---- 公司厂房与生产方式 ----
+    public static int facilityZoneRadius() { return getInt(FACILITY_ZONE_RADIUS, FACILITY_ZONE_RADIUS_VALUE); }
+    public static int facilityZoneBelow() { return getInt(FACILITY_ZONE_BELOW, FACILITY_ZONE_BELOW_VALUE); }
+    public static int facilityZoneAbove() { return getInt(FACILITY_ZONE_ABOVE, FACILITY_ZONE_ABOVE_VALUE); }
+    public static int facilityMaxEquipmentPerType() { return getInt(FACILITY_MAX_EQUIPMENT_PER_TYPE, FACILITY_MAX_EQUIPMENT_PER_TYPE_VALUE); }
+    public static int facilityJobsCapPerLevel() { return getInt(FACILITY_JOBS_CAP_PER_LEVEL, FACILITY_JOBS_CAP_PER_LEVEL_VALUE); }
+    public static int facilityRetoolDays() { return getInt(FACILITY_RETOOL_DAYS, FACILITY_RETOOL_DAYS_VALUE); }
+    public static int facilityRetoolOutputPercent() { return getInt(FACILITY_RETOOL_OUTPUT_PERCENT, FACILITY_RETOOL_OUTPUT_PERCENT_VALUE); }
+    public static int facilityProvisionalDays() { return getInt(FACILITY_PROVISIONAL_DAYS, FACILITY_PROVISIONAL_DAYS_VALUE); }
+    public static int facilityScanStaleDays() { return getInt(FACILITY_SCAN_STALE_DAYS, FACILITY_SCAN_STALE_DAYS_VALUE); }
 
     public static boolean npcVotingEnabled() {
         return getBoolean(NPC_VOTING_ENABLED, NPC_VOTING_ENABLED_VALUE);
