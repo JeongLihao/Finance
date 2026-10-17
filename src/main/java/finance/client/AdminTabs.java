@@ -315,8 +315,7 @@ public final class AdminTabs {
     public boolean handleAdminHandClick(int mx, int my, int y) {
         // "添加手持物品" 按钮在 (100, y-2) 到 (190, y+11)
         if (my >= y - 2 && my < y + 11 && mx >= 100 && mx < 190) {
-            long basePrice = FinanceFormat.parseLong(screen.adminBasePriceBox.getValue());
-            if (basePrice <= 0) basePrice = 10;
+            long basePrice = screen.requireAmount(screen.adminBasePriceBox, "基础价格");
             screen.setStatus("已提交添加手持物品");
             FinancePacketHandler.CHANNEL.sendToServer(AdminActionPacket.fromHand(basePrice));
             return true;
@@ -342,12 +341,11 @@ public final class AdminTabs {
             String id = screen.adminCommodityIdBox.getValue().trim().toLowerCase();
             String itemId = screen.adminItemIdBox.getValue().trim();
             String displayName = screen.adminDisplayNameBox.getValue().trim();
-            long basePrice = FinanceFormat.parseLong(screen.adminBasePriceBox.getValue());
-
             if (id.isEmpty()) {
                 screen.setStatus("请输入商品 ID");
                 return true;
             }
+            long basePrice = screen.requireAmount(screen.adminBasePriceBox, "基础价格");
             if (displayName.isEmpty()) displayName = id;
             if (itemId.isEmpty()) itemId = null;
 

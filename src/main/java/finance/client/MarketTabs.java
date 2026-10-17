@@ -414,7 +414,8 @@ public final class MarketTabs {
                 screen.setStatus("该商品未接入国际市场");
                 return true;
             }
-            int qty = FinanceFormat.parseInt(screen.intlQuantityBox.getValue());
+            if (mx < 226 || mx >= 368 || mx >= 294 && mx < 300) return false;
+            int qty = screen.requireInt(screen.intlQuantityBox, "数量", 1, Integer.MAX_VALUE);
             if (mx >= 226 && mx < 294) {
                 screen.setStatus("已提交国际市场买入");
                 FinancePacketHandler.CHANNEL.sendToServer(
@@ -486,9 +487,9 @@ public final class MarketTabs {
         }
 
         // 提交买单/卖单
-        if (my >= 186 && my < 200) {
-            long price = FinanceFormat.parseLong(screen.priceBox.getValue());
-            int qty = FinanceFormat.parseInt(screen.quantityBox.getValue());
+        if (my >= 186 && my < 200 && (mx >= 10 && mx < 94 || mx >= 102 && mx < 186)) {
+            long price = screen.requireAmount(screen.priceBox, "价格");
+            int qty = screen.requireInt(screen.quantityBox, "数量", 1, Integer.MAX_VALUE);
             if (mx >= 10 && mx < 94) {
                 screen.setStatus("已提交玩家买单");
                 FinancePacketHandler.CHANNEL.sendToServer(
