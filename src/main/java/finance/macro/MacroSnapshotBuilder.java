@@ -63,6 +63,7 @@ public final class MacroSnapshotBuilder {
                 s == null ? 0 : s.population(), s == null ? 0 : s.avgSol(), s == null ? 0 : s.employed(),
                 s == null ? 0 : s.wages(), MacroEconomyManager.strike(), MacroEconomyManager.unrest(),
                 MacroFiscalService.balance(), Treasury.debt(), totals[0], totals[1], Treasury.austerity(),
-                laws, proposal, groups, rows, finance.gameplay.company.factory.FactoryService.tierCounts());
+                laws, proposal, groups, rows, finance.gameplay.company.factory.FactoryService.tierCounts(),
+                finance.rival.RivalService.snapshotRows(MacroResponsePacket.MAX_RIVALS));
     }
 }

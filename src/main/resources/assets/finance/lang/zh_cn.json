@@ -394,7 +394,7 @@
   "finance.tutorial.optional.exploration.title": "完成野外调查",
   "finance.tutorial.optional.exploration.hint": "跟随调查凭证，并与它指向的真实设施交互。",
   "finance.tutorial.optional.advanced_finance.title": "了解高级金融",
-  "finance.tutorial.optional.advanced_finance.hint": "打开证券终端；是否继续使用专业系统完全由你决定。",
+  "finance.tutorial.optional.advanced_finance.hint": "打开证券终端；公司上市后，NPC 股东会对你的提案投票，争取他们的支持就能完成“股东民主”成就。是否继续使用专业系统完全由你决定。",
   "screen.finance.company_gameplay.tab.operations": "经营",
   "screen.finance.company_gameplay.tab.capital": "资本项目",
   "screen.finance.company_gameplay.capital_projects": "关联实体资本项目",
@@ -639,5 +639,7 @@
   "advancement.finance.macro_industrial_revolution": "工业革命",
   "advancement.finance.macro_industrial_revolution.desc": "让一座工厂启用工业档生产方式",
   "advancement.finance.macro_artisan": "手艺人",
-  "advancement.finance.macro_artisan.desc": "同一家公司的三座工厂都坚持手工档，并且盈利"
+  "advancement.finance.macro_artisan.desc": "同一家公司的三座工厂都坚持手工档，并且盈利",
+  "advancement.finance.solo_shareholder_democracy": "股东民主",
+  "advancement.finance.solo_shareholder_democracy.desc": "让 NPC 股东投票支持并通过你提出的提案"
 }

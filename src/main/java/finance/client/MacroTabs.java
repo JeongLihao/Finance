@@ -17,6 +17,8 @@ public final class MacroTabs {
 
     private final FinanceScreen screen;
     private int selected;
+    /** 下半区显示竞争对手列表（否则显示利益集团和聚落）。 */
+    private boolean showRivals;
 
     public MacroTabs(FinanceScreen screen) {
         this.screen = screen;
@@ -66,15 +68,71 @@ public final class MacroTabs {
         }
         y += 14;
         FinanceGui.drawSimpleSeparator(g, LEFT_X, y - 3, 380);
-        renderGroups(g, data.groups(), y);
-        renderSettlement(g, data.settlements(), y);
+        if (showRivals) {
+            renderRivals(g, data.rivals(), y);
+        } else {
+            renderGroups(g, data.groups(), y);
+            renderSettlement(g, data.settlements(), y);
+        }
+        FinanceGui.drawButton(font, g, showRivals ? "聚落" : "对手", 286, 228, 48, showRivals);
         FinanceGui.drawButton(font, g, "刷新", 340, 228, 48, entry.state() == MacroClientCache.State.LOADING);
         List<Integer> tiers = data.factoryTiers();
         String footer = tiers.size() == MacroResponsePacket.FACTORY_TIER_BUCKETS
                 ? "工厂 手工" + tiers.get(0) + " 改良" + tiers.get(1) + " 工业" + tiers.get(2) + " 停产" + tiers.get(3)
                         + " · 周报 /macro news · 商情 /macro radar"
                 : "周报 /macro news · 商情 /macro radar";
-        FinanceGui.drawClippedString(font, g, footer, LEFT_X, 231, 320, FinanceGui.COL_TEXT_DIM);
+        FinanceGui.drawClippedString(font, g, footer, LEFT_X, 231, 270, FinanceGui.COL_TEXT_DIM); // 右边留给“对手”和“刷新”按钮
+    }
+
+    /** 竞争对手列表：名称、主营、人格、策略、是否上市、最近动作。 */
+    private void renderRivals(GuiGraphics g, List<MacroResponsePacket.RivalRow> rivals, int top) {
+        var font = screen.font();
+        FinanceGui.drawClippedString(font, g, "竞争对手", LEFT_X, top, 60, FinanceGui.COL_ACCENT);
+        FinanceGui.drawClippedString(font, g, "主营", LEFT_X + 74, top, 36, FinanceGui.COL_TEXT_DIM);
+        FinanceGui.drawClippedString(font, g, "人格", LEFT_X + 114, top, 30, FinanceGui.COL_TEXT_DIM);
+        FinanceGui.drawClippedString(font, g, "策略", LEFT_X + 148, top, 52, FinanceGui.COL_TEXT_DIM);
+        FinanceGui.drawClippedString(font, g, "上市", LEFT_X + 204, top, 26, FinanceGui.COL_TEXT_DIM);
+        FinanceGui.drawClippedString(font, g, "最近动作", LEFT_X + 234, top, 140, FinanceGui.COL_TEXT_DIM);
+        int y = top + 13;
+        if (rivals.isEmpty()) {
+            FinanceGui.drawClippedString(font, g, "还没有 NPC 竞争公司的数据，等一次日结", LEFT_X, y, 370, FinanceGui.COL_TEXT_DIM);
+            return;
+        }
+        int index = 0;
+        for (MacroResponsePacket.RivalRow r : rivals) {
+            if (y > 216) break;
+            g.fill(LEFT_X - 2, y - 1, LEFT_X + 378, y + 10, index++ % 2 == 0 ? FinanceGui.COL_ROW_EVEN : FinanceGui.COL_ROW_ODD);
+            FinanceGui.drawClippedString(font, g, r.name(), LEFT_X, y, 70, FinanceGui.COL_TEXT);
+            FinanceGui.drawClippedString(font, g, r.commodity(), LEFT_X + 74, y, 36, FinanceGui.COL_TEXT);
+            FinanceGui.drawClippedString(font, g, r.personality(), LEFT_X + 114, y, 30, FinanceGui.COL_TEXT);
+            FinanceGui.drawClippedString(font, g, r.strategy(), LEFT_X + 148, y, 52, FinanceGui.COL_TEXT_DIM);
+            FinanceGui.drawClippedString(font, g, r.listed() ? "是" : "—", LEFT_X + 204, y, 26,
+                    r.listed() ? FinanceGui.COL_GOOD : FinanceGui.COL_TEXT_DIM);
+            FinanceGui.drawClippedString(font, g, actionLabel(r.lastAction()), LEFT_X + 234, y, 142, FinanceGui.COL_TEXT_DIM);
+            y += 12;
+        }
+    }
+
+    /** 决策记录的动作代码转中文。 */
+    public static String actionLabel(String raw) {
+        if (raw == null || raw.isBlank()) return "—";
+        int space = raw.indexOf(' ');
+        String code = space < 0 ? raw : raw.substring(0, space);
+        String detail = space < 0 ? "" : raw.substring(space + 1);
+        String name = switch (code) {
+            case "SPAWN" -> "入场";
+            case "STRATEGY" -> "换策略";
+            case "UPGRADE" -> "升级";
+            case "CONTRACT" -> "发合同";
+            case "IPO" -> "上市";
+            case "HOSTILE_START" -> "开始建仓";
+            case "HOSTILE_ABANDON" -> "放弃收购";
+            case "HOSTILE_FAIL" -> "要约失败";
+            case "TENDER" -> "发起要约";
+            case "ACTIVISM" -> "股东提案";
+            default -> code;
+        };
+        return detail.isBlank() ? name : name + " " + detail;
     }
 
     private void renderGroups(GuiGraphics g, List<MacroResponsePacket.GroupRow> groups, int top) {
@@ -139,9 +197,13 @@ public final class MacroTabs {
 
     public boolean handleClick(int mx, int my) {
         int top = FinanceGui.CONTENT_Y + 2 + 12 + 12 + 12 + 14;
-        if (my >= top - 2 && my < top + 10) {
+        if (!showRivals && my >= top - 2 && my < top + 10) {
             if (mx >= RIGHT_X && mx < RIGHT_X + 12) { selected--; return true; }
             if (mx >= RIGHT_X + RIGHT_W - 12 && mx < RIGHT_X + RIGHT_W) { selected++; return true; }
+        }
+        if (mx >= 286 && mx < 334 && my >= 228 && my < 241) {
+            showRivals = !showRivals;
+            return true;
         }
         if (mx >= 340 && mx < 388 && my >= 228 && my < 241) {
             request();

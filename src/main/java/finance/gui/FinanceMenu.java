@@ -100,7 +100,8 @@ public class FinanceMenu extends AbstractContainerMenu {
                                      String textValue, long value1, long value2, long value3,
                                      long startMcDay, long endMcDay, double passRatio,
                                      long yesVotes, long noVotes, boolean playerVoted,
-                                     String status, String resultSummary, boolean playerCanExecute) {}
+                                     String status, String resultSummary, boolean playerCanExecute,
+                                     String npcSummary, int participationBps, int minParticipationBps) {}
 
     public record EconomyTrendRow(long mcDay, long commodityVolume, long stockVolume,
                                   double priceIndex) {}
@@ -782,6 +783,9 @@ public class FinanceMenu extends AbstractContainerMenu {
             buffer.writeUtf(limitString(row.status(), 16), 16);
             buffer.writeUtf(limitString(row.resultSummary(), 96), 96);
             buffer.writeBoolean(row.playerCanExecute());
+            buffer.writeUtf(limitString(row.npcSummary(), 96), 96);
+            buffer.writeVarInt(Math.max(0, Math.min(10_000, row.participationBps())));
+            buffer.writeVarInt(Math.max(0, Math.min(10_000, row.minParticipationBps())));
         }
     }
 
@@ -806,7 +810,10 @@ public class FinanceMenu extends AbstractContainerMenu {
                     buffer.readBoolean(),
                     buffer.readUtf(16),
                     buffer.readUtf(96),
-                    buffer.readBoolean()));
+                    buffer.readBoolean(),
+                    buffer.readUtf(96),
+                    buffer.readVarInt(),
+                    buffer.readVarInt()));
         }
         return rows;
     }

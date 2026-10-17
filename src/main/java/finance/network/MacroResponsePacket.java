@@ -16,7 +16,12 @@ public record MacroResponsePacket(long requestId, boolean enabled, long cpiX100,
                                   int avgSol, long employed, long wages, boolean strike, boolean unrest,
                                   long treasury, long debt, long revenue, long expense, boolean austerity,
                                   List<String> laws, String proposal, List<GroupRow> groups,
-                                  List<SettlementRow> settlements, List<Integer> factoryTiers) {
+                                  List<SettlementRow> settlements, List<Integer> factoryTiers, List<RivalRow> rivals) {
+    public static final int MAX_RIVALS = 8;
+
+    /** 竞争对手一行：名称、主营商品、人格、当前策略、是否上市、最近一条动作。 */
+    public record RivalRow(String name, String commodity, String personality, String strategy, boolean listed,
+                           String lastAction) { }
     /** 全服工厂档位统计的项数：手工、改良、工业、停产或临时作坊。 */
     public static final int FACTORY_TIER_BUCKETS = 4;
     public static final int MAX_SETTLEMENTS = 16, MAX_GOODS = 16, MAX_LAWS = 8, MAX_GROUPS = 8, CATEGORIES = 5;
@@ -34,6 +39,7 @@ public record MacroResponsePacket(long requestId, boolean enabled, long cpiX100,
         settlements = bound(settlements, MAX_SETTLEMENTS);
         proposal = proposal == null ? "" : proposal;
         factoryTiers = bound(factoryTiers, FACTORY_TIER_BUCKETS);
+        rivals = bound(rivals, MAX_RIVALS);
     }
 
     private static <T> List<T> bound(List<T> list, int max) {
@@ -89,6 +95,20 @@ public record MacroResponsePacket(long requestId, boolean enabled, long cpiX100,
         }
         b.writeVarInt(p.factoryTiers.size());
         for (int v : p.factoryTiers) b.writeVarInt(Math.max(0, v));
+        b.writeVarInt(p.rivals.size());
+        for (RivalRow r : p.rivals) {
+            b.writeUtf(cut(r.name, 32), 32);
+            b.writeUtf(cut(r.commodity, 64), 64);
+            b.writeUtf(cut(r.personality, 16), 16);
+            b.writeUtf(cut(r.strategy, 16), 16);
+            b.writeBoolean(r.listed);
+            b.writeUtf(cut(r.lastAction, 64), 64);
+        }
+    }
+
+    private static String cut(String s, int max) {
+        String v = s == null ? "" : s;
+        return v.length() > max ? v.substring(0, max) : v;
     }
 
     public static MacroResponsePacket decode(FriendlyByteBuf b) {
@@ -134,8 +154,11 @@ public record MacroResponsePacket(long requestId, boolean enabled, long cpiX100,
         n = count(b, FACTORY_TIER_BUCKETS);
         List<Integer> factoryTiers = new ArrayList<>(n);
         for (int i = 0; i < n; i++) factoryTiers.add(b.readVarInt());
+        n = count(b, MAX_RIVALS);
+        List<RivalRow> rivals = new ArrayList<>(n);
+        for (int i = 0; i < n; i++) rivals.add(new RivalRow(b.readUtf(32), b.readUtf(64), b.readUtf(16), b.readUtf(16), b.readBoolean(), b.readUtf(64)));
         return new MacroResponsePacket(id, enabled, cpi, inflation, population, avgSol, employed, wages, strike, unrest,
-                treasury, debt, revenue, expense, austerity, laws, proposal, groups, settlements, factoryTiers);
+                treasury, debt, revenue, expense, austerity, laws, proposal, groups, settlements, factoryTiers, rivals);
     }
 
     private static int count(FriendlyByteBuf b, int max) {

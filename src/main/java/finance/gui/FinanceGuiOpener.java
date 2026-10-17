@@ -42,6 +42,13 @@ import java.util.*;
  * 金融 GUI 打开器 —— 收集全部数据并打开统一的 FinanceMenu。
  */
 public class FinanceGuiOpener {
+    /** 当前参与率（已投票数 / 快照表决股数），基点。 */
+    static int participationBps(finance.company.CompanyProposal proposal) {
+        long snapshot = proposal.getVotingSharesSnapshot();
+        if (snapshot <= 0) return 0;
+        return (int) Math.min(10_000, (proposal.getYesVotes() + proposal.getNoVotes()) * 10_000 / snapshot);
+    }
+
 
     public static void open(ServerPlayer player) {
         open(player, FinanceScreenMode.ADVANCED, FinanceTerminalType.LEGACY_FULL_SCREEN, null);
@@ -211,7 +218,10 @@ public class FinanceGuiOpener {
                     proposal.getVotes().containsKey(playerId),
                     proposal.getStatus().name(),
                     proposal.getResultSummary(),
-                    finance.governance.CorporateRestructuringService.canExecute(playerId, proposal)));
+                    finance.governance.CorporateRestructuringService.canExecute(playerId, proposal),
+                    finance.npcinvestor.NpcGovernanceService.voteSummary(proposal.getProposalId()),
+                    participationBps(proposal),
+                    (int) Math.round(proposal.getMinParticipationRatio() * 10_000)));
         }
 
         List<FinanceMenu.TransactionRow> transactionRows = new ArrayList<>();

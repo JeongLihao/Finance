@@ -21,6 +21,7 @@ import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * NPC 治理：对进行中的提案投票，对进行中的要约决定是否接受。
@@ -61,6 +62,7 @@ public final class NpcGovernanceService {
         if (day <= NpcGovernanceManager.lastProcessedDay()) return;
         if (!ModuleHealthRegistry.mayWrite(ModuleHealthRegistry.Module.NPC_ECONOMY)) return;
         NpcGovernanceManager.setLastProcessedDay(day);
+        awardShareholderDemocracy(day);
         if (settings.votingEnabled()) voteOnProposals(day);
         respondToTenders(day, settings);
         EconomySavedData.markDirty();
@@ -92,6 +94,23 @@ public final class NpcGovernanceService {
         }
     }
 
+    /**
+     * 教程（高级金融路线的可选一步）：玩家提出的提案在昨天结算并通过、且至少一类 NPC 股东投了赞成票时，
+     * 解锁“股东民主”成就（离线时上线补发）。
+     */
+    static void awardShareholderDemocracy(long day) {
+        for (CompanyProposal p : CompanyProposalManager.getProposals()) {
+            if (p.getEndMcDay() != day - 1) continue;
+            if (p.getStatus() != CompanyProposalStatus.PASSED && p.getStatus() != CompanyProposalStatus.EXECUTED) continue;
+            if (NpcInvestorArchetype.isInvestorAccount(p.getCreatorId())
+                    || finance.rival.RivalManager.isInvestmentAccount(p.getCreatorId())) continue;
+            boolean npcSupport = NpcGovernanceManager.votesFor(p.getProposalId()).stream()
+                    .anyMatch(v -> v.choice() == NpcVotingRules.Choice.SUPPORT);
+            if (npcSupport) finance.macro.EconomyAchievements.award(p.getCreatorId(),
+                    finance.macro.EconomyAchievements.SHAREHOLDER_DEMOCRACY);
+        }
+    }
+
     static NpcVotingRules.Context context(CompanyProposal proposal, Company company) {
         Stock stock = StockMarketManager.getStockByCompanyId(company.getCompanyId());
         long totalShares = stock == null ? 0 : stock.getTotalShares();
@@ -115,6 +134,21 @@ public final class NpcGovernanceService {
         early /= half;
         late /= (profits.size() - half);
         return late > 0 && late > early;
+    }
+
+    /** 界面用的一行摘要："分红派反对（理由）·成长派弃权"；没有 NPC 表态时为空串。 */
+    public static String voteSummary(UUID proposalId) {
+        StringBuilder sb = new StringBuilder();
+        for (NpcGovernanceManager.VoteRecord r : NpcGovernanceManager.votesFor(proposalId)) {
+            if (sb.length() > 0) sb.append('·');
+            sb.append(r.archetype().displayName()).append(switch (r.choice()) {
+                case SUPPORT -> "赞成";
+                case OPPOSE -> "反对";
+                case ABSTAIN -> "弃权";
+            });
+            if (r.choice() != NpcVotingRules.Choice.ABSTAIN) sb.append('（').append(r.reason().fallbackText()).append('）');
+        }
+        return sb.length() > 96 ? sb.substring(0, 95) + "…" : sb.toString();
     }
 
     // ---------------------------------------------------------------- 要约
