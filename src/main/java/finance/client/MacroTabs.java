@@ -9,7 +9,7 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * 宏观页签：左侧总览与利益集团，右侧逐个聚落的市场表。只读；操作在“更多操作”界面（{@link PlayerServicesScreen}）。
+ * 宏观页签：顶部总览与中央银行，左侧聚落民生，右侧逐个聚落的市场表。只读；央行债券、定存等操作在“更多操作”界面（{@link PlayerServicesScreen}）。
  */
 public final class MacroTabs {
     private static final String[] CATEGORY_SHORT = {"食", "住", "工", "暖", "衣"};
@@ -17,7 +17,7 @@ public final class MacroTabs {
 
     private final FinanceScreen screen;
     private int selected;
-    /** 下半区显示竞争对手列表（否则显示利益集团和聚落）。 */
+    /** 下半区显示竞争对手列表（否则显示聚落民生和市场）。 */
     private boolean showRivals;
 
     public MacroTabs(FinanceScreen screen) {
@@ -53,25 +53,25 @@ public final class MacroTabs {
                 + "  生活 " + pct(data.avgSol()) + "  就业 " + data.employed() + "  工资 " + data.wages() + "/天",
                 LEFT_X, y, 380, FinanceGui.COL_ACCENT);
         y += 12;
-        FinanceGui.drawClippedString(font, g, String.join("  ", data.laws()), LEFT_X, y, 380, FinanceGui.COL_TEXT_DIM);
+        var cb = data.centralBank();
+        int gap = cb.inflationBps() - cb.targetBps();
+        String bank = String.format(Locale.ROOT, "央行 利率 %.2f%%  通胀 %.1f%%（目标 %.1f%%）  准备金率 %.1f%%",
+                cb.rateBps() / 100.0, cb.inflationBps() / 100.0, cb.targetBps() / 100.0, cb.reserveBps() / 100.0);
+        FinanceGui.drawClippedString(font, g, bank, LEFT_X, y, 380,
+                Math.abs(gap) <= 100 ? FinanceGui.COL_GOOD : Math.abs(gap) >= 500 ? FinanceGui.COL_BAD : FinanceGui.COL_WARN);
         y += 12;
-        String budget = "国库 " + data.treasury() + "  债务 " + data.debt() + "  昨日收入 " + data.revenue()
-                + "  支出 " + data.expense() + (data.austerity() ? "  紧缩中：福利停发" : "");
-        FinanceGui.drawClippedString(font, g, budget, LEFT_X, y, 380,
-                data.austerity() ? FinanceGui.COL_BAD : data.revenue() >= data.expense() ? FinanceGui.COL_GOOD : FinanceGui.COL_WARN);
+        String meeting = cb.nextMeetingDay() < 0 ? "议息日程未排定" : "下次议息 第 " + cb.nextMeetingDay() + " 天，倾向" + cb.guidance();
+        FinanceGui.drawClippedString(font, g, meeting + "  公开市场：银行持票 " + cb.absorbed() + " / 回购投放 " + cb.injected(),
+                LEFT_X, y, 380, FinanceGui.COL_TEXT_DIM);
         y += 12;
-        String flags = (data.strike() ? "工会罢工：雇工产量减半  " : "") + (data.unrest() ? "民众骚乱：人口增长减半" : "");
-        if (!flags.isEmpty()) {
-            FinanceGui.drawClippedString(font, g, flags, LEFT_X, y, 380, FinanceGui.COL_BAD);
-        } else if (!data.proposal().isEmpty()) {
-            FinanceGui.drawClippedString(font, g, data.proposal(), LEFT_X, y, 380, FinanceGui.COL_WARN);
-        }
+        String stabilization = cb.stabilization().isEmpty() ? "商品平准：昨日无操作" : "商品平准：" + String.join("  ", cb.stabilization());
+        FinanceGui.drawClippedString(font, g, stabilization, LEFT_X, y, 380, FinanceGui.COL_TEXT_DIM);
         y += 14;
         FinanceGui.drawSimpleSeparator(g, LEFT_X, y - 3, 380);
         if (showRivals) {
             renderRivals(g, data.rivals(), y);
         } else {
-            renderGroups(g, data.groups(), y);
+            renderPeople(g, data.settlements(), y);
             renderSettlement(g, data.settlements(), y);
         }
         FinanceGui.drawButton(font, g, showRivals ? "聚落" : "对手", 286, 228, 48, showRivals);
@@ -79,8 +79,8 @@ public final class MacroTabs {
         List<Integer> tiers = data.factoryTiers();
         String footer = tiers.size() == MacroResponsePacket.FACTORY_TIER_BUCKETS
                 ? "工厂 手工" + tiers.get(0) + " 改良" + tiers.get(1) + " 工业" + tiers.get(2) + " 停产" + tiers.get(3)
-                        + " · 工资/法律/游说：更多操作"
-                : "工资、法律、游说、周报、商情：标题栏“更多操作”";
+                        + " · 央行债券/工资：更多操作"
+                : "央行债券、定存、工资、周报、商情：标题栏“更多操作”";
         FinanceGui.drawClippedString(font, g, footer, LEFT_X, 231, 270, FinanceGui.COL_TEXT_DIM); // 右边留给“对手”和“刷新”按钮
     }
 
@@ -135,22 +135,25 @@ public final class MacroTabs {
         return detail.isBlank() ? name : name + " " + detail;
     }
 
-    private void renderGroups(GuiGraphics g, List<MacroResponsePacket.GroupRow> groups, int top) {
+    /** 左栏：各聚落人口与生活水平一览，点右侧箭头切换详情。 */
+    private void renderPeople(GuiGraphics g, List<MacroResponsePacket.SettlementRow> settlements, int top) {
         var font = screen.font();
-        FinanceGui.drawClippedString(font, g, "利益集团   影响力        满意", LEFT_X, top, 180, FinanceGui.COL_TEXT_DIM);
+        FinanceGui.drawClippedString(font, g, "聚落        人口   生活   就业", LEFT_X, top, 180, FinanceGui.COL_TEXT_DIM);
         int y = top + 12;
-        for (MacroResponsePacket.GroupRow row : groups) {
-            FinanceGui.drawClippedString(font, g, row.name(), LEFT_X, y, 56, FinanceGui.COL_TEXT);
-            int barX = LEFT_X + 58, barW = 64;
-            g.fill(barX, y + 1, barX + barW, y + 8, FinanceGui.COL_ROW_ODD);
-            int filled = (int) Math.round(barW * Math.max(0, Math.min(10_000, row.cloutBps())) / 10_000.0);
-            g.fill(barX, y + 1, barX + filled, y + 8, FinanceGui.COL_ACCENT);
-            FinanceGui.drawClippedString(font, g, pct(row.cloutBps()), barX + barW + 3, y, 34, FinanceGui.COL_TEXT_DIM);
-            int color = row.approval() > 0 ? FinanceGui.COL_GOOD : row.approval() <= -5 ? FinanceGui.COL_BAD
-                    : row.approval() < 0 ? FinanceGui.COL_WARN : FinanceGui.COL_TEXT;
-            FinanceGui.drawClippedString(font, g, String.format(Locale.ROOT, "%+d", row.approval()), LEFT_X + 164, y, 24, color);
+        int index = 0;
+        for (MacroResponsePacket.SettlementRow row : settlements) {
+            if (y > 216) break;
+            boolean sel = index == Math.floorMod(selected, Math.max(1, settlements.size()));
+            g.fill(LEFT_X - 2, y - 1, LEFT_X + 180, y + 10, sel ? FinanceGui.COL_ROW_SELECT : index % 2 == 0 ? FinanceGui.COL_ROW_EVEN : FinanceGui.COL_ROW_ODD);
+            FinanceGui.drawClippedString(font, g, row.name(), LEFT_X, y, 58, FinanceGui.COL_TEXT);
+            FinanceGui.drawClippedString(font, g, String.valueOf(row.population()), LEFT_X + 62, y, 34, FinanceGui.COL_TEXT);
+            int color = row.sol() >= 7_000 ? FinanceGui.COL_GOOD : row.sol() < 4_000 ? FinanceGui.COL_BAD : FinanceGui.COL_TEXT;
+            FinanceGui.drawClippedString(font, g, pct(row.sol()), LEFT_X + 100, y, 36, color);
+            FinanceGui.drawClippedString(font, g, String.valueOf(row.employed()), LEFT_X + 140, y, 38, FinanceGui.COL_TEXT_DIM);
             y += 12;
+            index++;
         }
+        if (settlements.isEmpty()) FinanceGui.drawClippedString(font, g, "还没有聚落", LEFT_X, y, 180, FinanceGui.COL_TEXT_DIM);
     }
 
     private void renderSettlement(GuiGraphics g, List<MacroResponsePacket.SettlementRow> settlements, int top) {
@@ -168,7 +171,7 @@ public final class MacroTabs {
         FinanceGui.drawButton(font, g, ">", RIGHT_X + RIGHT_W - 12, top - 2, 12, false);
         int y = top + 13;
         FinanceGui.drawClippedString(font, g, "人口 " + s.population() + "  生活 " + pct(s.sol()) + "  就业 " + s.employed()
-                + "  收入 " + s.income(), RIGHT_X, y, RIGHT_W, s.unrest() ? FinanceGui.COL_BAD : FinanceGui.COL_TEXT);
+                + "  收入 " + s.income(), RIGHT_X, y, RIGHT_W, FinanceGui.COL_TEXT);
         y += 11;
         StringBuilder f = new StringBuilder();
         for (int i = 0; i < s.fulfilmentPct().size() && i < CATEGORY_SHORT.length; i++) {

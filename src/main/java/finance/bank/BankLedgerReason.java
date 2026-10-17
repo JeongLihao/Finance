@@ -8,5 +8,15 @@ public enum BankLedgerReason {
     RESERVE_INTEREST, DEMAND_DEPOSIT_INTEREST, INSURANCE_PREMIUM, RESOLUTION_TRANSFER,
     LOAN_LOSS_RECOVERY, LEDGER_COMPACTION, BANK_RUN_WITHDRAWAL, TIME_DEPOSIT_EARLY_REDEEM,
     NPC_LOAN_DEFAULT, LIQUIDATION_PAYOUT, CHARTER_CAPITAL, REGULATORY_FINE, BANK_DIVIDEND,
-    EQUITY_WIPE
+    EQUITY_WIPE,
+    /** 公开市场操作：银行用准备金买入央行票据（央行吸收流动性）。 */
+    OPEN_MARKET_ABSORB,
+    /** 公开市场操作：央行买回银行持有的央行票据（投放）。 */
+    OPEN_MARKET_REDEEM,
+    /** 公开市场操作：央行以回购方式借给银行准备金（投放）。 */
+    OPEN_MARKET_REPO,
+    /** 公开市场操作：银行归还回购款（收回投放）。 */
+    OPEN_MARKET_REPO_REPAY,
+    /** 公开市场操作头寸的利息。 */
+    OPEN_MARKET_INTEREST
 }

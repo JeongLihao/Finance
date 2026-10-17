@@ -6,8 +6,8 @@ import finance.network.FinancePacketHandler;
 import finance.network.PlayerServicesActionPacket;
 import finance.network.PlayerServicesRequestPacket;
 import finance.network.PlayerServicesResponsePacket;
-import finance.network.PlayerServicesResponsePacket.GroupRow;
-import finance.network.PlayerServicesResponsePacket.LawRow;
+import finance.network.PlayerServicesResponsePacket.BondHolding;
+import finance.network.PlayerServicesResponsePacket.DepositRow;
 import finance.network.PlayerServicesResponsePacket.SqueezeRow;
 import finance.network.PlayerServicesResponsePacket.TenderRow;
 import finance.playerservice.PlayerServicesService.Action;
@@ -24,7 +24,8 @@ import java.util.UUID;
 
 /**
  * 更多操作：把原来只能用命令完成的玩家功能做成按钮——融资融券、我的银行、要约收购（接受/撤回/发起/强制私有化）、
- * 宏观行动（工资、法律提案、游说、领报纸）、财报日历与季报、商情调查。沿用金融中心的米色面板风格，关闭后回到上一个界面。
+ * 中央银行（央行概况、央行债券认购/赎回、定存提前支取）、宏观行动（工资、领报纸）、财报日历与季报、商情调查。
+ * 沿用金融中心的米色面板风格，关闭后回到上一个界面。
  */
 public final class PlayerServicesScreen extends Screen {
     static final int PANEL_WIDTH = 384, PANEL_HEIGHT = 252;
@@ -47,8 +48,8 @@ public final class PlayerServicesScreen extends Screen {
     private String status = "";
     private UUID selectedTender;
     private UUID selectedSqueeze;
-    private String selectedLaw = "";
-    private String selectedGroup = "";
+    private UUID selectedBond;
+    private UUID selectedDeposit;
     private int left, top;
 
     public PlayerServicesScreen(Screen parent, Page page) {
@@ -143,6 +144,7 @@ public final class PlayerServicesScreen extends Screen {
                 case MARGIN -> renderMargin(g, data);
                 case BANK -> renderBank(g, data);
                 case TENDER -> renderTender(g, data);
+                case CENTRAL_BANK -> renderCentralBank(g, data);
                 case MACRO -> renderMacro(g, data);
                 case RESEARCH -> renderResearch(g, data);
             }
@@ -266,53 +268,64 @@ public final class PlayerServicesScreen extends Screen {
         }
     }
 
+    private void renderCentralBank(GuiGraphics g, PlayerServicesResponsePacket data) {
+        var cb = data.centralBank();
+        var o = cb.overview();
+        int gap = o.inflationBps() - o.targetBps();
+        line(g, String.format("基准利率 %.2f%%   通胀 %.1f%%（目标 %.1f%%）   活期准备金率 %.1f%%", o.rateBps() / 100.0,
+                o.inflationBps() / 100.0, o.targetBps() / 100.0, o.reserveBps() / 100.0), 0,
+                Math.abs(gap) <= 100 ? FinanceGui.COL_GOOD : Math.abs(gap) >= 500 ? FinanceGui.COL_BAD : FinanceGui.COL_WARN);
+        line(g, (o.nextMeetingDay() < 0 ? "议息日程未排定" : "下次议息第 " + o.nextMeetingDay() + " 天，倾向" + o.guidance())
+                + "   " + (o.stabilization().isEmpty() ? "昨日无平准" : "平准：" + String.join("、", o.stabilization())), 1, FinanceGui.COL_TEXT_DIM);
+        StringBuilder offers = new StringBuilder("央行债券今日收益率：");
+        for (var f : cb.offers()) offers.append(f.termDays()).append("天 ").append(String.format("%.2f%%", f.yieldBps() / 100.0)).append("   ");
+        line(g, offers.toString().trim() + "   起认 " + cb.bondMinAmount(), 2, FinanceGui.COL_ACCENT);
+
+        int y = top + CONTENT_Y + 3 * LINE_H + 3;
+        FinanceGui.drawClippedString(font, g, "我的央行债券（提前赎回只退本金，手续费 " + cb.bondEarlyFee() + "）", left + 10, y, 360, FinanceGui.COL_TEXT_DIM);
+        y += LINE_H;
+        if (cb.bonds().isEmpty()) {
+            FinanceGui.drawClippedString(font, g, "暂无", left + 10, y, 100, FinanceGui.COL_TEXT_DIM);
+            y += LINE_H;
+        }
+        for (BondHolding h : cb.bonds()) {
+            if (y > top + CONTENT_Y + 6 * LINE_H) break;
+            boolean sel = h.id().equals(selectedBond);
+            g.fill(left + 8, y - 1, left + PANEL_WIDTH - 8, y + 10, sel ? FinanceGui.COL_ROW_SELECT : FinanceGui.COL_ROW_EVEN);
+            FinanceGui.drawClippedString(font, g, h.termDays() + " 天  本金 " + h.principal() + "  年利率 "
+                    + String.format("%.2f%%", h.rateBps() / 100.0) + "  第 " + h.maturityDay() + " 天到期", left + 10, y, 360, FinanceGui.COL_TEXT);
+            UUID id = h.id();
+            hits.add(new Hit(left + 8, y - 1, PANEL_WIDTH - 16, LINE_H, () -> { selectedBond = id; selectedDeposit = null; }));
+            y += LINE_H;
+        }
+        y += 2;
+        FinanceGui.drawClippedString(font, g, "我的定期存款（提前支取只退本金，已计利息作废）", left + 10, y, 360, FinanceGui.COL_TEXT_DIM);
+        y += LINE_H;
+        if (cb.deposits().isEmpty()) FinanceGui.drawClippedString(font, g, "暂无（在金融中心“金融 → 银行”开定期）", left + 10, y, 300, FinanceGui.COL_TEXT_DIM);
+        for (DepositRow d : cb.deposits()) {
+            if (y > top + LABEL_Y - LINE_H) break;
+            boolean sel = d.id().equals(selectedDeposit);
+            g.fill(left + 8, y - 1, left + PANEL_WIDTH - 8, y + 10, sel ? FinanceGui.COL_ROW_SELECT : FinanceGui.COL_ROW_EVEN);
+            FinanceGui.drawClippedString(font, g, d.bank() + "  本金 " + d.principal() + "  年利率 " + String.format("%.2f%%", d.rateBps() / 100.0)
+                    + "  已计利息 " + d.accrued() + "  第 " + d.maturityDay() + " 天到期", left + 10, y, 360, FinanceGui.COL_TEXT);
+            UUID id = d.id();
+            hits.add(new Hit(left + 8, y - 1, PANEL_WIDTH - 16, LINE_H, () -> { selectedDeposit = id; selectedBond = null; }));
+            y += LINE_H;
+        }
+    }
+
     private void renderMacro(GuiGraphics g, PlayerServicesResponsePacket data) {
         var m = data.macro();
         if (!m.active()) {
-            line(g, "宏观经济未启用（配置 macroEconomy.enabled）", 0, FinanceGui.COL_WARN);
-            line(g, data.macro().newsEnabled() ? "《金融周报》仍可领取" : "", 1, FinanceGui.COL_TEXT_DIM);
-            return;
+            line(g, "宏观经济未启用（配置 macroEconomy.enabled），不能设定工资", 0, FinanceGui.COL_WARN);
+        } else {
+            line(g, m.company().isEmpty() ? "你还没有公司，不能设定工资" : m.company() + "  日工资 " + m.wage()
+                    + "（保留工资 " + m.reservationWage() + "，低于它招不到人）", 0, FinanceGui.COL_ACCENT);
         }
-        line(g, m.company().isEmpty() ? "你还没有公司，不能设定工资" : m.company() + "  日工资 " + m.wage()
-                + "（保留工资 " + m.reservationWage() + "，低于它招不到人）", 0, FinanceGui.COL_ACCENT);
-        line(g, m.proposal().isEmpty() ? "目前没有进行中的法律提案" : m.proposal(), 1,
-                m.proposal().isEmpty() ? FinanceGui.COL_TEXT_DIM : FinanceGui.COL_WARN);
-        int y = top + CONTENT_Y + 2 * LINE_H + 3;
-        int lawsX = left + 10, groupsX = left + 236;
-        FinanceGui.drawClippedString(font, g, "法律（点选要提议的级别）", lawsX, y, 220, FinanceGui.COL_TEXT_DIM);
-        FinanceGui.drawClippedString(font, g, "利益集团  影响力 满意 游说", groupsX, y, 140, FinanceGui.COL_TEXT_DIM);
-        int ly = y + LINE_H;
-        for (LawRow law : m.laws()) {
-            if (ly > top + LABEL_Y - LINE_H) break;
-            FinanceGui.drawClippedString(font, g, law.group(), lawsX, ly, 46, FinanceGui.COL_TEXT);
-            int cx = lawsX + 48;
-            for (int i = 0; i < law.levelIds().size() && i < law.levelNames().size(); i++) {
-                String name = law.levelNames().get(i);
-                int w = Math.min(60, font.width(name) + 6);
-                if (cx + w > groupsX - 6) break;
-                String id = law.levelIds().get(i);
-                boolean active = i == law.active(), sel = id.equals(selectedLaw);
-                g.fill(cx, ly - 1, cx + w, ly + 10, sel ? FinanceGui.COL_ROW_SELECT : active ? 0xFFCFE0C0 : FinanceGui.COL_ROW_ODD);
-                FinanceGui.drawClippedString(font, g, name, cx + 3, ly, w - 4, active ? FinanceGui.COL_GOOD : FinanceGui.COL_TEXT);
-                hits.add(new Hit(cx, ly - 1, w, LINE_H, () -> selectedLaw = id));
-                cx += w + 2;
-            }
-            ly += LINE_H;
-        }
-        int gy = y + LINE_H;
-        for (GroupRow row : m.groups()) {
-            if (gy > top + LABEL_Y - LINE_H) break;
-            boolean sel = row.id().equals(selectedGroup);
-            g.fill(groupsX - 2, gy - 1, left + PANEL_WIDTH - 8, gy + 10, sel ? FinanceGui.COL_ROW_SELECT : FinanceGui.COL_ROW_EVEN);
-            FinanceGui.drawClippedString(font, g, row.name(), groupsX, gy, 56, FinanceGui.COL_TEXT);
-            FinanceGui.drawClippedString(font, g, row.cloutBps() / 100 + "%", groupsX + 58, gy, 28, FinanceGui.COL_TEXT_DIM);
-            int color = row.approval() > 0 ? FinanceGui.COL_GOOD : row.approval() < 0 ? FinanceGui.COL_BAD : FinanceGui.COL_TEXT;
-            FinanceGui.drawClippedString(font, g, String.format("%+d", row.approval()), groupsX + 88, gy, 22, color);
-            FinanceGui.drawClippedString(font, g, String.valueOf(row.lobby()), groupsX + 112, gy, 28, FinanceGui.COL_TEXT_DIM);
-            String id = row.id();
-            hits.add(new Hit(groupsX - 2, gy - 1, left + PANEL_WIDTH - 8 - groupsX + 2, LINE_H, () -> selectedGroup = id));
-            gy += LINE_H;
-        }
+        line(g, m.newsEnabled() ? "《金融周报》每周一期，可以在这里领取，也可以到任意聚落贸易站右键领取。" : "《金融周报》未启用。", 2,
+                FinanceGui.COL_TEXT_DIM);
+        wrapped(g, "工资越高越容易从附近聚落招到工人；产量按在岗比例计算。物价和利率由中央银行调控，见“中央银行”页。",
+                left + 10, 4, PANEL_WIDTH - 20, 3, FinanceGui.COL_TEXT_DIM);
     }
 
     private void renderResearch(GuiGraphics g, PlayerServicesResponsePacket data) {
@@ -390,16 +403,21 @@ public final class PlayerServicesScreen extends Screen {
                 }));
                 list.add(new Btn("刷新", this::refresh));
             }
+            case CENTRAL_BANK -> {
+                list.add(new Btn("认购央行债券", () -> send(Action.CB_BOND_SUBSCRIBE, "", PlayerServicesForm.positive(box(0), "期限"),
+                        PlayerServicesForm.positive(box(1), "认购金额"), 0, 0)));
+                list.add(new Btn("提前赎回选中债券", () -> {
+                    if (selectedBond == null) throw new InvalidInput("请先在“我的央行债券”里选中一笔");
+                    send(Action.CB_BOND_REDEEM, selectedBond.toString(), 0, 0, 0, 0);
+                }));
+                list.add(new Btn("提前支取选中定存", () -> {
+                    if (selectedDeposit == null) throw new InvalidInput("请先在“我的定期存款”里选中一笔");
+                    send(Action.TIME_DEPOSIT_EARLY, selectedDeposit.toString(), 0, 0, 0, 0);
+                }));
+                list.add(new Btn("刷新", this::refresh));
+            }
             case MACRO -> {
                 list.add(new Btn("设定工资", () -> send(Action.MACRO_WAGE, "", PlayerServicesForm.number(box(0), "日工资", false), 0, 0, 0)));
-                list.add(new Btn("提议选中法律", () -> {
-                    if (selectedLaw.isEmpty()) throw new InvalidInput("请先点选一项法律级别");
-                    send(Action.MACRO_PROPOSE, selectedLaw, 0, 0, 0, 0);
-                }));
-                list.add(new Btn("游说选中集团", () -> {
-                    if (selectedGroup.isEmpty()) throw new InvalidInput("请先选中一个利益集团");
-                    send(Action.MACRO_LOBBY, selectedGroup, PlayerServicesForm.positive(box(1), "游说金额"), 0, 0, 0);
-                }));
                 list.add(new Btn("领取周报", () -> send(Action.MACRO_NEWS, "", 0, 0, 0, 0)));
                 list.add(new Btn("刷新", this::refresh));
             }

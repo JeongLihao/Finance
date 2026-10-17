@@ -1,7 +1,7 @@
 package finance.fixedincome;
 
 /**
- * 国债状态。
+ * 央行债券状态。
  *
  * <p>EARLY_REDEEMED 曾为死枚举值（全库无赋值引用，提前赎回直接移除持仓），已删除。</p>
  */

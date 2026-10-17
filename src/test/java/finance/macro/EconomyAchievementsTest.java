@@ -97,15 +97,6 @@ class EconomyAchievementsTest {
         assertFalse(EconomyAchievements.pending(owner).contains(EconomyAchievements.GOOD_BOSS));
     }
 
-    @Test void strikeIsAwardedOnceWhenItStarts() {
-        facility(1);
-        days(1, 1);
-        MacroEconomyManager.setUnrestFlags(true, false);
-        days(2, 2);
-        assertTrue(EconomyAchievements.pending(owner).contains(EconomyAchievements.STRIKE));
-        assertTrue(EconomyAchievements.lastStrike());
-    }
-
     @Test void deliveringFoodToAStarvingSettlementIsFamineRelief() {
         SettlementEconomy econ = MacroEconomyManager.getOrCreate(settlement.id());
         econ.lastFulfilment.put(NeedCategory.FOOD, 0.3);
@@ -138,15 +129,6 @@ class EconomyAchievementsTest {
         assertTrue(EconomyAchievements.pending(owner).contains(EconomyAchievements.HOARDER));
     }
 
-    @Test void politicsAchievements() {
-        assertTrue(PoliticsService.lobby(owner, InterestGroup.FINANCIERS, 5_000).success());
-        assertTrue(EconomyAchievements.pending(owner).contains(EconomyAchievements.LOBBYIST));
-        assertTrue(PoliticsService.propose(owner, LawLevel.PUBLIC_HEALTH, 1).success());
-        PoliticsService.processDay(10);
-        String outcome = MacroEconomyManager.lawHistory().get(0).passed() ? EconomyAchievements.LAWMAKER : EconomyAchievements.FAILED_BILL;
-        assertTrue(EconomyAchievements.pending(owner).contains(outcome));
-    }
-
     @Test void prosperousSettlementAchievements() {
         facility(1);
         VillageRecord village = VillageManager.get(settlement.id());
@@ -159,20 +141,12 @@ class EconomyAchievementsTest {
         assertTrue(EconomyAchievements.pending(owner).contains(EconomyAchievements.GOLDEN_AGE));
     }
 
-    @Test void debtFreeStreakCountsDaysAndResetsOnDebt() {
-        for (int d = 1; d <= 5; d++) EconomyAchievements.processDay(null, d);
-        assertEquals(5, EconomyAchievements.debtFreeStreak());
-        Treasury.setDebt(100);
-        EconomyAchievements.processDay(null, 6);
-        assertEquals(0, EconomyAchievements.debtFreeStreak());
-    }
-
     @Test void pendingAchievementsSurviveSaveLoad() {
-        EconomyAchievements.award(owner, EconomyAchievements.LAWMAKER);
+        EconomyAchievements.award(owner, EconomyAchievements.RATE_CALL);
         EconomyAchievements.award(owner, "not_an_achievement");
         CompoundTag saved = new EconomySavedData().save(new CompoundTag());
         EconomySavedData.load(saved);
-        assertEquals(java.util.Set.of(EconomyAchievements.LAWMAKER), EconomyAchievements.pending(owner));
+        assertEquals(java.util.Set.of(EconomyAchievements.RATE_CALL), EconomyAchievements.pending(owner));
     }
 
     @Test void everyAchievementHasAdvancementAndTranslations() throws Exception {

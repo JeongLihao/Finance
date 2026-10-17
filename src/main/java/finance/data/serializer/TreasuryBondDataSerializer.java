@@ -68,10 +68,10 @@ public final class TreasuryBondDataSerializer {
             ListTag holdings = tag.getList("Holdings", Tag.TAG_COMPOUND);
             if (holdings.size() > 10_000) {
                 // 整单丢弃：记警告＋审计（本金去向见认购 TransactionRecord）
-                LOGGER.warn("国债 {} 持仓条目 {} 超过上限 10000，数据恢复时整单丢弃", id, holdings.size());
+                LOGGER.warn("央行债券 {} 持仓条目 {} 超过上限 10000，数据恢复时整单丢弃", id, holdings.size());
                 AccountManager.addTransactionRecord(new TransactionRecord(CentralBank.UUID, CentralBank.UUID, 0,
                         TransactionType.TREASURY_BOND_MATURITY, CentralBank.UUID,
-                        "国债数据恢复：持仓超限丢弃/" + id, 0));
+                        "央行债券数据恢复：持仓超限丢弃/" + id, 0));
                 droppedOversize++; continue;
             }
             boolean valid = true;
@@ -91,8 +91,8 @@ public final class TreasuryBondDataSerializer {
             }
             if (valid && !bond.principalByPlayer().isEmpty()) TreasuryBondManager.putDirect(bond);
         }
-        if (droppedMatured > 0) LOGGER.info("国债数据恢复：丢弃 {} 只旧版本 MATURED 残留债券（已全额兑付）", droppedMatured);
-        if (droppedOversize > 0) LOGGER.warn("国债数据恢复：{} 只债券因持仓超限被丢弃（已记审计）", droppedOversize);
+        if (droppedMatured > 0) LOGGER.info("央行债券数据恢复：丢弃 {} 只旧版本 MATURED 残留债券（已全额兑付）", droppedMatured);
+        if (droppedOversize > 0) LOGGER.warn("央行债券数据恢复：{} 只债券因持仓超限被丢弃（已记审计）", droppedOversize);
     }
     private static long safeAdd(long value, long add) { try { return Math.addExact(value, add); } catch (ArithmeticException ignored) { return -1; } }
 }

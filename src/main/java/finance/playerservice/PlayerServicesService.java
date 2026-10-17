@@ -5,6 +5,12 @@ import finance.bank.BankingManager;
 import finance.bank.CommercialBank;
 import finance.bank.PlayerBankService;
 import finance.bank.PublicBankViewService;
+import finance.bank.TimeDeposit;
+import finance.bank.TimeDepositStatus;
+import finance.fixedincome.TreasuryBond;
+import finance.fixedincome.TreasuryBondManager;
+import finance.fixedincome.TreasuryBondStatus;
+import finance.fixedincome.YieldCurveService;
 import finance.command.EarningsCommand;
 import finance.company.Company;
 import finance.company.CompanyManager;
@@ -13,23 +19,21 @@ import finance.diagnostic.ModuleHealthRegistry;
 import finance.governance.CorporateActionManager;
 import finance.governance.TakeoverService;
 import finance.governance.TenderOffer;
-import finance.macro.InterestGroup;
-import finance.macro.LawGroup;
-import finance.macro.LawLevel;
-import finance.macro.MacroCommand;
-import finance.macro.MacroEconomyManager;
+import finance.macro.EconomyAchievements;
 import finance.macro.MacroEconomyService;
+import finance.macro.MacroSnapshotBuilder;
 import finance.macro.MacroLaborService;
 import finance.macro.MacroRadar;
 import finance.macro.NewsService;
-import finance.macro.PoliticsService;
 import finance.margin.MarginAccount;
 import finance.margin.MarginPoolManager;
 import finance.margin.MarginService;
 import finance.network.PlayerServicesResponsePacket;
 import finance.network.PlayerServicesResponsePacket.Bank;
-import finance.network.PlayerServicesResponsePacket.GroupRow;
-import finance.network.PlayerServicesResponsePacket.LawRow;
+import finance.network.PlayerServicesResponsePacket.BondHolding;
+import finance.network.PlayerServicesResponsePacket.BondOffer;
+import finance.network.PlayerServicesResponsePacket.CentralBankPage;
+import finance.network.PlayerServicesResponsePacket.DepositRow;
 import finance.network.PlayerServicesResponsePacket.Macro;
 import finance.network.PlayerServicesResponsePacket.Margin;
 import finance.network.PlayerServicesResponsePacket.SqueezeRow;
@@ -49,7 +53,7 @@ import java.util.UUID;
 
 /**
  * “更多操作”界面的服务端逻辑：把原来只能用命令完成的玩家操作（融资融券、玩家银行、要约的撤回与强制私有化、
- * 宏观经济的工资/法律/游说/报纸/商情、财报查询）汇总成一份快照，并按动作调用与命令相同的服务方法。
+ * 央行债券认购赎回与定存提前支取、宏观经济的工资/报纸/商情、财报查询）汇总成一份快照，并按动作调用与命令相同的服务方法。
  * 校验、扣费和留痕都在原服务里，这里只做参数解析和转发。
  */
 public final class PlayerServicesService {
@@ -57,7 +61,8 @@ public final class PlayerServicesService {
         MARGIN_DEPOSIT, MARGIN_WITHDRAW, MARGIN_BUY, MARGIN_REPAY, MARGIN_SHORT, MARGIN_COVER, MARGIN_REPAY_BAD_DEBT,
         BANK_CHARTER, BANK_RATES, BANK_DIVIDEND,
         TENDER_OFFER, TENDER_ACCEPT, TENDER_CANCEL, SQUEEZE_OUT,
-        MACRO_WAGE, MACRO_PROPOSE, MACRO_LOBBY, MACRO_NEWS, MACRO_RADAR,
+        CB_BOND_SUBSCRIBE, CB_BOND_REDEEM, TIME_DEPOSIT_EARLY,
+        MACRO_WAGE, MACRO_NEWS, MACRO_RADAR,
         EARNINGS_REPORT
     }
 
@@ -86,7 +91,7 @@ public final class PlayerServicesService {
             detail = DETAILS.getOrDefault(player, new Detail("", List.of()));
         }
         return new PlayerServicesResponsePacket(requestId, margin(player), bank(player), tenders(player),
-                squeezable(player, day), macro(player), EarningsCommand.calendarLines(day, CALENDAR_DAYS),
+                squeezable(player, day), centralBank(player), macro(player), EarningsCommand.calendarLines(day, CALENDAR_DAYS),
                 detail.title(), detail.lines());
     }
 
@@ -147,39 +152,40 @@ public final class PlayerServicesService {
         return rows;
     }
 
+    static CentralBankPage centralBank(UUID player) {
+        List<BondOffer> offers = new ArrayList<>();
+        for (int term : TreasuryBondManager.TERM_DAYS) offers.add(new BondOffer(term, YieldCurveService.treasuryYieldBasisPoints(term)));
+        List<BondHolding> bonds = new ArrayList<>();
+        for (TreasuryBond bond : TreasuryBondManager.bonds().values()) {
+            Long principal = bond.principalByPlayer().get(player);
+            if (principal == null || principal <= 0 || bond.status() != TreasuryBondStatus.ACTIVE) continue;
+            bonds.add(new BondHolding(bond.id(), bond.termDays(), bond.annualRateBasisPoints(), principal, bond.maturityDay()));
+        }
+        bonds.sort(java.util.Comparator.comparingLong(BondHolding::maturityDay));
+        List<DepositRow> deposits = new ArrayList<>();
+        for (TimeDeposit d : BankingManager.timeDeposits().values()) {
+            if (!player.equals(d.ownerId()) || d.status() != TimeDepositStatus.ACTIVE) continue;
+            CommercialBank bank = BankingManager.bank(d.bankId());
+            deposits.add(new DepositRow(d.id(), bank == null ? "?" : bank.name(), d.principal(), d.lockedRateBps(), d.maturityDay(),
+                    d.accruedInterest()));
+        }
+        deposits.sort(java.util.Comparator.comparingLong(DepositRow::maturityDay));
+        return new CentralBankPage(MacroSnapshotBuilder.centralBankRow(), offers, bonds, deposits,
+                Math.max(0, FinanceConfig.treasuryBondMinAmount()), Math.max(0, FinanceConfig.treasuryBondEarlyFee()));
+    }
+
     static Macro macro(UUID player) {
-        if (!MacroEconomyService.active()) {
-            return new Macro(false, "", 0, 0, List.of(), "", List.of(), NewsService.enabled(), 0);
-        }
-        PoliticsService.recompute();
         Company own = CompanyManager.getCompanyByOwner(player);
+        if (!MacroEconomyService.active()) return new Macro(false, own == null ? "" : own.getName(), 0, 0, NewsService.enabled(), 0);
         long wage = own == null ? 0 : MacroLaborService.wageOf(own.getCompanyId());
-        List<LawRow> laws = new ArrayList<>();
-        for (LawGroup g : LawGroup.values()) {
-            List<String> ids = new ArrayList<>(), names = new ArrayList<>();
-            int active = -1;
-            for (LawLevel l : LawLevel.levelsOf(g)) {
-                if (MacroEconomyManager.law(g) == l) active = ids.size();
-                ids.add(l.name());
-                names.add(l.displayName());
-            }
-            laws.add(new LawRow(g.displayName(), ids, names, active));
-        }
-        List<GroupRow> groups = new ArrayList<>();
-        for (InterestGroup ig : InterestGroup.values()) {
-            groups.add(new GroupRow(ig.name(), ig.displayName(), MacroEconomyManager.cloutBps(ig),
-                    MacroEconomyManager.approval(ig), MacroEconomyManager.lobby(ig)));
-        }
-        MacroEconomyManager.Proposal p = MacroEconomyManager.proposal();
-        return new Macro(true, own == null ? "" : own.getName(), wage, MacroLaborService.reservationWage(), laws,
-                p == null ? "" : MacroCommand.proposalLine(p), groups, NewsService.enabled(),
+        return new Macro(true, own == null ? "" : own.getName(), wage, MacroLaborService.reservationWage(), NewsService.enabled(),
                 Math.max(0, FinanceConfig.macroRadarCost()));
     }
 
     // ---------------------------------------------------------------- 操作
 
     /**
-     * 执行一个动作。text 是股票代码、公司名、要约/公司 ID、法律或利益集团代码；a～d 是金额、数量等数字参数。
+     * 执行一个动作。text 是股票代码、公司名、要约/公司/债券/定存 ID；a～d 是金额、数量等数字参数。
      * ServerPlayer 只在领报纸时需要（物品放进背包），其余动作只用 UUID。
      */
     public static Result act(ServerPlayer serverPlayer, UUID player, Action action, String text,
@@ -201,9 +207,10 @@ public final class PlayerServicesService {
             case TENDER_ACCEPT -> withUuid(t, id -> corp(TakeoverService.acceptTender(player, id, a, day, null)));
             case TENDER_CANCEL -> withUuid(t, id -> corp(TakeoverService.cancelTender(player, id, day, null)));
             case SQUEEZE_OUT -> withUuid(t, id -> corp(TakeoverService.squeezeOut(player, id, day, null)));
+            case CB_BOND_SUBSCRIBE -> bond(TreasuryBondManager.subscribe(player, (int) Math.max(0, Math.min(Integer.MAX_VALUE, a)), b, day));
+            case CB_BOND_REDEEM -> withUuid(t, id -> earlyExit(player, bond(TreasuryBondManager.earlyRedeem(player, id, day))));
+            case TIME_DEPOSIT_EARLY -> withUuid(t, id -> earlyExit(player, bank(BankingManager.earlyRedeemTimeDeposit(player, id, day))));
             case MACRO_WAGE -> wage(player, a);
-            case MACRO_PROPOSE -> propose(player, t, day);
-            case MACRO_LOBBY -> lobby(player, t, a);
             case MACRO_NEWS -> news(serverPlayer);
             case MACRO_RADAR -> radar(player, day);
             case EARNINGS_REPORT -> report(player, t);
@@ -219,6 +226,14 @@ public final class PlayerServicesService {
     private static Result bank(BankingManager.Result r) { return new Result(r.success(), r.message()); }
 
     private static Result corp(CorporateActionManager.Result r) { return new Result(r.success(), r.message()); }
+
+    private static Result bond(TreasuryBondManager.Result r) { return new Result(r.success(), r.message()); }
+
+    /** 提前支取定存或提前赎回央行债券成功：发隐藏成就“割肉离场”。 */
+    private static Result earlyExit(UUID player, Result r) {
+        if (r.success()) EconomyAchievements.award(player, EconomyAchievements.EARLY_EXIT);
+        return r;
+    }
 
     private static boolean bankWrite() { return ModuleHealthRegistry.mayWrite(ModuleHealthRegistry.Module.BANKING); }
 
@@ -257,30 +272,6 @@ public final class PlayerServicesService {
         if (!MacroLaborService.setWage(player, company.getCompanyId(), wage)) return Result.fail("设定失败：只有公司所有者可以设定工资。");
         String hint = wage < MacroLaborService.reservationWage() ? "（低于保留工资 " + MacroLaborService.reservationWage() + "，将招不到人）" : "";
         return Result.ok(company.getName() + " 日工资设为 " + wage + hint);
-    }
-
-    private static Result propose(UUID player, String levelId, long day) {
-        LawLevel level;
-        try {
-            level = LawLevel.valueOf(levelId);
-        } catch (IllegalArgumentException e) {
-            return Result.fail("请先选中一项法律");
-        }
-        PoliticsService.recompute();
-        PoliticsService.Result r = PoliticsService.propose(player, level, day);
-        return new Result(r.success(), r.message());
-    }
-
-    private static Result lobby(UUID player, String groupId, long amount) {
-        InterestGroup ig;
-        try {
-            ig = InterestGroup.valueOf(groupId);
-        } catch (IllegalArgumentException e) {
-            return Result.fail("请先选中一个利益集团");
-        }
-        PoliticsService.recompute();
-        PoliticsService.Result r = PoliticsService.lobby(player, ig, amount);
-        return new Result(r.success(), r.message());
     }
 
     private static Result news(ServerPlayer player) {

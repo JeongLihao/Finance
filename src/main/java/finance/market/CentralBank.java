@@ -321,7 +321,8 @@ public final class CentralBank {
                 + "，票据最近投放 " + finance.fixedincome.CentralBankBillManager.lastPolicyIssuance();
     }
 
-    private static void ensureReserveCash(long amount) {
+    /** 央行账户余额不够某笔支付时扩表补足（央行是货币发行者）。 */
+    public static void ensureReserveCash(long amount) {
         if (amount <= 0) return;
         long current = AccountManager.getBalance(UUID);
         if (current < amount) {

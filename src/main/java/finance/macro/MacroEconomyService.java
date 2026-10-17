@@ -33,9 +33,8 @@ import java.util.UUID;
  *
  * <p>每日流程（由 {@code EconomyCycleService.tickDay} 驱动）：
  * <ol>
- *   <li>{@link #beforeVillages}：发福利；</li>
  *   <li>{@code VillageService} 调用 {@link #planNeeds} 拿到当天需求，采购后用 {@link #recordProcurement} 回报供需；</li>
- *   <li>{@link #afterVillages}：本地价格收盘、生活水平、人口增长、迁移、预算回流、CPI 快照、政治结算。</li>
+ *   <li>{@link #afterVillages}：本地价格收盘、生活水平、人口增长、迁移、预算回流、CPI 快照。</li>
  * </ol>
  * 关闭配置或模块熔断时所有钩子返回 null/原值，调用方走旧逻辑。</p>
  */
@@ -97,15 +96,6 @@ public final class MacroEconomyService {
         return book.factorBps;
     }
 
-    /** NPC 行商卖给聚落的价格按贸易政策调整。 */
-    public static long applyTradePolicy(long caravanPrice) {
-        if (caravanPrice <= 0 || !active() || !FinanceConfig.macroPoliticsEnabled()) return caravanPrice;
-        int bps = MacroEconomyManager.law(LawGroup.TRADE).caravanPriceBps();
-        if (bps == 10_000) return caravanPrice;
-        long scaled = MathUtil.multiplyExactOrNegative1(caravanPrice, bps);
-        return scaled <= 0 ? caravanPrice : Math.max(1, scaled / 10_000);
-    }
-
     /** 采购结束后回报一种商品的需求、供给和实际消费。 */
     public static void recordProcurement(UUID settlementId, String commodityId, long demand, long supply, long consumed) {
         if (!active()) return;
@@ -156,22 +146,12 @@ public final class MacroEconomyService {
 
     // ================================================================ 日结
 
-    public static void beforeVillages(long day) {
-        if (!active() || day <= MacroEconomyManager.lastProcessedDay()) return;
-        // 财政启用时由国库付利息、行政开支和福利；否则福利仍由 NPC 资金池支付
-        if (MacroFiscalService.active()) MacroFiscalService.processDay(day);
-        else PoliticsService.payWelfare(day);
-    }
-
     public static void afterVillages(long day) {
         if (!active() || day <= MacroEconomyManager.lastProcessedDay()) return;
         MacroEconomyManager.setLastProcessedDay(day);
         NewsService.observeDay(day);
         int step = FinanceConfig.macroPriceStepBps();
         int growthBps = FinanceConfig.macroGrowthMaxBps();
-        int solBonus = FinanceConfig.macroPoliticsEnabled()
-                && MacroEconomyManager.law(LawGroup.LABOR) == LawLevel.WORKER_PROTECTION ? 500 : 0;
-        boolean unrest = FinanceConfig.macroPoliticsEnabled() && MacroEconomyManager.unrest();
         Set<UUID> known = new HashSet<>();
         Map<String, List<UUID>> byDimension = new LinkedHashMap<>();
         for (SettlementRecord settlement : SettlementManager.settlements().values()) {
@@ -183,22 +163,22 @@ public final class MacroEconomyService {
             if (econ == null) continue;
             // 当天集市没有结算（如袭击警报）时只收盘价格账本，不更新生活水平和人口
             boolean marketRan = village.lastMarketDay() == day && !econ.required.isEmpty();
-            closeSettlementDay(econ, village, day, step, growthBps, solBonus, unrest, marketRan);
+            closeSettlementDay(econ, village, day, step, growthBps, marketRan);
             recycleBudget(village);
             byDimension.computeIfAbsent(settlement.dimensionId(), k -> new ArrayList<>()).add(settlement.id());
         }
         MacroEconomyManager.retainSettlements(known);
         for (List<UUID> ids : byDimension.values()) migrate(ids, day);
         MacroIndicators.closeDay(day);
-        PoliticsService.processDay(day);
+        // 第一次有 CPI 数据的日结就按当时的旧指数确定链接系数，保证央行看到的价格指数序列连续
+        finance.metrics.EconomyMetricsService.priceIndex();
         MacroWorldFeedback.onDayClosed();
         EconomySavedData.markDirty();
     }
 
     static void closeSettlementDay(SettlementEconomy econ, VillageRecord village, long day, int step,
-                                   int growthBps, int solBonus, boolean unrest, boolean marketRan) {
+                                   int growthBps, boolean marketRan) {
         for (GoodBook book : econ.goods.values()) book.close(day, step);
-        econ.unrest = unrest;
         if (!marketRan) {
             econ.rollIncome();
             econ.plan.clear();
@@ -220,9 +200,9 @@ public final class MacroEconomyService {
         double incomePerCapita = population <= 0 ? 0 : (double) econ.lastIncome / population;
         int subsistence = MacroFormulas.subsistenceSol(population, FinanceConfig.villagePopulation());
         econ.solBps = MacroFormulas.smoothSol(econ.solBps,
-                MacroFormulas.targetSol(fulfilment, incomePerCapita, solBonus + subsistence));
+                MacroFormulas.targetSol(fulfilment, incomePerCapita, subsistence));
 
-        econ.growthMilli += MacroFormulas.growthMilli(population, econ.solBps, growthBps, unrest);
+        econ.growthMilli += MacroFormulas.growthMilli(population, econ.solBps, growthBps, false);
         long whole = econ.growthMilli / 1000;
         econ.growthMilli -= whole * 1000;
         if (whole != 0) {
@@ -240,7 +220,7 @@ public final class MacroEconomyService {
         econ.pushHistory(day, village.population());
     }
 
-    /** 聚落预算超过补足上限两倍的部分，视为村民消费回流 NPC 资金池，避免工资和福利在聚落里无限沉淀。 */
+    /** 聚落预算超过补足上限两倍的部分，视为村民消费回流 NPC 资金池，避免工资在聚落里无限沉淀。 */
     static void recycleBudget(VillageRecord village) {
         UUID budget = village.budgetAccountId();
         if (budget == null) return;
@@ -266,7 +246,7 @@ public final class MacroEconomyService {
         for (UUID id : settlementIds) {
             SettlementEconomy econ = MacroEconomyManager.settlement(id);
             if (econ == null) continue;
-            int score = MacroFormulas.attractiveness(econ.solBps, econ.unrest);
+            int score = MacroFormulas.attractiveness(econ.solBps, false);
             if (score < worstScore) { worstScore = score; worst = id; }
             if (score > bestScore) { bestScore = score; best = id; }
         }

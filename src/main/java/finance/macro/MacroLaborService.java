@@ -45,15 +45,9 @@ public final class MacroLaborService {
         return finance.gameplay.company.factory.FactoryService.jobs(facility);
     }
 
-    /** 工人接受工作的最低日工资（劳工法可抬高）。 */
+    /** 工人接受工作的最低日工资。 */
     public static long reservationWage() {
-        long base = Math.max(0, FinanceConfig.macroBaseReservationWage());
-        if (!FinanceConfig.macroPoliticsEnabled()) return base;
-        LawLevel labor = MacroEconomyManager.law(LawGroup.LABOR);
-        if (labor == LawLevel.MINIMUM_WAGE || labor == LawLevel.WORKER_PROTECTION) {
-            return Math.max(base, FinanceConfig.macroMinimumWage());
-        }
-        return base;
+        return Math.max(0, FinanceConfig.macroBaseReservationWage());
     }
 
     /** 公司当前日工资。 */
@@ -71,7 +65,7 @@ public final class MacroLaborService {
     }
 
     /**
-     * 产量系数（基点）：在岗/岗位；劳动力来源在半径外（远距离通勤）时减半；罢工时减半；劳工保护再 ×0.9。
+     * 产量系数（基点）：在岗/岗位；劳动力来源在半径外（远距离通勤）时减半。
      * 未启用，或设施所在维度一个聚落都没有（劳动力市场不存在）时为 10000（满员）。
      */
     public static int staffingBps(CompanyFacilityRecord facility) {
@@ -83,10 +77,6 @@ public final class MacroLaborService {
         long employed = Math.min(jobs, MacroEconomyManager.employment(facility.facilityId()));
         long bps = employed * 10_000 / jobs;
         if (!withinRadius(source, facility)) bps /= 2;
-        if (FinanceConfig.macroPoliticsEnabled()) {
-            if (MacroEconomyManager.strike()) bps /= 2;
-            if (MacroEconomyManager.law(LawGroup.LABOR) == LawLevel.WORKER_PROTECTION) bps = bps * 9 / 10;
-        }
         return (int) Math.max(0, Math.min(10_000, bps));
     }
 

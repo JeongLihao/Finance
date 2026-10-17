@@ -19,17 +19,10 @@ public final class MacroEconomyManager {
     public static final int MAX_FACILITIES = 2_048;
     public static final int MAX_COMPANY_WAGES = 4_096;
     public static final int MAX_SNAPSHOTS = 120;
-    public static final int MAX_LAW_HISTORY = 32;
 
     /** 每日宏观快照。CPI 以 1/100 为单位（10000 = 100.00）。 */
     public record Snapshot(long day, long cpiX100, long population, int avgSol, long employed,
                            long wages, long consumptionValue) { }
-
-    /** 进行中的法律提案。 */
-    public record Proposal(LawLevel level, UUID proposer, long startDay, long endDay) { }
-
-    /** 已结束的提案。 */
-    public record LawResult(LawLevel level, boolean passed, long support, long opposition, long day) { }
 
     private static final Map<UUID, SettlementEconomy> SETTLEMENTS = new LinkedHashMap<>();
     /** 设施 id → 在岗人数。 */
@@ -38,19 +31,9 @@ public final class MacroEconomyManager {
     private static final Map<UUID, UUID> LABOR_SOURCE = new LinkedHashMap<>();
     /** 公司 id → 日工资。 */
     private static final Map<UUID, Long> WAGES = new LinkedHashMap<>();
-    private static final EnumMap<LawGroup, LawLevel> LAWS = new EnumMap<>(LawGroup.class);
-    private static final EnumMap<InterestGroup, Integer> LOBBY = new EnumMap<>(InterestGroup.class);
-    private static final EnumMap<InterestGroup, Integer> APPROVAL = new EnumMap<>(InterestGroup.class);
-    private static final EnumMap<InterestGroup, Integer> CLOUT_BPS = new EnumMap<>(InterestGroup.class);
     private static final ArrayDeque<Snapshot> SNAPSHOTS = new ArrayDeque<>();
-    private static final ArrayDeque<LawResult> LAW_HISTORY = new ArrayDeque<>();
-    private static Proposal proposal;
-    private static boolean strike;
-    private static boolean unrest;
     private static long lastProcessedDay = Long.MIN_VALUE;
     private static long lastLaborDay = Long.MIN_VALUE;
-
-    static { resetLaws(); }
 
     private MacroEconomyManager() { }
 
@@ -116,56 +99,6 @@ public final class MacroEconomyManager {
 
     public static Map<UUID, Long> wagesDirect() { return Collections.unmodifiableMap(WAGES); }
 
-    // ---------------------------------------------------------------- 政治
-
-    public static LawLevel law(LawGroup group) { return LAWS.getOrDefault(group, group.defaultLevel()); }
-
-    public static Map<LawGroup, LawLevel> laws() { return Collections.unmodifiableMap(new EnumMap<>(LAWS)); }
-
-    static void setLaw(LawLevel level) { if (level != null) LAWS.put(level.group(), level); }
-
-    static void resetLaws() {
-        LAWS.clear();
-        for (LawGroup g : LawGroup.values()) LAWS.put(g, g.defaultLevel());
-    }
-
-    public static int lobby(InterestGroup ig) { return LOBBY.getOrDefault(ig, 0); }
-
-    static void setLobby(InterestGroup ig, int value) {
-        if (ig == null) return;
-        if (value == 0) LOBBY.remove(ig); else LOBBY.put(ig, value);
-    }
-
-    public static int approval(InterestGroup ig) { return APPROVAL.getOrDefault(ig, 0); }
-
-    static void setApproval(InterestGroup ig, int value) { if (ig != null) APPROVAL.put(ig, value); }
-
-    /** 影响力占比（基点，全部集团之和约为 10000）。 */
-    public static int cloutBps(InterestGroup ig) { return CLOUT_BPS.getOrDefault(ig, 0); }
-
-    static void setCloutBps(InterestGroup ig, int value) { if (ig != null) CLOUT_BPS.put(ig, value); }
-
-    public static Proposal proposal() { return proposal; }
-
-    static void setProposal(Proposal p) { proposal = p; }
-
-    public static boolean strike() { return strike; }
-
-    public static boolean unrest() { return unrest; }
-
-    static void setUnrestFlags(boolean strikeNow, boolean unrestNow) {
-        strike = strikeNow;
-        unrest = unrestNow;
-    }
-
-    static void addLawResult(LawResult r) {
-        if (r == null) return;
-        LAW_HISTORY.addLast(r);
-        while (LAW_HISTORY.size() > MAX_LAW_HISTORY) LAW_HISTORY.removeFirst();
-    }
-
-    public static List<LawResult> lawHistory() { return new ArrayList<>(LAW_HISTORY); }
-
     // ---------------------------------------------------------------- 指标
 
     static void addSnapshot(Snapshot s) {
@@ -193,22 +126,12 @@ public final class MacroEconomyManager {
         EMPLOYMENT.clear();
         LABOR_SOURCE.clear();
         WAGES.clear();
-        resetLaws();
-        LOBBY.clear();
-        APPROVAL.clear();
-        CLOUT_BPS.clear();
         SNAPSHOTS.clear();
-        LAW_HISTORY.clear();
-        proposal = null;
-        strike = false;
-        unrest = false;
         lastProcessedDay = Long.MIN_VALUE;
         lastLaborDay = Long.MIN_VALUE;
-        Treasury.clearDirect();
         EconomyAchievements.clearDirect();
         MacroWorldFeedback.clearDirect();
         NewsService.clearDirect();
         MacroIndicators.restoreLink(-1);
-        PoliticsService.clearCache();
     }
 }

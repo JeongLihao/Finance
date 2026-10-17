@@ -52,6 +52,7 @@ public final class NewsWriter {
         pages.addAll(paginate("《金融周报》第 " + number + " 期\n第 " + day + " 天\n\n【头版】" + headline + "\n\n" + leadBody));
         pages.addAll(paginate(marketPage(movers, interval)));
         pages.addAll(paginate(societyPage(interval)));
+        pages.addAll(paginate(centralBankPage(interval)));
         if (pool.size() > 1) {
             StringBuilder more = new StringBuilder("【本周其他新闻】\n");
             for (int i = 1; i < Math.min(pool.size(), 6); i++) more.append("· ").append(pool.get(i).headline()).append('\n');
@@ -67,6 +68,7 @@ public final class NewsWriter {
         List<String> pages = new ArrayList<>(paginate("【号外】第 " + number + " 期\n第 " + day + " 天\n\n" + item.headline()
                 + "\n\n" + item.body()));
         pages.addAll(paginate(societyPage(Math.max(1, FinanceConfig.macroNewsIntervalDays()))));
+        pages.addAll(paginate(centralBankPage(Math.max(1, FinanceConfig.macroNewsIntervalDays()))));
         return new NewsService.Issue(number, day, true, item.headline(), List.copyOf(pages), Map.of());
     }
 
@@ -117,7 +119,7 @@ public final class NewsWriter {
     }
 
     static String societyPage(int days) {
-        StringBuilder b = new StringBuilder("【民生与政坛】\n");
+        StringBuilder b = new StringBuilder("【民生】\n");
         for (SettlementEconomy econ : MacroEconomyManager.settlements()) {
             SettlementRecord s = SettlementManager.get(econ.settlementId);
             VillageRecord v = VillageManager.get(econ.settlementId);
@@ -127,21 +129,36 @@ public final class NewsWriter {
             int delta = v.population() - before;
             b.append(String.format("· %s %d 人（%+d），生活 %d%%\n", s.displayName(), v.population(), delta, econ.solBps / 100));
         }
-        if (PoliticsService.active()) {
-            InterestGroup angriest = null;
-            for (InterestGroup ig : InterestGroup.values()) {
-                if (angriest == null || MacroEconomyManager.approval(ig) < MacroEconomyManager.approval(angriest)) angriest = ig;
+        return b.toString();
+    }
+
+    /** 【央行动态】：利率与物价目标、准备金率、最近的议息决议、商品平准、下次议息前瞻。 */
+    static String centralBankPage(int days) {
+        StringBuilder b = new StringBuilder("【央行动态】\n");
+        int rate = finance.policy.MonetaryPolicyService.benchmarkRateBasisPoints();
+        int inflation = finance.centralbank.CentralBankService.inflationBps();
+        int target = finance.centralbank.CentralBankService.inflationTargetBps();
+        b.append(String.format("基准利率 %.2f%%，通胀 %.1f%%（目标 %.1f%%）\n", rate / 100.0, inflation / 100.0, target / 100.0));
+        b.append(String.format("活期准备金率 %.1f%%\n", finance.centralbank.CentralBankService.demandReserveBps() / 100.0));
+        List<finance.centralbank.CentralBankService.Decision> decisions = finance.centralbank.CentralBankService.decisions();
+        if (!decisions.isEmpty()) {
+            var d = decisions.get(decisions.size() - 1);
+            long today = MacroEconomyManager.lastProcessedDay();
+            if (today == Long.MIN_VALUE || today - d.day() <= days) {
+                b.append(String.format("第 %d 天议息：利率 %.2f%%→%.2f%%", d.day(), d.rateBefore() / 100.0, d.rateAfter() / 100.0));
+                if (d.reserveAfter() != d.reserveBefore()) {
+                    b.append(String.format("，准备金率%s到 %.1f%%", d.reserveAfter() > d.reserveBefore() ? "上调" : "下调", d.reserveAfter() / 100.0));
+                }
+                b.append('\n');
             }
-            if (angriest != null && MacroEconomyManager.approval(angriest) < 0) {
-                b.append("最不满：").append(angriest.displayName()).append(String.format("（%+d）\n", MacroEconomyManager.approval(angriest)));
-            }
-            MacroEconomyManager.Proposal p = MacroEconomyManager.proposal();
-            if (p != null) b.append("待表决：").append(p.level().group().displayName()).append("→").append(p.level().displayName())
-                    .append("，第 ").append(p.endDay()).append(" 天\n");
         }
-        if (MacroFiscalService.active()) {
-            b.append(String.format("国库 %d，债务 %d%s\n", MacroFiscalService.balance(), Treasury.debt(),
-                    Treasury.austerity() ? "，紧缩中" : ""));
+        var actions = finance.centralbank.PriceStabilizationService.lastActions();
+        for (var a : actions.subList(0, Math.min(3, actions.size()))) {
+            b.append("· 平准").append(a.sold() ? "抛售" : "收储").append(MacroRadar.name(a.commodityId())).append(' ').append(a.quantity()).append('\n');
+        }
+        var outlook = finance.policy.PolicyMeetingService.outlook();
+        if (outlook.nextMeetingDay() >= 0) {
+            b.append("下次议息：第 ").append(outlook.nextMeetingDay()).append(" 天，倾向").append(outlook.guidanceDirection()).append('\n');
         }
         return b.toString();
     }

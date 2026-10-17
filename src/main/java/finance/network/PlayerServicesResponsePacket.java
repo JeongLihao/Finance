@@ -12,15 +12,15 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 
 /**
- * “更多操作”界面的快照（服务端 → 客户端）：融资融券、我的银行、要约收购、宏观行动、财报，
+ * “更多操作”界面的快照（服务端 → 客户端）：融资融券、我的银行、要约收购、中央银行、宏观行动、财报，
  * 以及最近一次查询类操作（商情调查、季报）的结果文字。
  */
 public record PlayerServicesResponsePacket(long requestId, Margin margin, Bank bank,
                                            List<TenderRow> tenders, List<SqueezeRow> squeezable,
-                                           Macro macro, List<String> calendar,
+                                           CentralBankPage centralBank, Macro macro, List<String> calendar,
                                            String detailTitle, List<String> detail) {
-    public static final int MAX_TENDERS = 16, MAX_SQUEEZE = 16, MAX_LAWS = 8, MAX_LEVELS = 8,
-            MAX_GROUPS = 8, MAX_LINES = 24, MAX_TEXT = 256;
+    public static final int MAX_TENDERS = 16, MAX_SQUEEZE = 16, MAX_OFFERS = 8, MAX_BONDS = 16, MAX_DEPOSITS = 16,
+            MAX_LINES = 24, MAX_TEXT = 256;
 
     public record Margin(long cash, long debt, long interest, long badDebt, String ratio, boolean warning,
                          String financed, String shorts, long freeCash) { }
@@ -32,12 +32,27 @@ public record PlayerServicesResponsePacket(long requestId, Margin margin, Bank b
 
     public record SqueezeRow(UUID companyId, String name, int percentX10) { }
 
-    public record LawRow(String group, List<String> levelIds, List<String> levelNames, int active) { }
+    public record Macro(boolean active, String company, long wage, long reservationWage, boolean newsEnabled, long radarCost) { }
 
-    public record GroupRow(String id, String name, int cloutBps, int approval, long lobby) { }
+    /** 央行债券的一个期限档：期限（天）和今天认购能锁定的年收益率（基点）。 */
+    public record BondOffer(int termDays, int yieldBps) { }
 
-    public record Macro(boolean active, String company, long wage, long reservationWage, List<LawRow> laws,
-                        String proposal, List<GroupRow> groups, boolean newsEnabled, long radarCost) { }
+    /** 我持有的一笔央行债券。 */
+    public record BondHolding(UUID id, int termDays, int rateBps, long principal, long maturityDay) { }
+
+    /** 我的一笔未到期定期存款。 */
+    public record DepositRow(UUID id, String bank, long principal, int rateBps, long maturityDay, long accrued) { }
+
+    /** 中央银行页：央行概况、央行债券期限档与我的持仓、我的定期存款。 */
+    public record CentralBankPage(MacroResponsePacket.CentralBankRow overview, List<BondOffer> offers, List<BondHolding> bonds,
+                                  List<DepositRow> deposits, long bondMinAmount, long bondEarlyFee) {
+        public CentralBankPage {
+            overview = overview == null ? MacroResponsePacket.CentralBankRow.EMPTY : overview;
+            offers = bound(offers, MAX_OFFERS);
+            bonds = bound(bonds, MAX_BONDS);
+            deposits = bound(deposits, MAX_DEPOSITS);
+        }
+    }
 
     public PlayerServicesResponsePacket {
         tenders = bound(tenders, MAX_TENDERS);
@@ -67,18 +82,22 @@ public record PlayerServicesResponsePacket(long requestId, Margin margin, Bank b
             buf.writeBoolean(t.mine()); buf.writeBoolean(t.squeeze()); buf.writeLong(t.myShares());
         });
         list(b, p.squeezable, (buf, s) -> { buf.writeUUID(s.companyId()); utf(buf, s.name()); buf.writeVarInt(s.percentX10()); });
+        CentralBankPage cb = p.centralBank;
+        var o = cb.overview();
+        b.writeVarInt(o.rateBps()); b.writeVarInt(o.targetBps()); b.writeVarInt(o.inflationBps()); b.writeVarInt(o.reserveBps());
+        b.writeLong(o.nextMeetingDay()); utf(b, o.guidance()); b.writeLong(o.absorbed()); b.writeLong(o.injected());
+        list(b, o.stabilization(), PlayerServicesResponsePacket::utf);
+        list(b, cb.offers(), (buf, f) -> { buf.writeVarInt(f.termDays()); buf.writeVarInt(f.yieldBps()); });
+        list(b, cb.bonds(), (buf, h) -> {
+            buf.writeUUID(h.id()); buf.writeVarInt(h.termDays()); buf.writeVarInt(h.rateBps()); buf.writeLong(h.principal()); buf.writeLong(h.maturityDay());
+        });
+        list(b, cb.deposits(), (buf, d) -> {
+            buf.writeUUID(d.id()); utf(buf, d.bank()); buf.writeLong(d.principal()); buf.writeVarInt(d.rateBps());
+            buf.writeLong(d.maturityDay()); buf.writeLong(d.accrued());
+        });
+        b.writeLong(cb.bondMinAmount()); b.writeLong(cb.bondEarlyFee());
         Macro x = p.macro;
         b.writeBoolean(x.active()); utf(b, x.company()); b.writeLong(x.wage()); b.writeLong(x.reservationWage());
-        list(b, bound(x.laws(), MAX_LAWS), (buf, l) -> {
-            utf(buf, l.group());
-            list(buf, bound(l.levelIds(), MAX_LEVELS), PlayerServicesResponsePacket::utf);
-            list(buf, bound(l.levelNames(), MAX_LEVELS), PlayerServicesResponsePacket::utf);
-            buf.writeVarInt(l.active());
-        });
-        utf(b, x.proposal());
-        list(b, bound(x.groups(), MAX_GROUPS), (buf, g) -> {
-            utf(buf, g.id()); utf(buf, g.name()); buf.writeVarInt(g.cloutBps()); buf.writeVarInt(g.approval()); buf.writeLong(g.lobby());
-        });
         b.writeBoolean(x.newsEnabled()); b.writeLong(x.radarCost());
         list(b, p.calendar, PlayerServicesResponsePacket::utf);
         utf(b, p.detailTitle);
@@ -94,19 +113,27 @@ public record PlayerServicesResponsePacket(long requestId, Margin margin, Bank b
                 buf.readUtf(MAX_TEXT), buf.readLong(), buf.readLong(), buf.readLong(), buf.readLong(),
                 buf.readBoolean(), buf.readBoolean(), buf.readLong()));
         List<SqueezeRow> squeeze = read(b, MAX_SQUEEZE, buf -> new SqueezeRow(buf.readUUID(), buf.readUtf(MAX_TEXT), buf.readVarInt()));
+        int rate = b.readVarInt(), target = b.readVarInt(), inflation = b.readVarInt(), reserve = b.readVarInt();
+        long nextMeeting = b.readLong();
+        String guidance = b.readUtf(MAX_TEXT);
+        long absorbed = b.readLong(), injected = b.readLong();
+        List<String> stabilization = read(b, MacroResponsePacket.MAX_STABILIZATION, buf -> buf.readUtf(MAX_TEXT));
+        var overview = new MacroResponsePacket.CentralBankRow(rate, target, inflation, reserve, nextMeeting, guidance,
+                absorbed, injected, stabilization);
+        List<BondOffer> offers = read(b, MAX_OFFERS, buf -> new BondOffer(buf.readVarInt(), buf.readVarInt()));
+        List<BondHolding> bonds = read(b, MAX_BONDS, buf -> new BondHolding(buf.readUUID(), buf.readVarInt(), buf.readVarInt(),
+                buf.readLong(), buf.readLong()));
+        List<DepositRow> deposits = read(b, MAX_DEPOSITS, buf -> new DepositRow(buf.readUUID(), buf.readUtf(MAX_TEXT),
+                buf.readLong(), buf.readVarInt(), buf.readLong(), buf.readLong()));
+        CentralBankPage cb = new CentralBankPage(overview, offers, bonds, deposits, b.readLong(), b.readLong());
         boolean active = b.readBoolean();
         String company = b.readUtf(MAX_TEXT);
         long wage = b.readLong(), reservation = b.readLong();
-        List<LawRow> laws = read(b, MAX_LAWS, buf -> new LawRow(buf.readUtf(MAX_TEXT),
-                read(buf, MAX_LEVELS, x -> x.readUtf(MAX_TEXT)), read(buf, MAX_LEVELS, x -> x.readUtf(MAX_TEXT)), buf.readVarInt()));
-        String proposal = b.readUtf(MAX_TEXT);
-        List<GroupRow> groups = read(b, MAX_GROUPS, buf -> new GroupRow(buf.readUtf(MAX_TEXT), buf.readUtf(MAX_TEXT),
-                buf.readVarInt(), buf.readVarInt(), buf.readLong()));
-        Macro x = new Macro(active, company, wage, reservation, laws, proposal, groups, b.readBoolean(), b.readLong());
+        Macro x = new Macro(active, company, wage, reservation, b.readBoolean(), b.readLong());
         List<String> calendar = read(b, MAX_LINES, buf -> buf.readUtf(MAX_TEXT));
         String title = b.readUtf(MAX_TEXT);
         List<String> detail = read(b, MAX_LINES, buf -> buf.readUtf(MAX_TEXT));
-        return new PlayerServicesResponsePacket(id, m, k, tenders, squeeze, x, calendar, title, detail);
+        return new PlayerServicesResponsePacket(id, m, k, tenders, squeeze, cb, x, calendar, title, detail);
     }
 
     private static void utf(FriendlyByteBuf b, String s) {

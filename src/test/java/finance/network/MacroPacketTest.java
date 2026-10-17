@@ -53,7 +53,6 @@ class MacroPacketTest {
     }
 
     @Test void snapshotRoundTripsThroughTheWire() {
-        MacroEconomyService.beforeVillages(1);
         VillageService.processDay(null, 1);
         MacroEconomyService.afterVillages(1);
         MacroResponsePacket built = MacroSnapshotBuilder.build(7);
@@ -61,8 +60,8 @@ class MacroPacketTest {
         assertEquals(1, built.settlements().size());
         assertEquals("alpha", built.settlements().get(0).name());
         assertEquals("小麦", built.settlements().get(0).goods().get(0).commodity());
-        assertEquals(6, built.groups().size());
-        assertEquals(4, built.laws().size());
+        assertEquals(finance.centralbank.CentralBankService.demandReserveBps(), built.centralBank().reserveBps());
+        assertEquals(finance.policy.MonetaryPolicyService.benchmarkRateBasisPoints(), built.centralBank().rateBps());
 
         FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
         MacroResponsePacket.encode(built, buf);
@@ -80,13 +79,15 @@ class MacroPacketTest {
         buf.writeVarInt(0);
         buf.writeLong(0);
         buf.writeLong(0);
-        buf.writeBoolean(false);
-        buf.writeBoolean(false);
+        // 央行概况：利率、目标、通胀、准备金率、下次议息、倾向、吸收、投放，然后是超长的平准行数
+        buf.writeVarInt(0);
+        buf.writeVarInt(0);
+        buf.writeVarInt(0);
+        buf.writeVarInt(0);
+        buf.writeLong(-1);
+        buf.writeUtf("", 16);
         buf.writeLong(0);
         buf.writeLong(0);
-        buf.writeLong(0);
-        buf.writeLong(0);
-        buf.writeBoolean(false);
         buf.writeVarInt(1_000);
         assertThrows(IllegalArgumentException.class, () -> MacroResponsePacket.decode(buf));
     }

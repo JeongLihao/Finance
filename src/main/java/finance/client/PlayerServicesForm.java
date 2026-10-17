@@ -9,7 +9,7 @@ import java.util.Arrays;
  */
 public final class PlayerServicesForm {
     public enum Page {
-        MARGIN("融资融券"), BANK("我的银行"), TENDER("要约收购"), MACRO("宏观行动"), RESEARCH("财报商情");
+        MARGIN("融资融券"), BANK("我的银行"), TENDER("要约收购"), CENTRAL_BANK("中央银行"), MACRO("宏观行动"), RESEARCH("财报商情");
 
         final String label;
 
@@ -35,7 +35,8 @@ public final class PlayerServicesForm {
                     ? new String[]{"活期点差 bps", "定期点差 bps", "贷款点差 bps", "分红金额"}
                     : new String[]{"代码 名称", "资本金", null, null};
             case TENDER -> new String[]{"公司名称", "价格", "股数", "天数"};
-            case MACRO -> new String[]{"日工资", "游说金额", null, null};
+            case CENTRAL_BANK -> new String[]{"期限 30/90/180", "认购金额", null, null};
+            case MACRO -> new String[]{"日工资", null, null, null};
             case RESEARCH -> new String[]{"股票代码", null, null, null};
         };
         return Arrays.copyOf(l, BOXES);

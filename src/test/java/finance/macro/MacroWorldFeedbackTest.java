@@ -48,9 +48,6 @@ class MacroWorldFeedbackTest {
         assertEquals("finance.macro.complaint.heating", MacroWorldFeedback.complaintKey(econ), "抱怨最缺的那一类");
         econ.lastFulfilment.put(NeedCategory.FOOD, 0.3);
         assertEquals(MacroWorldFeedback.Mood.ANGRY, MacroWorldFeedback.mood(econ), "挨饿就生气");
-        econ.unrest = true;
-        assertEquals("finance.macro.complaint.unrest", MacroWorldFeedback.complaintKey(econ));
-        econ.unrest = false;
         for (NeedCategory c : NeedCategory.values()) econ.lastFulfilment.put(c, 1.0);
         econ.solBps = 8_000;
         assertEquals(MacroWorldFeedback.Mood.HAPPY, MacroWorldFeedback.mood(econ));
@@ -59,31 +56,21 @@ class MacroWorldFeedbackTest {
 
     @Test void firstDayAfterStartupOnlyRecordsTheBaseline() {
         econ.lastFulfilment.put(NeedCategory.FOOD, 0.2);
-        MacroEconomyManager.setUnrestFlags(true, true);
         MacroWorldFeedback.onDayClosed();
-        assertTrue(NewsService.pool().isEmpty(), "重启前就在的罢工和饥荒不再上报");
+        assertTrue(NewsService.pool().isEmpty(), "重启前就在的饥荒不再上报");
     }
 
     @Test void stateFlipsGoToTheNewsDeskOnce() {
         MacroWorldFeedback.onDayClosed();
         econ.lastFulfilment.put(NeedCategory.FOOD, 0.2);
-        MacroEconomyManager.setUnrestFlags(true, false);
         MacroWorldFeedback.onDayClosed();
-        assertEquals(List.of("alpha闹饥荒", "工人大罢工！"), headlines(), "按新闻价值排序");
+        assertEquals(List.of("alpha闹饥荒"), headlines());
         assertTrue(MacroWorldFeedback.queued().isEmpty(), "大事交给报社，不再直接刷聊天栏");
         MacroWorldFeedback.onDayClosed();
-        assertEquals(2, NewsService.pool().size(), "状态没变就不重复上报");
+        assertEquals(1, NewsService.pool().size(), "状态没变就不重复上报");
         econ.lastFulfilment.put(NeedCategory.FOOD, 1.0);
-        MacroEconomyManager.setUnrestFlags(false, false);
         MacroWorldFeedback.onDayClosed();
-        assertTrue(headlines().containsAll(List.of("alpha饥荒结束", "罢工落幕，工人复工")));
-    }
-
-    @Test void lawResultsAreReported() {
-        MacroWorldFeedback.onLawResolved(LawLevel.HIGH_TAX, true, 9_000, 4_000);
-        NewsService.Item item = NewsService.pool().get(0);
-        assertEquals("议会通过：税制改为「高税」", item.headline());
-        assertTrue(item.body().contains("9000"));
+        assertTrue(headlines().contains("alpha饥荒结束"));
     }
 
     @Test void queueIsBounded() {
@@ -96,8 +83,7 @@ class MacroWorldFeedbackTest {
         JsonObject en = json("assets/finance/lang/en_us.json");
         List<String> keys = new java.util.ArrayList<>(List.of("finance.macro.announce.brief", "finance.macro.announce.extra",
                 "finance.macro.announce.weekly", "finance.macro.news.claimed", "finance.macro.news.waiting",
-                "finance.macro.caravan_arrived", "finance.macro.factory_strike",
-                "finance.macro.complaint.unrest", "finance.macro.complaint.happy"));
+                "finance.macro.caravan_arrived", "finance.macro.complaint.happy"));
         for (NeedCategory c : NeedCategory.values()) keys.add("finance.macro.complaint." + c.name().toLowerCase(java.util.Locale.ROOT));
         for (String k : keys) {
             assertTrue(zh.has(k), k);

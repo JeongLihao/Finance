@@ -119,29 +119,24 @@ public final class MacroRadar {
         }
     }
 
+    /** 央行动向：议息前瞻窗口里提示锁定利率的机会。 */
     private static void policy(List<Opportunity> out) {
-        MacroEconomyManager.Proposal p = MacroEconomyManager.proposal();
-        if (p == null || !PoliticsService.active()) return;
-        long[] t = PoliticsService.tally(p.level());
-        String hint = switch (p.level()) {
-            case PROTECTIONISM -> "通过后 NPC 行商涨价 25%，玩家摊位更好卖";
-            case FREE_TRADE -> "通过后 NPC 行商降价 10%，摊位压力变大";
-            case MINIMUM_WAGE, WORKER_PROTECTION -> "通过后最低工资抬高，雇工成本上升";
-            case NO_LABOR_PROTECTION -> "通过后可以压低工资";
-            case LOW_TAX -> "通过后利润税降到 5%";
-            case HIGH_TAX -> "通过后利润税升到 30%";
-            case POOR_RELIEF, PUBLIC_HEALTH -> "通过后村民收入增加，消费更旺，国库压力变大";
-            default -> "可能影响你的生意";
-        };
-        out.add(new Opportunity(Kind.POLICY, 300,
-                String.format("第 %d 天表决：%s → %s（当前%s）。%s", p.endDay(), p.level().group().displayName(),
-                        p.level().displayName(), t[0] > t[1] ? "看好通过" : "可能被否", hint)));
+        var outlook = finance.policy.PolicyMeetingService.outlook();
+        if (outlook.nextMeetingDay() < 0) return;
+        long today = MacroEconomyManager.lastProcessedDay();
+        long left = today == Long.MIN_VALUE ? Long.MAX_VALUE : outlook.nextMeetingDay() - today;
+        if (left > Math.max(1, finance.config.FinanceConfig.policyGuidanceLeadDays())) return;
+        String hint = outlook.recommendedBps() < outlook.currentBps() ? "可能降息：现在认购央行债券或开定期存款，能锁住更高的利率"
+                : outlook.recommendedBps() > outlook.currentBps() ? "可能加息：贷款和发债成本会上升，央行债券的新利率会更高"
+                : "大概率维持利率";
+        out.add(new Opportunity(Kind.POLICY, 300, String.format("第 %d 天央行议息（当前 %.2f%%）：%s",
+                outlook.nextMeetingDay(), outlook.currentBps() / 100.0, hint)));
     }
 
     /** 一次付费商情调查的结果。 */
     public record Purchase(boolean success, String message, List<Opportunity> opportunities) { }
 
-    /** 付费做一次商情调查：扣费（进国库，财政关闭时进 NPC 资金池），冷却期内拒绝。 */
+    /** 付费做一次商情调查：费用进 NPC 资金池，冷却期内拒绝。 */
     public static Purchase purchase(java.util.UUID player, long day) {
         if (player == null) return new Purchase(false, "只有玩家可以做商情调查。", List.of());
         if (!MacroEconomyService.active()) return new Purchase(false, "宏观经济未启用。", List.of());
@@ -152,10 +147,7 @@ public final class MacroRadar {
         }
         long cost = Math.max(0, finance.config.FinanceConfig.macroRadarCost());
         if (cost > 0) {
-            boolean paid = MacroFiscalService.active()
-                    ? MacroFiscalService.collectFee(player, cost, "radar", finance.account.TransactionType.MACRO_SURVEY)
-                    : payToPool(player, cost);
-            if (!paid) return new Purchase(false, "余额不足，商情调查要 " + cost + "。", List.of());
+            if (!payToPool(player, cost)) return new Purchase(false, "余额不足，商情调查要 " + cost + "。", List.of());
         }
         NewsService.markRadar(player, day);
         finance.data.EconomySavedData.markDirty();

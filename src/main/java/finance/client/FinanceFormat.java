@@ -160,6 +160,11 @@ public final class FinanceFormat {
             case "MACRO_DEBT_INTEREST" -> "国债利息";
             case "MACRO_DEBT_ISSUANCE" -> "央行增发";
             case "MACRO_SURVEY" -> "商情调查";
+            case "TREASURY_BOND_SUBSCRIBE" -> "认购央行债券";
+            case "TREASURY_BOND_MATURITY" -> "央行债券到期";
+            case "TREASURY_BOND_EARLY_REDEEM" -> "央行债券提前赎回";
+            case "CENTRAL_BANK_STABILIZATION" -> "央行平准";
+            case "LEGACY_TREASURY_MERGE" -> "国库并入央行";
             default -> type;
         };
     }

@@ -48,8 +48,8 @@ public record FinancialProductActionPacket(Action action, UUID targetId, long am
                 case PLACE_BOND_SELL -> message=p.targetId==null||p.amount<=0||p.quantity<=0?"债券卖单参数无效":BondMarketManager.placeSell(player.getUUID(),p.targetId,p.amount,p.quantity).message();
                 case CANCEL_BOND_ORDER -> message=p.targetId!=null&&BondMarketManager.cancel(player.getUUID(),p.targetId)?"债券订单已撤销":"订单不存在、无权撤销或资产无法释放";
                 case SUBSCRIBE_CENTRAL_BANK_BILL -> message=p.amount<=0?"票据认购参数无效":CentralBankBillManager.subscribe(player.getUUID(),p.termDays,p.amount,day).message();
-                case SUBSCRIBE_TREASURY_BOND -> message=p.amount<=0?"国债认购参数无效":TreasuryBondManager.subscribe(player.getUUID(),p.termDays,p.amount,day).message();
-                case EARLY_REDEEM_TREASURY_BOND -> message=p.targetId==null?"国债赎回参数无效":TreasuryBondManager.earlyRedeem(player.getUUID(),p.targetId,day).message();
+                case SUBSCRIBE_TREASURY_BOND -> message=p.amount<=0?"央行债券认购参数无效":TreasuryBondManager.subscribe(player.getUUID(),p.termDays,p.amount,day).message();
+                case EARLY_REDEEM_TREASURY_BOND -> message=p.targetId==null?"央行债券赎回参数无效":TreasuryBondManager.earlyRedeem(player.getUUID(),p.targetId,day).message();
                 default -> message="未知金融操作";
             }
             GuiFeedbackPacket.send(player,message);
