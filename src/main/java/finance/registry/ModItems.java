@@ -40,9 +40,9 @@ public final class ModItems {
             () -> new BlockItem(ModBlocks.FACTORY.get(), new Item.Properties()));
     public static final RegistryObject<Item> NEWSPAPER = ITEMS.register("newspaper",
             () -> new finance.item.NewspaperItem(new Item.Properties().stacksTo(16)));
-    public static final RegistryObject<Item> COIN = cash(finance.cash.Denomination.COIN_1);
-    public static final RegistryObject<Item> BANKNOTE_10 = cash(finance.cash.Denomination.NOTE_10);
-    public static final RegistryObject<Item> BANKNOTE_100 = cash(finance.cash.Denomination.NOTE_100);
+    public static final RegistryObject<Item> PENNY = cash(finance.cash.Denomination.PENNY);
+    public static final RegistryObject<Item> TEN_PENCE = cash(finance.cash.Denomination.TEN_PENCE);
+    public static final RegistryObject<Item> POUND_NOTE = cash(finance.cash.Denomination.POUND);
     public static final RegistryObject<Item> SURVEY_NOTE = ITEMS.register("survey_note",
             () -> new finance.item.SurveyNoteItem(new Item.Properties().stacksTo(1)));
 
@@ -78,9 +78,9 @@ public final class ModItems {
             event.accept(SURVEY_BOARD);
             event.accept(SURVEY_NOTE);
             event.accept(FACTORY);
-            event.accept(COIN);
-            event.accept(BANKNOTE_10);
-            event.accept(BANKNOTE_100);
+            event.accept(PENNY);
+            event.accept(TEN_PENCE);
+            event.accept(POUND_NOTE);
         }
     }
 }

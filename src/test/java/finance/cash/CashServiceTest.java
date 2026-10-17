@@ -78,9 +78,9 @@ class CashServiceTest {
         var r = CashService.withdraw(player, purse, 365);
         assertTrue(r.success(), r.message());
         assertEquals(1000 - 365, balance());
-        assertEquals(3, purse.count(Denomination.NOTE_100));
-        assertEquals(6, purse.count(Denomination.NOTE_10));
-        assertEquals(5, purse.count(Denomination.COIN_1));
+        assertEquals(3, purse.count(Denomination.POUND));
+        assertEquals(6, purse.count(Denomination.TEN_PENCE));
+        assertEquals(5, purse.count(Denomination.PENNY));
         assertEquals(365, purse.cashTotal());
     }
 
@@ -102,18 +102,18 @@ class CashServiceTest {
     }
 
     @Test void partialDepositBreaksANoteAndGivesChange() {
-        purse.give(Denomination.NOTE_100, 2);
+        purse.give(Denomination.POUND, 2);
         var r = CashService.deposit(player, purse, 35);
         assertTrue(r.success(), r.message());
         assertEquals(1035, balance());
         assertEquals(165, purse.cashTotal(), "200 现金存 35，剩 165");
-        assertEquals(1, purse.count(Denomination.NOTE_100));
-        assertEquals(6, purse.count(Denomination.NOTE_10));
-        assertEquals(5, purse.count(Denomination.COIN_1));
+        assertEquals(1, purse.count(Denomination.POUND));
+        assertEquals(6, purse.count(Denomination.TEN_PENCE));
+        assertEquals(5, purse.count(Denomination.PENNY));
     }
 
     @Test void depositMoreThanCarriedFails() {
-        purse.give(Denomination.NOTE_10, 1);
+        purse.give(Denomination.TEN_PENCE, 1);
         assertFalse(CashService.deposit(player, purse, 11).success());
         assertFalse(CashService.deposit(player, new MemoryPurse(), 0).success(), "身上没钱");
         assertEquals(10, purse.cashTotal());
@@ -191,7 +191,7 @@ class CashServiceTest {
     }
 
     @Test void splitUsesFewestPieces() {
-        assertEquals(Map.of(Denomination.NOTE_100, 12L, Denomination.COIN_1, 3L), CashService.split(1203));
+        assertEquals(Map.of(Denomination.POUND, 12L, Denomination.PENNY, 3L), CashService.split(1203));
         assertTrue(CashService.split(0).isEmpty());
     }
 }

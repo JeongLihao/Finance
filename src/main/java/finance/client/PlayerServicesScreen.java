@@ -345,10 +345,10 @@ public final class PlayerServicesScreen extends Screen {
             return;
         }
         line(g, "账户余额 " + c.balance() + "    随身现金 " + c.cashOnHand() + "    绿宝石 " + c.emeralds() + " 颗", 0, FinanceGui.COL_ACCENT);
-        line(g, "卖出 1 颗绿宝石得 " + c.emeraldToCash() + " 金币    买入 1 颗绿宝石付 " + c.cashToEmerald() + " 金币", 1, FinanceGui.COL_TEXT);
+        line(g, "卖出 1 颗绿宝石得 " + c.emeraldToCash() + " 便士    买入 1 颗绿宝石付 " + c.cashToEmerald() + " 便士", 1, FinanceGui.COL_TEXT);
         line(g, "今日还可卖出 " + c.sellLeft() + "/" + c.sellLimit() + " 颗    还可买入 " + c.buyLeft() + "/" + c.buyLimit() + " 颗", 2,
                 c.sellLeft() == 0 && c.buyLeft() == 0 ? FinanceGui.COL_WARN : FinanceGui.COL_TEXT);
-        wrapped(g, "现金有 1、10、100 金币三种面额，和账户里的钱 1:1 互换。取现：填金额后点“取出现金”；"
+        wrapped(g, "现金有 1 便士铜币、10 便士硬币、1 磅纸币三种（100 便士 = 1 磅），和账户里的钱 1:1 互换。取现：填金额后点“取出现金”；"
                 + "存入：金额留空则存入身上全部现金，面额凑不齐会自动找零。现金不记名，丢了或被人捡走就是别人的。",
                 left + 10, 4, PANEL_WIDTH - 20, 3, FinanceGui.COL_TEXT_DIM);
         wrapped(g, "绿宝石用现金兑换（不经过账户）：先取出现金再买绿宝石，卖绿宝石得到的是现金。买卖有点差，"

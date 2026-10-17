@@ -1,4 +1,4 @@
-"""Textures for the physical currency items (coin, 10 and 100 banknotes).
+"""Textures for the physical currency items: penny, ten pence, one pound note.
 
 Usage: python tools/textures/gen_cash_textures.py [output_assets_textures_dir]
 Reuses the palette and Tex helper of gen_textures.py, but only writes the cash items,
@@ -11,26 +11,29 @@ sys.path.insert(0, os.path.dirname(__file__))
 from gen_textures import Tex  # noqa: E402
 
 
-def coin():
-    # brass coin with a raised rim and a square hole, like an old copper cash coin
-    return Tex().grid(0, 0, [
-        "................",
-        "................",
-        ".....aaaaaa.....",
-        "...aabddddcba...",
-        "...abdeeeeddba..",
-        "..abdeddddcdcba.",
-        "..adedcaaccdcba.",
-        "..adedca..cdcba.",
-        "..adedca..cdcba.",
-        "..adedcaaccdcba.",
-        "..abddcccccccba.",
-        "...abdcccccbba..",
-        "...aabbbbbbba...",
-        ".....aaaaaa.....",
-        "................",
-        "................",
-    ])
+COIN = [
+    "................",
+    "................",
+    ".....aaaaaa.....",
+    "...aabddddcba...",
+    "...abdeeeeddba..",
+    "..abdeddddddcba.",
+    "..adedcccccdcba.",
+    "..adedcbbcbdcba.",
+    "..adedcbccbdcba.",
+    "..adedccbbcdcba.",
+    "..abddcccccccba.",
+    "...abdcccccbba..",
+    "...aabbbbbbba...",
+    ".....aaaaaa.....",
+    "................",
+    "................",
+]
+
+
+def coin(colors):
+    """Round coin with a raised rim and an embossed face; colors maps a..e (dark to light)."""
+    return Tex().grid(0, 0, [''.join(colors.get(ch, ch) for ch in row) for row in COIN])
 
 
 def banknote(fill, dark, light, edge, seal):
@@ -68,9 +71,12 @@ def banknote(fill, dark, light, edge, seal):
 
 
 TEXTURES = {
-    'item/coin': coin,
-    'item/banknote_10': lambda: banknote('w', 'u', 'x', 'x', 'd'),
-    'item/banknote_100': lambda: banknote('c', 'b', 'e', 'd', 'o'),
+    # copper penny
+    'item/penny': lambda: coin({'a': 'i', 'b': 'A', 'c': 'B', 'd': 'C', 'e': 'O'}),
+    # silver ten pence
+    'item/ten_pence': lambda: coin({'a': '2', 'b': 'S', 'c': 'T', 'd': 'U', 'e': 'W'}),
+    # green one pound note
+    'item/pound_note': lambda: banknote('w', 'u', 'x', 'x', 'd'),
 }
 
 

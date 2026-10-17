@@ -20,9 +20,9 @@ public final class PlayerCashPurse implements CashPurse {
 
     public static Item item(Denomination d) {
         return switch (d) {
-            case NOTE_100 -> ModItems.BANKNOTE_100.get();
-            case NOTE_10 -> ModItems.BANKNOTE_10.get();
-            case COIN_1 -> ModItems.COIN.get();
+            case POUND -> ModItems.POUND_NOTE.get();
+            case TEN_PENCE -> ModItems.TEN_PENCE.get();
+            case PENNY -> ModItems.PENNY.get();
         };
     }
 

@@ -439,7 +439,7 @@ public class AdminActionPacket {
 
                 // 全服广播
                 String msg = "§c[金融] 由于商品 " + id + " 被移除，公司「" + company.getName() + "」已强制退市。"
-                        + (distAmount > 0 ? "每位在线玩家获得补偿 §a" + distAmount + "§c 金币。" : "");
+                        + (distAmount > 0 ? "每位在线玩家获得补偿 §a" + distAmount + "§c 便士。" : "");
                 for (ServerPlayer p : onlinePlayers) {
                     p.sendSystemMessage(Component.literal(msg));
                 }

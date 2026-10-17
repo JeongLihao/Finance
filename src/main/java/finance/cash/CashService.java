@@ -11,7 +11,7 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * 实体现金：账户余额 ⇄ 背包里的硬币和纸币（1:1），现金 ⇄ 绿宝石（按配置的买卖价，带每日额度）。
+ * 实体现金：账户余额 ⇄ 背包里的便士硬币和英镑纸币（1:1，账户单位就是便士），现金 ⇄ 绿宝石（按配置的买卖价，带每日额度）。
  * <p>
  * 现金是不记名的：取出时从账户扣钱、发出物品；存入时收回物品、给账户入账，谁拿着就是谁的。
  * 绿宝石兑换由“现金发行处”（{@link #ISSUER}）做对手方：收绿宝石付现金是新发行货币，
@@ -22,7 +22,7 @@ public final class CashService {
     /** 现金发行处：交易记录里绿宝石兑换和存取现金的对方。不是真实账户，不持有余额。 */
     public static final UUID ISSUER = UUID.nameUUIDFromBytes("finance:cash-issuer".getBytes(java.nio.charset.StandardCharsets.UTF_8));
 
-    /** 单次最多取出的金额：200 张百元纸币，避免一次掉落几十组物品。 */
+    /** 单次最多取出的金额：200 张 1 磅纸币，避免一次掉落几十组物品。 */
     public static final long MAX_WITHDRAW = 20_000;
     /** 单次最多兑换的绿宝石数（一组）。 */
     public static final long MAX_EMERALDS_PER_ACTION = 64;
@@ -43,12 +43,12 @@ public final class CashService {
 
     // ---------------------------------------------------------------- 报价
 
-    /** 每颗绿宝石换得的金币。 */
+    /** 每颗绿宝石换得的便士。 */
     public static long emeraldToCash() {
         return Math.max(1, FinanceConfig.cashEmeraldToCash());
     }
 
-    /** 买一颗绿宝石要付的金币；不低于 {@link #emeraldToCash()}，保证没有来回套利。 */
+    /** 买一颗绿宝石要付的便士；不低于 {@link #emeraldToCash()}，保证没有来回套利。 */
     public static long cashToEmerald() {
         return Math.max(emeraldToCash(), FinanceConfig.cashCashToEmerald());
     }
@@ -71,7 +71,7 @@ public final class CashService {
         long total = purse.cashTotal();
         if (total <= 0) return Result.fail("身上没有现金。");
         long want = amount <= 0 ? total : amount;
-        if (want > total) return Result.fail("身上现金只有 " + total + " 金币，不够存入 " + want + "。");
+        if (want > total) return Result.fail("身上现金只有 " + total + " 便士，不够存入 " + want + "。");
         if (!AccountManager.canDeposit(player, want)) return Result.fail("账户余额已达上限，无法存入。");
 
         long change = takeExact(purse, want);
@@ -82,7 +82,7 @@ public final class CashService {
         }
         AccountManager.addTransactionRecord(new TransactionRecord(ISSUER, player, want, TransactionType.CASH_DEPOSIT,
                 player, "现金", want));
-        return Result.ok("已存入 " + want + " 金币" + (change > 0 ? "（找零 " + change + "）" : "")
+        return Result.ok("已存入 " + want + " 便士" + (change > 0 ? "（找零 " + change + "）" : "")
                 + "，账户余额 " + AccountManager.getBalance(player) + "。");
     }
 
@@ -91,14 +91,14 @@ public final class CashService {
         Result blocked = blocked(player, purse);
         if (blocked != null) return blocked;
         if (amount <= 0) return Result.fail("取出金额必须大于 0。");
-        if (amount > MAX_WITHDRAW) return Result.fail("单次最多取出 " + MAX_WITHDRAW + " 金币。");
+        if (amount > MAX_WITHDRAW) return Result.fail("单次最多取出 " + MAX_WITHDRAW + " 便士。");
         long balance = AccountManager.getBalance(player);
-        if (balance < amount) return Result.fail("账户可用余额只有 " + balance + " 金币。");
+        if (balance < amount) return Result.fail("账户可用余额只有 " + balance + " 便士。");
         if (!AccountManager.withdraw(player, amount)) return Result.fail("扣款失败，请稍后重试。");
         giveAmount(purse, amount);
         AccountManager.addTransactionRecord(new TransactionRecord(player, ISSUER, amount, TransactionType.CASH_WITHDRAW,
                 player, "现金", amount));
-        return Result.ok("已取出 " + amount + " 金币现金，账户余额 " + AccountManager.getBalance(player) + "。");
+        return Result.ok("已取出 " + amount + " 便士现金，账户余额 " + AccountManager.getBalance(player) + "。");
     }
 
     // ---------------------------------------------------------------- 现金 ⇄ 绿宝石
@@ -117,7 +117,7 @@ public final class CashService {
         purse.setQuotaUsed(QUOTA_SELL, day, purse.quotaUsed(QUOTA_SELL, day) + count);
         AccountManager.addTransactionRecord(new TransactionRecord(ISSUER, player, cash, TransactionType.EMERALD_SELL,
                 player, "绿宝石", count));
-        return Result.ok(count + " 颗绿宝石换得 " + cash + " 金币现金。今天还能卖 " + (q.sellLeft() - count) + " 颗。");
+        return Result.ok(count + " 颗绿宝石换得 " + cash + " 便士现金。今天还能卖 " + (q.sellLeft() - count) + " 颗。");
     }
 
     /** 用现金买绿宝石。 */
@@ -129,13 +129,13 @@ public final class CashService {
         if (count > q.buyLeft()) return Result.fail("今天还能买入 " + q.buyLeft() + " 颗绿宝石（每日 " + q.buyLimit() + " 颗）。");
         long cost = Math.multiplyExact(count, q.cashToEmerald());
         long total = purse.cashTotal();
-        if (total < cost) return Result.fail("需要 " + cost + " 金币现金，身上只有 " + total + "。可以先从账户取现。");
+        if (total < cost) return Result.fail("需要 " + cost + " 便士现金，身上只有 " + total + "。可以先从账户取现。");
         long change = takeExact(purse, cost);
         purse.giveEmeralds(count);
         purse.setQuotaUsed(QUOTA_BUY, day, purse.quotaUsed(QUOTA_BUY, day) + count);
         AccountManager.addTransactionRecord(new TransactionRecord(player, ISSUER, cost, TransactionType.EMERALD_BUY,
                 player, "绿宝石", count));
-        return Result.ok("花 " + cost + " 金币现金买入 " + count + " 颗绿宝石" + (change > 0 ? "（找零 " + change + "）" : "")
+        return Result.ok("花 " + cost + " 便士现金买入 " + count + " 颗绿宝石" + (change > 0 ? "（找零 " + change + "）" : "")
                 + "。今天还能买 " + (q.buyLeft() - count) + " 颗。");
     }
 

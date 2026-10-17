@@ -1150,11 +1150,11 @@ public final class FinanceConfig {
         builder.pop();
 
         builder.push("cash");
-        CASH_ENABLED = builder.comment("实体现金（硬币、纸币）：可从账户取出、存回账户，并与绿宝石兑换。关闭后现金物品仍在，但不能存取和兑换。")
+        CASH_ENABLED = builder.comment("实体现金（便士硬币、英镑纸币；账户单位是便士，100 便士 = 1 磅）：可从账户取出、存回账户，并与绿宝石兑换。关闭后现金物品仍在，但不能存取和兑换。")
                 .define("enabled", CASH_ENABLED_VALUE);
-        CASH_EMERALD_TO_CASH = builder.comment("玩家卖出 1 颗绿宝石得到的金币。默认 50 ≈ 盔甲匠收 4 个铁锭（铁锭基准价 10）的价值。")
+        CASH_EMERALD_TO_CASH = builder.comment("玩家卖出 1 颗绿宝石得到的便士。默认 50 ≈ 盔甲匠收 4 个铁锭（铁锭基准价 10）的价值。")
                 .defineInRange("emeraldToCash", CASH_EMERALD_TO_CASH_VALUE, 1L, 1_000_000L);
-        CASH_CASH_TO_EMERALD = builder.comment("玩家买入 1 颗绿宝石要付的金币；低于 emeraldToCash 时按 emeraldToCash 计，避免来回套利。")
+        CASH_CASH_TO_EMERALD = builder.comment("玩家买入 1 颗绿宝石要付的便士；低于 emeraldToCash 时按 emeraldToCash 计，避免来回套利。")
                 .defineInRange("cashToEmerald", CASH_CASH_TO_EMERALD_VALUE, 1L, 1_000_000L);
         CASH_DAILY_EMERALD_SELL_LIMIT = builder.comment("每名玩家每个 MC 日最多卖出的绿宝石数，防止袭击塔等刷绿宝石无限印钱。0 = 禁止卖出。")
                 .defineInRange("dailyEmeraldSellLimit", CASH_DAILY_EMERALD_SELL_LIMIT_VALUE, 0, 100_000);

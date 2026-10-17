@@ -54,7 +54,7 @@ public final class CashCommand {
         CashService.Quote q = CashService.quote(purse, EconomyCycleService.currentMcDay(player.server));
         c.getSource().sendSuccess(() -> Component.literal("账户余额 " + AccountManager.getBalance(player.getUUID())
                 + "，随身现金 " + purse.cashTotal() + "，绿宝石 " + purse.emeralds() + " 颗\n"
-                + "卖出 1 颗绿宝石得 " + q.emeraldToCash() + " 金币，买入 1 颗付 " + q.cashToEmerald() + " 金币\n"
+                + "卖出 1 颗绿宝石得 " + q.emeraldToCash() + " 便士，买入 1 颗付 " + q.cashToEmerald() + " 便士\n"
                 + "今日还可卖出 " + q.sellLeft() + "/" + q.sellLimit() + " 颗，买入 " + q.buyLeft() + "/" + q.buyLimit() + " 颗"
                 + (q.enabled() ? "" : "\n实体现金未启用（配置 cash.enabled）")), false);
         return 1;
