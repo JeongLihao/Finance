@@ -38,8 +38,57 @@ public final class FactoryService {
     public static void processDay(MinecraftServer server, long day) {
         if (day < 0) return;
         if (server != null) scanAll(server, day);
-        for (CompanyFacilityRecord facility : CompanyFacilityManager.all()) prepare(facility, day);
+        for (CompanyFacilityRecord facility : CompanyFacilityManager.all()) {
+            ProductionTier before = facility.factory().activeTier();
+            long jobsBefore = facility.factory().lastJobs();
+            boolean fresh = facility.factory().lastResolvedDay() < day;
+            prepare(facility, day);
+            if (fresh) reportTransition(facility, before, jobsBefore);
+        }
+        reportCoalPrice(day);
         EconomySavedData.markDirty();
+    }
+
+    // ---------------------------------------------------------------- 周报新闻
+
+    /** 煤价新闻同一条每 30 天最多一次（运行时状态，重启后最多再报一次）。 */
+    static final int COAL_NEWS_GAP_DAYS = 30;
+    static final int COAL_NEWS_FACTOR_PERCENT = 130;
+    private static long lastCoalNewsDay = Long.MIN_VALUE;
+
+    /** 工厂启用工业档时上周报："X 公司启用流水线，裁员 20 人"。 */
+    static void reportTransition(CompanyFacilityRecord facility, ProductionTier before, long jobsBefore) {
+        ProductionTier after = facility.factory().activeTier();
+        if (after != ProductionTier.INDUSTRIAL || before == ProductionTier.INDUSTRIAL) return;
+        if (!finance.macro.NewsService.enabled()) return;
+        Company company = CompanyManager.getCompany(facility.companyId());
+        ProductionMethod method = company == null ? null : ProductionMethods.get(company.getType(), after);
+        if (method == null) return;
+        long layoffs = jobsBefore < 0 ? 0 : Math.max(0, jobsBefore - jobs(facility));
+        String headline = layoffs > 0
+                ? company.getName() + "启用" + method.displayName() + "，裁员 " + layoffs + " 人"
+                : company.getName() + "启用" + method.displayName();
+        finance.macro.NewsService.report(45, headline,
+                "机器取代了人手：产量更高，但要吃更多的煤和铁。", false);
+    }
+
+    /** 有工业档工厂且煤价比基准价高出 30% 以上时："煤价因工业化上涨 X%"。 */
+    static void reportCoalPrice(long day) {
+        if (!finance.macro.NewsService.enabled()) return;
+        if (lastCoalNewsDay != Long.MIN_VALUE && day - lastCoalNewsDay < COAL_NEWS_GAP_DAYS) return;
+        if (tierCounts().get(ProductionTier.INDUSTRIAL.ordinal()) <= 0) return;
+        var price = finance.market.NpcMarketMaker.getMarketPrice("coal");
+        var coal = finance.commodity.CommodityRegistry.getCommodity("coal");
+        if (price == null || coal == null || coal.getBasePrice() <= 0) return;
+        long percent = price.getAskPrice() * 100 / coal.getBasePrice();
+        if (percent < COAL_NEWS_FACTOR_PERCENT) return;
+        lastCoalNewsDay = day;
+        finance.macro.NewsService.report(50, "煤价因工业化上涨 " + (percent - 100) + "%",
+                "工厂的锅炉和高炉在抢煤，村民的取暖钱跟着涨。", false);
+    }
+
+    public static void clearDirect() {
+        lastCoalNewsDay = Long.MIN_VALUE;
     }
 
     /** 判定某设施当天的生产方式（幂等）。 */
@@ -47,11 +96,24 @@ public final class FactoryService {
         if (facility == null || !operational(facility)) return;
         Company company = CompanyManager.getCompany(facility.companyId());
         if (company == null) return;
+        boolean fresh = facility.factory().lastResolvedDay() < day;
         facility.factory().resolveDay(company.getType(), facility.productionLevel(), day);
+        if (fresh) facility.factory().setLastJobs(jobs(facility));
     }
 
     static boolean operational(CompanyFacilityRecord facility) {
         return facility.status() != CompanyFacilityStatus.DISABLED && facility.status() != CompanyFacilityStatus.ORPHANED;
+    }
+
+    /** 全服工厂档位统计：[手工, 改良, 工业, 停产或临时作坊]，供宏观页签显示。 */
+    public static List<Integer> tierCounts() {
+        int[] counts = new int[4];
+        for (CompanyFacilityRecord f : CompanyFacilityManager.all()) {
+            if (!operational(f)) continue;
+            ProductionTier tier = f.factory().activeTier();
+            counts[tier == null ? 3 : tier.ordinal()]++;
+        }
+        return List.of(counts[0], counts[1], counts[2], counts[3]);
     }
 
     /** 当天生效的生产方式；null 表示缺少设备。调用前应已 {@link #prepare}。 */

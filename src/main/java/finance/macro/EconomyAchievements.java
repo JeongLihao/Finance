@@ -43,10 +43,15 @@ public final class EconomyAchievements {
     public static final String LAWMAKER = "macro_lawmaker";
     public static final String FAILED_BILL = "macro_failed_bill";
     public static final String DEBT_FREE = "macro_debt_free";
+    /** 第一次有工厂进入工业档。 */
+    public static final String INDUSTRIAL_REVOLUTION = "macro_industrial_revolution";
+    /** 同一家公司至少三座工厂都坚持手工档，并且盈利。 */
+    public static final String ARTISAN = "macro_artisan";
 
     /** 全部成就 id（顺序即展示顺序）。 */
     public static final java.util.List<String> ALL = java.util.List.of(FIRST_HIRE, GOOD_BOSS, SWEATSHOP, STRIKE, BOOMTOWN,
-            GOLDEN_AGE, FAMINE_RELIEF, MONOPOLY, HOARDER, CARAVAN_TYCOON, LOBBYIST, LAWMAKER, FAILED_BILL, DEBT_FREE);
+            GOLDEN_AGE, FAMINE_RELIEF, MONOPOLY, HOARDER, CARAVAN_TYCOON, LOBBYIST, LAWMAKER, FAILED_BILL, DEBT_FREE,
+            INDUSTRIAL_REVOLUTION, ARTISAN);
 
     // ---- 阈值 ----
     static final int GOOD_BOSS_WORKERS = 20;
@@ -162,7 +167,32 @@ public final class EconomyAchievements {
         checkMarkets();
         checkCaravans();
         checkTreasury();
+        checkFactories();
         STALL_SALES.clear();
+    }
+
+    static final int ARTISAN_FACTORIES = 3;
+
+    /** 厂房成就：工业革命（工厂进入工业档）、手艺人（三座以上工厂都在手工档且公司盈利）。 */
+    private static void checkFactories() {
+        Map<UUID, int[]> byCompany = new HashMap<>(); // [工厂数, 手工档数]
+        for (CompanyFacilityRecord facility : CompanyFacilityManager.all()) {
+            if (facility.status() == finance.gameplay.company.CompanyFacilityStatus.DISABLED
+                    || facility.status() == finance.gameplay.company.CompanyFacilityStatus.ORPHANED) continue;
+            Company company = CompanyManager.getCompany(facility.companyId());
+            if (company == null || company.getOwnerId() == null) continue;
+            var tier = facility.factory().activeTier();
+            if (tier == finance.gameplay.company.factory.ProductionTier.INDUSTRIAL) award(company.getOwnerId(), INDUSTRIAL_REVOLUTION);
+            int[] c = byCompany.computeIfAbsent(company.getCompanyId(), k -> new int[2]);
+            c[0]++;
+            if (tier == finance.gameplay.company.factory.ProductionTier.MANUAL) c[1]++;
+        }
+        byCompany.forEach((companyId, c) -> {
+            Company company = CompanyManager.getCompany(companyId);
+            if (company != null && c[0] >= ARTISAN_FACTORIES && c[1] == c[0] && company.getSmoothedDailyProfit() > 0) {
+                award(company.getOwnerId(), ARTISAN);
+            }
+        });
     }
 
     private static void checkEmployers() {

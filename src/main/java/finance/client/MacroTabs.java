@@ -69,7 +69,12 @@ public final class MacroTabs {
         renderGroups(g, data.groups(), y);
         renderSettlement(g, data.settlements(), y);
         FinanceGui.drawButton(font, g, "刷新", 340, 228, 48, entry.state() == MacroClientCache.State.LOADING);
-        FinanceGui.drawClippedString(font, g, "周报 /macro news · 商情 /macro radar", LEFT_X, 231, 300, FinanceGui.COL_TEXT_DIM);
+        List<Integer> tiers = data.factoryTiers();
+        String footer = tiers.size() == MacroResponsePacket.FACTORY_TIER_BUCKETS
+                ? "工厂 手工" + tiers.get(0) + " 改良" + tiers.get(1) + " 工业" + tiers.get(2) + " 停产" + tiers.get(3)
+                        + " · 周报 /macro news · 商情 /macro radar"
+                : "周报 /macro news · 商情 /macro radar";
+        FinanceGui.drawClippedString(font, g, footer, LEFT_X, 231, 320, FinanceGui.COL_TEXT_DIM);
     }
 
     private void renderGroups(GuiGraphics g, List<MacroResponsePacket.GroupRow> groups, int top) {
