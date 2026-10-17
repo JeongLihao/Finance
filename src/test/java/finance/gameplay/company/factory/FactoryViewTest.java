@@ -59,7 +59,7 @@ class FactoryViewTest {
         var line = view.methods().get(2);
         assertFalse(line.levelOk(), "工业档要 3 级");
         assertEquals(List.of(new CompanyGameplayMenu.FlowRow("bread", 30)), manual.outputs());
-        assertEquals(12, view.jobs(), "手工作坊 4 台 × 3 岗");
+        assertEquals(10, view.jobs(), "手工作坊：工作台 2 台 × 5 岗，木桶不提供岗位");
         assertEquals(40, view.jobsCap());
         assertEquals(-1, view.provisionalDaysLeft());
         assertEquals(4, view.zoneRadius());
