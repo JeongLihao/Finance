@@ -129,6 +129,8 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
     final MacroTabs macroTabs = new MacroTabs(this);
     /** 宏观经济页签的索引（不在 BASE_TABS/ADMIN_TABS 数组里）。 */
     static final int MACRO_TAB = 12;
+    /** 金额、价格、数量类输入框的上限（输入框最多 12 位）。 */
+    static final long MAX_INPUT_AMOUNT = 999_999_999_999L;
     /** 行情表滚动到的第一行。商品多于可见行数时用滚轮翻看。 */
     int marketScroll = 0;
 
@@ -483,20 +485,26 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
             dropdownOpen = false;
         }
 
-        boolean handled = switch (currentTab) {
-            case 0 -> this.marketTabs.handleMarketClick(mx, my);
-            case 1 -> this.marketTabs.handleTradeClick(mx, my);
-            case 2 -> this.recordTabs.handleOrdersClick(mx, my);
-            case 3 -> this.recordTabs.handleInventoryClick(mx, my);
-            case 4 -> this.companyTabs.handleCompanyClick(mx, my);
-            case 5 -> this.stockTabs.handleStockClick(mx, my);
-            case 7 -> this.recordTabs.handleAssetClick(mx, my);
-            case 8 -> this.recordTabs.handleAlertClick(mx, my);
-            case 9 -> this.serviceTabs.handleFinancialProductsClick(mx, my);
-            case 11 -> isAdmin && this.adminTabs.handleAdminClick(mx, my);
-            case MACRO_TAB -> this.macroTabs.handleClick(mx, my);
-            default -> false;
-        };
+        boolean handled;
+        try {
+            handled = switch (currentTab) {
+                case 0 -> this.marketTabs.handleMarketClick(mx, my);
+                case 1 -> this.marketTabs.handleTradeClick(mx, my);
+                case 2 -> this.recordTabs.handleOrdersClick(mx, my);
+                case 3 -> this.recordTabs.handleInventoryClick(mx, my);
+                case 4 -> this.companyTabs.handleCompanyClick(mx, my);
+                case 5 -> this.stockTabs.handleStockClick(mx, my);
+                case 7 -> this.recordTabs.handleAssetClick(mx, my);
+                case 8 -> this.recordTabs.handleAlertClick(mx, my);
+                case 9 -> this.serviceTabs.handleFinancialProductsClick(mx, my);
+                case 11 -> isAdmin && this.adminTabs.handleAdminClick(mx, my);
+                case MACRO_TAB -> this.macroTabs.handleClick(mx, my);
+                default -> false;
+            };
+        } catch (InvalidInput invalid) {
+            // 提示已写入状态栏，不发包
+            handled = true;
+        }
         if (handled) {
             rememberUiState();
             return true;
@@ -681,6 +689,30 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
             list.add(adminDisplayNameBox);
         }
         return list;
+    }
+
+    /** 输入框内容不合法时抛出；由 mouseClicked 统一吞掉，提示已写入状态栏。 */
+    static final class InvalidInput extends RuntimeException {
+        InvalidInput() { super(null, null, false, false); }
+    }
+
+    /** 读取 min..max 的整数；不合法时提示并中止本次点击，绝不把非法值静默改成 1 或越界发给服务端。 */
+    long requireLong(EditBox box, String label, long min, long max) {
+        var value = ScreenInput.parseInRange(box.getValue(), min, max);
+        if (value.isEmpty()) {
+            setStatus(ScreenInput.rangeMessage(label, min, max));
+            throw new InvalidInput();
+        }
+        return value.getAsLong();
+    }
+
+    int requireInt(EditBox box, String label, int min, int max) {
+        return (int) requireLong(box, label, min, max);
+    }
+
+    /** 金额、价格、数量：1..MAX_INPUT_AMOUNT。 */
+    long requireAmount(EditBox box, String label) {
+        return requireLong(box, label, 1, MAX_INPUT_AMOUNT);
     }
 
     void ensureCommodityCache() {

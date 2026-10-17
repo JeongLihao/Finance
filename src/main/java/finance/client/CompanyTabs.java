@@ -338,26 +338,26 @@ public final class CompanyTabs {
                     return true;
                 }
                 int controlsY=cardY+160;
-                long price=Math.max(1,FinanceFormat.parseLong(screen.stockPriceBox.getValue()));
-                long quantity=Math.max(1,FinanceFormat.parseLong(screen.stockQuantityBox.getValue()));
-                int duration=(int)Math.max(1,Math.min(90,FinanceFormat.parseLong(screen.companyAmountBox.getValue())));
+                java.util.function.LongSupplier price=()->screen.requireAmount(screen.stockPriceBox,"价格");
+                java.util.function.LongSupplier quantity=()->screen.requireAmount(screen.stockQuantityBox,"股份");
+                java.util.function.IntSupplier duration=()->screen.requireInt(screen.companyAmountBox,"期限",1,90);
                 if(my>=controlsY+23&&my<controlsY+36){
-                    if(mx>=10&&mx<58){sendProposal(playerCompany.companyId(),CompanyProposalType.SHARE_BUYBACK,"",price,quantity,duration);return true;}
-                    if(mx>=62&&mx<110){sendProposal(playerCompany.companyId(),CompanyProposalType.TREASURY_RETIREMENT,"",quantity,0,0);return true;}
+                    if(mx>=10&&mx<58){sendProposal(playerCompany.companyId(),CompanyProposalType.SHARE_BUYBACK,"",price.getAsLong(),quantity.getAsLong(),duration.getAsInt());return true;}
+                    if(mx>=62&&mx<110){sendProposal(playerCompany.companyId(),CompanyProposalType.TREASURY_RETIREMENT,"",quantity.getAsLong(),0,0);return true;}
                     if(mx>=114&&mx<162){
                         GovernanceResponsePacket data=GovernanceClientCache.get().data();
                         GovernanceResponsePacket.ActionRow action=data==null?null:data.actions().stream().filter(a->a.status()==finance.governance.CapitalActionStatus.OPEN).findFirst().orElse(null);
                         if(action==null){screen.setStatus("没有可接受的开放行动");return true;}
                         GovernanceActionPacket.Action kind="TENDER".equals(action.type())?GovernanceActionPacket.Action.ACCEPT_TENDER:GovernanceActionPacket.Action.ACCEPT_BUYBACK;
-                        FinancePacketHandler.CHANNEL.sendToServer(new GovernanceActionPacket(kind,action.id(),0,quantity,0,0,UUID.randomUUID().toString()));
+                        FinancePacketHandler.CHANNEL.sendToServer(new GovernanceActionPacket(kind,action.id(),0,quantity.getAsLong(),0,0,UUID.randomUUID().toString()));
                         screen.setStatus("已提交行动接受请求");return true;
                     }
                     String target=screen.companyNameBox.getValue().trim();
                     if(mx>=166&&mx<214){
-                        try{UUID targetCompany=UUID.fromString(target);FinancePacketHandler.CHANNEL.sendToServer(new GovernanceActionPacket(GovernanceActionPacket.Action.START_TENDER,targetCompany,price,quantity,quantity,duration,UUID.randomUUID().toString()));screen.setStatus("已提交公开收购要约");}catch(IllegalArgumentException invalid){screen.setStatus("请输入目标公司的完整 UUID");}return true;
+                        try{UUID targetCompany=UUID.fromString(target);FinancePacketHandler.CHANNEL.sendToServer(new GovernanceActionPacket(GovernanceActionPacket.Action.START_TENDER,targetCompany,price.getAsLong(),quantity.getAsLong(),quantity.getAsLong(),duration.getAsInt(),UUID.randomUUID().toString()));screen.setStatus("已提交公开收购要约");}catch(IllegalArgumentException invalid){screen.setStatus("请输入目标公司的完整 UUID");}return true;
                     }
-                    if(mx>=218&&mx<266){sendProposal(playerCompany.companyId(),CompanyProposalType.EMERGENCY_RECAPITALIZATION,"",price,0,0);return true;}
-                    if(mx>=270&&mx<318){sendProposal(playerCompany.companyId(),CompanyProposalType.MAJOR_ASSET_PURCHASE,target,price,quantity,0);return true;}
+                    if(mx>=218&&mx<266){sendProposal(playerCompany.companyId(),CompanyProposalType.EMERGENCY_RECAPITALIZATION,"",price.getAsLong(),0,0);return true;}
+                    if(mx>=270&&mx<318){sendProposal(playerCompany.companyId(),CompanyProposalType.MAJOR_ASSET_PURCHASE,target,price.getAsLong(),quantity.getAsLong(),0);return true;}
                     if(mx>=322&&mx<376){GovernanceClientCache.clear();requestGovernance(playerCompany.companyId());screen.setStatus("正在刷新治理数据");return true;}
                 }
                 return false;
@@ -370,14 +370,14 @@ public final class CompanyTabs {
                 }
                 if (!playerCompany.isPublic()) return false;
                 if (my >= cardY + 106 && my < cardY + 119) {
-                    long amount = Math.max(1, FinanceFormat.parseLong(screen.companyAmountBox.getValue()));
-                    long price = Math.max(1, FinanceFormat.parseLong(screen.ipoPriceBox.getValue()));
-                    long quantity = Math.max(1, FinanceFormat.parseLong(screen.ipoQuantityBox.getValue()));
+                    java.util.function.LongSupplier amount = () -> screen.requireAmount(screen.companyAmountBox, "金额");
+                    java.util.function.LongSupplier price = () -> screen.requireAmount(screen.ipoPriceBox, "价格");
+                    java.util.function.LongSupplier quantity = () -> screen.requireAmount(screen.ipoQuantityBox, "数量");
                     String text = screen.companyNameBox.getValue().trim();
-                    if (mx >= 10 && mx < 58) { sendProposal(playerCompany.companyId(), CompanyProposalType.DIVIDEND, "", amount, 0, 0); return true; }
-                    if (mx >= 64 && mx < 112) { sendProposal(playerCompany.companyId(), CompanyProposalType.SHARE_ISSUE, "", quantity, price, amount); return true; }
+                    if (mx >= 10 && mx < 58) { sendProposal(playerCompany.companyId(), CompanyProposalType.DIVIDEND, "", amount.getAsLong(), 0, 0); return true; }
+                    if (mx >= 64 && mx < 112) { sendProposal(playerCompany.companyId(), CompanyProposalType.SHARE_ISSUE, "", quantity.getAsLong(), price.getAsLong(), amount.getAsLong()); return true; }
                     if (mx >= 118 && mx < 166) { sendProposal(playerCompany.companyId(), CompanyProposalType.RENAME, text, 0, 0, 0); return true; }
-                    if (mx >= 172 && mx < 220) { sendProposal(playerCompany.companyId(), CompanyProposalType.FUND_USAGE, text, amount, 0, 0); return true; }
+                    if (mx >= 172 && mx < 220) { sendProposal(playerCompany.companyId(), CompanyProposalType.FUND_USAGE, text, amount.getAsLong(), 0, 0); return true; }
                 }
                 List<FinanceMenu.CompanyProposalRow> proposals = proposalsForCompany(playerCompany.companyId());
                 int py = cardY + 144;
@@ -452,8 +452,8 @@ public final class CompanyTabs {
                     return true;
                 }
             }
-            if (my >= cardY + 106 && my < cardY + 119) {
-                long amount = Math.max(1, FinanceFormat.parseLong(screen.companyAmountBox.getValue()));
+            if (my >= cardY + 106 && my < cardY + 119 && (mx >= 150 && mx < 198 || mx >= 206 && mx < 254)) {
+                long amount = screen.requireAmount(screen.companyAmountBox, "金额");
                 if (mx >= 150 && mx < 198) {
                     FinancePacketHandler.CHANNEL.sendToServer(
                             CompanyManagePacket.amount(CompanyManagementAction.INVEST, amount));
@@ -468,8 +468,8 @@ public final class CompanyTabs {
                 }
             }
             if (!playerCompany.isPublic() && mx >= 322 && mx < 372 && my >= cardY + 136 && my < cardY + 149) {
-                long price = Math.max(1, FinanceFormat.parseLong(screen.ipoPriceBox.getValue()));
-                long quantity = Math.max(1, FinanceFormat.parseLong(screen.ipoQuantityBox.getValue()));
+                long price = screen.requireAmount(screen.ipoPriceBox, "发行价");
+                long quantity = screen.requireAmount(screen.ipoQuantityBox, "发行数");
                 screen.setStatus("已提交公司IPO");
                 FinancePacketHandler.CHANNEL.sendToServer(
                         new CompanyIPOPacket(playerCompany.companyId(), price, quantity));
@@ -477,9 +477,9 @@ public final class CompanyTabs {
             }
             if (playerCompany.isPublic() && financingForCompany(playerCompany.companyId()) == null
                     && mx >= 322 && mx < 372 && my >= cardY + 136 && my < cardY + 149) {
-                long price = Math.max(1, FinanceFormat.parseLong(screen.ipoPriceBox.getValue()));
-                long quantity = Math.max(1, FinanceFormat.parseLong(screen.ipoQuantityBox.getValue()));
-                long target = Math.max(1, FinanceFormat.parseLong(screen.companyAmountBox.getValue()));
+                long price = screen.requireAmount(screen.ipoPriceBox, "增发价");
+                long quantity = screen.requireAmount(screen.ipoQuantityBox, "增发数");
+                long target = screen.requireAmount(screen.companyAmountBox, "目标金额");
                 screen.setStatus("已提交融资申请");
                 FinancePacketHandler.CHANNEL.sendToServer(
                         CompanyFinancingPacket.start(playerCompany.companyId(), quantity, price, target));
