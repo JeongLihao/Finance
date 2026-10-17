@@ -28,8 +28,8 @@ public final class ProductionMethods {
         add(CompanyType.FOOD, INDUSTRIAL, "food.industrial", "机械农场", 2,
                 eq(PISTON, 4, OBSERVER, 2, HOPPER, 2), Map.of("iron", 3, "coal", 6), Map.of("wheat", 180));
 
-        // 长期模拟调平：面包坊利润薄，手工作坊每台 5 岗（共 20）会全年亏损，调为每台 3 岗（共 12）
-        add(CompanyType.FOOD_PROCESSING, MANUAL, "food_processing.manual", "手工作坊", 3,
+        // 木桶是辅助方块不提供岗位：工作台 2 台 × 5 = 10 岗，与旧规则 1 级 10 岗一致
+        add(CompanyType.FOOD_PROCESSING, MANUAL, "food_processing.manual", "手工作坊", 5,
                 eq(CRAFTING_TABLE, 2, BARREL, 2), Map.of("wheat", 40), Map.of("bread", 30));
         add(CompanyType.FOOD_PROCESSING, IMPROVED, "food_processing.improved", "蒸汽烘焙", 4,
                 eq(SMOKER, 3, BARREL, 2), Map.of("wheat", 60, "coal", 8), Map.of("bread", 48));

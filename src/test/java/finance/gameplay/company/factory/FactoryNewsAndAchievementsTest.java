@@ -59,12 +59,12 @@ class FactoryNewsAndAchievementsTest {
         f.factory().recordScan(Map.of(COMPOSTER, 6), 1, 16);
         FactoryService.processDay(null, 1);
         assertEquals(30, FactoryService.jobs(f));
-        // 换成机械农场：8 台 × 2 岗 = 16，裁员 14 人
+        // 换成机械农场：活塞 4 + 侦测器 2 = 6 台 × 2 岗 = 12（漏斗是辅助方块），裁员 18 人
         f.factory().recordScan(Map.of(PISTON, 4, OBSERVER, 2, HOPPER, 2), 2, 16);
         f.factory().setTargetTier(ProductionTier.INDUSTRIAL);
         FactoryService.processDay(null, 2);
         assertEquals(ProductionTier.INDUSTRIAL, f.factory().activeTier());
-        assertTrue(NewsService.pool().stream().anyMatch(i -> i.headline().equals("麦田农庄启用机械农场，裁员 14 人")),
+        assertTrue(NewsService.pool().stream().anyMatch(i -> i.headline().equals("麦田农庄启用机械农场，裁员 18 人")),
                 "周报应报道启用工业档：" + NewsService.pool());
         // 同一天重复处理不重复上报
         int before = NewsService.pool().size();

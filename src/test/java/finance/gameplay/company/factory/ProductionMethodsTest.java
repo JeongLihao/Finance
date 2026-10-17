@@ -75,9 +75,9 @@ class ProductionMethodsTest {
         assertEquals(30, ProductionMethods.jobs(manual, counts(COMPOSTER, 6), 2, 16, 20));
         assertEquals(40, ProductionMethods.jobs(manual, counts(COMPOSTER, 64), 3, 8, 20), "每种设备最多计 8 台");
         ProductionMethod industrial = ProductionMethods.get(CompanyType.FOOD, INDUSTRIAL);
-        // 4 活塞 + 2 侦测器 + 2 漏斗 = 8 台 × 2
-        assertEquals(16, ProductionMethods.jobs(industrial, counts(PISTON, 4, OBSERVER, 2, HOPPER, 2, COMPOSTER, 9), 3, 16, 20),
-                "不属于本档的设备不提供岗位");
+        // 4 活塞 + 2 侦测器 = 6 台 × 2；漏斗是辅助方块，堆肥桶不属于本档，都不提供岗位
+        assertEquals(12, ProductionMethods.jobs(industrial, counts(PISTON, 4, OBSERVER, 2, HOPPER, 2, COMPOSTER, 9), 3, 16, 20),
+                "辅助方块和不属于本档的设备不提供岗位");
         assertEquals(0, ProductionMethods.jobs(null, counts(COMPOSTER, 2), 3, 16, 20));
     }
 

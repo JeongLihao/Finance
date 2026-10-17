@@ -34,6 +34,7 @@ public record ProductionMethod(CompanyType companyType, ProductionTier tier, Str
     public long deviceJobs(Map<FactoryEquipment, Integer> counts, int maxPerType) {
         long jobs = 0;
         for (FactoryEquipment e : required.keySet()) {
+            if (!e.providesJobs()) continue; // 辅助方块只算门槛，不提供岗位
             jobs += (long) Math.min(count(counts, e), Math.max(0, maxPerType)) * jobsPerDevice;
         }
         return jobs;

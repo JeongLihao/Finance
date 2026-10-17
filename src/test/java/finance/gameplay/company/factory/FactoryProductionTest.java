@@ -106,7 +106,7 @@ class FactoryProductionTest {
         int before = stock("wheat");
         assertTrue(produce(5), () -> "status=" + facility.status() + " active=" + facility.factory().activeTier() + " scanDay=" + facility.factory().equipmentScanDay() + " eq=" + facility.factory().equipment());
         assertEquals(180 * 4, stock("wheat") - before);
-        assertEquals(16, FactoryService.jobs(facility), "机械农场只认本档设备：8 台 × 2 岗");
+        assertEquals(12, FactoryService.jobs(facility), "机械农场只认本档设备，漏斗不提供岗位：6 台 × 2 岗");
     }
 
     @Test void legacyFacilityKeepsOldRulesDuringProvisionalWorkshop() {
