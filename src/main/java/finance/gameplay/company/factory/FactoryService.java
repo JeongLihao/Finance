@@ -123,7 +123,8 @@ public final class FactoryService {
 
     /** 界面用的即时扫描：只用于显示清单和校验切换，不写入设施记录。 */
     public static Map<FactoryEquipment, Integer> scanForDisplay(ServerLevel level, CompanyFacilityRecord facility) {
-        if (level == null || facility == null) return Map.of();
+        if (facility == null) return Map.of();
+        if (level == null) return facility.factory().equipment(); // 没有世界可扫：用最近一次快照
         List<CompanyFacilityRecord> same = CompanyFacilityManager.all().stream()
                 .filter(f -> operational(f) && f.dimensionId().equals(facility.dimensionId())).toList();
         List<BlockPos> controllers = same.stream().map(CompanyFacilityRecord::blockPos).toList();
@@ -131,6 +132,31 @@ public final class FactoryService {
         FactoryZone zone = zone();
         if (self < 0 || !zoneLoaded(level, facility.blockPos(), zone)) return facility.factory().equipment();
         return zone.count(self, controllers, pos -> equipmentAt(level, pos), FinanceConfig.facilityMaxEquipmentPerType());
+    }
+
+    /** 运转表现：随机抽几格，是设备就在上方冒对应的工作粒子（烟熏炉、熔炉冒烟，织布机冒绒毛……）。 */
+    public static void workParticles(ServerLevel level, CompanyFacilityRecord facility) {
+        if (level == null || facility == null) return;
+        FactoryZone zone = zone();
+        BlockPos c = facility.blockPos();
+        var random = level.getRandom();
+        for (int i = 0; i < 6; i++) {
+            BlockPos pos = c.offset(random.nextInt(zone.radius() * 2 + 1) - zone.radius(),
+                    random.nextInt(zone.below() + zone.above() + 1) - zone.below(),
+                    random.nextInt(zone.radius() * 2 + 1) - zone.radius());
+            FactoryEquipment e = equipmentAt(level, pos);
+            net.minecraft.core.particles.ParticleOptions particle = e == null ? null : switch (e) {
+                case SMOKER, FURNACE, BLAST_FURNACE -> net.minecraft.core.particles.ParticleTypes.SMOKE;
+                case LOOM -> net.minecraft.core.particles.ParticleTypes.WHITE_ASH;
+                case COMPOSTER, HAY_BLOCK -> net.minecraft.core.particles.ParticleTypes.COMPOSTER;
+                case GRINDSTONE, STONECUTTER, ANVIL -> net.minecraft.core.particles.ParticleTypes.CRIT;
+                case PISTON, OBSERVER, REDSTONE_LAMP, HOPPER -> net.minecraft.core.particles.DustParticleOptions.REDSTONE;
+                default -> null;
+            };
+            if (particle != null) {
+                level.sendParticles(particle, pos.getX() + 0.5, pos.getY() + 1.1, pos.getZ() + 0.5, 3, 0.2, 0.1, 0.2, 0.01);
+            }
+        }
     }
 
     static boolean zoneLoaded(ServerLevel level, BlockPos controller, FactoryZone zone) {

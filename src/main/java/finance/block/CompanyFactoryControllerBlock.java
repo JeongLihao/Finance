@@ -32,15 +32,10 @@ public final class CompanyFactoryControllerBlock extends BaseEntityBlock {
         if (!level.isClientSide && player instanceof ServerPlayer server && level.getBlockEntity(pos) instanceof CompanyFactoryControllerBlockEntity factory) {
             if (factory.registerOrValidate(server)) {
                 if (player.isShiftKeyDown()) {
+                    // 蹲下右键：当前方式 · 岗位 · 缺什么
                     var facility = CompanyFacilityManager.get(factory.facilityId());
-                    var company = facility == null ? null : finance.company.CompanyManager.getCompany(facility.companyId());
-                    CompanyUpgradeRequirementService.Requirement requirement = company == null || facility == null ? null
-                            : CompanyUpgradeRequirementService.requirement(company.getType(), facility.type(),
-                            facility.productionLevel());
-                    server.displayClientMessage(net.minecraft.network.chat.Component.translatable(
-                            "finance.company_gameplay.inspect", facility == null ? 0 : facility.productionLevel(),
-                            facility == null ? "-" : facility.status().name(),
-                            CompanyUpgradeRequirementService.summary(requirement)), true);
+                    server.displayClientMessage(finance.gameplay.company.factory.FactoryMethodService.inspect(
+                            server.serverLevel(), facility, finance.cycle.EconomyCycleService.currentMcDay(server.server)), true);
                 } else CompanyGameplayGuiOpener.open(server, pos);
             }
             else server.displayClientMessage(net.minecraft.network.chat.Component.translatable("finance.company_gameplay.factory_denied"), true);

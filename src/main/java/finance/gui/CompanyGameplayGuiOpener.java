@@ -79,6 +79,12 @@ public final class CompanyGameplayGuiOpener {
         long dueSoon = showOperating ? snapshot.amountDueWithinSevenDays() : 0;
         long cash = privateView ? company.getCash() : 0;
         String dimension = player.serverLevel().dimension().location().toString();
+        // 从工厂控制器打开时附带厂房页；邀请中的玩家看不到
+        CompanyGameplayMenu.FactoryView factoryView = !invited && be instanceof CompanyFactoryControllerBlockEntity controller
+                ? finance.gameplay.company.factory.FactoryMethodService.view(player.serverLevel(),
+                        CompanyFacilityManager.get(controller.facilityId()),
+                        finance.cycle.EconomyCycleService.currentMcDay(player.server))
+                : null;
         MenuProvider provider = new MenuProvider() {
             public Component getDisplayName() { return Component.translatable("screen.finance.company_gameplay"); }
             public CompanyGameplayMenu createMenu(int id, net.minecraft.world.entity.player.Inventory inventory,
@@ -87,14 +93,14 @@ public final class CompanyGameplayGuiOpener {
                         profile.operatingMode(), role, company.isBankruptcyRisk(), dimension, pos,
                         members, warehouses, facilities, contracts, projects, statusKey, operatingHealth,
                         inventoryValue, degraded, warehouseUsed, warehouseCapacity, activeShipments,
-                        debtPrincipal, dueSoon);
+                        debtPrincipal, dueSoon, factoryView);
             }
         };
         NetworkHooks.openScreen(player, provider, buffer -> CompanyGameplayMenu.write(buffer, companyId,
                 company.getName(), cash, company.getAutoSellRatio(), profile.operatingMode(), role,
                 company.isBankruptcyRisk(), dimension, pos, members, warehouses, facilities, contracts, projects,
                 statusKey, operatingHealth, inventoryValue, degraded, warehouseUsed, warehouseCapacity,
-                activeShipments, debtPrincipal, dueSoon));
+                activeShipments, debtPrincipal, dueSoon, factoryView));
         return true;
     }
 }
