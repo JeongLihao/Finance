@@ -5,6 +5,9 @@ import finance.bank.BankingManager;
 import finance.bank.CommercialBank;
 import finance.bank.PlayerBankService;
 import finance.bank.PublicBankViewService;
+import finance.cash.CashPurse;
+import finance.cash.CashService;
+import finance.cash.PlayerCashPurse;
 import finance.command.EarningsCommand;
 import finance.company.Company;
 import finance.company.CompanyManager;
@@ -28,6 +31,7 @@ import finance.margin.MarginPoolManager;
 import finance.margin.MarginService;
 import finance.network.PlayerServicesResponsePacket;
 import finance.network.PlayerServicesResponsePacket.Bank;
+import finance.network.PlayerServicesResponsePacket.Cash;
 import finance.network.PlayerServicesResponsePacket.GroupRow;
 import finance.network.PlayerServicesResponsePacket.LawRow;
 import finance.network.PlayerServicesResponsePacket.Macro;
@@ -49,7 +53,7 @@ import java.util.UUID;
 
 /**
  * “更多操作”界面的服务端逻辑：把原来只能用命令完成的玩家操作（融资融券、玩家银行、要约的撤回与强制私有化、
- * 宏观经济的工资/法律/游说/报纸/商情、财报查询）汇总成一份快照，并按动作调用与命令相同的服务方法。
+ * 宏观经济的工资/法律/游说/报纸/商情、财报查询、实体现金存取与绿宝石兑换）汇总成一份快照，并按动作调用与命令相同的服务方法。
  * 校验、扣费和留痕都在原服务里，这里只做参数解析和转发。
  */
 public final class PlayerServicesService {
@@ -58,7 +62,8 @@ public final class PlayerServicesService {
         BANK_CHARTER, BANK_RATES, BANK_DIVIDEND,
         TENDER_OFFER, TENDER_ACCEPT, TENDER_CANCEL, SQUEEZE_OUT,
         MACRO_WAGE, MACRO_PROPOSE, MACRO_LOBBY, MACRO_NEWS, MACRO_RADAR,
-        EARNINGS_REPORT
+        EARNINGS_REPORT,
+        CASH_DEPOSIT, CASH_WITHDRAW, EMERALD_SELL, EMERALD_BUY
     }
 
     public record Result(boolean success, String message) {
@@ -81,13 +86,25 @@ public final class PlayerServicesService {
     // ---------------------------------------------------------------- 快照
 
     public static PlayerServicesResponsePacket snapshot(long requestId, UUID player, long day) {
+        return snapshot(requestId, player, null, day);
+    }
+
+    /** purse 为 null 时（没有在线玩家）现金页只显示汇率，随身现金和绿宝石按 0 显示。 */
+    public static PlayerServicesResponsePacket snapshot(long requestId, UUID player, CashPurse purse, long day) {
         Detail detail;
         synchronized (DETAILS) {
             detail = DETAILS.getOrDefault(player, new Detail("", List.of()));
         }
         return new PlayerServicesResponsePacket(requestId, margin(player), bank(player), tenders(player),
                 squeezable(player, day), macro(player), EarningsCommand.calendarLines(day, CALENDAR_DAYS),
-                detail.title(), detail.lines());
+                detail.title(), detail.lines(), cash(player, purse, day));
+    }
+
+    static Cash cash(UUID player, CashPurse purse, long day) {
+        CashService.Quote q = CashService.quote(purse, day);
+        return new Cash(q.enabled(), AccountManager.getBalance(player), purse == null ? 0 : purse.cashTotal(),
+                purse == null ? 0 : purse.emeralds(), q.emeraldToCash(), q.cashToEmerald(),
+                q.sellLeft(), q.buyLeft(), q.sellLimit(), q.buyLimit());
     }
 
     static Margin margin(UUID player) {
@@ -184,6 +201,13 @@ public final class PlayerServicesService {
      */
     public static Result act(ServerPlayer serverPlayer, UUID player, Action action, String text,
                              long a, long b, long c, long d, long day) {
+        return act(serverPlayer, serverPlayer == null ? null : new PlayerCashPurse(serverPlayer), player, action, text,
+                a, b, c, d, day);
+    }
+
+    /** purse 是现金动作用的背包；测试里传内存实现。 */
+    public static Result act(ServerPlayer serverPlayer, CashPurse purse, UUID player, Action action, String text,
+                             long a, long b, long c, long d, long day) {
         if (player == null || action == null) return Result.fail("参数无效");
         String t = text == null ? "" : text.trim();
         return switch (action) {
@@ -207,6 +231,10 @@ public final class PlayerServicesService {
             case MACRO_NEWS -> news(serverPlayer);
             case MACRO_RADAR -> radar(player, day);
             case EARNINGS_REPORT -> report(player, t);
+            case CASH_DEPOSIT -> cash(CashService.deposit(player, purse, a));
+            case CASH_WITHDRAW -> cash(CashService.withdraw(player, purse, a));
+            case EMERALD_SELL -> cash(CashService.sellEmeralds(player, purse, a, day));
+            case EMERALD_BUY -> cash(CashService.buyEmeralds(player, purse, a, day));
         };
     }
 
@@ -217,6 +245,8 @@ public final class PlayerServicesService {
     private static Result margin(MarginService.Result r) { return new Result(r.success(), r.message()); }
 
     private static Result bank(BankingManager.Result r) { return new Result(r.success(), r.message()); }
+
+    private static Result cash(CashService.Result r) { return new Result(r.success(), r.message()); }
 
     private static Result corp(CorporateActionManager.Result r) { return new Result(r.success(), r.message()); }
 

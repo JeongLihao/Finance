@@ -662,5 +662,11 @@
   "screen.finance.newspaper.next": "Section >",
   "screen.finance.newspaper.columns": "Page %s / %s · scroll",
   "screen.finance.newspaper.keys": "← → sections",
-  "screen.finance.newspaper.empty": "This newspaper is blank"
+  "screen.finance.newspaper.empty": "This newspaper is blank",
+  "item.finance.coin": "1 Coin",
+  "item.finance.banknote_10": "10 Coin Banknote",
+  "item.finance.banknote_100": "100 Coin Banknote",
+  "item.finance.cash.value": "Face value: %s coins",
+  "item.finance.cash.stack_value": "This stack: %s coins",
+  "item.finance.cash.hint": "Right-click: deposit or exchange for emeralds"
 }

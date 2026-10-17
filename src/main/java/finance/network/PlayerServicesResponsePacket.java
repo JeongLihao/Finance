@@ -13,12 +13,12 @@ import java.util.function.Supplier;
 
 /**
  * “更多操作”界面的快照（服务端 → 客户端）：融资融券、我的银行、要约收购、宏观行动、财报，
- * 以及最近一次查询类操作（商情调查、季报）的结果文字。
+ * 最近一次查询类操作（商情调查、季报）的结果文字，以及实体现金页（余额、随身现金、绿宝石汇率与今日额度）。
  */
 public record PlayerServicesResponsePacket(long requestId, Margin margin, Bank bank,
                                            List<TenderRow> tenders, List<SqueezeRow> squeezable,
                                            Macro macro, List<String> calendar,
-                                           String detailTitle, List<String> detail) {
+                                           String detailTitle, List<String> detail, Cash cash) {
     public static final int MAX_TENDERS = 16, MAX_SQUEEZE = 16, MAX_LAWS = 8, MAX_LEVELS = 8,
             MAX_GROUPS = 8, MAX_LINES = 24, MAX_TEXT = 256;
 
@@ -39,7 +39,13 @@ public record PlayerServicesResponsePacket(long requestId, Margin margin, Bank b
     public record Macro(boolean active, String company, long wage, long reservationWage, List<LawRow> laws,
                         String proposal, List<GroupRow> groups, boolean newsEnabled, long radarCost) { }
 
+    public record Cash(boolean enabled, long balance, long cashOnHand, long emeralds, long emeraldToCash,
+                       long cashToEmerald, long sellLeft, long buyLeft, long sellLimit, long buyLimit) {
+        public static final Cash EMPTY = new Cash(false, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+    }
+
     public PlayerServicesResponsePacket {
+        cash = cash == null ? Cash.EMPTY : cash;
         tenders = bound(tenders, MAX_TENDERS);
         squeezable = bound(squeezable, MAX_SQUEEZE);
         calendar = bound(calendar, MAX_LINES);
@@ -83,6 +89,10 @@ public record PlayerServicesResponsePacket(long requestId, Margin margin, Bank b
         list(b, p.calendar, PlayerServicesResponsePacket::utf);
         utf(b, p.detailTitle);
         list(b, p.detail, PlayerServicesResponsePacket::utf);
+        Cash k2 = p.cash;
+        b.writeBoolean(k2.enabled());
+        for (long v : new long[]{k2.balance(), k2.cashOnHand(), k2.emeralds(), k2.emeraldToCash(), k2.cashToEmerald(),
+                k2.sellLeft(), k2.buyLeft(), k2.sellLimit(), k2.buyLimit()}) b.writeLong(v);
     }
 
     public static PlayerServicesResponsePacket decode(FriendlyByteBuf b) {
@@ -106,7 +116,9 @@ public record PlayerServicesResponsePacket(long requestId, Margin margin, Bank b
         List<String> calendar = read(b, MAX_LINES, buf -> buf.readUtf(MAX_TEXT));
         String title = b.readUtf(MAX_TEXT);
         List<String> detail = read(b, MAX_LINES, buf -> buf.readUtf(MAX_TEXT));
-        return new PlayerServicesResponsePacket(id, m, k, tenders, squeeze, x, calendar, title, detail);
+        Cash cash = new Cash(b.readBoolean(), b.readLong(), b.readLong(), b.readLong(), b.readLong(), b.readLong(),
+                b.readLong(), b.readLong(), b.readLong(), b.readLong());
+        return new PlayerServicesResponsePacket(id, m, k, tenders, squeeze, x, calendar, title, detail, cash);
     }
 
     private static void utf(FriendlyByteBuf b, String s) {

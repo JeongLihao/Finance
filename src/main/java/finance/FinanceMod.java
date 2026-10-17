@@ -129,6 +129,8 @@ public class FinanceMod {
 
         PayCommand.register(event.getDispatcher());
 
+        finance.command.CashCommand.register(event.getDispatcher());
+
         MarketCommand.register(event.getDispatcher());
 
         CommodityCommand.register(event.getDispatcher());

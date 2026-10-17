@@ -9,7 +9,7 @@ import java.util.Arrays;
  */
 public final class PlayerServicesForm {
     public enum Page {
-        MARGIN("融资融券"), BANK("我的银行"), TENDER("要约收购"), MACRO("宏观行动"), RESEARCH("财报商情");
+        MARGIN("融资融券"), BANK("我的银行"), TENDER("要约收购"), MACRO("宏观行动"), RESEARCH("财报商情"), CASH("现金兑换");
 
         final String label;
 
@@ -37,6 +37,7 @@ public final class PlayerServicesForm {
             case TENDER -> new String[]{"公司名称", "价格", "股数", "天数"};
             case MACRO -> new String[]{"日工资", "游说金额", null, null};
             case RESEARCH -> new String[]{"股票代码", null, null, null};
+            case CASH -> new String[]{"金额", "绿宝石数量", null, null};
         };
         return Arrays.copyOf(l, BOXES);
     }

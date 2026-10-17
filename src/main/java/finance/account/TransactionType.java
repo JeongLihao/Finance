@@ -154,5 +154,13 @@ public enum TransactionType {
     /** NPC 竞争公司：升级产线/仓储，公司现金付给 NPC 资金池（视为采购建材）。 */
     RIVAL_UPGRADE,
     /** NPC 竞争公司：公司现金转入它的投资账户，用于敌对收购建仓和要约托管。 */
-    RIVAL_INVESTMENT
+    RIVAL_INVESTMENT,
+    /** 实体现金：背包里的现金存入账户（现金发行处 → 玩家）。 */
+    CASH_DEPOSIT,
+    /** 实体现金：从账户取出现金（玩家 → 现金发行处）。 */
+    CASH_WITHDRAW,
+    /** 实体现金：玩家用绿宝石换现金（新发行货币，数量为绿宝石颗数）。 */
+    EMERALD_SELL,
+    /** 实体现金：玩家用现金买绿宝石（回收货币，数量为绿宝石颗数）。 */
+    EMERALD_BUY
 }

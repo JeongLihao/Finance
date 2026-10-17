@@ -24,7 +24,7 @@ import java.util.UUID;
 
 /**
  * 更多操作：把原来只能用命令完成的玩家功能做成按钮——融资融券、我的银行、要约收购（接受/撤回/发起/强制私有化）、
- * 宏观行动（工资、法律提案、游说、领报纸）、财报日历与季报、商情调查。沿用金融中心的米色面板风格，关闭后回到上一个界面。
+ * 宏观行动（工资、法律提案、游说、领报纸）、财报日历与季报、商情调查，以及实体现金的存取和绿宝石兑换。沿用金融中心的米色面板风格，关闭后回到上一个界面。
  */
 public final class PlayerServicesScreen extends Screen {
     /** 高 240：原版“自动”界面尺寸下可用高度常为 240，超出部分会被裁掉。 */
@@ -146,6 +146,7 @@ public final class PlayerServicesScreen extends Screen {
                 case TENDER -> renderTender(g, data);
                 case MACRO -> renderMacro(g, data);
                 case RESEARCH -> renderResearch(g, data);
+                case CASH -> renderCash(g, data);
             }
         }
 
@@ -337,6 +338,23 @@ public final class PlayerServicesScreen extends Screen {
         }
     }
 
+    private void renderCash(GuiGraphics g, PlayerServicesResponsePacket data) {
+        var c = data.cash();
+        if (!c.enabled()) {
+            line(g, "实体现金未启用（配置 cash.enabled）", 0, FinanceGui.COL_WARN);
+            return;
+        }
+        line(g, "账户余额 " + c.balance() + "    随身现金 " + c.cashOnHand() + "    绿宝石 " + c.emeralds() + " 颗", 0, FinanceGui.COL_ACCENT);
+        line(g, "卖出 1 颗绿宝石得 " + c.emeraldToCash() + " 金币    买入 1 颗绿宝石付 " + c.cashToEmerald() + " 金币", 1, FinanceGui.COL_TEXT);
+        line(g, "今日还可卖出 " + c.sellLeft() + "/" + c.sellLimit() + " 颗    还可买入 " + c.buyLeft() + "/" + c.buyLimit() + " 颗", 2,
+                c.sellLeft() == 0 && c.buyLeft() == 0 ? FinanceGui.COL_WARN : FinanceGui.COL_TEXT);
+        wrapped(g, "现金有 1、10、100 金币三种面额，和账户里的钱 1:1 互换。取现：填金额后点“取出现金”；"
+                + "存入：金额留空则存入身上全部现金，面额凑不齐会自动找零。现金不记名，丢了或被人捡走就是别人的。",
+                left + 10, 4, PANEL_WIDTH - 20, 3, FinanceGui.COL_TEXT_DIM);
+        wrapped(g, "绿宝石用现金兑换（不经过账户）：先取出现金再买绿宝石，卖绿宝石得到的是现金。买卖有点差，"
+                + "每天每人有额度，额度按 MC 日重置。", left + 10, 8, PANEL_WIDTH - 20, 2, FinanceGui.COL_TEXT_DIM);
+    }
+
     // ---------------------------------------------------------------- 按钮
 
     private String box(int i) { return boxes[i].getValue(); }
@@ -407,6 +425,13 @@ public final class PlayerServicesScreen extends Screen {
             case RESEARCH -> {
                 list.add(new Btn("查询季报", () -> send(Action.EARNINGS_REPORT, PlayerServicesForm.text(box(0), "股票代码"), 0, 0, 0, 0)));
                 list.add(new Btn("商情调查（" + data.macro().radarCost() + "）", () -> send(Action.MACRO_RADAR, "", 0, 0, 0, 0)));
+                list.add(new Btn("刷新", this::refresh));
+            }
+            case CASH -> {
+                list.add(new Btn("取出现金", () -> send(Action.CASH_WITHDRAW, "", PlayerServicesForm.positive(box(0), "金额"), 0, 0, 0)));
+                list.add(new Btn("存入账户", () -> send(Action.CASH_DEPOSIT, "", PlayerServicesForm.number(box(0), "金额", true), 0, 0, 0)));
+                list.add(new Btn("卖出绿宝石", () -> send(Action.EMERALD_SELL, "", PlayerServicesForm.positive(box(1), "绿宝石数量"), 0, 0, 0)));
+                list.add(new Btn("买入绿宝石", () -> send(Action.EMERALD_BUY, "", PlayerServicesForm.positive(box(1), "绿宝石数量"), 0, 0, 0)));
                 list.add(new Btn("刷新", this::refresh));
             }
         }

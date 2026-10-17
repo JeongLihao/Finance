@@ -662,5 +662,11 @@
   "screen.finance.newspaper.next": "下一版 >",
   "screen.finance.newspaper.columns": "第 %s / %s 页 · 滚轮翻页",
   "screen.finance.newspaper.keys": "← → 换版",
-  "screen.finance.newspaper.empty": "这份报纸是空白的"
+  "screen.finance.newspaper.empty": "这份报纸是空白的",
+  "item.finance.coin": "1 金币硬币",
+  "item.finance.banknote_10": "10 金币纸币",
+  "item.finance.banknote_100": "100 金币纸币",
+  "item.finance.cash.value": "面值 %s 金币",
+  "item.finance.cash.stack_value": "这一叠共 %s 金币",
+  "item.finance.cash.hint": "右键：存入账户或兑换绿宝石"
 }
