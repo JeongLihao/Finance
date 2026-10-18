@@ -5,20 +5,25 @@ package finance.client.ui;
  * 测试可以只排版不绘制，检查文字和按钮有没有重叠或超出面板。
  */
 public record UiElement(Kind kind, int x, int y, int w, int h, String text, int color, float scale,
-                        Runnable action, String tooltip, String key, double value) {
+                        Runnable action, String tooltip, String key, double value, java.util.List<Long> series) {
+
+    public UiElement(Kind kind, int x, int y, int w, int h, String text, int color, float scale,
+                     Runnable action, String tooltip, String key, double value) {
+        this(kind, x, y, w, h, text, color, scale, action, tooltip, key, value, java.util.List.of());
+    }
 
     public enum Kind {
         /** 背景色块、卡片边框：可以和别的东西叠在一起。 */
         FILL, BORDER,
         /** 以下几种是“实体”，彼此不许重叠。 */
-        TEXT, BUTTON, BUTTON_DISABLED, ICON, PROGRESS, INPUT,
+        TEXT, BUTTON, BUTTON_DISABLED, ICON, PROGRESS, INPUT, CHART,
         /** 只负责点击的透明区域。 */
         HOTSPOT
     }
 
     public boolean solid() {
         return switch (kind) {
-            case TEXT, BUTTON, BUTTON_DISABLED, ICON, PROGRESS, INPUT -> true;
+            case TEXT, BUTTON, BUTTON_DISABLED, ICON, PROGRESS, INPUT, CHART -> true;
             default -> false;
         };
     }

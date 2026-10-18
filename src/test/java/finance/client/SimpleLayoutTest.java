@@ -67,7 +67,9 @@ class SimpleLayoutTest {
                 List.of(LONG_NAME + "需要 9999 个面包，送去能拿 " + HUGE + " 便士（去村里的贸易站交货）",
                         "背包里的 2304 个" + LONG_NAME + "现在能卖很多钱", "第三条机会" + LONG_NAME),
                 List.of("利率 99.99%：" + LONG_NAME + LONG_NAME, "物价一年涨 99.99%：" + LONG_NAME + LONG_NAME + LONG_NAME,
-                        "央行下次开会：" + LONG_NAME, "上次开会：" + LONG_NAME), List.of()) : null;
+                        "央行下次开会：" + LONG_NAME, "上次开会：" + LONG_NAME), List.of(), products(manyRows), investHoldings(manyRows),
+                new finance.simple.SimpleInvestService.MarginInfo(HUGE, HUGE, 101, 130,
+                        Map.of("S0", HUGE, "S1", HUGE), Map.of("S0", HUGE))) : null;
         List<String> summary = balance == HUGE ? List.of("收入 +" + HUGE + LONG_NAME, "卖东西 " + LONG_NAME, "分红 " + LONG_NAME,
                 "其他收入 " + LONG_NAME) : List.of();
         List<FinanceMenu.OrderRow> orders = new ArrayList<>();
@@ -76,7 +78,15 @@ class SimpleLayoutTest {
         }
         Map<String, Integer> stored = manyRows ? Map.of("a_very_long_commodity_id_one", 99_999, "a_very_long_commodity_id_two", 99_999) : Map.of();
         return new SimplePages.View(balance, -HUGE, HUGE, backpack, market, tx, company, stocks, holdings, st, true, true, summary,
-                orders, stored, futures(manyRows));
+                orders, stored, futures(manyRows), autos(manyRows));
+    }
+
+    static List<FinanceMenu.ConditionalStockOrderRow> autos(boolean many) {
+        List<FinanceMenu.ConditionalStockOrderRow> out = new ArrayList<>();
+        for (int i = 0; i < (many ? 5 : 1); i++) {
+            out.add(new FinanceMenu.ConditionalStockOrderRow(UUID.randomUUID(), "S0", i % 2 == 0 ? "TAKE_PROFIT" : "STOP_LOSS", HUGE, HUGE));
+        }
+        return out;
     }
 
     static finance.network.FuturesResponsePacket futures(boolean many) {
@@ -92,6 +102,23 @@ class SimpleLayoutTest {
         }
         return new finance.network.FuturesResponsePacket(1, HUGE, HUGE, HUGE, HUGE, HUGE, HUGE, finance.futures.MarginRiskStatus.NORMAL,
                 0, 0, contracts, positions, List.of(), List.of(), quotes, false);
+    }
+
+    static List<finance.simple.SimpleInvestService.Product> products(boolean many) {
+        List<finance.simple.SimpleInvestService.Product> out = new ArrayList<>();
+        for (int i = 0; i < (many ? 14 : 3); i++) {
+            out.add(new finance.simple.SimpleInvestService.Product("fund:x" + i, LONG_NAME, "99999 天", i % 2 == 0 ? -1 : 99_999,
+                    i % 3 == 0 ? "低" : i % 3 == 1 ? "中" : "高", HUGE));
+        }
+        return out;
+    }
+
+    static List<finance.simple.SimpleInvestService.Holding> investHoldings(boolean many) {
+        List<finance.simple.SimpleInvestService.Holding> out = new ArrayList<>();
+        for (int i = 0; i < (many ? 12 : 1); i++) {
+            out.add(new finance.simple.SimpleInvestService.Holding("time:" + i, LONG_NAME, HUGE, "第 99999 天到期" + LONG_NAME, "提前取（没利息）"));
+        }
+        return out;
     }
 
     static List<SimplePages.View> views() {
@@ -119,6 +146,8 @@ class SimpleLayoutTest {
         s.page = page;
         s.homeTab = subTab;
         s.tradeTab = subTab;
+        s.investTab = subTab;
+        s.productScroll = scroll;
         s.recordScroll = scroll;
         s.tradeScroll = scroll;
         s.investScroll = scroll;
@@ -139,6 +168,20 @@ class SimpleLayoutTest {
                     }
                 }
             }
+        }
+        assertTrue(problems.isEmpty(), () -> problems.size() + " 处排版问题，例如：\n" + String.join("\n", problems.subList(0, Math.min(15, problems.size()))));
+    }
+
+    @Test void stockDetailNeverOverlaps() {
+        List<String> problems = new ArrayList<>();
+        for (SimplePages.View v : views()) {
+            if (v.stocks().isEmpty()) continue;
+            SimplePages.State s = new SimplePages.State();
+            s.page = SimplePages.Page.INVEST;
+            s.selectedStock = v.stocks().get(0).symbol();
+            UiBuilder ui = new UiBuilder(TextMeasure.ESTIMATE, m -> {});
+            SimplePages.layout(ui, v, s, NO_OP);
+            for (String p : UiLayoutCheck.problems(ui.elements(), FinanceGui.PANEL_WIDTH, FinanceGui.PANEL_HEIGHT)) problems.add("详情: " + p);
         }
         assertTrue(problems.isEmpty(), () -> problems.size() + " 处排版问题，例如：\n" + String.join("\n", problems.subList(0, Math.min(15, problems.size()))));
     }

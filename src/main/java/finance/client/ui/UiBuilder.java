@@ -197,6 +197,12 @@ public final class UiBuilder {
                 Math.max(0, Math.min(1, Double.isFinite(ratio) ? ratio : 0))));
     }
 
+    /** 走势图（价格历史）。 */
+    public void chart(int x, int y, int w, int h, List<Long> series, int color) {
+        out.add(new UiElement(UiElement.Kind.CHART, x, y, w, h, null, color, 1, null, null, null, 0,
+                series == null ? List.of() : List.copyOf(series)));
+    }
+
     public void icon(int x, int y, String commodityId) {
         out.add(new UiElement(UiElement.Kind.ICON, x, y, 10, 10, null, 0, 1, null, null, commodityId, 0));
     }

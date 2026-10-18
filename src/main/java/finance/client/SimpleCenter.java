@@ -78,7 +78,7 @@ final class SimpleCenter {
                 menu.getTransactions(), menu.getPlayerCompany(), menu.getStocks(), menu.getStockHoldings(),
                 SimpleClientState.status(), SimpleClientState.playerChooses(), SimpleClientState.playerWantsAdvanced(),
                 SimpleClientState.pendingSummary(), menu.getPlayerOrders(), menu.getPlayerInventory(),
-                FuturesClientCache.get().data());
+                FuturesClientCache.get().data(), menu.getConditionalStockOrders());
     }
 
     /** 锁价合同页的数据走期货查询包；在那一页时每 3 秒（或操作后马上）重新拉一次。 */
@@ -128,7 +128,8 @@ final class SimpleCenter {
             return true;
         }
         if (state.page == SimplePages.Page.INVEST) {
-            state.investScroll += step;
+            if (state.investTab == 1) state.productScroll += step;
+            else state.investScroll += step;
             return true;
         }
         return false;

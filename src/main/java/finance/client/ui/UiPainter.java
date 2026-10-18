@@ -49,6 +49,7 @@ public final class UiPainter {
                     g.fill(e.x(), e.y(), e.right(), e.bottom(), 0xFFCFC8B4);
                     g.fill(e.x(), e.y(), e.x() + (int) Math.round(e.w() * e.value()), e.bottom(), FinanceGui.COL_GOOD);
                 }
+                case CHART -> FinanceGui.drawTrendGraph(g, e.series(), e.x(), e.y(), e.w(), e.h(), e.color());
                 case INPUT, HOTSPOT -> { }
             }
         }

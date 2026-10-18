@@ -311,13 +311,13 @@ public final class SimpleCenterService {
     // ------------------------------------------------------------ 银行
 
     /** 简单模式只用一家银行：第一家正常营业的。 */
-    static CommercialBank mainBank() {
+    public static CommercialBank mainBank() {
         BankingManager.ensureDefaultBanks();
         return BankingManager.banks().values().stream().filter(CommercialBank::acceptsNewBusiness)
                 .min(Comparator.comparing(CommercialBank::code)).orElse(null);
     }
 
-    static BankCustomerAccount demandAccount(UUID player, CommercialBank bank, long day, boolean create) {
+    public static BankCustomerAccount demandAccount(UUID player, CommercialBank bank, long day, boolean create) {
         return bank == null ? null : BankingManager.demandAccount(bank.id(), player, CustomerType.PLAYER, day, create);
     }
 
@@ -363,7 +363,8 @@ public final class SimpleCenterService {
     public record Status(long bankBalance, int bankRateBps, int factoryLevel, long nextUpgradeCost,
                          long companyValuation, long ipoMinValuation, long stockUnlockBalance,
                          String advancedMode, List<String> opportunities, List<String> weather,
-                         List<String> summary) {}
+                         List<String> summary, List<SimpleInvestService.Product> products,
+                         List<SimpleInvestService.Holding> holdings, SimpleInvestService.MarginInfo margin) {}
 
     public static Status status(ServerPlayer player) {
         return status(player, List.of());
@@ -385,7 +386,8 @@ public final class SimpleCenterService {
                 company == null ? 0 : nextUpgradeCost(company),
                 company == null ? 0 : company.getEstimatedValue(),
                 FinanceConfig.simpleIpoMinValuation(), FinanceConfig.simpleStockUnlockBalance(),
-                FinanceConfig.simpleAdvancedMode(), opportunities(player), weather(player), summary);
+                FinanceConfig.simpleAdvancedMode(), opportunities(player), weather(player), summary,
+                SimpleInvestService.products(), SimpleInvestService.holdings(player), SimpleInvestService.marginInfo(id));
     }
 
     // ------------------------------------------------------------ 经济天气

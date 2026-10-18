@@ -19,7 +19,13 @@ public record SimpleActionPacket(Action action, String target, long amount, long
         /** 把暂存在市场的货取回背包：target = 商品。 */
         TAKE_GOODS,
         /** 锁价合同：target = 合约 ID，amount = 份数。 */
-        LOCK_SELL, LOCK_BUY, CLOSE_LOCK, WITHDRAW_MARGIN
+        LOCK_SELL, LOCK_BUY, CLOSE_LOCK, WITHDRAW_MARGIN,
+        /** 理财：target = 产品 key，amount = 金额；取回：target = 持有 key。 */
+        BUY_PRODUCT, REDEEM_PRODUCT,
+        /** 股票进阶：target = 股票代码，amount = 股数。 */
+        LEVER_BUY, LEVER_REPAY, SHORT_SELL, SHORT_COVER, COLLATERAL_WITHDRAW,
+        /** 自动卖出：target = 股票代码，amount = 股数，price = 触发价；取消：target = 条件单 ID。 */
+        AUTO_SELL_UP, AUTO_SELL_DOWN, CANCEL_AUTO
     }
 
     public SimpleActionPacket(Action action, String target, long amount) {
@@ -72,8 +78,26 @@ public record SimpleActionPacket(Action action, String target, long amount, long
             case LOCK_SELL, LOCK_BUY -> SimpleCenterService.lockPrice(player, uuid(p.target), p.action == Action.LOCK_SELL, p.amount);
             case CLOSE_LOCK -> SimpleCenterService.closeLock(player, uuid(p.target));
             case WITHDRAW_MARGIN -> SimpleCenterService.withdrawMargin(player);
+            case BUY_PRODUCT -> invest(finance.simple.SimpleInvestService.buy(player, safe(p.target), p.amount));
+            case REDEEM_PRODUCT -> invest(finance.simple.SimpleInvestService.redeem(player, safe(p.target)));
+            case LEVER_BUY -> invest(finance.simple.SimpleInvestService.leverBuy(player, safe(p.target), Math.max(1, Math.min(MAX_ITEMS, p.amount))));
+            case LEVER_REPAY -> invest(finance.simple.SimpleInvestService.leverRepay(player));
+            case SHORT_SELL -> invest(finance.simple.SimpleInvestService.shortSell(player, safe(p.target), Math.max(1, Math.min(MAX_ITEMS, p.amount))));
+            case SHORT_COVER -> invest(finance.simple.SimpleInvestService.shortCover(player, safe(p.target)));
+            case COLLATERAL_WITHDRAW -> invest(finance.simple.SimpleInvestService.withdrawCollateral(player));
+            case AUTO_SELL_UP, AUTO_SELL_DOWN -> invest(finance.simple.SimpleInvestService.autoSell(player, safe(p.target),
+                    p.action == Action.AUTO_SELL_UP, p.price, Math.max(1, p.amount)));
+            case CANCEL_AUTO -> invest(finance.simple.SimpleInvestService.cancelAuto(player, uuid(p.target)));
         };
         GuiFeedbackPacket.send(player, result.message(), result.moneyDelta());
+    }
+
+    private static SimpleCenterService.Result invest(finance.simple.SimpleInvestService.Result r) {
+        return new SimpleCenterService.Result(r.success(), r.message(), r.delta());
+    }
+
+    private static String safe(String text) {
+        return text == null ? "" : text.trim();
     }
 
     private static java.util.UUID uuid(String text) {
