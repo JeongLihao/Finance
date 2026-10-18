@@ -14,6 +14,7 @@ public final class ClientConnectionEvents {
     @SubscribeEvent
     public static void onLogout(ClientPlayerNetworkEvent.LoggingOut event) {
         CandlestickClientCache.clear();
+        finance.client.simple.SimpleClientState.clear();
         FinancialProductClientCache.clear();
         FuturesClientCache.clear();
         BankClientCache.clear();

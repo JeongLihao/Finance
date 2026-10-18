@@ -129,6 +129,9 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
     final RecordTabs recordTabs = new RecordTabs(this);
     final AdminTabs adminTabs = new AdminTabs(this);
     final MacroTabs macroTabs = new MacroTabs(this);
+    /** 简单模式四页（首页、买卖、我的公司、投资）。默认显示它；“高级”切到下面原有的全部页签。 */
+    final SimpleCenter simple = new SimpleCenter(this);
+    boolean advancedView = false;
     /** 宏观经济页签的索引（不在 BASE_TABS/ADMIN_TABS 数组里）。 */
     static final int MACRO_TAB = 12;
     /** 标题栏右侧“更多操作”按钮。 */
@@ -317,6 +320,14 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
             case WALLET -> 7;
         };
         if (safeMode == FinanceScreenMode.BANK) financialSubTab = 7;
+        // 方块终端进来时，简单模式停在对应的那一页；央行控制台是管理员工具，直接进高级页签
+        simple.page = switch (safeMode) {
+            case MARKET, WAREHOUSE -> SimpleCenter.Page.TRADE;
+            case COMPANY -> SimpleCenter.Page.COMPANY;
+            case BANK -> SimpleCenter.Page.INVEST;
+            default -> SimpleCenter.Page.HOME;
+        };
+        advancedView = safeMode == FinanceScreenMode.ADMIN;
     }
 
     /** 服务端推来了新快照（余额、库存、订单……）：刷新缓存，页签、输入框内容和选中项保持不变。 */
@@ -410,7 +421,7 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
             box.render(graphics, virtualMouseX, virtualMouseY, partialTick);
         }
         // 下拉菜单渲染在最上层
-        if (dropdownOpen && (currentTab == 0 || currentTab == 1)) {
+        if (advancedView && dropdownOpen && (currentTab == 0 || currentTab == 1)) {
             graphics.pose().pushPose();
             graphics.pose().translate(0, -FinanceGui.CONTENT_SHIFT, 0);
             this.marketTabs.renderDropdown(graphics, virtualMouseX, virtualMouseY + FinanceGui.CONTENT_SHIFT);
@@ -428,9 +439,17 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         int panelMouseY = absoluteMouseY - topPos;
         FinanceGui.drawClippedString(font, g, "金融中心", 10, 4, 130, FinanceGui.COL_TEXT);
         if (!statusMessage.isEmpty()) {
-            FinanceGui.drawClippedString(font, g, statusMessage, 118, 4, GUIDE_BUTTON_X - 124, FinanceGui.COL_ACCENT);
+            FinanceGui.drawClippedString(font, g, statusMessage, 62, 4, GUIDE_BUTTON_X - 66, FinanceGui.COL_ACCENT);
         }
-        FinanceGui.drawButton(font, g, "教程", GUIDE_BUTTON_X, MORE_BUTTON_Y, GUIDE_BUTTON_W, false);
+        if (!advancedView) {
+            FinanceGui.drawButton(font, g, "教程", GUIDE_BUTTON_X, MORE_BUTTON_Y, GUIDE_BUTTON_W, false);
+            if (finance.client.simple.SimpleClientState.advancedAllowed()) {
+                FinanceGui.drawButton(font, g, "高级", MORE_BUTTON_X, MORE_BUTTON_Y, MORE_BUTTON_W, false);
+            }
+            simple.render(g, mouseX, panelMouseY);
+            return;
+        }
+        FinanceGui.drawButton(font, g, "简单", GUIDE_BUTTON_X, MORE_BUTTON_Y, GUIDE_BUTTON_W, false);
         FinanceGui.drawButton(font, g, "更多操作", MORE_BUTTON_X, MORE_BUTTON_Y, MORE_BUTTON_W, false);
         renderTabs(g, mouseX, panelMouseY);
 
@@ -501,13 +520,31 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         int mx = (int) mouseX - leftPos;
         int my = (int) mouseY - topPos;
 
-        // 标题栏“更多操作”：原来只能用命令完成的玩家功能
-        if (mx >= MORE_BUTTON_X && mx < MORE_BUTTON_X + MORE_BUTTON_W && my >= MORE_BUTTON_Y && my < MORE_BUTTON_Y + 13) {
-            PlayerServicesScreen.open();
+        boolean onMore = mx >= MORE_BUTTON_X && mx < MORE_BUTTON_X + MORE_BUTTON_W && my >= MORE_BUTTON_Y && my < MORE_BUTTON_Y + 13;
+        boolean onGuide = mx >= GUIDE_BUTTON_X && mx < GUIDE_BUTTON_X + GUIDE_BUTTON_W && my >= MORE_BUTTON_Y && my < MORE_BUTTON_Y + 13;
+        if (!advancedView) {
+            if (onGuide) {
+                TutorialHubScreen.open(this);
+                return true;
+            }
+            if (onMore && finance.client.simple.SimpleClientState.advancedAllowed()) {
+                advancedView = true;
+                dropdownOpen = false;
+                updateInputVisibility();
+                return true;
+            }
+            if (simple.click(mx, my)) return true;
+            return mx >= 0 && mx < imageWidth && my >= 0 && my < imageHeight || super.mouseClicked(mouseX, mouseY, button);
+        }
+        // 高级页签：标题栏“简单”回到四页，“更多操作”是原来只能用命令完成的玩家功能
+        if (onGuide) {
+            advancedView = false;
+            dropdownOpen = false;
+            updateInputVisibility();
             return true;
         }
-        if (mx >= GUIDE_BUTTON_X && mx < GUIDE_BUTTON_X + GUIDE_BUTTON_W && my >= MORE_BUTTON_Y && my < MORE_BUTTON_Y + 13) {
-            TutorialHubScreen.open(this);
+        if (onMore) {
+            PlayerServicesScreen.open();
             return true;
         }
 
@@ -574,6 +611,9 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
     public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
         mouseX /= layoutScale;
         mouseY /= layoutScale;
+        if (!advancedView) {
+            return simple.scroll(delta) || super.mouseScrolled(mouseX, mouseY, delta);
+        }
         if (dropdownOpen && (currentTab == 0 || currentTab == 1)) {
             int totalHeight = this.marketTabs.calcDropdownTotalHeight();
             int maxScroll = Math.max(0, totalHeight - 116);
@@ -713,9 +753,18 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         adminItemIdBox.setVisible(adminHand);
         adminDisplayNameBox.setVisible(adminHand);
         adminBasePriceBox.setVisible(adminHand);
+        if (!advancedView) {
+            for (EditBox box : List.of(intlQuantityBox, priceBox, quantityBox, inventoryQuantityBox, stockPriceBox,
+                    stockQuantityBox, alertPriceBox, ipoPriceBox, ipoQuantityBox, companyAmountBox, adminBasePriceBox,
+                    adminCommodityIdBox, adminItemIdBox, adminDisplayNameBox)) {
+                box.setVisible(false);
+            }
+            simple.updateInputs(companyNameBox);
+        }
     }
 
     private List<EditBox> getVisibleEditBoxes() {
+        if (!advancedView) return simple.visibleBoxes(companyNameBox);
         List<EditBox> list = new ArrayList<>();
         if (currentTab == 0 && !commodityChartVisible) list.add(intlQuantityBox);
         if (currentTab == 1) { list.add(priceBox); list.add(quantityBox); }

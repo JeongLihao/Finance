@@ -80,7 +80,7 @@ public final class CompanyManagementService {
             return new Result(false, "升级费用异常。");
         }
         if (!company.canDeposit(cost)) {
-            return new Result(false, "Company cash balance is at its limit.");
+            return new Result(false, "公司账上的钱已经到上限了。");
         }
         if (!AccountManager.withdraw(playerId, cost)) {
             return new Result(false, "余额不足，升级需要 " + cost);
@@ -95,14 +95,14 @@ public final class CompanyManagementService {
 
         if (!upgraded) {
             if (!AccountManager.deposit(playerId, cost)) {
-                return new Result(false, "Upgrade failed and refund could not be settled.");
+                return new Result(false, "升级失败，退款也没成功，请联系管理员。");
             }
             return new Result(false, "该升级已达到上限。");
         }
 
         if (!company.deposit(cost)) {
             AccountManager.deposit(playerId, cost);
-            return new Result(false, "Company settlement failed.");
+            return new Result(false, "公司入账失败。");
         }
         recordCompanyAction(playerId, company, cost, 1);
         return new Result(true, "公司升级成功，投入资金 " + cost);
@@ -113,7 +113,7 @@ public final class CompanyManagementService {
             return new Result(false, "注资金额必须大于 0。");
         }
         if (!company.canDeposit(amount)) {
-            return new Result(false, "Company cash balance is at its limit.");
+            return new Result(false, "公司账上的钱已经到上限了。");
         }
         if (!AccountManager.withdraw(playerId, amount)) {
             return new Result(false, "余额不足。");
@@ -121,7 +121,7 @@ public final class CompanyManagementService {
 
         if (!company.deposit(amount)) {
             AccountManager.deposit(playerId, amount);
-            return new Result(false, "Investment settlement failed.");
+            return new Result(false, "投钱失败，钱已退回。");
         }
         recordCompanyAction(playerId, company, amount, 0);
         return new Result(true, "已向公司注资 " + amount);
@@ -141,7 +141,7 @@ public final class CompanyManagementService {
             return new Result(false, "提取冷却中，请 " + waitSeconds + " 秒后再试。");
         }
         if (!AccountManager.canDeposit(playerId, amount)) {
-            return new Result(false, "Player account balance is at its limit.");
+            return new Result(false, "你的钱包已经到上限了。");
         }
         if (!company.withdraw(amount)) {
             return new Result(false, "公司现金不足。");
@@ -149,7 +149,7 @@ public final class CompanyManagementService {
 
         if (!AccountManager.deposit(playerId, amount)) {
             company.deposit(amount);
-            return new Result(false, "Withdrawal settlement failed.");
+            return new Result(false, "转账失败。");
         }
         company.setLastOwnerWithdrawTime(nowMillis);
         recordCompanyAction(playerId, company, amount, 0);

@@ -133,6 +133,11 @@ public final class FinanceConfig {
     private static final boolean RIVALS_HOSTILE_TAKEOVERS_VALUE = false;
     private static final boolean RIVALS_ACTIVISM_ENABLED_VALUE = false;
     private static final boolean CASH_ENABLED_VALUE = true;
+    // 简单模式金融中心（四页：首页、买卖、我的公司、投资）
+    private static final long SIMPLE_STARTER_GRANT_VALUE = 500L;
+    private static final long SIMPLE_STOCK_UNLOCK_VALUE = 3_000L;
+    private static final long SIMPLE_IPO_MIN_VALUATION_VALUE = 20_000L;
+    private static final String SIMPLE_ADVANCED_MODE_VALUE = "player";
     private static final long CASH_EMERALD_TO_CASH_VALUE = 50L;
     private static final long CASH_CASH_TO_EMERALD_VALUE = 60L;
     private static final int CASH_DAILY_EMERALD_SELL_LIMIT_VALUE = 64;
@@ -307,6 +312,8 @@ public final class FinanceConfig {
     private static final ForgeConfigSpec.BooleanValue RIVALS_HOSTILE_TAKEOVERS;
     private static final ForgeConfigSpec.BooleanValue RIVALS_ACTIVISM_ENABLED;
     private static final ForgeConfigSpec.BooleanValue CASH_ENABLED;
+    private static final ForgeConfigSpec.LongValue SIMPLE_STARTER_GRANT, SIMPLE_STOCK_UNLOCK, SIMPLE_IPO_MIN_VALUATION;
+    private static final ForgeConfigSpec.ConfigValue<String> SIMPLE_ADVANCED_MODE;
     private static final ForgeConfigSpec.LongValue CASH_EMERALD_TO_CASH;
     private static final ForgeConfigSpec.LongValue CASH_CASH_TO_EMERALD;
     private static final ForgeConfigSpec.IntValue CASH_DAILY_EMERALD_SELL_LIMIT;
@@ -1158,6 +1165,17 @@ public final class FinanceConfig {
                 .defineInRange("dailyEmeraldBuyLimit", CASH_DAILY_EMERALD_BUY_LIMIT_VALUE, 0, 100_000);
         builder.pop();
 
+        builder.push("simpleCenter");
+        SIMPLE_STARTER_GRANT = builder.comment("新玩家第一次打开金融中心时送的启动资金（便士），每人一次。0 = 不送。")
+                .defineInRange("starterGrant", SIMPLE_STARTER_GRANT_VALUE, 0L, 1_000_000L);
+        SIMPLE_STOCK_UNLOCK = builder.comment("钱包达到多少便士后，投资页才能买股票（只影响简单模式的按钮）。")
+                .defineInRange("stockUnlockBalance", SIMPLE_STOCK_UNLOCK_VALUE, 0L, 1_000_000_000L);
+        SIMPLE_IPO_MIN_VALUATION = builder.comment("公司估值达到多少便士后才能上市。开公司很便宜，这个门槛防止“开公司→上市→提现”刷钱。")
+                .defineInRange("ipoMinValuation", SIMPLE_IPO_MIN_VALUATION_VALUE, 0L, 1_000_000_000L);
+        SIMPLE_ADVANCED_MODE = builder.comment("高级模式（挂单、期货、保险、治理等全部原有页面）：player = 玩家自己在首页打开；always = 所有人都显示；never = 所有人都隐藏。")
+                .define("advancedMode", SIMPLE_ADVANCED_MODE_VALUE);
+        builder.pop();
+
         COMMON_SPEC = builder.build();
     }
 
@@ -1455,6 +1473,14 @@ public final class FinanceConfig {
     public static boolean rivalsActivismEnabled() { return getBoolean(RIVALS_ACTIVISM_ENABLED, RIVALS_ACTIVISM_ENABLED_VALUE); }
 
     public static boolean cashEnabled() { return getBoolean(CASH_ENABLED, CASH_ENABLED_VALUE); }
+    public static long simpleStarterGrant() { return getLong(SIMPLE_STARTER_GRANT, SIMPLE_STARTER_GRANT_VALUE); }
+    public static long simpleStockUnlockBalance() { return getLong(SIMPLE_STOCK_UNLOCK, SIMPLE_STOCK_UNLOCK_VALUE); }
+    public static long simpleIpoMinValuation() { return getLong(SIMPLE_IPO_MIN_VALUATION, SIMPLE_IPO_MIN_VALUATION_VALUE); }
+    /** player / always / never；其他值按 player 处理。 */
+    public static String simpleAdvancedMode() {
+        String mode = getString(SIMPLE_ADVANCED_MODE, SIMPLE_ADVANCED_MODE_VALUE);
+        return "always".equals(mode) || "never".equals(mode) ? mode : "player";
+    }
     public static long cashEmeraldToCash() { return getLong(CASH_EMERALD_TO_CASH, CASH_EMERALD_TO_CASH_VALUE); }
     public static long cashCashToEmerald() { return getLong(CASH_CASH_TO_EMERALD, CASH_CASH_TO_EMERALD_VALUE); }
     public static int cashDailyEmeraldSellLimit() { return getInt(CASH_DAILY_EMERALD_SELL_LIMIT, CASH_DAILY_EMERALD_SELL_LIMIT_VALUE); }

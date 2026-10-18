@@ -78,48 +78,53 @@ public class NpcMarketMaker {
      * @return 成功返回 true
      */
     public static boolean npcBuy(UUID playerId, String commodityId, int quantity) {
+        return npcBuyFilled(playerId, commodityId, quantity) > 0;
+    }
+
+    /** 同 {@link #npcBuy}，但返回实际成交数量（单日收购量有限，可能少于请求量）；0 表示没有成交。 */
+    public static int npcBuyFilled(UUID playerId, String commodityId, int quantity) {
         Commodity commodity = CommodityRegistry.getCommodity(commodityId);
         if (commodity == null) {
-            return false;
+            return 0;
         }
 
         QuoteView quote = MarketMakerQuotes.getQuote(MarketMakerQuotes.MARKET_COMMODITY, commodityId);
         if (quote == null || quote.halted()) {
-            return false;
+            return 0;
         }
         long bidPrice = quote.bid();
         int acceptedQuantity = Math.min(quantity, getMaxNpcBuyQuantity(commodityId, bidPrice));
         if (acceptedQuantity <= 0) {
-            return false;
+            return 0;
         }
         long totalPayment = MathUtil.multiplyExactOrNegative1(bidPrice, acceptedQuantity);
         if (totalPayment <= 0) {
-            return false;
+            return 0;
         }
 
         // 1. 检查玩家库存
         int playerStock = CommodityInventoryManager.getCommodityAmount(playerId, commodityId);
         if (playerStock < acceptedQuantity) {
-            return false;
+            return 0;
         }
 
         // 2. 检查国际市场余额
         if (AccountManager.getBalance(NPC_UUID) < totalPayment) {
-            return false;
+            return 0;
         }
 
         if (!CommodityInventoryManager.canAddCommodity(NPC_UUID, commodityId, acceptedQuantity)
                 || !AccountManager.moveFunds(NPC_UUID, playerId, totalPayment)) {
-            return false;
+            return 0;
         }
         if (!CommodityInventoryManager.removeCommodity(playerId, commodityId, acceptedQuantity)) {
             AccountManager.moveFunds(playerId, NPC_UUID, totalPayment);
-            return false;
+            return 0;
         }
         if (!CommodityInventoryManager.addCommodity(NPC_UUID, commodityId, acceptedQuantity)) {
             CommodityInventoryManager.addCommodity(playerId, commodityId, acceptedQuantity);
             AccountManager.moveFunds(playerId, NPC_UUID, totalPayment);
-            return false;
+            return 0;
         }
 
         // 5. 记录流水
@@ -131,7 +136,7 @@ public class NpcMarketMaker {
         CommodityTradeRecorder.recordCompletedTrade(NPC_UUID, playerId, commodityId,
                 bidPrice, acceptedQuantity, CommodityTradeSource.PLAYER_NPC, true);
 
-        return true;
+        return acceptedQuantity;
     }
 
     /**
@@ -142,48 +147,53 @@ public class NpcMarketMaker {
      * @return 成功返回 true
      */
     public static boolean npcSell(UUID playerId, String commodityId, int quantity) {
+        return npcSellFilled(playerId, commodityId, quantity) > 0;
+    }
+
+    /** 同 {@link #npcSell}，但返回实际成交数量；0 表示没有成交。 */
+    public static int npcSellFilled(UUID playerId, String commodityId, int quantity) {
         Commodity commodity = CommodityRegistry.getCommodity(commodityId);
         if (commodity == null) {
-            return false;
+            return 0;
         }
 
         QuoteView quote = MarketMakerQuotes.getQuote(MarketMakerQuotes.MARKET_COMMODITY, commodityId);
         if (quote == null || quote.halted()) {
-            return false;
+            return 0;
         }
         long askPrice = quote.ask();
         int acceptedQuantity = Math.min(quantity, getMaxNpcSellQuantity(commodityId));
         if (acceptedQuantity <= 0) {
-            return false;
+            return 0;
         }
         long totalCost = MathUtil.multiplyExactOrNegative1(askPrice, acceptedQuantity);
         if (totalCost <= 0) {
-            return false;
+            return 0;
         }
 
         // 1. 检查国际市场库存
         int npcStock = CommodityInventoryManager.getCommodityAmount(NPC_UUID, commodityId);
         if (npcStock < acceptedQuantity) {
-            return false;
+            return 0;
         }
 
         // 2. 检查玩家余额
         if (AccountManager.getBalance(playerId) < totalCost) {
-            return false;
+            return 0;
         }
 
         if (!CommodityInventoryManager.canAddCommodity(playerId, commodityId, acceptedQuantity)
                 || !AccountManager.moveFunds(playerId, NPC_UUID, totalCost)) {
-            return false;
+            return 0;
         }
         if (!CommodityInventoryManager.removeCommodity(NPC_UUID, commodityId, acceptedQuantity)) {
             AccountManager.moveFunds(NPC_UUID, playerId, totalCost);
-            return false;
+            return 0;
         }
         if (!CommodityInventoryManager.addCommodity(playerId, commodityId, acceptedQuantity)) {
             CommodityInventoryManager.addCommodity(NPC_UUID, commodityId, acceptedQuantity);
             AccountManager.moveFunds(NPC_UUID, playerId, totalCost);
-            return false;
+            return 0;
         }
 
         // 5. 记录流水
@@ -195,7 +205,7 @@ public class NpcMarketMaker {
         CommodityTradeRecorder.recordCompletedTrade(playerId, NPC_UUID, commodityId,
                 askPrice, acceptedQuantity, CommodityTradeSource.PLAYER_NPC, false);
 
-        return true;
+        return acceptedQuantity;
     }
 
     // ================================================================
@@ -444,6 +454,26 @@ public class NpcMarketMaker {
         if (!MARKET_PRICES.isEmpty()) {
             EconomySavedData.markDirty();
         }
+    }
+
+    /** 玩家把商品卖给国际市场时，为什么现在卖不了；能卖返回 null。用于把失败原因告诉玩家。 */
+    public static String npcBuyBlockReason(String commodityId) {
+        if (CommodityRegistry.getCommodity(commodityId) == null) return "这种东西市场不收。";
+        QuoteView quote = MarketMakerQuotes.getQuote(MarketMakerQuotes.MARKET_COMMODITY, commodityId);
+        if (quote == null) return "这种东西市场不收。";
+        if (quote.halted()) return "价格波动太大，市场暂停收购，过一会儿再来。";
+        if (getMaxNpcBuyQuantity(commodityId, quote.bid()) <= 0) return "市场仓库已经堆满或收购资金用完了，明天再来。";
+        return null;
+    }
+
+    /** 玩家从国际市场买商品时，为什么现在买不了；能买返回 null。 */
+    public static String npcSellBlockReason(String commodityId) {
+        if (CommodityRegistry.getCommodity(commodityId) == null) return "市场不卖这种东西。";
+        QuoteView quote = MarketMakerQuotes.getQuote(MarketMakerQuotes.MARKET_COMMODITY, commodityId);
+        if (quote == null) return "市场不卖这种东西。";
+        if (quote.halted()) return "价格波动太大，市场暂停出售，过一会儿再来。";
+        if (getMaxNpcSellQuantity(commodityId) <= 0) return "市场里这种东西卖光了，明天再来。";
+        return null;
     }
 
     private static int getMaxNpcBuyQuantity(String commodityId, long bidPrice) {

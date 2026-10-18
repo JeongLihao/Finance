@@ -56,8 +56,14 @@ public class FinanceGuiOpener {
 
     public static void open(ServerPlayer player, FinanceScreenMode initialMode,
                             FinanceTerminalType sourceType, BlockPos sourcePos) {
+        long starter = finance.simple.SimpleCenterService.grantStarterIfNeeded(player);
         FinanceProvider provider = collect(player, initialMode, sourceType, sourcePos);
         NetworkHooks.openScreen(player, provider, provider::write);
+        finance.network.SimpleStatusPacket.send(player);
+        if (starter > 0) {
+            finance.network.GuiFeedbackPacket.send(player, "欢迎！送你 " + finance.util.MoneyFormat.pounds(starter)
+                    + " 启动资金，先去“买卖”页看看。", starter);
+        }
     }
 
     /** 金融中心开着时，用最新数据替换服务端菜单并推送给客户端；没开着则什么都不做。 */
@@ -68,6 +74,7 @@ public class FinanceGuiOpener {
         finance.network.FinancePacketHandler.CHANNEL.send(
                 net.minecraftforge.network.PacketDistributor.PLAYER.with(() -> player),
                 new finance.network.FinanceMenuRefreshPacket(menu.containerId, provider::write));
+        finance.network.SimpleStatusPacket.send(player);
     }
 
     private static FinanceProvider collect(ServerPlayer player, FinanceScreenMode initialMode,

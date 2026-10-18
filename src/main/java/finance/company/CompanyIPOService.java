@@ -79,6 +79,12 @@ public class CompanyIPOService {
             return fail("发行价和数量必须为正。");
         }
 
+        long minValuation = FinanceConfig.simpleIpoMinValuation();
+        if (company.getEstimatedValue() < minValuation) {
+            return fail("公司估值要达到 " + finance.util.MoneyFormat.pounds(minValuation) + " 才能上市，现在是 "
+                    + finance.util.MoneyFormat.pounds(company.getEstimatedValue()) + "。");
+        }
+
         if (issueQuantity > 100_000L) {
             return fail("发行数量过多（最多 100,000）。");
         }

@@ -122,6 +122,7 @@ public final class FinanceFormat {
     public static String displayTransactionType(String type) {
         return switch (type) {
             case "TRANSFER" -> "转账";
+            case "STARTER_GRANT" -> "启动资金";
             case "MARKET_TRADE" -> "商品成交";
             case "NPC_BUY", "COMMODITY_SELL" -> "卖出商品";
             case "NPC_SELL", "COMMODITY_BUY" -> "买入商品";

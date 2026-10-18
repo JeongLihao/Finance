@@ -11,8 +11,9 @@ import java.util.UUID;
  */
 public class CompanyCreationService {
 
-    public static final long CREATE_COMPANY_COST = 10_000L;
-    public static final long INITIAL_PLAYER_COMPANY_CASH = 5_000L;
+    /** 开公司要 10 磅，这笔钱全部作为公司的启动现金（不凭空多给钱；刷钱防线改由上市估值门槛承担）。 */
+    public static final long CREATE_COMPANY_COST = 1_000L;
+    public static final long INITIAL_PLAYER_COMPANY_CASH = CREATE_COMPANY_COST;
 
     public record Result(boolean success, String message, Company company) {}
 

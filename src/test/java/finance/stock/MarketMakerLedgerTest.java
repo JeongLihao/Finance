@@ -244,7 +244,7 @@ class MarketMakerLedgerTest {
     @Test
     void ipoReservesFivePercentForMarketMaker() {
         UUID ipoCompanyId = UUID.fromString("00000000-0000-0000-0000-000000000704");
-        Company company = new Company(ipoCompanyId, "MMTCorp", CompanyType.RAW_MATERIALS, 10_000L, OWNER);
+        Company company = new Company(ipoCompanyId, "MMTCorp", CompanyType.RAW_MATERIALS, 20_000L, OWNER); // 达到上市估值门槛
         CompanyManager.registerDirect(company);
         AccountManager.deposit(OWNER, 100_000L);
 
@@ -255,8 +255,8 @@ class MarketMakerLedgerTest {
         // 发行量 1000 × 5% = 50 股，以发行价 10 划入做市商库存
         assertEquals(50, MarketMakerLedger.getStockInventory("MMTC"));
         assertEquals(mmBefore - 500, AccountManager.getBalance(MM), "做市商应真实支付 500");
-        // 公司收到募资 10_000 + 做市商认购款 500
-        assertEquals(20_500L, company.getCash());
+        // 公司原有 20_000 + 募资 10_000 + 做市商认购款 500
+        assertEquals(30_500L, company.getCash());
         assertTrue(AccountManager.getTransactions().stream()
                 .anyMatch(r -> r.getType() == TransactionType.MARKET_MAKER_BUY
                         && "MMTC".equals(r.getObjectName())
@@ -269,7 +269,7 @@ class MarketMakerLedgerTest {
         assertEquals(0, AccountManager.getBalance(MM));
 
         UUID ipoCompanyId = UUID.fromString("00000000-0000-0000-0000-000000000705");
-        Company company = new Company(ipoCompanyId, "BrokeCorp", CompanyType.RAW_MATERIALS, 10_000L, OWNER);
+        Company company = new Company(ipoCompanyId, "BrokeCorp", CompanyType.RAW_MATERIALS, 20_000L, OWNER); // 达到上市估值门槛
         CompanyManager.registerDirect(company);
         AccountManager.deposit(OWNER, 100_000L);
 
@@ -278,8 +278,25 @@ class MarketMakerLedgerTest {
         // 预留被跳过，但 IPO 本身不受影响
         assertTrue(result.success(), result.message());
         assertEquals(0, MarketMakerLedger.getStockInventory("BROK"));
-        assertEquals(20_000L, company.getCash(), "公司只收到募资，无认购款");
+        assertEquals(30_000L, company.getCash(), "公司只收到募资，无认购款");
         assertEquals(0, AccountManager.getBalance(MM));
+    }
+
+    @Test
+    void ipoRequiresMinimumValuation() {
+        UUID ipoCompanyId = UUID.fromString("00000000-0000-0000-0000-000000000706");
+        Company company = new Company(ipoCompanyId, "SmallCorp", CompanyType.RAW_MATERIALS, 1_000L, OWNER);
+        CompanyManager.registerDirect(company);
+        AccountManager.deposit(OWNER, 100_000L);
+        long before = AccountManager.getBalance(OWNER);
+
+        CompanyIPOService.IPOResult result = CompanyIPOService.ipo(OWNER, ipoCompanyId, 10L, 1000L);
+
+        // 开公司只要 10 磅，没有估值门槛就能“开公司→上市→提现”刷钱
+        assertFalse(result.success());
+        assertTrue(result.message().contains("估值"), result.message());
+        assertFalse(company.isPublic());
+        assertEquals(before, AccountManager.getBalance(OWNER), "失败时不收上市费");
     }
 
     // ---------- 建仓幂等与失败语义 ----------
