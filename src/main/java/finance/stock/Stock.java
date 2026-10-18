@@ -221,6 +221,30 @@ public class Stock {
         priceEngine.recordTrade(tradePrice, tradeVolume, floatShares, isBuy);
     }
 
+    /** 市价（不含显示噪音）：做市商报价、融资估值、强制卖出都按它。 */
+    public long getAnchorPrice() {
+        return priceEngine.getAnchorPrice();
+    }
+
+    /** 这笔成交推动之后的市价（不真的推动）。 */
+    public long impactedPrice(long qty, boolean buy) {
+        return priceEngine.impactedPrice(qty, floatShares, buy);
+    }
+
+    /** 熔断中：暂停交易，融资也暂不强制卖出。 */
+    public boolean isBreakerHalted() {
+        return priceEngine.isBreakerHalted();
+    }
+
+    public int getBreakerTrips() {
+        return priceEngine.getBreakerTrips();
+    }
+
+    /** 停牌或熔断，都不能交易。 */
+    public boolean isTradingPaused() {
+        return isTradingHalted() || isBreakerHalted();
+    }
+
     /**
      * 旧 API 兼容版 —— 单纯记录成交，不推动价格（向后兼容）。
      */

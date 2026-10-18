@@ -83,62 +83,43 @@ class MarketMakerCircuitBreakerTest {
     // ---------- 股票熔断 ----------
 
     @Test
-    void stockHaltTriggersAtThirtyPercentDeviationAndRecovers() {
+    void stockQuotesFollowTheMarketPriceAndDoNotHaltOnDeviation() {
         Stock stock = StockMarketManager.getStock(SYMBOL);
-
-        // 未熔断：库存=目标、无波动、无偏离 → 标准 2% 价差
-        assertFalse(MarketMakerQuotes.isHalted("stock", SYMBOL));
         QuoteView quote = MarketMakerQuotes.getQuote("stock", SYMBOL);
-        assertNotNull(quote);
         assertFalse(quote.halted());
         assertEquals(98L, quote.bid());
         assertEquals(102L, quote.ask());
 
-        // 现价 +40% → 熔断
+        // 市价涨到每股价值的 1.4 倍：不再因为偏离停止报价，而是按市价报价（泡沫才吹得起来）
         assertTrue(stock.setLastPrice(140));
-        assertTrue(MarketMakerQuotes.isHalted("stock", SYMBOL));
-        QuoteView halted = MarketMakerQuotes.getQuote("stock", SYMBOL);
-        assertTrue(halted.halted());
-        assertNotNull(halted.haltReason());
-        assertEquals(0L, halted.bid());
-        assertEquals(0L, halted.ask());
-
-        // 熔断时做市商拒绝：买单转订单簿，玩家拿不到股票、资金保持锁定
-        AccountManager.deposit(TRADER, 100_000L);
-        long traderBefore = AccountManager.getBalance(TRADER);
-        assertTrue(StockOrderManager.placeBuyOrder(TRADER, SYMBOL, 200, 5).success());
-        assertEquals(0, StockPortfolioManager.getHolding(TRADER, SYMBOL).getQuantity());
-        assertEquals(1, StockOrderManager.getOrders().size());
-        assertEquals(traderBefore - 200 * 5, AccountManager.getBalance(TRADER));
-
-        // 熔断时卖单同样转订单簿
-        StockPortfolioManager.addHolding(TRADER, SYMBOL, 5, 100);
-        assertTrue(StockOrderManager.placeSellOrder(TRADER, SYMBOL, 50, 5).success());
-        assertEquals(2, StockOrderManager.getOrders().size());
-
-        // 偏离回归（±30% 以内）→ 自动恢复，无需手动复位
-        assertTrue(stock.setLastPrice(100));
         assertFalse(MarketMakerQuotes.isHalted("stock", SYMBOL));
-        assertFalse(MarketMakerQuotes.getQuote("stock", SYMBOL).halted());
-
-        // 恢复后做市商重新报价成交
-        for (var order : new ArrayList<>(StockOrderManager.getOrders())) {
-            assertTrue(StockOrderManager.cancelOrder(order.getOrderId(), TRADER));
-        }
-        long traderMid = AccountManager.getBalance(TRADER);
-        assertTrue(StockOrderManager.placeBuyOrder(TRADER, SYMBOL, 102, 5).success());
-        // 交易者此前已持有 5 股（第 115 行加仓，卖单取消后解冻），本次再买入 5 股
-        assertEquals(10, StockPortfolioManager.getHolding(TRADER, SYMBOL).getQuantity());
-        assertEquals(traderMid - 102 * 5, AccountManager.getBalance(TRADER));
+        QuoteView high = MarketMakerQuotes.getQuote("stock", SYMBOL);
+        assertFalse(high.halted());
+        assertTrue(high.bid() > 120 && high.ask() > high.bid(), "按市价 140 附近报价：" + high.bid() + "/" + high.ask());
     }
 
     @Test
-    void stockHaltBoundaryIsNotTriggeredAtExactlyThirtyPercent() {
+    void stockBreakerHaltsAfterAFifteenPercentDropAndRecoversAfterAMinute() {
         Stock stock = StockMarketManager.getStock(SYMBOL);
-        assertTrue(stock.setLastPrice(130)); // 恰好 +30%，严格大于才熔断
-        assertFalse(MarketMakerQuotes.isHalted("stock", SYMBOL));
-        assertTrue(stock.setLastPrice(131));
+        for (int i = 0; i < 6; i++) stock.recalculateFromCurrent();
+        assertFalse(stock.isBreakerHalted());
+
+        // 一笔砸掉 12% 流通股：市价跌 18%，超过 5 分钟 15% 的熔断线
+        stock.recordTrade(80, 1_200, false);
+        assertTrue(stock.isBreakerHalted());
         assertTrue(MarketMakerQuotes.isHalted("stock", SYMBOL));
+        assertTrue(MarketMakerQuotes.getQuote("stock", SYMBOL).halted());
+        assertEquals(1, stock.getBreakerTrips());
+
+        // 熔断中做市商不接单，市价单直接被拒
+        AccountManager.deposit(TRADER, 100_000L);
+        assertFalse(StockMarketManager.buy(TRADER, SYMBOL, 5).success());
+
+        // 1 分钟后恢复
+        stock.recalculateFromCurrent();
+        assertFalse(stock.isBreakerHalted());
+        assertTrue(StockMarketManager.buy(TRADER, SYMBOL, 5).success());
+        assertEquals(5, StockPortfolioManager.getHolding(TRADER, SYMBOL).getQuantity());
     }
 
     // ---------- 商品熔断 ----------

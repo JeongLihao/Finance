@@ -237,8 +237,8 @@ public class StockOrderManager {
      */
     private static OrderResult marketMakerTrade(StockOrder order, Stock stock) {
         // 停牌期间做市商暂停报价（不消耗终身接盘额度）
-        if (stock.isTradingHalted()) {
-            return OrderResult.fail("该股票停牌中，做市商暂停报价。");
+        if (stock.isTradingPaused()) {
+            return OrderResult.fail(stock.isBreakerHalted() ? "熔断中，做市商暂停报价。" : "该股票停牌中，做市商暂停报价。");
         }
         long fairValue = stock.getFairValue();
         if (fairValue <= 0) {

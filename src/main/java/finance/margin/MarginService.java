@@ -146,15 +146,15 @@ public final class MarginService {
         if (stock == null) {
             return Result.fail("未知股票: " + symbol);
         }
-        if (stock.isTradingHalted()) {
-            return Result.fail("该股票停牌中，不可新开融资仓。");
+        if (stock.isTradingPaused()) {
+            return Result.fail("该股票停牌或熔断中，不可新开融资仓。");
         }
         MarginAccount acct = MarginPoolManager.getAccount(playerId);
         if (acct.getBadDebt() > 0) {
             return Result.fail("有不良债务未清还，不可新开仓。请先还清穿仓债务。");
         }
 
-        long price = stock.getFairValue();
+        long price = stock.getAnchorPrice(); // 开仓按市价
         if (price <= 0) {
             return Result.fail("该股票估值异常，暂不可融资买入。");
         }
@@ -254,7 +254,7 @@ public final class MarginService {
             return Result.fail("有不良债务未清还，不可新开仓。请先还清穿仓债务。");
         }
 
-        long price = stock.getFairValue();
+        long price = stock.getAnchorPrice(); // 开仓按市价
         if (price <= 0) {
             return Result.fail("该股票估值异常，暂不可融券卖出。");
         }
@@ -311,7 +311,7 @@ public final class MarginService {
         long closeQty = qty <= 0 ? pos : Math.min(qty, pos);
 
         Stock stock = StockMarketManager.getStock(key);
-        long price = stock == null ? 0 : stock.getFairValue();
+        long price = stock == null ? 0 : stock.impactedPrice(closeQty, true); // 平仓按买回推高之后的价
         if (price <= 0) {
             return Result.fail("该股票当前无有效价格，暂不可还券。");
         }
@@ -354,6 +354,7 @@ public final class MarginService {
         String msg = String.format("已买回 %d 股 %s @%d，成本 %d（含利息 %d）%s。",
                 closeQty, key, price, totalOwed, interestShare,
                 rest > 0 ? "，缺口 " + rest + " 已记为不良债务" : "");
+        if (stock != null) stock.recordTrade(price, closeQty, true); // 买回推高股价
         return Result.ok(msg);
     }
 
@@ -412,9 +413,71 @@ public final class MarginService {
         return (double) equity / (double) debt * 100.0;
     }
 
+    /** 融资仓按市价估值：股价跌了，保证金率马上跟着跌。 */
     private static long priceOf(String symbol) {
         Stock stock = StockMarketManager.getStock(symbol);
-        return stock == null ? 0 : Math.max(0, stock.getFairValue());
+        return stock == null ? 0 : Math.max(0, stock.getAnchorPrice());
+    }
+
+    /**
+     * 每分钟检查一次保证金：跌破维持线的按市价卖进市场。卖出会继续压低股价，
+     * 所以最弱的先卖、卖完重新检查，直到没人跌破或熔断为止——这就是连环踩踏。
+     */
+    public static synchronized List<String> checkLiquidations() {
+        List<String> liquidated = new ArrayList<>();
+        for (int pass = 0; pass < 20; pass++) {
+            MarginAccount weakest = null;
+            double weakestRatio = Double.MAX_VALUE;
+            for (MarginAccount acct : MarginPoolManager.accounts().values()) {
+                if (!acct.hasOpenPositions() || !tradable(acct)) continue;
+                double ratio = marginRatioOf(acct);
+                if (ratio < maintenanceRatio() && ratio < weakestRatio) {
+                    weakest = acct;
+                    weakestRatio = ratio;
+                }
+            }
+            if (weakest == null) break;
+            int before = liquidated.size();
+            liquidate(weakest, liquidated);
+            if (liquidated.size() == before) break;
+        }
+        if (!liquidated.isEmpty()) EconomySavedData.markDirty();
+        return liquidated;
+    }
+
+    private static boolean tradable(MarginAccount acct) {
+        for (String symbol : acct.getFinancedShares().keySet()) {
+            Stock s = StockMarketManager.getStock(symbol);
+            if (s != null && !s.isTradingPaused()) return true;
+        }
+        for (String symbol : acct.getShortPositions().keySet()) {
+            Stock s = StockMarketManager.getStock(symbol);
+            if (s != null && !s.isTradingPaused()) return true;
+        }
+        return false;
+    }
+
+    /** 主动平掉融资仓：按市价卖进市场，先息后本还款，剩下的钱进账户。 */
+    public static synchronized Result closeFinanced(UUID playerId, String symbol) {
+        String key = norm(symbol);
+        Stock stock = StockMarketManager.getStock(key);
+        MarginAccount acct = MarginPoolManager.getAccount(playerId);
+        long qty = acct.financedSharesOf(key);
+        if (stock == null || qty <= 0) return Result.fail("没有这只股票的融资仓。");
+        if (stock.isTradingPaused()) return Result.fail("该股票停牌或熔断中，稍后再平。");
+        long price = stock.impactedPrice(qty, false); // 平仓按自己砸下去之后的价
+        long proceeds = multiplyCap(qty, price);
+        long interestPay = Math.min(proceeds, acct.getFinancedInterestOwed());
+        acct.reduceFinancedInterest(interestPay);
+        proceeds -= interestPay;
+        long debtPay = Math.min(proceeds, acct.getFinancedDebt());
+        acct.reduceFinancedDebt(debtPay);
+        proceeds -= debtPay;
+        if (proceeds > 0) AccountManager.deposit(playerId, proceeds);
+        acct.removeFinancedShares(key, qty);
+        stock.recordTrade(price, qty, false);
+        EconomySavedData.markDirty();
+        return Result.ok(String.format("平掉融资仓 %s %d 股 @%d。", key, qty, price));
     }
 
     /** 是否触及预警线（< 150% 且有负债） */
@@ -480,11 +543,11 @@ public final class MarginService {
         // ---- 强平融资仓 ----
         for (String symbol : new ArrayList<>(acct.getFinancedShares().keySet())) {
             Stock stock = StockMarketManager.getStock(symbol);
-            if (stock != null && stock.isTradingHalted()) {
-                continue; // 停牌股跳过本次
+            if (stock != null && stock.isTradingPaused()) {
+                continue; // 停牌、熔断时跳过本次
             }
             long qty = acct.financedSharesOf(symbol);
-            long price = stock == null ? 0 : Math.max(0, stock.getFairValue());
+            long price = stock == null ? 0 : stock.impactedPrice(qty, false);
             long proceeds = multiplyCap(qty, price);
             // 先息后本
             long interestPay = Math.min(proceeds, acct.getFinancedInterestOwed());
@@ -497,16 +560,18 @@ public final class MarginService {
                 AccountManager.deposit(playerId, proceeds);
             }
             acct.removeFinancedShares(symbol, qty);
+            if (stock != null && qty > 0) stock.recordTrade(price, qty, false); // 卖进市场，继续压低股价
             log.add(String.format("强平融资 %s %d股@%d", symbol, qty, price));
         }
         // ---- 强平融券仓 ----
         for (String symbol : new ArrayList<>(acct.getShortPositions().keySet())) {
             Stock stock = StockMarketManager.getStock(symbol);
-            if (stock != null && stock.isTradingHalted()) {
+            if (stock != null && stock.isTradingPaused()) {
                 continue;
             }
             long qty = acct.shortPositionOf(symbol);
-            long price = stock == null ? 0 : Math.max(0, stock.getFairValue());
+            long price = stock == null ? 0 : stock.impactedPrice(qty, true);
+            if (stock != null && qty > 0) stock.recordTrade(price, qty, true); // 买回推高股价（轧空）
             long cost = multiplyCap(qty, price);
             long interest = acct.getShortInterestOwed().getOrDefault(symbol, 0L);
             long totalOwed = cost + interest;

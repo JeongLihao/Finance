@@ -82,7 +82,7 @@ public final class MarketMakerQuotes {
             if (stock == null) {
                 return false;
             }
-            return deviates(stock.getLastPrice(), stock.getFairValue(), threshold);
+            return stock.isTradingPaused();
         }
         return false;
     }
@@ -159,6 +159,7 @@ public final class MarketMakerQuotes {
         }
         long fairValue = stock.getFairValue();
         long lastPrice = stock.getLastPrice();
+        long marketPrice = stock.getAnchorPrice();
         long inventory = MarketMakerLedger.getStockInventory(normalized);
         long target = MarketMakerLedger.targetInventory(stock.getFloatShares());
         List<Long> prices = new ArrayList<>(VOLATILITY_WINDOW);
@@ -167,11 +168,13 @@ public final class MarketMakerQuotes {
             prices.add(snapshots.get(i).getPrice());
         }
         double volatility = VolatilityEstimator.estimate(prices, VOLATILITY_WINDOW);
-        boolean halted = deviates(lastPrice, fairValue, FinanceConfig.marketMakerCircuitBreakerThreshold());
-        MarketState state = new MarketState(fairValue, lastPrice, fairValue, inventory,
+        // 做市商按市价报价（不是每股价值）：大家一直买，成交价就一路往上，泡沫才吹得起来。
+        // 不再因为偏离每股价值而停止报价，只在停牌和熔断时暂停。
+        boolean halted = stock.isTradingPaused();
+        MarketState state = new MarketState(marketPrice, lastPrice, fairValue, inventory,
                 target, volatility, FinanceConfig.stockMarketMakerSpread(), halted);
         return toView(MARKET_STOCK, normalized, state,
-                haltReason(lastPrice, fairValue, "股价"));
+                stock.isBreakerHalted() ? "股价 5 分钟内跌超 15%，熔断 1 分钟。" : "该股票停牌中。");
     }
 
     private static QuoteView toView(String market, String symbol, MarketState state, String haltReason) {

@@ -45,10 +45,12 @@ class ConditionalStockOrderManagerTest {
 
         assertEquals(0, ConditionalStockOrderManager.getOrdersForPlayer(PLAYER_ID).size());
         assertEquals(2, StockPortfolioManager.getHolding(PLAYER_ID, SYMBOL).getQuantity());
-        assertEquals(1, StockOrderManager.getOrders().size());
-        assertEquals(3, StockOrderManager.getOrders().get(0).getQuantity());
-        assertEquals(TransactionType.CONDITIONAL_STOCK_TRIGGER,
-                AccountManager.getTransactions().get(0).getType());
+        // 做市商按市价报价，止盈单触发后直接和做市商成交，不再挂在订单簿上
+        assertEquals(0, StockOrderManager.getOrders().size());
+        assertTrue(AccountManager.getTransactions().stream()
+                .anyMatch(record -> record.getType() == TransactionType.CONDITIONAL_STOCK_TRIGGER));
+        assertTrue(AccountManager.getTransactions().stream()
+                .anyMatch(record -> record.getType() == TransactionType.STOCK_SELL));
     }
 
     @Test

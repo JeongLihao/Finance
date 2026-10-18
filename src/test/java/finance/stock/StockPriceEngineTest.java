@@ -68,7 +68,7 @@ class StockPriceEngineTest {
 
         engine.recalculateFromCurrent();
 
-        assertTrue(engine.getCurrentPrice() >= 45,
-                "价格不应低于 fairValue * 0.45 的下限");
+        assertTrue(engine.getCurrentPrice() >= 20,
+                "价格不应低于 fairValue * 0.2 的下限");
     }
 }

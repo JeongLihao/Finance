@@ -125,14 +125,14 @@ class MarginServiceTest {
         assertEquals(100L, acct.shortPositionOf(SYMBOL));
         assertEquals(10_000L, acct.shortProceedsOf(SYMBOL)); // 冻结
 
-        // 股价跌到 80，买回：成本 8_000，盈利 2_000 解冻到自由账户
+        // 股价跌到 80，买回：买回 100 股（1% 流通股）把价格推高 1.5% → 按 81 成交，成本 8_100，盈利 1_900
         long freeBefore = AccountManager.getBalance(TRADER);
         setFairValue(80L);
         MarginService.Result cover = MarginService.coverShort(TRADER, SYMBOL, 0L);
         assertTrue(cover.success(), cover.message());
         assertEquals(0L, acct.shortPositionOf(SYMBOL));
         assertEquals(500L, MarginPoolManager.poolAvailable(SYMBOL), "券池额度应全额归还");
-        assertEquals(freeBefore + 2_000L, AccountManager.getBalance(TRADER), "盈利应解冻到自由账户");
+        assertEquals(freeBefore + 1_900L, AccountManager.getBalance(TRADER), "盈利应解冻到自由账户");
     }
 
     // ---------- §9.5 反刷钱 ----------

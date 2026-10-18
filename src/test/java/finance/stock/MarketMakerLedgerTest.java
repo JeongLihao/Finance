@@ -224,7 +224,9 @@ class MarketMakerLedgerTest {
 
         // 买 500 股：同样只成交 100 股。注意卖出 100 股后做市商库存 600/500，
         // Phase 2 skew = 0.5×(1.2-1) = 0.10 → ask = 100×(1+0.02-0.10) = 92
-        long dynamicAsk = 92L;
+        // 做市商按市价报价：刚卖出的 100 股把市价压低了一点，所以按当时的报价算
+        long dynamicAsk = finance.market.liquidity.MarketMakerQuotes.getQuote(
+                finance.market.liquidity.MarketMakerQuotes.MARKET_STOCK, SYMBOL).ask();
         AccountManager.deposit(TRADER, 1_000_000L);
         long traderMid = AccountManager.getBalance(TRADER);
         StockOrderManager.OrderResult buyResult = StockOrderManager.placeBuyOrder(TRADER, SYMBOL, ASK, 500);

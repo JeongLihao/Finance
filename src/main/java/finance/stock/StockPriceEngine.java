@@ -21,8 +21,19 @@ public class StockPriceEngine {
 
     // ---- 参数 ----
 
-    /** 价格向 fairValue 回归的速度（每 tick） */
-    private static final double MEAN_REVERT_FACTOR = 0.08;
+    /**
+     * 市价每分钟向每股价值回归的比例。0.5%/分钟：半衰期约 2 小时现实时间（约 7 个游戏日），
+     * 大家持续买入时泡沫能吹起来，没人买了才慢慢回落。
+     */
+    static final double REVERT_PER_MINUTE = 0.005;
+
+    /** 成交冲击：成交量占流通股 1%，市价就动 1.5%（买涨卖跌，永久推动，靠均值回归慢慢拉回）。 */
+    static final double TRADE_IMPACT = 1.5;
+
+    /** 熔断：5 分钟内跌超 15%，暂停交易 1 分钟。 */
+    static final double BREAKER_DROP = 0.15;
+    static final int BREAKER_WINDOW_MINUTES = 5;
+    static final int BREAKER_HALT_MINUTES = 1;
 
     /** 动量缩放：成交量占流通股 1% 时产生的动量百分比 */
     private static final double MOMENTUM_SCALE = 18;
@@ -33,12 +44,12 @@ public class StockPriceEngine {
     /** 动量低于此阈值时归零 */
     private static final double MOMENTUM_MIN = 0.001;
 
-    /** 噪音偏移最大幅度（相对于 fairValue 的百分比） */
-    private static final double MAX_NOISE_RATIO = 0.06;
+    /** 噪音偏移最大幅度（相对于 fairValue 的百分比）：只叠加在显示价上，不累积进市价。 */
+    private static final double MAX_NOISE_RATIO = 0.01;
 
-    /** 价格夹逼范围：fairValue × [MIN, MAX] */
-    private static final double MIN_PRICE_RATIO = 0.45;
-    private static final double MAX_PRICE_RATIO = 1.85;
+    /** 市价范围：fairValue × [MIN, MAX]。放宽到 0.2~5 倍，泡沫和股灾才有空间。 */
+    static final double MIN_PRICE_RATIO = 0.2;
+    static final double MAX_PRICE_RATIO = 5.0;
 
     /** 每只股票最多保留的价格快照数量。 */
     static final int MAX_SNAPSHOTS = 200;
@@ -56,6 +67,16 @@ public class StockPriceEngine {
 
     /** 噪音偏移（整价） */
     private int noiseOffset;
+
+    /** 市价（不含噪音）：成交推动它，每分钟向 fairValue 回归；显示价 = 市价 + 噪音。≤ 0 表示还没初始化。 */
+    private double anchor = -1;
+
+    /** 最近几分钟的市价（熔断用），最旧的在前。 */
+    private final java.util.ArrayDeque<Double> minuteAnchors = new java.util.ArrayDeque<>();
+
+    /** 熔断剩余分钟数；累计熔断次数（报纸和面板用，不存档）。 */
+    private int breakerMinutes;
+    private int breakerTrips;
 
     // ---- 24h 统计 ----
     private long dayHigh;
@@ -196,11 +217,13 @@ public class StockPriceEngine {
         }
         dayVolume += tradeVolume;
 
-        // 计算动量冲击
+        // 计算动量冲击（动量只用于显示和熔断判断以外的提示；真正推动价格的是市价冲击）
         if (floatShares > 0) {
             double volumeRatio = (double) tradeVolume / floatShares; // 占流通股的比例
             double impact = volumeRatio * MOMENTUM_SCALE; // 单位：百分比点
             tradeMomentum += isBuy ? impact : -impact;
+            double move = Math.min(0.5, volumeRatio * TRADE_IMPACT);
+            anchor = anchor() * (isBuy ? 1.0 + move : 1.0 - move);
         }
 
         // 立即重算价格
@@ -218,6 +241,44 @@ public class StockPriceEngine {
         }
     }
 
+    /** 这笔成交推动之后的市价（不真的推动）：平仓按它成交，加杠杆来回买卖一定亏。 */
+    public long impactedPrice(long qty, long floatShares, boolean buy) {
+        if (floatShares <= 0 || qty <= 0) return getAnchorPrice();
+        double move = Math.min(0.5, (double) qty / floatShares * TRADE_IMPACT);
+        return Math.max(1, Math.round(anchor() * (buy ? 1.0 + move : 1.0 - move)));
+    }
+
+    /** 市价（不含噪音）。 */
+    public long getAnchorPrice() {
+        return Math.max(1, Math.round(anchor()));
+    }
+
+    private double anchor() {
+        if (anchor <= 0) anchor = Math.max(1, currentPrice - noiseOffset);
+        return anchor;
+    }
+
+    /** 是否在熔断中（暂停交易）。 */
+    public boolean isBreakerHalted() {
+        return breakerMinutes > 0;
+    }
+
+    public int getBreakerTrips() {
+        return breakerTrips;
+    }
+
+    /** 和 BREAKER_WINDOW_MINUTES 分钟前比跌超 BREAKER_DROP 就熔断；熔断后重新计窗口，避免恢复后立刻再触发。 */
+    private void checkBreaker() {
+        if (breakerMinutes > 0 || minuteAnchors.isEmpty()) return;
+        double reference = minuteAnchors.peekFirst();
+        if (reference > 0 && anchor() < reference * (1.0 - BREAKER_DROP)) {
+            breakerMinutes = BREAKER_HALT_MINUTES;
+            breakerTrips++;
+            minuteAnchors.clear();
+            minuteAnchors.addLast(anchor());
+        }
+    }
+
     /**
      * 每 3 分钟刷新噪音（Tick 中调用）。
      */
@@ -230,9 +291,13 @@ public class StockPriceEngine {
     }
 
     /**
-     * 动量衰减或噪音变化后，重新计算价格（在 tick 中调用）。
+     * 每分钟调用一次：熔断倒计时、市价向 fairValue 回归一点、记下这一分钟的市价，再算显示价。
      */
     public void recalculateFromCurrent() {
+        if (breakerMinutes > 0) breakerMinutes--;
+        if (fairValue > 0) anchor = anchor() + (fairValue - anchor()) * REVERT_PER_MINUTE;
+        minuteAnchors.addLast(anchor());
+        while (minuteAnchors.size() > BREAKER_WINDOW_MINUTES + 1) minuteAnchors.removeFirst();
         recalculate();
     }
 
@@ -256,6 +321,7 @@ public class StockPriceEngine {
         }
         double pass = Math.max(0.0, Math.min(1.0, fvPassThrough));
         fairValue = Math.max(1, Math.round(fairValue * (1.0 + shockPct * pass)));
+        anchor = anchor() * (1.0 + shockPct);
         currentPrice = Math.max(1, Math.round(currentPrice * (1.0 + shockPct)));
         recalculate();
         recordSnapshot(0);
@@ -276,6 +342,7 @@ public class StockPriceEngine {
             return;
         }
         fairValue = Math.max(1, fairValue - perShare);
+        anchor = Math.max(1, anchor() - perShare);
         currentPrice = Math.max(1, currentPrice - perShare);
         recalculate();
         recordSnapshot(0); // 与 applyEarningsShock 一致：除权也在 K 线留点
@@ -309,18 +376,13 @@ public class StockPriceEngine {
      */
     private void recalculate() {
         if (fairValue <= 0) return;
-
-        // 1. 向 fairValue 回归
-        long target = fairValue;
-        long base = Math.round(currentPrice + (target - currentPrice) * MEAN_REVERT_FACTOR);
-
-        // 2. 动量 + 噪音
-        long price = Math.round(base * (1.0 + tradeMomentum / 100.0)) + noiseOffset;
-
-        // 3. 夹逼在 fairValue 的 [0.3, 3.0] 倍
-        long floor = Math.max(1, Math.round(fairValue * MIN_PRICE_RATIO));
-        long ceiling = Math.round(fairValue * MAX_PRICE_RATIO);
-        currentPrice = Math.max(floor, Math.min(ceiling, price));
+        // 市价夹在 fairValue × [0.2, 5]；显示价 = 市价 + 噪音（噪音不累积进市价）
+        double floor = Math.max(1, fairValue * MIN_PRICE_RATIO);
+        double ceiling = fairValue * MAX_PRICE_RATIO;
+        anchor = Math.max(floor, Math.min(ceiling, anchor()));
+        checkBreaker();
+        long price = Math.round(anchor) + noiseOffset;
+        currentPrice = Math.max(Math.max(1, Math.round(floor)), Math.min(Math.round(ceiling), price));
     }
 
     // ================================================================
@@ -341,6 +403,7 @@ public class StockPriceEngine {
 
     public void setCurrentPrice(long price) {
         this.currentPrice = price;
+        this.anchor = price;
     }
 
     public void setFairValue(long fairValue) {

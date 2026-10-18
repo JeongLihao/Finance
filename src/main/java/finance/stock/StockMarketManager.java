@@ -238,10 +238,19 @@ public class StockMarketManager {
             return TradeResult.fail("数量过大。");
         }
 
-        // 按当前价一步到位成交（做市商 fallback）
-        long price = stock.getLastPrice();
+        // 按做市商卖价一步到位成交；熔断时不能买卖
+        if (stock.isBreakerHalted()) return TradeResult.fail("熔断中：股价 5 分钟内跌超 15%，暂停交易 1 分钟。");
+        long price = marketOrderPrice(stock, true);
         StockOrderManager.OrderResult result = StockOrderManager.placeBuyOrder(playerId, symbol, price, (int) quantity);
         return new TradeResult(result.success(), result.message());
+    }
+
+    /** 市价单用的价格：买按做市商卖价，卖按做市商买价；没有报价时用显示价。 */
+    static long marketOrderPrice(Stock stock, boolean buy) {
+        var quote = finance.market.liquidity.MarketMakerQuotes.getQuote(
+                finance.market.liquidity.MarketMakerQuotes.MARKET_STOCK, stock.getSymbol());
+        if (quote == null || quote.halted()) return stock.getLastPrice();
+        return Math.max(1, buy ? quote.ask() : quote.bid());
     }
 
     public static TradeResult placeLimitBuy(UUID playerId, String symbol, long price, long quantity) {
@@ -262,8 +271,9 @@ public class StockMarketManager {
             return TradeResult.fail("数量过大。");
         }
 
-        // 按当前价一步到位成交（做市商 fallback）
-        long price = stock.getLastPrice();
+        // 按做市商买价一步到位成交；熔断时不能买卖
+        if (stock.isBreakerHalted()) return TradeResult.fail("熔断中：股价 5 分钟内跌超 15%，暂停交易 1 分钟。");
+        long price = marketOrderPrice(stock, false);
         StockOrderManager.OrderResult result = StockOrderManager.placeSellOrder(playerId, symbol, price, (int) quantity);
         return new TradeResult(result.success(), result.message());
     }

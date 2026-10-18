@@ -834,11 +834,11 @@ final class SimplePages {
             int nw = ui.text(nameX, y + 2, priceX - nameX - 4, row.name(), FinanceGui.COL_ACCENT);
             String symbol = row.symbol();
             ui.hotspot(nameX, y - 1, Math.max(nw, 30), ROW - 1, () -> s.selectedStock = symbol);
-            String arrow = row.dayChange() > 0.0001 ? "↑" : row.dayChange() < -0.0001 ? "↓" : "";
-            ui.text(priceX, y + 2, 48, MoneyFormat.compact(row.lastPrice()) + arrow, FinanceGui.changeColor(row.dayChange()));
+            String arrow = row.mmHalted() ? " 熔断" : row.dayChange() > 0.0001 ? "↑" : row.dayChange() < -0.0001 ? "↓" : "";
+            ui.text(priceX, y + 2, 48, MoneyFormat.compact(row.lastPrice()) + arrow, row.mmHalted() ? FinanceGui.COL_BAD : FinanceGui.changeColor(row.dayChange()));
             ui.text(divX, y + 2, 60, MoneyFormat.compact(row.expectedDividendPerShare() * 100), TEXT);
             ui.text(holdX, y + 2, 56, have > 0 ? have + " 股" : "-", have > 0 ? TEXT : DIM);
-            String buyBlock = locked ? "钱包满 " + MoneyFormat.pounds(unlock(v)) + " 后解锁"
+            String buyBlock = row.mmHalted() ? HALTED : locked ? "钱包满 " + MoneyFormat.pounds(unlock(v)) + " 后解锁"
                     : v.balance() < row.lastPrice() * 10 ? "钱不够，10 股约 " + MoneyFormat.pounds(row.lastPrice() * 10) : null;
             ui.buttonsRight(RIGHT, y, gap, List.of(
                     new Btn("买10股", () -> a.stock(true, symbol, 10), buyBlock),
@@ -889,12 +889,13 @@ final class SimplePages {
 
         // 买卖
         boolean locked = stocksLocked(v);
-        String lockReason = locked ? "钱包满 " + MoneyFormat.pounds(unlock(v)) + " 后解锁" : null;
+        String lockReason = row.mmHalted() ? HALTED : locked ? "钱包满 " + MoneyFormat.pounds(unlock(v)) + " 后解锁" : null;
         int lx = LEFT + 2 + ui.text(LEFT + 2, y + 3, 40, "买卖", DIM) + 8;
         ui.buttonFlow(lx, y, RIGHT - lx, 3, List.of(
                 new Btn("买10股", () -> a.stock(true, symbol, 10), lockReason != null ? lockReason : v.balance() < price * 10 ? "钱不够" : null),
                 new Btn("买100股", () -> a.stock(true, symbol, 100), lockReason != null ? lockReason : v.balance() < price * 100 ? "钱不够" : null),
-                new Btn("全卖", () -> a.stock(false, symbol, (int) Math.min(Integer.MAX_VALUE, have)), have > 0 ? null : "你没有这只股票")));
+                new Btn("全卖", () -> a.stock(false, symbol, (int) Math.min(Integer.MAX_VALUE, have)),
+                        row.mmHalted() ? HALTED : have > 0 ? null : "你没有这只股票")));
         y += 17;
 
         // 自动卖出
@@ -1002,6 +1003,9 @@ final class SimplePages {
         ui.wrapped(LEFT + 2, y, WIDTH - 4, source + "价格跟着市场库存走：大家抢着买就涨，卖的人多就跌。",
                 DIM, Math.max(1, (BOTTOM - y) / UiBuilder.LINE));
     }
+
+    /** 熔断或停牌时按钮上的说明。 */
+    static final String HALTED = "熔断或停牌中：股价 5 分钟内跌超 15% 会暂停交易 1 分钟";
 
     static final int PRODUCT_ROWS = 8;
     static final long[] AMOUNTS = {1_000, 5_000, 10_000};

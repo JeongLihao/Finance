@@ -124,6 +124,12 @@ public final class EconomyCycleService {
         finance.macro.NewsService.processDay(server, mcDay);
     }
 
+    /** 每分钟：NPC 短线派追涨杀跌，然后按市价检查融资仓、跌破维持线的卖进市场。 */
+    static void stockMinute() {
+        finance.npcinvestor.SpeculatorService.tickMinute();
+        finance.margin.MarginService.checkLiquidations();
+    }
+
     private static void tickNoiseAndMomentum(MinecraftServer server) {
         NpcMarketMaker.tickAllMomentum();
         NpcMarketMaker.tickAllNoise();
@@ -131,6 +137,7 @@ public final class EconomyCycleService {
         StockMarketManager.tickMomentum();
         StockMarketManager.tickNoise();
         StockMarketManager.recalculateAllPrices();
+        stockMinute();
         ConditionalStockOrderManager.checkOrders(server);
         PriceAlertManager.checkAlerts(server);
     }
@@ -140,6 +147,7 @@ public final class EconomyCycleService {
         NpcMarketMaker.recalculateAll();
         StockMarketManager.tickMomentum();
         StockMarketManager.recalculateAllPrices();
+        stockMinute();
         ConditionalStockOrderManager.checkOrders(server);
         PriceAlertManager.checkAlerts(server);
     }
