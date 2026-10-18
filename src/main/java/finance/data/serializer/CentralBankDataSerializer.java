@@ -51,13 +51,16 @@ public final class CentralBankDataSerializer {
             decisions.add(t);
         }
         data.put("Decisions", decisions);
+        data.put("Reserve", finance.centralbank.ReserveService.save());
         root.put(ROOT, data);
     }
 
     public static void load(CompoundTag root) {
         CentralBankService.clearDirect();
+        finance.centralbank.ReserveService.clearDirect();
         if (!root.contains(ROOT, Tag.TAG_COMPOUND)) return;
         CompoundTag data = root.getCompound(ROOT);
+        if (data.contains("Reserve", Tag.TAG_COMPOUND)) finance.centralbank.ReserveService.load(data.getCompound("Reserve"));
         Map<UUID, Long> positions = new LinkedHashMap<>();
         for (Tag raw : data.getList("Positions", Tag.TAG_COMPOUND)) {
             try {

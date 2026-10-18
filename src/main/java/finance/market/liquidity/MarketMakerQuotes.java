@@ -133,7 +133,7 @@ public final class MarketMakerQuotes {
         double momentum = mp.getTradeMomentum();
         boolean halted = Math.abs(momentum) > FinanceConfig.marketMakerCircuitBreakerThreshold();
         MarketState state = new MarketState(mid, mid, basePrice, inventory,
-                MarketPrice.REFERENCE_STOCK, volatility, mp.getSpread(), halted);
+                mp.getReferenceStock(), volatility, mp.getSpread(), halted);
         return toView(MARKET_COMMODITY, commodityId, state,
                 haltReason(momentum));
     }

@@ -381,7 +381,7 @@ public final class SimpleCenterService {
     public static Status status(ServerPlayer player, List<String> summary) {
         UUID id = player.getUUID();
         long day = EconomyCycleService.currentMcDay(player.server);
-        ensureFuturesListed(day);
+        if (extra("futures")) ensureFuturesListed(day);
         CommercialBank bank = mainBank();
         BankCustomerAccount account = demandAccount(id, bank, day, false);
         long bankBalance = account != null && account.status() == BankAccountStatus.ACTIVE
@@ -424,7 +424,18 @@ public final class SimpleCenterService {
             finance.centralbank.CentralBankService.Decision d = decisions.get(decisions.size() - 1);
             out.add("上次开会（第 " + d.day() + " 天）：利率 " + pct(d.rateBefore()) + " → " + pct(d.rateAfter()) + "。");
         }
+        out.add(reserveLine());
         return out;
+    }
+
+    /** 央行储备投放到第几档、下一档还差多少成交额。 */
+    static String reserveLine() {
+        int tier = finance.centralbank.ReserveService.unlockedTier();
+        List<String> next = tier >= 3 ? List.of() : finance.centralbank.ReserveService.namesOfTier(tier + 1);
+        String now = "央行储备在供应" + (tier == 1 ? "第 1 档原材料" : tier == 2 ? "第 1、2 档原材料" : "全部三档原材料") + "，每天只补少量货。";
+        if (next.isEmpty()) return now;
+        return now + "全服再成交 " + MoneyFormat.pounds(finance.centralbank.ReserveService.valueToNextTier()) + "，央行开始供应"
+                + String.join("、", next.subList(0, Math.min(4, next.size()))) + "。";
     }
 
     static String pct(int bps) {

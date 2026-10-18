@@ -461,8 +461,10 @@ public class AdminActionPacket {
     private static void seedInitialStock(String commodityId) {
         MarketPrice mp = NpcMarketMaker.getMarketPrice(commodityId);
         int currentStock = CommodityInventoryManager.getCommodityAmount(NpcMarketMaker.NPC_UUID, commodityId);
-        if (currentStock < MarketPrice.REFERENCE_STOCK) {
-            CommodityInventoryManager.setCommodity(NpcMarketMaker.NPC_UUID, commodityId, (int) MarketPrice.REFERENCE_STOCK);
+        long refill = finance.centralbank.ReserveService.managed(commodityId)
+                ? finance.centralbank.ReserveService.referenceStock(commodityId) : MarketPrice.REFERENCE_STOCK;
+        if (currentStock < refill) {
+            CommodityInventoryManager.setCommodity(NpcMarketMaker.NPC_UUID, commodityId, (int) refill);
         }
         if (mp != null) {
             mp.recomputePrice(CommodityInventoryManager.getCommodityAmount(NpcMarketMaker.NPC_UUID, commodityId));

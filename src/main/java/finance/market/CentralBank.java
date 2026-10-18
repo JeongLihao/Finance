@@ -66,6 +66,8 @@ public final class CentralBank {
         }
         for (var commodity : CommodityRegistry.getAllCommodities()) {
             String commodityId = commodity.getId();
+            // 央行储备商品的储备只来自旧存档搬迁和底价收购，不再开服就凭空放 24 万件
+            if (commodity.getReserveTier() >= 0) continue;
             int currentStock = CommodityInventoryManager.getCommodityAmount(UUID, commodityId);
             if (currentStock < STRATEGIC_RESERVE_STOCK) {
                 CommodityInventoryManager.setCommodity(UUID, commodityId, STRATEGIC_RESERVE_STOCK);
@@ -242,6 +244,8 @@ public final class CentralBank {
 
     private static void interveneStock(MarketPrice mp) {
         String commodityId = mp.getCommodityId();
+        // 央行储备商品由 ReserveService 每天少量补货、底价收购，这里的“危机注入”会让价格涨不上去
+        if (finance.centralbank.ReserveService.managed(commodityId)) return;
         long target = MarketPrice.REFERENCE_STOCK;
         long marketStock = CommodityInventoryManager.getCommodityAmount(NpcMarketMaker.NPC_UUID, commodityId);
 

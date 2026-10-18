@@ -316,6 +316,10 @@ public final class FinanceConfig {
     private static final ForgeConfigSpec.LongValue SIMPLE_STARTER_GRANT, SIMPLE_STOCK_UNLOCK, SIMPLE_IPO_MIN_VALUATION;
     private static final ForgeConfigSpec.ConfigValue<String> SIMPLE_ADVANCED_MODE;
     private static final ForgeConfigSpec.ConfigValue<String> SIMPLE_EXTRAS;
+    private static final ForgeConfigSpec.ConfigValue<String> RESERVE_TARGETS;
+    private static final ForgeConfigSpec.IntValue RESERVE_RESTOCK_BPS, RESERVE_FLOOR_BPS, RESERVE_FLOOR_DAILY_CAP;
+    private static final ForgeConfigSpec.LongValue RESERVE_TIER2_VALUE, RESERVE_TIER3_VALUE, RESERVE_PLAYER_GOODS_REFERENCE;
+    private static final ForgeConfigSpec.DoubleValue RESERVE_ELASTICITY;
     private static final ForgeConfigSpec.LongValue CASH_EMERALD_TO_CASH;
     private static final ForgeConfigSpec.LongValue CASH_CASH_TO_EMERALD;
     private static final ForgeConfigSpec.IntValue CASH_DAILY_EMERALD_SELL_LIMIT;
@@ -660,9 +664,9 @@ public final class FinanceConfig {
         CB_STABILIZATION_ENABLED = builder.comment("商品平准：消费品价格偏离基准价超过区间时，央行用战略储备吞吐商品稳定物价。")
                 .define("stabilizationEnabled", true);
         CB_STABILIZATION_BAND_BPS = builder.comment("商品平准的价格区间（基点）：中间价偏离基准价超过该比例才出手。")
-                .defineInRange("stabilizationBandBps", 1_500, 100, 10_000);
-        CB_STABILIZATION_MAX_DAILY_BPS = builder.comment("每种商品每天平准数量上限，占国际市场参考库存的基点。")
-                .defineInRange("stabilizationMaxDailyBps", 500, 0, 10_000);
+                .defineInRange("stabilizationBandBps", 5_000, 100, 10_000);
+        CB_STABILIZATION_MAX_DAILY_BPS = builder.comment("每种商品每天平准数量上限，占市场参考库存的基点。")
+                .defineInRange("stabilizationMaxDailyBps", 200, 0, 10_000);
         builder.pop();
 
         builder.push("financialProducts");
@@ -1183,6 +1187,25 @@ public final class FinanceConfig {
                 .define("extras", SIMPLE_EXTRAS_VALUE);
         builder.pop();
 
+        builder.push("reserve");
+        RESERVE_TARGETS = builder.comment("央行储备三档原材料的目标库存（件），逗号分隔。库存等于目标时价格是基准价，越少越贵。")
+                .define("targets", "1000,500,200");
+        RESERVE_RESTOCK_BPS = builder.comment("央行每天最多补目标库存的多少（基点，200 = 2%）。越小，抢购后价格回落越慢。")
+                .defineInRange("restockBpsPerDay", 200, 0, 10_000);
+        RESERVE_TIER2_VALUE = builder.comment("全服累计成交额（便士）达到多少后央行开始投放第 2 档（铁、铜、羊毛、皮革）。")
+                .defineInRange("tier2UnlockValue", 50_000L, 0L, Long.MAX_VALUE);
+        RESERVE_TIER3_VALUE = builder.comment("全服累计成交额（便士）达到多少后央行开始投放第 3 档（金、红石、青金石）。")
+                .defineInRange("tier3UnlockValue", 200_000L, 0L, Long.MAX_VALUE);
+        RESERVE_FLOOR_BPS = builder.comment("底价占基准价的基点（5000 = 一半）：市场收购价低于底价时央行按底价收。")
+                .defineInRange("floorBps", 5_000, 0, 10_000);
+        RESERVE_FLOOR_DAILY_CAP = builder.comment("每种商品每天全服最多按底价收多少件，防止自动农场无限取钱。")
+                .defineInRange("floorDailyCap", 256, 0, 1_000_000);
+        RESERVE_PLAYER_GOODS_REFERENCE = builder.comment("玩家货（央行不投放的商品）的参考库存：市场里有这么多时价格是基准价。")
+                .defineInRange("playerGoodsReference", 512L, 1L, 1_000_000L);
+        RESERVE_ELASTICITY = builder.comment("价格对库存的敏感度：库存降到目标一半时价格约涨 2^该值 倍（0.6 ≈ 涨 50%）。")
+                .defineInRange("priceElasticity", 0.6D, 0.05D, 2.0D);
+        builder.pop();
+
         COMMON_SPEC = builder.build();
     }
 
@@ -1488,6 +1511,25 @@ public final class FinanceConfig {
         String mode = getString(SIMPLE_ADVANCED_MODE, SIMPLE_ADVANCED_MODE_VALUE);
         return "always".equals(mode) || "never".equals(mode) ? mode : "player";
     }
+    public static List<Long> reserveTargets() {
+        List<Long> out = new ArrayList<>();
+        for (String part : getString(RESERVE_TARGETS, "1000,500,200").split(",")) {
+            try {
+                long v = Long.parseLong(part.trim());
+                if (v > 0 && v <= 10_000_000L) out.add(v);
+            } catch (NumberFormatException ignored) {
+            }
+        }
+        return out.isEmpty() ? List.of(1_000L, 500L, 200L) : List.copyOf(out);
+    }
+    public static int reserveRestockBpsPerDay() { return getInt(RESERVE_RESTOCK_BPS, 200); }
+    public static long reserveTier2UnlockValue() { return getLong(RESERVE_TIER2_VALUE, 50_000L); }
+    public static long reserveTier3UnlockValue() { return getLong(RESERVE_TIER3_VALUE, 200_000L); }
+    public static int reserveFloorBps() { return getInt(RESERVE_FLOOR_BPS, 5_000); }
+    public static int reserveFloorDailyCap() { return getInt(RESERVE_FLOOR_DAILY_CAP, 256); }
+    public static long reservePlayerGoodsReference() { return getLong(RESERVE_PLAYER_GOODS_REFERENCE, 512L); }
+    public static double reservePriceElasticity() { return getDouble(RESERVE_ELASTICITY, 0.6D); }
+
     /** 打开的进阶玩法名（小写）；含 all 表示全部打开。 */
     public static java.util.Set<String> simpleExtras() {
         java.util.Set<String> out = new java.util.TreeSet<>();
@@ -1528,8 +1570,8 @@ public final class FinanceConfig {
     public static int cbOmoExcessTargetBps() { return getInt(CB_OMO_EXCESS_TARGET_BPS, 500); }
     public static double cbOmoGapResponse() { return getDouble(CB_OMO_GAP_RESPONSE, 1.0D); }
     public static boolean cbStabilizationEnabled() { return getBoolean(CB_STABILIZATION_ENABLED, true); }
-    public static int cbStabilizationBandBps() { return getInt(CB_STABILIZATION_BAND_BPS, 1_500); }
-    public static int cbStabilizationMaxDailyBps() { return getInt(CB_STABILIZATION_MAX_DAILY_BPS, 500); }
+    public static int cbStabilizationBandBps() { return getInt(CB_STABILIZATION_BAND_BPS, 5_000); }
+    public static int cbStabilizationMaxDailyBps() { return getInt(CB_STABILIZATION_MAX_DAILY_BPS, 200); }
 
     // ---- 宏观实体经济 ----
     public static boolean macroEnabled() { return getBoolean(MACRO_ENABLED, MACRO_ENABLED_VALUE); }

@@ -508,6 +508,7 @@ public class EconomySavedData extends SavedData {
         EconomyMetricsService.clearDirect();
         RecentTradeService.clear();
         finance.chart.CandlestickService.clearDirect();
+        finance.centralbank.ReserveService.clearDirect();
         FinancialCycleService.clearDirect();
         finance.index.MarketIndexService.clearDirect();
         finance.policy.MonetaryPolicyService.clearDirect();

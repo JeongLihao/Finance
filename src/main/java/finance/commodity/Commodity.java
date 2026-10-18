@@ -19,6 +19,9 @@ public class Commodity {
     /** 基础价格（初始参考价） */
     private long basePrice;
 
+    /** 央行储备分档：1~3 由央行投放（2、3 随全服成交额解锁），0 = 只有玩家卖了才上架，-1 = 旧规则。 */
+    private int reserveTier = -1;
+
     public Commodity(
             String id,
             String displayName,
@@ -40,6 +43,15 @@ public class Commodity {
         this.displayName = displayName;
         this.category = category;
         this.basePrice = basePrice;
+    }
+
+    public Commodity reserveTier(int tier) {
+        this.reserveTier = Math.max(-1, Math.min(3, tier));
+        return this;
+    }
+
+    public int getReserveTier() {
+        return reserveTier;
     }
 
     public String getId() {

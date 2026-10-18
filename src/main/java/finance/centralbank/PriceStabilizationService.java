@@ -40,10 +40,10 @@ public final class PriceStabilizationService {
         lastDay = day;
         if (!FinanceConfig.cbStabilizationEnabled()) return;
         int band = FinanceConfig.cbStabilizationBandBps();
-        int dailyCap = (int) Math.min(Integer.MAX_VALUE, CentralBankService.bps(MarketPrice.REFERENCE_STOCK, FinanceConfig.cbStabilizationMaxDailyBps()));
-        if (dailyCap <= 0) return;
         for (MarketPrice mp : new ArrayList<>(NpcMarketMaker.getAllMarketPrices().values())) {
             String id = mp.getCommodityId();
+            int dailyCap = (int) Math.min(Integer.MAX_VALUE, CentralBankService.bps(mp.getReferenceStock(), FinanceConfig.cbStabilizationMaxDailyBps()));
+            if (dailyCap <= 0) continue;
             if (!isConsumerGood(id) || CommodityRegistry.getCommodity(id) == null || mp.getBasePrice() <= 0) continue;
             long deviationBps = (mp.getMidPrice() - mp.getBasePrice()) * 10_000L / mp.getBasePrice();
             if (deviationBps > band) sell(mp, id, dailyCap);
@@ -77,7 +77,7 @@ public final class PriceStabilizationService {
     /** 价格太低：央行从国际市场收购进储备，市场库存减少、价格回升。市场库存不足参考量一半时不收。 */
     private static void buy(MarketPrice mp, String id, int cap) {
         long marketStock = CommodityInventoryManager.getCommodityAmount(NpcMarketMaker.NPC_UUID, id);
-        long spare = marketStock - MarketPrice.REFERENCE_STOCK / 2;
+        long spare = marketStock - mp.getReferenceStock() / 2;
         int qty = (int) Math.min(cap, Math.max(0, spare));
         if (qty <= 0) return;
         long price = Math.max(1, mp.getAskPrice());

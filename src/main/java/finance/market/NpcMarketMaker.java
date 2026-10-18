@@ -93,6 +93,14 @@ public class NpcMarketMaker {
             return 0;
         }
         long bidPrice = quote.bid();
+        // 央行底价：收购价跌破底价时按底价收，每种每天全服有上限
+        long day = finance.chart.CandlestickService.currentMcDay();
+        long floor = finance.centralbank.ReserveService.floorPrice(commodityId);
+        int floorQuota = floor > bidPrice ? finance.centralbank.ReserveService.floorQuotaLeft(commodityId, day) : 0;
+        if (floorQuota > 0) {
+            bidPrice = floor;
+            quantity = Math.min(quantity, floorQuota);
+        }
         int acceptedQuantity = Math.min(quantity, getMaxNpcBuyQuantity(commodityId, bidPrice));
         if (acceptedQuantity <= 0) {
             return 0;
@@ -135,6 +143,7 @@ public class NpcMarketMaker {
 
         CommodityTradeRecorder.recordCompletedTrade(NPC_UUID, playerId, commodityId,
                 bidPrice, acceptedQuantity, CommodityTradeSource.PLAYER_NPC, true);
+        if (floorQuota > 0) finance.centralbank.ReserveService.useFloorQuota(commodityId, day, acceptedQuantity);
 
         return acceptedQuantity;
     }
@@ -223,6 +232,7 @@ public class NpcMarketMaker {
     public static void recordNpcTrade(String commodityId, boolean npcWasBuyer,
                                        int quantity, long tradePrice) {
         long newNpcStock = CommodityInventoryManager.getCommodityAmount(NPC_UUID, commodityId);
+        finance.centralbank.ReserveService.recordTrade(MathUtil.multiplyExactOrNegative1(Math.max(0, tradePrice), Math.max(0, quantity)));
         MarketPrice price = getMarketPrice(commodityId);
         if (price != null) {
             price.onNpcTrade(newNpcStock, npcWasBuyer, quantity);
@@ -246,6 +256,7 @@ public class NpcMarketMaker {
         }
 
         MarketPrice mp = new MarketPrice(commodityId, commodity.getBasePrice(), DEFAULT_SPREAD);
+        finance.centralbank.ReserveService.configure(mp);
         MARKET_PRICES.put(commodityId, mp);
         EconomySavedData.markDirty();
         return mp;
@@ -261,6 +272,7 @@ public class NpcMarketMaker {
 
     /** 直接写入价格映射（持久化加载时使用） */
     public static void putMarketPrice(String commodityId, MarketPrice mp) {
+        finance.centralbank.ReserveService.configure(mp);
         MARKET_PRICES.put(commodityId, mp);
     }
 
@@ -307,19 +319,24 @@ public class NpcMarketMaker {
             if (mp == null) {
                 // 新商品：创建 MarketPrice，注入初始库存，计算基础价格
                 mp = new MarketPrice(id, commodity.getBasePrice(), DEFAULT_SPREAD);
+                finance.centralbank.ReserveService.configure(mp);
                 MARKET_PRICES.put(id, mp);
 
-                if (actualStock < INITIAL_NPC_STOCK) {
-                    CommodityInventoryManager.setCommodity(NPC_UUID, id, INITIAL_NPC_STOCK);
+                int initial = finance.centralbank.ReserveService.initialStock(id);
+                if (actualStock < initial) {
+                    CommodityInventoryManager.setCommodity(NPC_UUID, id, initial);
                 }
                 long stockAfterSeed = CommodityInventoryManager.getCommodityAmount(NPC_UUID, id);
                 mp.recomputePrice(stockAfterSeed);
                 mp.resetDayStats();
             } else {
                 // 从磁盘恢复的已有商品只按实际库存重算价格，不在重启时补满库存。
+                finance.centralbank.ReserveService.configure(mp);
                 mp.recomputePrice(actualStock);
             }
         }
+        if (freshMarket) finance.centralbank.ReserveService.markMigrated();
+        finance.centralbank.ReserveService.migrateIfNeeded();
         EconomySavedData.markDirty();
     }
 
@@ -332,6 +349,18 @@ public class NpcMarketMaker {
         for (MarketPrice mp : MARKET_PRICES.values()) {
             String commodityId = mp.getCommodityId();
             long stock = CommodityInventoryManager.getCommodityAmount(NPC_UUID, commodityId);
+            if (finance.centralbank.ReserveService.managed(commodityId)) {
+                // 央行储备商品：每天只补少量；多出来的（玩家卖进来的）被外部需求慢慢消化
+                long target = finance.centralbank.ReserveService.target(commodityId);
+                long newStock = stock + finance.centralbank.ReserveService.restock(commodityId);
+                if (newStock > target) {
+                    int consume = (int) Math.min(newStock, Math.max(1, Math.round((newStock - target) * DAILY_DEMAND_RATIO)));
+                    CommodityInventoryManager.removeCommodity(NPC_UUID, commodityId, consume);
+                    newStock -= consume;
+                }
+                mp.recomputePrice(Math.max(0, newStock));
+                continue;
+            }
             long target = MarketPrice.REFERENCE_STOCK;
             long newStock = stock;
 
@@ -479,8 +508,8 @@ public class NpcMarketMaker {
     private static int getMaxNpcBuyQuantity(String commodityId, long bidPrice) {
         long cashCapacity = bidPrice <= 0 ? 0 : AccountManager.getBalance(NPC_UUID) / bidPrice;
         long stock = CommodityInventoryManager.getCommodityAmount(NPC_UUID, commodityId);
-        long target = MarketPrice.REFERENCE_STOCK;
-        long stockCapacity = Math.max(1, Math.round(target * MAX_TRADE_REFERENCE_RATIO));
+        long target = referenceOf(commodityId);
+        long stockCapacity = Math.max(MIN_TRADE_CAP, Math.round(target * MAX_TRADE_REFERENCE_RATIO));
         if (stock > target) {
             stockCapacity = Math.max(1, Math.round(stockCapacity * 0.55));
         }
@@ -489,12 +518,20 @@ public class NpcMarketMaker {
 
     private static int getMaxNpcSellQuantity(String commodityId) {
         long stock = CommodityInventoryManager.getCommodityAmount(NPC_UUID, commodityId);
-        long target = MarketPrice.REFERENCE_STOCK;
-        long capacity = Math.max(1, Math.round(target * MAX_TRADE_REFERENCE_RATIO));
+        long target = referenceOf(commodityId);
+        long capacity = Math.max(MIN_TRADE_CAP, Math.round(target * MAX_TRADE_REFERENCE_RATIO));
         if (stock < target) {
-            capacity = Math.max(1, Math.round(capacity * 0.55));
+            capacity = Math.max(MIN_TRADE_CAP, Math.round(capacity * 0.55));
         }
         return safeInt(Math.min(stock, capacity));
+    }
+
+    /** 单笔至少能买卖一组。 */
+    private static final long MIN_TRADE_CAP = 64;
+
+    private static long referenceOf(String commodityId) {
+        MarketPrice mp = MARKET_PRICES.get(commodityId);
+        return mp == null ? MarketPrice.REFERENCE_STOCK : mp.getReferenceStock();
     }
 
     private static int safeInt(long value) {

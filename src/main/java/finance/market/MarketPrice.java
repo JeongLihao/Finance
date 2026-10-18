@@ -111,6 +111,24 @@ public class MarketPrice {
     // 构造
     // ================================================================
 
+    /** 这件商品的参考库存、价格弹性、成交冲击：旧规则用类常量；央行储备商品由 ReserveService 调小。 */
+    private long referenceStock = REFERENCE_STOCK;
+    private double elasticity = SUPPLY_ELASTICITY;
+    private double momentumScale = MOMENTUM_SCALE;
+    private double maxTradeImpact = Double.MAX_VALUE;
+
+    /** 央行储备商品：库存小、对库存更敏感；单笔成交的短期冲击封顶，避免一组货就触发暂停报价。 */
+    public void useReserveCurve(long reference, double elasticity) {
+        this.referenceStock = Math.max(1, reference);
+        this.elasticity = Math.max(0.05, Math.min(2.0, elasticity));
+        this.momentumScale = 1.0;
+        this.maxTradeImpact = 0.08;
+    }
+
+    public long getReferenceStock() {
+        return referenceStock;
+    }
+
     public MarketPrice(String commodityId, long basePrice, double spread) {
         this.commodityId = commodityId;
         this.basePrice = basePrice;
@@ -191,7 +209,7 @@ public class MarketPrice {
         if (npcStock <= 0) return;
 
         // 动能：交易量占参考库存的比例 × 缩放系数
-        double impact = (double) quantity / REFERENCE_STOCK * MOMENTUM_SCALE;
+        double impact = Math.min(maxTradeImpact, (double) quantity / referenceStock * momentumScale);
         tradeMomentum += npcWasBuyer ? -impact : impact;
 
         recalculate(npcStock);
@@ -243,7 +261,7 @@ public class MarketPrice {
 
         // 1. 供需基准价：库存越高越便宜，但使用幂函数平滑，避免公司日常卖货造成单边崩盘。
         double safeStock = Math.max(1.0, npcStock);
-        double supplyFactor = Math.pow((double) REFERENCE_STOCK / safeStock, SUPPLY_ELASTICITY);
+        double supplyFactor = Math.pow((double) referenceStock / safeStock, elasticity);
         supplyFactor = clamp(supplyFactor, MIN_PRICE_RATIO, MAX_PRICE_RATIO);
         double fundamental = basePrice * supplyFactor;
 

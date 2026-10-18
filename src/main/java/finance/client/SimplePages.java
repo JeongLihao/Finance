@@ -273,12 +273,16 @@ final class SimplePages {
 
     // ================================================================ 买卖
 
-    /** 背包里有的排前面（按能卖的钱从多到少），其余按名字。没有对应物品的商品不列。 */
+    /**
+     * 背包里有的排前面（按能卖的钱从多到少），其余按名字。没有对应物品的商品不列；
+     * 市场里没货、背包里也没有的不列——有人卖了才会出现。
+     */
     static List<FinanceMenu.MarketRow> tradeRows(View v) {
         Map<String, Integer> held = v.backpack();
         List<FinanceMenu.MarketRow> rows = new ArrayList<>();
         for (FinanceMenu.MarketRow row : v.market()) {
             Commodity c = CommodityRegistry.getCommodity(row.commodityId());
+            if (row.marketStock() <= 0 && held.getOrDefault(row.commodityId(), 0) <= 0) continue;
             if (c == null || c.getItemId() != null && !c.getItemId().isEmpty()) rows.add(row);
         }
         rows.sort(Comparator.<FinanceMenu.MarketRow>comparingLong(r -> -(long) held.getOrDefault(r.commodityId(), 0) * r.bidPrice())
@@ -308,7 +312,7 @@ final class SimplePages {
     static void orders(UiBuilder ui, View v, State s, Actions a, int y) {
         List<FinanceMenu.MarketRow> rows = tradeRows(v);
         if (rows.isEmpty()) {
-            ui.text(LEFT + PAD, y + 2, WIDTH, "市场还没有商品。", DIM);
+            ui.text(LEFT + PAD, y + 2, WIDTH, "市场里还没有货，背包里也没有能卖的东西。", DIM);
             return;
         }
         FinanceMenu.MarketRow row = rows.stream().filter(r -> r.commodityId().equals(s.orderCommodity)).findFirst().orElse(rows.get(0));
@@ -465,6 +469,7 @@ final class SimplePages {
         List<FinanceMenu.MarketRow> rows = tradeRows(v);
         s.tradeScroll = clamp(s.tradeScroll, 0, Math.max(0, rows.size() - TRADE_ROWS));
         y += 15;
+        if (rows.isEmpty()) ui.text(nameX, y + 2, WIDTH - nameX, "市场里还没有货。去挖点东西卖给市场吧。", DIM);
         for (int i = s.tradeScroll; i < Math.min(rows.size(), s.tradeScroll + TRADE_ROWS); i++) {
             FinanceMenu.MarketRow row = rows.get(i);
             String id = row.commodityId();
@@ -972,7 +977,11 @@ final class SimplePages {
                 new Btn("买16", () -> a.simple(SimpleActionPacket.Action.QUICK_BUY, id, 16), empty != null ? empty : poor),
                 new Btn("买1组", () -> a.simple(SimpleActionPacket.Action.QUICK_BUY, id, 64), empty != null ? empty : poor)));
         y += 19;
-        ui.wrapped(LEFT + 2, y, WIDTH - 4, "价格跟着市场库存走：大家抢着买就涨，卖的人多就跌。央行每天只补少量货，所以涨上去要过几天才回落。",
+        Commodity c = CommodityRegistry.getCommodity(id);
+        int tier = c == null ? -1 : c.getReserveTier();
+        String source = tier == 0 ? "来源：玩家卖出。央行不供应这种东西，卖完就没了。"
+                : tier > 0 ? "来源：央行储备第 " + tier + " 档，每天只补少量货。" : "";
+        ui.wrapped(LEFT + 2, y, WIDTH - 4, source + "价格跟着市场库存走：大家抢着买就涨，卖的人多就跌。",
                 DIM, Math.max(1, (BOTTOM - y) / UiBuilder.LINE));
     }
 
