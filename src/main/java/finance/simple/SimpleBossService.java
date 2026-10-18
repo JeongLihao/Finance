@@ -60,7 +60,7 @@ public final class SimpleBossService {
             if (targets.size() >= 8) break;
         }
         return new BossInfo(company != null && company.isPublic(),
-                company == null ? 0 : (int) Math.round(company.getDividendRatio() * 100),
+                company == null ? 0 : (int) Math.round(company.effectiveDividendRatio(CompanyManager.getDividendRatio()) * 100),
                 macro.active() && company != null, macro.wage(), macro.reservationWage(),
                 company == null ? List.of() : insurance(id, company, day), targets,
                 bank.owned(), bank.minCapital(), bank.charterFee());
@@ -204,6 +204,17 @@ public final class SimpleBossService {
         var r = finance.bank.PlayerBankService.charter(player.getUUID(), code, name + "银行", capital, day);
         return r.success() ? new SimpleInvestService.Result(true, "开了一家银行「" + name + "银行」。别人存进来的钱你可以放贷赚利差。",
                 AccountManager.getBalance(player.getUUID()) - before) : fail(r.message());
+    }
+
+    /** 老板直接定分红比例（拿出可分配利润的百分之几分给股东），发放周期不变。 */
+    public static SimpleInvestService.Result setDividend(ServerPlayer player, long pct) {
+        Company company = CompanyManager.getCompanyByOwner(player.getUUID());
+        if (company == null) return fail("先开一家公司。");
+        if (!company.isPublic()) return fail("公司上市后才有股东分红。");
+        long clamped = Math.max(0, Math.min(100, pct));
+        company.setDividendPolicy(clamped / 100.0, company.effectiveDividendCycleDays(CompanyManager.getDividendCycleDays()));
+        finance.data.EconomySavedData.markDirty();
+        return new SimpleInvestService.Result(true, "分红比例改为 " + clamped + "%：每期利润的 " + clamped + "% 分给股东。", 0);
     }
 
     public static SimpleInvestService.Result setWage(ServerPlayer player, long wage) {

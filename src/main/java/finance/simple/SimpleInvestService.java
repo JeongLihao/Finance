@@ -69,11 +69,11 @@ public final class SimpleInvestService {
                 out.add(new Product("time:" + term, "定期存款", term + " 天", rate, "低", FinanceConfig.timeDepositMinAmount()));
             }
         }
-        for (int term : TreasuryBondManager.TERM_DAYS) {
+        for (int term : SimpleCenterService.extra("bonds") ? TreasuryBondManager.TERM_DAYS : List.<Integer>of()) {
             out.add(new Product("cbond:" + term, "央行债券", term + " 天", YieldCurveService.treasuryYieldBasisPoints(term), "低",
                     FinanceConfig.treasuryBondMinAmount()));
         }
-        for (FundDefinition d : FundManager.definitions().values()) {
+        for (FundDefinition d : SimpleCenterService.extra("fund") ? FundManager.definitions().values() : List.<FundDefinition>of()) {
             String risk = d.type() == FundType.MONEY_MARKET ? "低" : d.type() == FundType.BROAD_STOCK_INDEX ? "中" : "高";
             out.add(new Product("fund:" + d.id(), d.displayName(), "随时赎回", -1, risk, d.minimumSubscription()));
         }

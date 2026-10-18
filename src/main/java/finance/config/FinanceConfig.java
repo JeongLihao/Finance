@@ -138,6 +138,7 @@ public final class FinanceConfig {
     private static final long SIMPLE_STOCK_UNLOCK_VALUE = 3_000L;
     private static final long SIMPLE_IPO_MIN_VALUATION_VALUE = 20_000L;
     private static final String SIMPLE_ADVANCED_MODE_VALUE = "player";
+    private static final String SIMPLE_EXTRAS_VALUE = "";
     private static final long CASH_EMERALD_TO_CASH_VALUE = 50L;
     private static final long CASH_CASH_TO_EMERALD_VALUE = 60L;
     private static final int CASH_DAILY_EMERALD_SELL_LIMIT_VALUE = 64;
@@ -314,6 +315,7 @@ public final class FinanceConfig {
     private static final ForgeConfigSpec.BooleanValue CASH_ENABLED;
     private static final ForgeConfigSpec.LongValue SIMPLE_STARTER_GRANT, SIMPLE_STOCK_UNLOCK, SIMPLE_IPO_MIN_VALUATION;
     private static final ForgeConfigSpec.ConfigValue<String> SIMPLE_ADVANCED_MODE;
+    private static final ForgeConfigSpec.ConfigValue<String> SIMPLE_EXTRAS;
     private static final ForgeConfigSpec.LongValue CASH_EMERALD_TO_CASH;
     private static final ForgeConfigSpec.LongValue CASH_CASH_TO_EMERALD;
     private static final ForgeConfigSpec.IntValue CASH_DAILY_EMERALD_SELL_LIMIT;
@@ -1174,6 +1176,11 @@ public final class FinanceConfig {
                 .defineInRange("ipoMinValuation", SIMPLE_IPO_MIN_VALUATION_VALUE, 0L, 1_000_000_000L);
         SIMPLE_ADVANCED_MODE = builder.comment("原有的全部页签（旧界面）：always = 所有人右上角都有“高级”入口；其他值 = 只有 OP 能从“管理”进入。新的四页已经包含全部玩家功能。")
                 .define("advancedMode", SIMPLE_ADVANCED_MODE_VALUE);
+        SIMPLE_EXTRAS = builder.comment("给普通玩家额外打开的进阶玩法，逗号分隔；默认全关，新手只看到买卖、存钱、公司和股票。"
+                        + "可选：futures（锁价合同）、margin（加倍买、借股卖出）、bonds（央行债券）、fund（基金）、"
+                        + "shareholder（股东提案和投票）、takeover（收购）、bank（开银行）、insurance（保险）、wage（工人工资）；all = 全部打开。"
+                        + "关掉后已有的仓位仍可以平仓和取回。")
+                .define("extras", SIMPLE_EXTRAS_VALUE);
         builder.pop();
 
         COMMON_SPEC = builder.build();
@@ -1480,6 +1487,15 @@ public final class FinanceConfig {
     public static String simpleAdvancedMode() {
         String mode = getString(SIMPLE_ADVANCED_MODE, SIMPLE_ADVANCED_MODE_VALUE);
         return "always".equals(mode) || "never".equals(mode) ? mode : "player";
+    }
+    /** 打开的进阶玩法名（小写）；含 all 表示全部打开。 */
+    public static java.util.Set<String> simpleExtras() {
+        java.util.Set<String> out = new java.util.TreeSet<>();
+        for (String part : getString(SIMPLE_EXTRAS, SIMPLE_EXTRAS_VALUE).split(",")) {
+            String name = part.trim().toLowerCase(java.util.Locale.ROOT);
+            if (!name.isEmpty() && name.length() <= 16) out.add(name);
+        }
+        return out;
     }
     public static long cashEmeraldToCash() { return getLong(CASH_EMERALD_TO_CASH, CASH_EMERALD_TO_CASH_VALUE); }
     public static long cashCashToEmerald() { return getLong(CASH_CASH_TO_EMERALD, CASH_CASH_TO_EMERALD_VALUE); }

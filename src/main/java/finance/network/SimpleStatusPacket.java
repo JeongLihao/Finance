@@ -52,6 +52,7 @@ public record SimpleStatusPacket(SimpleCenterService.Status status) {
         buf.writeVarLong(Math.max(0, s.ipoMinValuation()));
         buf.writeVarLong(Math.max(0, s.stockUnlockBalance()));
         buf.writeUtf(s.advancedMode(), 16);
+        writeLines(buf, s.extras().subList(0, Math.min(MAX_LINES, s.extras().size())));
         writeLines(buf, s.opportunities());
         writeLines(buf, s.weather());
         writeLines(buf, s.summary());
@@ -136,6 +137,7 @@ public record SimpleStatusPacket(SimpleCenterService.Status status) {
         int rate = buf.readVarInt(), level = buf.readVarInt();
         long cost = buf.readVarLong(), valuation = buf.readVarLong(), ipoMin = buf.readVarLong(), stockUnlock = buf.readVarLong();
         String mode = buf.readUtf(16);
+        List<String> extras = readLines(buf);
         List<String> opportunities = readLines(buf), weather = readLines(buf), summary = readLines(buf);
         int n = count(buf);
         List<SimpleInvestService.Product> products = new ArrayList<>(n);
@@ -175,7 +177,7 @@ public record SimpleStatusPacket(SimpleCenterService.Status status) {
         PlayerServicesResponsePacket.Cash cash = new PlayerServicesResponsePacket.Cash(cashEnabled, cv[0], cv[1], cv[2], cv[3],
                 cv[4], cv[5], cv[6], cv[7], cv[8]);
         return new SimpleStatusPacket(new SimpleCenterService.Status(bank, rate, level, cost, valuation, ipoMin,
-                stockUnlock, mode, opportunities, weather, summary, products, holdings, margin, boss, cash));
+                stockUnlock, mode, extras, opportunities, weather, summary, products, holdings, margin, boss, cash));
     }
 
     public static void handle(SimpleStatusPacket p, Supplier<NetworkEvent.Context> ctx) {

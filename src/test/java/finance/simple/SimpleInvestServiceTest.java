@@ -20,13 +20,13 @@ class SimpleInvestServiceTest {
         FundManager.seedDefaultsIfNeeded();
     }
 
-    @Test void productListCoversDepositsBondsAndFunds() {
+    @Test void defaultProductListIsOnlyDeposits() {
         List<SimpleInvestService.Product> products = SimpleInvestService.products();
         List<String> keys = products.stream().map(SimpleInvestService.Product::key).toList();
         assertTrue(keys.contains("bank"), keys.toString());
         assertTrue(keys.stream().anyMatch(k -> k.startsWith("time:")), keys.toString());
-        assertTrue(keys.stream().anyMatch(k -> k.startsWith("cbond:")), keys.toString());
-        assertTrue(keys.stream().anyMatch(k -> k.startsWith("fund:")), keys.toString());
+        assertFalse(keys.stream().anyMatch(k -> k.startsWith("cbond:")), "央行债券默认不给普通玩家：" + keys);
+        assertFalse(keys.stream().anyMatch(k -> k.startsWith("fund:")), "基金默认不给普通玩家：" + keys);
         for (SimpleInvestService.Product p : products) {
             assertFalse(p.name().isBlank());
             assertTrue(List.of("低", "中", "高").contains(p.risk()), p.toString());

@@ -46,6 +46,10 @@ class SimpleLayoutTest {
     }
 
     static SimplePages.View view(long balance, FinanceMenu.CompanyInfo company, boolean manyRows, boolean status) {
+        return view(balance, company, manyRows, status, List.of("all"));
+    }
+
+    static SimplePages.View view(long balance, FinanceMenu.CompanyInfo company, boolean manyRows, boolean status, List<String> extras) {
         List<FinanceMenu.MarketRow> market = new ArrayList<>();
         Map<String, Integer> backpack = new LinkedHashMap<>();
         int n = manyRows ? 30 : 3;
@@ -63,7 +67,7 @@ class SimpleLayoutTest {
         }
         List<FinanceMenu.TransactionRow> tx = new ArrayList<>();
         for (int i = 0; i < 5; i++) tx.add(new FinanceMenu.TransactionRow(0, UUID.randomUUID(), "COMMODITY_SELL", HUGE, HUGE, LONG_NAME));
-        SimpleCenterService.Status st = status ? new SimpleCenterService.Status(HUGE, 12_345, 7, HUGE, HUGE, 20_000, 3_000, "player",
+        SimpleCenterService.Status st = status ? new SimpleCenterService.Status(HUGE, 12_345, 7, HUGE, HUGE, 20_000, 3_000, "player", extras,
                 List.of(LONG_NAME + "需要 9999 个面包，送去能拿 " + HUGE + " 便士（去村里的贸易站交货）",
                         "背包里的 2304 个" + LONG_NAME + "现在能卖很多钱", "第三条机会" + LONG_NAME),
                 List.of("利率 99.99%：" + LONG_NAME + LONG_NAME, "物价一年涨 99.99%：" + LONG_NAME + LONG_NAME + LONG_NAME,
@@ -150,6 +154,7 @@ class SimpleLayoutTest {
                     out.add(view(balance, company(true, false, false), many, status));
                     out.add(view(balance, company(true, false, true), many, status));
                     out.add(view(balance, company(true, true, false), many, status));
+                    if (status) out.add(view(balance, company(true, true, false), many, true, List.of()));
                 }
             }
         }

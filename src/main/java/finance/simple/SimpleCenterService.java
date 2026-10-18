@@ -357,12 +357,18 @@ public final class SimpleCenterService {
         return amount;
     }
 
+    /** 进阶玩法是否对普通玩家打开（配置 simpleCenter.extras）。 */
+    public static boolean extra(String name) {
+        var extras = FinanceConfig.simpleExtras();
+        return extras.contains("all") || extras.contains(name);
+    }
+
     // ------------------------------------------------------------ 首页数据
 
     /** 首页和其他三页需要、但金融中心快照里没有的数据。 */
     public record Status(long bankBalance, int bankRateBps, int factoryLevel, long nextUpgradeCost,
                          long companyValuation, long ipoMinValuation, long stockUnlockBalance,
-                         String advancedMode, List<String> opportunities, List<String> weather,
+                         String advancedMode, List<String> extras, List<String> opportunities, List<String> weather,
                          List<String> summary, List<SimpleInvestService.Product> products,
                          List<SimpleInvestService.Holding> holdings, SimpleInvestService.MarginInfo margin,
                          SimpleBossService.BossInfo boss, finance.network.PlayerServicesResponsePacket.Cash cash) {}
@@ -387,7 +393,7 @@ public final class SimpleCenterService {
                 company == null ? 0 : nextUpgradeCost(company),
                 company == null ? 0 : company.getEstimatedValue(),
                 FinanceConfig.simpleIpoMinValuation(), FinanceConfig.simpleStockUnlockBalance(),
-                FinanceConfig.simpleAdvancedMode(), opportunities(player), weather(player), summary,
+                FinanceConfig.simpleAdvancedMode(), List.copyOf(FinanceConfig.simpleExtras()), opportunities(player), weather(player), summary,
                 SimpleInvestService.products(), SimpleInvestService.holdings(player), SimpleInvestService.marginInfo(id),
                 SimpleBossService.info(player),
                 finance.playerservice.PlayerServicesService.cash(id, new finance.cash.PlayerCashPurse(player), day));

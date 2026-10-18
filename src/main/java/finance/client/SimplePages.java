@@ -44,7 +44,7 @@ final class SimplePages {
     static final class State {
         Page page = Page.HOME;
         int tradeScroll, investScroll, recordScroll;
-        /** 各页的小标签：首页 0 今天 / 1 经济天气 / 2 全部记录；买卖 0 马上买卖 / 1 挂单 / 2 锁价合同。 */
+        /** 各页的小标签：首页 0 今天 / 1 经济天气 / 2 全部记录；买卖 0 马上买卖 / 1 挂单 / 2 锁价合同（打开 futures 时）。 */
         int homeTab, tradeTab, investTab, companyTab, productScroll;
         /** 投资页：正在看详情的股票（null 表示看列表）；理财买入金额。 */
         String selectedStock;
@@ -264,7 +264,8 @@ final class SimplePages {
             return new Goal("把工厂升到满级（" + level + " / " + SimpleCenterService.MAX_FACTORY_LEVEL + "）",
                     level / (double) SimpleCenterService.MAX_FACTORY_LEVEL, Page.COMPANY);
         }
-        return new Goal("你已经是大亨了！试试“当老板”里的收购。", 1, Page.COMPANY);
+        return new Goal(extra(v, "takeover") ? "你已经是大亨了！试试“当老板”里的收购。" : "你已经是大亨了！多买几家公司的股票吧。", 1,
+                extra(v, "takeover") ? Page.COMPANY : Page.INVEST);
     }
 
     // ================================================================ 买卖
@@ -283,7 +284,10 @@ final class SimplePages {
     }
 
     static void tradePage(UiBuilder ui, View v, State s, Actions a) {
-        int y = subTabs(ui, TOP, List.of("马上买卖", "挂单", "锁价合同"), s.tradeTab, i -> s.tradeTab = i);
+        boolean futures = extra(v, "futures");
+        List<String> labels = futures ? List.of("马上买卖", "挂单", "锁价合同") : List.of("马上买卖", "挂单");
+        if (s.tradeTab >= labels.size()) s.tradeTab = 0;
+        int y = subTabs(ui, TOP, labels, s.tradeTab, i -> s.tradeTab = i);
         switch (s.tradeTab) {
             case 1 -> orders(ui, v, s, a, y);
             case 2 -> locks(ui, v, a, y);
@@ -500,14 +504,20 @@ final class SimplePages {
         }
         SimpleCenterService.Status st = v.status();
         CompanyType type = typeOf(info.type());
-        int top = subTabs(ui, TOP, List.of("经营", "当老板", "保险"), s.companyTab, i -> s.companyTab = i);
-        int tabsRight = LEFT + 2 + ui.width("经营") + ui.width("当老板") + ui.width("保险") + 2 * 14 + 12;
+        List<String> labels = new ArrayList<>(List.of("经营"));
+        if (bossOn(v)) labels.add("当老板");
+        if (extra(v, "insurance")) labels.add("保险");
+        if (s.companyTab >= labels.size()) s.companyTab = 0;
+        int top = subTabs(ui, TOP, labels, s.companyTab, i -> s.companyTab = i);
+        int tabsRight = LEFT + 2 + 12;
+        for (String label : labels) tabsRight += ui.width(label) + 14;
         ui.textRight(RIGHT - 2, TOP, RIGHT - 2 - tabsRight, info.name() + " · " + info.type() + (info.isPublic() ? " · 已上市" : ""), DIM);
-        if (s.companyTab == 1) {
+        String tab = labels.get(s.companyTab);
+        if (tab.equals("当老板")) {
             bossTab(ui, v, a, top);
             return;
         }
-        if (s.companyTab == 2) {
+        if (tab.equals("保险")) {
             insuranceTab(ui, v, a, top);
             return;
         }
@@ -565,7 +575,25 @@ final class SimplePages {
             ui.progress(LEFT + PAD, y + 16, textW, valuation / (double) Math.max(1, min));
             ui.wrapped(LEFT + PAD, y + 25, textW, "把公司 40% 的股份卖给大家，换一大笔钱进公司账上。要付上市费，发行价按估值自动定。", DIM, 2);
         }
-        wageRow(ui, v, a, y + 52);
+        loanAndDividendRow(ui, v, a, y + 52);
+    }
+
+    /** 经营页最下面一行：公司借钱；上市后还能直接调分红比例。 */
+    static void loanAndDividendRow(UiBuilder ui, View v, Actions a, int y) {
+        int x = LEFT + 2 + ui.button(LEFT + 2, y, "公司借 50 磅（30 天还清）",
+                () -> a.simple(SimpleActionPacket.Action.COMPANY_LOAN, "", 5_000, 0), null) + 8;
+        SimpleBossService.BossInfo b = boss(v);
+        if (!b.publicCompany()) return;
+        int pct = b.dividendPct();
+        int bx = ui.buttonsRight(RIGHT - 2, y, 2, List.of(
+                new Btn("-", () -> a.simple(SimpleActionPacket.Action.SET_DIVIDEND, "", Math.max(0, pct - 10), 0), pct <= 0 ? "已经是 0%" : null),
+                new Btn("+", () -> a.simple(SimpleActionPacket.Action.SET_DIVIDEND, "", Math.min(100, pct + 10), 0), pct >= 100 ? "已经是 100%" : null)));
+        ui.textRight(bx - 6, y + 3, bx - 6 - x, "利润分给股东 " + pct + "%", TEXT);
+    }
+
+    /** “当老板”小标签：股东提案、收购、开银行、工资里至少开了一个才显示。 */
+    static boolean bossOn(View v) {
+        return extra(v, "shareholder") || extra(v, "takeover") || extra(v, "bank") || extra(v, "wage");
     }
 
     // ---------------------------------------------------------------- 当老板
@@ -578,7 +606,16 @@ final class SimplePages {
         SimpleBossService.BossInfo b = boss(v);
         FinanceMenu.CompanyInfo info = v.company();
 
-        // 股东大会
+        if (extra(v, "wage") && b.wageActive()) {
+            wageRow(ui, v, a, y);
+            y += 20;
+        }
+        if (extra(v, "shareholder")) y = shareholders(ui, v, a, b, info, y);
+        if (extra(v, "takeover")) y = takeovers(ui, a, b, y);
+        if (extra(v, "bank")) bank(ui, v, a, b, y);
+    }
+
+    static int shareholders(UiBuilder ui, View v, Actions a, SimpleBossService.BossInfo b, FinanceMenu.CompanyInfo info, int y) {
         ui.text(LEFT + 2, y, 120, "股东大会", DIM);
         y += 12;
         if (b.publicCompany()) {
@@ -606,16 +643,10 @@ final class SimplePages {
                     + "%，第 " + p.endMcDay() + " 天截止", TEXT);
             y += 15;
         }
-        y += 2;
+        return y + 2;
+    }
 
-        // 借钱
-        ui.text(LEFT + 2, y, 120, "向银行借钱（钱进公司账上，30 天内分期还）", DIM);
-        y += 12;
-        y += ui.buttonFlow(LEFT + 2, y, WIDTH - 4, 3, List.of(
-                new Btn("借 50 磅", () -> a.simple(SimpleActionPacket.Action.COMPANY_LOAN, "", 5_000, 0), null),
-                new Btn("借 200 磅", () -> a.simple(SimpleActionPacket.Action.COMPANY_LOAN, "", 20_000, 0), null))) + 5;
-
-        // 收购
+    static int takeovers(UiBuilder ui, Actions a, SimpleBossService.BossInfo b, int y) {
         ui.text(LEFT + 2, y, WIDTH - 4, "收购别家公司（按现价高 10% 出价，想买到 51%）", DIM);
         y += 12;
         if (b.targets().isEmpty()) {
@@ -632,9 +663,10 @@ final class SimplePages {
                     + "  我持有 " + (t.myPctX10() / 10.0) + "%", TEXT);
             y += 15;
         }
-        y += 2;
+        return y + 2;
+    }
 
-        // 银行
+    static void bank(UiBuilder ui, View v, Actions a, SimpleBossService.BossInfo b, int y) {
         if (y + 13 <= BOTTOM) {
             if (b.ownsBank()) {
                 ui.text(LEFT + 2, y + 2, WIDTH - 4, "你已经有自己的银行了。", DIM);
@@ -737,7 +769,7 @@ final class SimplePages {
     // ================================================================ 投资
 
     static void invest(UiBuilder ui, View v, State s, Actions a) {
-        int y = subTabs(ui, TOP, List.of("股票", "理财", "我的理财", "现金"), s.investTab, i -> { s.investTab = i; s.selectedStock = null; });
+        int y = subTabs(ui, TOP, List.of("股票", "存钱", "我的存款", "现金"), s.investTab, i -> { s.investTab = i; s.selectedStock = null; });
         switch (s.investTab) {
             case 1 -> products(ui, v, s, a, y);
             case 2 -> myProducts(ui, v, a, y);
@@ -809,7 +841,7 @@ final class SimplePages {
         if (!active) {
             ui.wrapped(LEFT + PAD, cardY + 4, WIDTH - 2 * PAD, locked
                     ? "钱包满 " + MoneyFormat.pounds(unlock(v)) + " 后才能买股票（还差 " + MoneyFormat.pounds(unlock(v) - v.balance()) + "）。理财随时可以买。"
-                    : "买股票：涨了卖掉赚差价，拿着每周有分红。点公司名字可以设自动卖出、加倍买、借股卖出。", DIM, 2);
+                    : "买股票：涨了卖掉赚差价，拿着每周有分红。点公司名字看走势、设自动卖出。", DIM, 2);
             return;
         }
         int bx = ui.buttonsRight(RIGHT - PAD, cardY + 8, 2, List.of(
@@ -869,14 +901,19 @@ final class SimplePages {
         }
         y += 3;
 
-        // 进阶
+        // 进阶（服务器打开 margin，或者已经有仓位要平）
         SimpleInvestService.MarginInfo m = v.status() == null ? SimpleInvestService.MarginInfo.EMPTY : v.status().margin();
         long shorted = m.shorts().getOrDefault(symbol, 0L), levered = m.levered().getOrDefault(symbol, 0L);
+        if (!extra(v, "margin") && shorted == 0 && levered == 0) {
+            ui.wrapped(LEFT + 2, y, WIDTH - 4, "股价怎么来的：公司的家底加上最近赚的钱，再除以股数。央行加息时股价通常会跌。", DIM,
+                    Math.max(1, (BOTTOM - y) / UiBuilder.LINE));
+            return;
+        }
         lx = LEFT + 2 + ui.text(LEFT + 2, y + 3, 40, "进阶", DIM) + 8;
         List<Btn> advanced = new ArrayList<>();
-        advanced.add(new Btn("加倍买10股", () -> a.simple(SimpleActionPacket.Action.LEVER_BUY, symbol, 10, 0),
+        if (extra(v, "margin")) advanced.add(new Btn("加倍买10股", () -> a.simple(SimpleActionPacket.Action.LEVER_BUY, symbol, 10, 0),
                 lockReason != null ? lockReason : v.balance() < (price * 10 + 1) / 2 ? "首付要 " + MoneyFormat.pounds((price * 10 + 1) / 2) : null));
-        advanced.add(new Btn("借股卖出10股", () -> a.simple(SimpleActionPacket.Action.SHORT_SELL, symbol, 10, 0),
+        if (extra(v, "margin")) advanced.add(new Btn("借股卖出10股", () -> a.simple(SimpleActionPacket.Action.SHORT_SELL, symbol, 10, 0),
                 lockReason != null ? lockReason : v.balance() < (price * 10 + 1) / 2 ? "要押 " + MoneyFormat.pounds((price * 10 + 1) / 2) : null));
         if (shorted > 0) advanced.add(new Btn("买回还券", () -> a.simple(SimpleActionPacket.Action.SHORT_COVER, symbol, 0, 0), null));
         y += ui.buttonFlow(lx, y, RIGHT - lx, 3, advanced) + 4;
@@ -907,7 +944,7 @@ final class SimplePages {
         ui.fill(LEFT, y + 11, WIDTH, 1, FinanceGui.COL_PANEL_BORDER);
         y += 15;
         List<SimpleInvestService.Product> products = st == null ? List.of() : st.products();
-        if (products.isEmpty()) ui.text(nameX, y + 2, 200, "正在读取……", DIM);
+        if (products.isEmpty()) ui.text(nameX, y + 2, 200, st == null ? "正在读取……" : "现在没有银行营业。", DIM);
         s.productScroll = clamp(s.productScroll, 0, Math.max(0, products.size() - PRODUCT_ROWS));
         long amount = s.productAmount;
         for (int i = s.productScroll; i < Math.min(products.size(), s.productScroll + PRODUCT_ROWS); i++) {
@@ -925,14 +962,15 @@ final class SimplePages {
             y += ROW;
         }
         if (s.productScroll + PRODUCT_ROWS < products.size()) ui.textRight(RIGHT, BOTTOM - 9, 100, "滚轮看更多", DIM);
-        ui.text(LEFT + 2, BOTTOM - 9, WIDTH - 110, "存款和央行债券保本；基金随行情涨跌，可能亏。", DIM);
+        ui.text(LEFT + 2, BOTTOM - 9, WIDTH - 110, extra(v, "fund") ? "存款保本；基金随行情涨跌，可能亏。"
+                : "存款保本。央行加息时存款利息跟着涨。", DIM);
     }
 
     static void myProducts(UiBuilder ui, View v, Actions a, int y) {
         SimpleCenterService.Status st = v.status();
         List<SimpleInvestService.Holding> holdings = st == null ? List.of() : st.holdings();
         if (holdings.isEmpty()) {
-            ui.text(LEFT + PAD, y + 2, WIDTH, "还没有买理财。去“理财”里挑一个。", DIM);
+            ui.text(LEFT + PAD, y + 2, WIDTH, "还没有存款。去“存钱”里挑一个。", DIM);
             return;
         }
         for (SimpleInvestService.Holding h : holdings) {
@@ -949,6 +987,13 @@ final class SimplePages {
     }
 
     // ================================================================ 小工具
+
+    /** 服务器给普通玩家打开的进阶玩法（配置 simpleCenter.extras）。 */
+    static boolean extra(View v, String name) {
+        if (v.status() == null) return false;
+        List<String> extras = v.status().extras();
+        return extras.contains("all") || extras.contains(name);
+    }
 
     static boolean ownsCompany(View v) {
         return v.company() != null && v.company().playerOwned();

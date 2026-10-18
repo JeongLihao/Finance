@@ -28,6 +28,8 @@ public record SimpleActionPacket(Action action, String target, long amount, long
         AUTO_SELL_UP, AUTO_SELL_DOWN, CANCEL_AUTO,
         /** 当老板：target = 险种 / 提案模板 / 提案 ID / 公司 ID；amount = 金额。 */
         INSURE, PROPOSE, VOTE_YES, VOTE_NO, COMPANY_LOAN, TAKEOVER, SQUEEZE, CHARTER_BANK, SET_WAGE,
+        /** 分红比例：amount = 百分比。 */
+        SET_DIVIDEND,
         /** 实体现金：amount = 便士或绿宝石颗数。 */
         CASH_DEPOSIT, CASH_WITHDRAW, EMERALD_SELL, EMERALD_BUY
     }
@@ -61,6 +63,11 @@ public record SimpleActionPacket(Action action, String target, long amount, long
         if (player == null || p.action == null) return;
         if (!MarketDataRequestLimiter.allow(player.getUUID(), player.server.getTickCount())) {
             GuiFeedbackPacket.send(player, "点得太快了，稍等一下。");
+            return;
+        }
+        String gate = gate(p.action, safe(p.target));
+        if (gate != null && !SimpleCenterService.extra(gate)) {
+            GuiFeedbackPacket.send(player, "这个玩法服务器没有开启。");
             return;
         }
         String commodity = NetworkValidation.normalizeCommodityId(p.target);
@@ -100,9 +107,25 @@ public record SimpleActionPacket(Action action, String target, long amount, long
             case SQUEEZE -> invest(finance.simple.SimpleBossService.squeeze(player, uuid(p.target)));
             case CHARTER_BANK -> invest(finance.simple.SimpleBossService.charterBank(player, Math.max(0, p.amount)));
             case SET_WAGE -> invest(finance.simple.SimpleBossService.setWage(player, Math.max(0, p.amount)));
+            case SET_DIVIDEND -> invest(finance.simple.SimpleBossService.setDividend(player, p.amount));
             case CASH_DEPOSIT, CASH_WITHDRAW, EMERALD_SELL, EMERALD_BUY -> cash(player, p.action, Math.max(0, p.amount));
         };
         GuiFeedbackPacket.send(player, result.message(), result.moneyDelta());
+    }
+
+    /** 新开仓位的进阶玩法要服务器打开对应开关；平仓、取回、还款永远可以做。 */
+    static String gate(Action action, String target) {
+        return switch (action) {
+            case LOCK_SELL, LOCK_BUY -> "futures";
+            case LEVER_BUY, SHORT_SELL -> "margin";
+            case BUY_PRODUCT -> target.startsWith("cbond:") ? "bonds" : target.startsWith("fund:") ? "fund" : null;
+            case PROPOSE, VOTE_YES, VOTE_NO -> "shareholder";
+            case TAKEOVER, SQUEEZE -> "takeover";
+            case CHARTER_BANK -> "bank";
+            case INSURE -> "insurance";
+            case SET_WAGE -> "wage";
+            default -> null;
+        };
     }
 
     private static SimpleCenterService.Result cash(ServerPlayer player, Action action, long amount) {
