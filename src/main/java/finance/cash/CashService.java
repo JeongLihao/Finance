@@ -151,6 +151,7 @@ public final class CashService {
             AccountManager.withdraw(finance.market.NpcMarketMaker.NPC_UUID, cash);
             finance.commodity.CommodityInventoryManager.addCommodity(finance.market.NpcMarketMaker.NPC_UUID, EMERALD, (int) count);
             finance.market.NpcMarketMaker.recordNpcTrade(EMERALD, true, (int) count, q.emeraldToCash());
+            finance.centralbank.ReserveService.recordTrade(cash);
         }
         giveAmount(purse, cash);
         notesIssued(cash);
@@ -179,6 +180,7 @@ public final class CashService {
             finance.commodity.CommodityInventoryManager.removeCommodity(finance.market.NpcMarketMaker.NPC_UUID, EMERALD, (int) count);
             AccountManager.deposit(finance.market.NpcMarketMaker.NPC_UUID, cost);
             finance.market.NpcMarketMaker.recordNpcTrade(EMERALD, false, (int) count, q.cashToEmerald());
+            finance.centralbank.ReserveService.recordTrade(cost);
         }
         notesRetired(cost);
         purse.giveEmeralds(count);

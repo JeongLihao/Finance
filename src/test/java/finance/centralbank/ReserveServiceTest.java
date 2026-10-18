@@ -100,6 +100,34 @@ class ReserveServiceTest {
         assertEquals(100_000, CommodityInventoryManager.getCommodityAmount(NpcMarketMaker.NPC_UUID, "ore"), "只搬一次");
     }
 
+    @Test void anEmptyMarketNeverPaysMoreThanTheBasePrice() {
+        MarketPrice mp = NpcMarketMaker.getMarketPrice("pie");
+        for (int i = 0; i < 40; i++) mp.recomputePrice(0);
+        assertTrue(mp.getAskPrice() > 20, "缺货时卖得贵：" + mp.getAskPrice());
+        assertEquals(20, mp.getBidPrice(), "但收购价最多给基准价");
+        CommodityInventoryManager.setCommodity(PLAYER, "pie", 64);
+        long before = AccountManager.getBalance(PLAYER);
+        assertEquals(64, NpcMarketMaker.npcBuyFilled(PLAYER, "pie", 64));
+        assertEquals(64 * 20, AccountManager.getBalance(PLAYER) - before);
+    }
+
+    @Test void buyingEightStacksInARowDoesNotPauseTheMarket() {
+        MarketPrice mp = NpcMarketMaker.getMarketPrice("ore");
+        CommodityInventoryManager.setCommodity(NpcMarketMaker.NPC_UUID, "ore", 1_000);
+        for (int i = 0; i < 40; i++) mp.recomputePrice(1_000);
+        AccountManager.getAccount(PLAYER).setBalance(10_000_000);
+        for (int i = 0; i < 8; i++) {
+            assertEquals(64, NpcMarketMaker.npcSellFilled(PLAYER, "ore", 64), "第 " + (i + 1) + " 组");
+        }
+    }
+
+    @Test void emeraldsHaveNoFloorPrice() {
+        CommodityRegistry.register(new Commodity(finance.cash.CashService.EMERALD, "minecraft:emerald", "绿宝石",
+                CommodityCategory.MISCELLANEOUS, 50).reserveTier(0));
+        assertEquals(0, ReserveService.floorPrice(finance.cash.CashService.EMERALD));
+        assertEquals(10, ReserveService.floorPrice("pie"));
+    }
+
     @Test void legacyCommoditiesKeepTheOldRules() {
         CommodityRegistry.register(new Commodity("old", "minecraft:stick", "旧", CommodityCategory.MISCELLANEOUS, 10));
         assertFalse(ReserveService.managed("old"));

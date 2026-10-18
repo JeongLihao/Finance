@@ -950,7 +950,7 @@ final class SimplePages {
         long price = Math.max(1, row.lastPrice());
         String verdict = price > perShare * 11 / 10 ? "现价偏贵" : price < perShare * 9 / 10 ? "现价偏便宜" : "现价合理";
         return "股价怎么来的：家底 " + MoneyFormat.compact(val.netAssets()) + " + 日利润 " + MoneyFormat.signed(val.dailyProfit())
-                + " × " + String.format(java.util.Locale.ROOT, "%.1f", val.multipleX10() / 10.0) + " 倍，÷ " + val.shares()
+                + " × " + (val.multipleX10() / 10) + " 天，÷ " + val.shares()
                 + " 股 ≈ 每股 " + MoneyFormat.compact(perShare) + "，" + verdict + "。倍数看央行利率，加息时变小，股价跟着跌。";
     }
 

@@ -127,8 +127,12 @@ public final class ReserveService {
 
     // ------------------------------------------------------------ 底价收购
 
-    /** 底价：基准价的 floorBps；旧规则商品没有底价（返回 0）。 */
+    /**
+     * 底价：基准价的 floorBps；旧规则商品没有底价（返回 0）。
+     * 绿宝石也没有底价：刷怪塔的腐肉卖给牧师就能换绿宝石，有底价等于每天白送钱。
+     */
     public static long floorPrice(String commodityId) {
+        if (finance.cash.CashService.EMERALD.equals(commodityId)) return 0;
         Commodity c = CommodityRegistry.getCommodity(commodityId);
         if (c == null || c.getReserveTier() < 0 || c.getBasePrice() <= 0) return 0;
         return Math.max(1, CentralBankService.bps(c.getBasePrice(), FinanceConfig.reserveFloorBps()));

@@ -317,7 +317,7 @@ public final class FinanceConfig {
     private static final ForgeConfigSpec.ConfigValue<String> SIMPLE_ADVANCED_MODE;
     private static final ForgeConfigSpec.ConfigValue<String> SIMPLE_EXTRAS;
     private static final ForgeConfigSpec.ConfigValue<String> RESERVE_TARGETS;
-    private static final ForgeConfigSpec.IntValue RESERVE_RESTOCK_BPS, RESERVE_FLOOR_BPS, RESERVE_FLOOR_DAILY_CAP;
+    private static final ForgeConfigSpec.IntValue RESERVE_RESTOCK_BPS, RESERVE_FLOOR_BPS, RESERVE_FLOOR_DAILY_CAP, RESERVE_SURPLUS_DEMAND_BPS;
     private static final ForgeConfigSpec.LongValue RESERVE_TIER2_VALUE, RESERVE_TIER3_VALUE, RESERVE_PLAYER_GOODS_REFERENCE;
     private static final ForgeConfigSpec.DoubleValue RESERVE_ELASTICITY;
     private static final ForgeConfigSpec.LongValue CASH_EMERALD_TO_CASH;
@@ -1192,7 +1192,10 @@ public final class FinanceConfig {
                 .define("targets", "1000,500,200");
         RESERVE_RESTOCK_BPS = builder.comment("央行每天最多补目标库存的多少（基点，200 = 2%）。越小，抢购后价格回落越慢。")
                 .defineInRange("restockBpsPerDay", 200, 0, 10_000);
-        RESERVE_TIER2_VALUE = builder.comment("全服累计成交额（便士）达到多少后央行开始投放第 2 档（铁、铜、羊毛、皮革）。")
+        RESERVE_SURPLUS_DEMAND_BPS = builder.comment("库存超过目标时，外部需求每天买走多出部分的多少（基点，2500 = 25%）。"
+                        + "公司每天往市场卖几十上百件，太小的话库存越堆越多、价格一路跌。")
+                .defineInRange("surplusDemandBpsPerDay", 2_500, 0, 10_000);
+        RESERVE_TIER2_VALUE = builder.comment("玩家（含玩家自己的公司）累计成交额（便士）达到多少后，央行开始投放第 2 档（铁、铜、羊毛、皮革）。系统公司的买卖不算。")
                 .defineInRange("tier2UnlockValue", 50_000L, 0L, Long.MAX_VALUE);
         RESERVE_TIER3_VALUE = builder.comment("全服累计成交额（便士）达到多少后央行开始投放第 3 档（金、红石、青金石）。")
                 .defineInRange("tier3UnlockValue", 200_000L, 0L, Long.MAX_VALUE);
@@ -1523,6 +1526,7 @@ public final class FinanceConfig {
         return out.isEmpty() ? List.of(1_000L, 500L, 200L) : List.copyOf(out);
     }
     public static int reserveRestockBpsPerDay() { return getInt(RESERVE_RESTOCK_BPS, 200); }
+    public static int reserveSurplusDemandBpsPerDay() { return getInt(RESERVE_SURPLUS_DEMAND_BPS, 2_500); }
     public static long reserveTier2UnlockValue() { return getLong(RESERVE_TIER2_VALUE, 50_000L); }
     public static long reserveTier3UnlockValue() { return getLong(RESERVE_TIER3_VALUE, 200_000L); }
     public static int reserveFloorBps() { return getInt(RESERVE_FLOOR_BPS, 5_000); }

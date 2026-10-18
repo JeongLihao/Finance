@@ -113,7 +113,7 @@ public class FinanceMod {
         );
 
         // ---- 宏观经济：需求类别的替代品（见 docs/MACRO_ECONOMY.md）----
-        CommodityRegistry.registerDefault(new Commodity("bread", "minecraft:bread", "面包", CommodityCategory.FOOD, 20));
+        CommodityRegistry.registerDefault(new Commodity("bread", "minecraft:bread", "面包", CommodityCategory.FOOD, 30));
         CommodityRegistry.registerDefault(new Commodity("wood", "minecraft:oak_log", "木头", CommodityCategory.BUILDING_BLOCKS, 4));
         CommodityRegistry.registerDefault(new Commodity("coal", "minecraft:coal", "煤", CommodityCategory.RAW_MATERIALS, 6));
         CommodityRegistry.registerDefault(new Commodity("wool", "minecraft:white_wool", "羊毛", CommodityCategory.MISCELLANEOUS, 9));
@@ -131,8 +131,8 @@ public class FinanceMod {
         CommodityRegistry.registerDefault(new Commodity("redstone", "minecraft:redstone", "红石", CommodityCategory.REDSTONE, 8).reserveTier(3));
         CommodityRegistry.registerDefault(new Commodity("lapis", "minecraft:lapis_lazuli", "青金石", CommodityCategory.RAW_MATERIALS, 15).reserveTier(3));
         CommodityRegistry.registerDefault(new Commodity("glass", "minecraft:glass", "玻璃", CommodityCategory.BUILDING_BLOCKS, 6).reserveTier(0));
-        CommodityRegistry.registerDefault(new Commodity("paper", "minecraft:paper", "纸", CommodityCategory.MISCELLANEOUS, 4).reserveTier(0));
-        CommodityRegistry.registerDefault(new Commodity("book", "minecraft:book", "书", CommodityCategory.MISCELLANEOUS, 25).reserveTier(0));
+        CommodityRegistry.registerDefault(new Commodity("paper", "minecraft:paper", "纸", CommodityCategory.MISCELLANEOUS, 6).reserveTier(0));
+        CommodityRegistry.registerDefault(new Commodity("book", "minecraft:book", "书", CommodityCategory.MISCELLANEOUS, 35).reserveTier(0));
         CommodityRegistry.registerDefault(new Commodity("cooked_beef", "minecraft:cooked_beef", "牛排", CommodityCategory.FOOD, 18).reserveTier(0));
         CommodityRegistry.registerDefault(new Commodity("obsidian", "minecraft:obsidian", "黑曜石", CommodityCategory.BUILDING_BLOCKS, 30).reserveTier(0));
         CommodityRegistry.registerDefault(new Commodity("ender_pearl", "minecraft:ender_pearl", "末影珍珠", CommodityCategory.MISCELLANEOUS, 60).reserveTier(0));

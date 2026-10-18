@@ -134,8 +134,14 @@ public final class MarketMakerQuotes {
         boolean halted = Math.abs(momentum) > FinanceConfig.marketMakerCircuitBreakerThreshold();
         MarketState state = new MarketState(mid, mid, basePrice, inventory,
                 mp.getReferenceStock(), volatility, mp.getSpread(), halted);
-        return toView(MARKET_COMMODITY, commodityId, state,
-                haltReason(momentum));
+        QuoteView view = toView(MARKET_COMMODITY, commodityId, state, haltReason(momentum));
+        // 央行储备商品：市场收购价最多给到基准价。市场缺货时只是卖得贵，不会高价收——
+        // 否则第一个往空市场卖钻石、绿宝石的人能拿到基准价的 2.7 倍。
+        if (!view.halted() && finance.centralbank.ReserveService.managed(commodityId) && basePrice > 0 && view.bid() > basePrice) {
+            long bid = Math.max(1, basePrice);
+            view = new QuoteView(view.market(), view.symbol(), view.mid(), bid, Math.max(bid + 1, view.ask()), false, null);
+        }
+        return view;
     }
 
     // ---------------------------------------------------------------

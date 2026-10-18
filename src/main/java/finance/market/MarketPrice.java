@@ -122,7 +122,7 @@ public class MarketPrice {
         this.referenceStock = Math.max(1, reference);
         this.elasticity = Math.max(0.05, Math.min(2.0, elasticity));
         this.momentumScale = 1.0;
-        this.maxTradeImpact = 0.08;
+        this.maxTradeImpact = 0.03;
     }
 
     public long getReferenceStock() {

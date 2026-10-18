@@ -232,7 +232,6 @@ public class NpcMarketMaker {
     public static void recordNpcTrade(String commodityId, boolean npcWasBuyer,
                                        int quantity, long tradePrice) {
         long newNpcStock = CommodityInventoryManager.getCommodityAmount(NPC_UUID, commodityId);
-        finance.centralbank.ReserveService.recordTrade(MathUtil.multiplyExactOrNegative1(Math.max(0, tradePrice), Math.max(0, quantity)));
         MarketPrice price = getMarketPrice(commodityId);
         if (price != null) {
             price.onNpcTrade(newNpcStock, npcWasBuyer, quantity);
@@ -354,7 +353,8 @@ public class NpcMarketMaker {
                 long target = finance.centralbank.ReserveService.target(commodityId);
                 long newStock = stock + finance.centralbank.ReserveService.restock(commodityId);
                 if (newStock > target) {
-                    int consume = (int) Math.min(newStock, Math.max(1, Math.round((newStock - target) * DAILY_DEMAND_RATIO)));
+                    int consume = (int) Math.min(newStock, Math.max(1, Math.round((newStock - target)
+                            * finance.config.FinanceConfig.reserveSurplusDemandBpsPerDay() / 10_000.0)));
                     CommodityInventoryManager.removeCommodity(NPC_UUID, commodityId, consume);
                     newStock -= consume;
                 }

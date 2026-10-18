@@ -14,6 +14,16 @@ public final class CommodityTradeRecorder {
     private CommodityTradeRecorder() {
     }
 
+    /** 央行储备解锁只看玩家的成交：系统公司、竞争对手自己的买卖不算，玩家自己的公司算。 */
+    static boolean countsTowardReserveTiers(UUID buyer, UUID seller, CommodityTradeSource source) {
+        if (source != CommodityTradeSource.COMPANY_NPC) return true;
+        for (UUID id : new UUID[]{buyer, seller}) {
+            finance.company.Company c = finance.company.CompanyManager.getCompany(id);
+            if (c != null) return c.getOwnerId() != null;
+        }
+        return false;
+    }
+
     public static void recordCompletedTrade(UUID buyer, UUID seller, String commodityId,
                                             long price, int quantity, CommodityTradeSource source,
                                             Boolean npcWasBuyer) {
@@ -33,6 +43,9 @@ public final class CommodityTradeRecorder {
         } else {
             MarketPrice marketPrice = NpcMarketMaker.getMarketPrice(commodityId);
             if (marketPrice != null) marketPrice.recordTrade(price, quantity);
+        }
+        if (countsTowardReserveTiers(buyer, seller, source)) {
+            finance.centralbank.ReserveService.recordTrade(finance.util.MathUtil.multiplyExactOrNegative1(price, quantity));
         }
         EconomyMetricsService.recordCommodityTrade(quantity);
         CandlestickService.recordTrade(MarketInstrumentType.COMMODITY, commodityId, price, quantity);

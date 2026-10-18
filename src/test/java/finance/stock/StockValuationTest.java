@@ -25,10 +25,10 @@ class StockValuationTest {
     }
 
     @Test void higherRatesMeanALowerMultiple() {
-        assertEquals(83, StockValuation.multipleX10(400), "利率 4% 约 8 倍");
-        assertEquals(55, StockValuation.multipleX10(1_000), "利率 10% 约 5.5 倍");
-        assertEquals(120, StockValuation.multipleX10(0), "最多 12 倍");
-        assertEquals(40, StockValuation.multipleX10(100_000), "最少 4 倍");
+        assertEquals(1_200, StockValuation.multipleX10(500), "利率 5%：120 天");
+        assertEquals(800, StockValuation.multipleX10(1_000), "利率 10%：80 天");
+        assertEquals(2_400, StockValuation.multipleX10(0), "最多 240 天");
+        assertEquals(400, StockValuation.multipleX10(100_000), "最少 40 天");
         assertTrue(StockValuation.multipleX10(800) < StockValuation.multipleX10(300));
     }
 

@@ -14,7 +14,7 @@ import java.util.Map;
  * <pre>
  *   家底   = 现金 + 库存（按央行底价）+ 厂房 − 欠款
  *   估值   = 家底 + 近 7 天平均日利润 × 倍数        （亏损时不低于家底的一半）
- *   倍数   = 10000 ÷ (利率基点 + 800)，夹在 4 到 12 倍之间：利率 4% 约 8 倍，10% 约 5.6 倍
+ *   倍数   = 1200 ÷ (利率% + 5) 天，夹在 40 到 240 天之间：利率 5% 时 120 天，10% 时 80 天
  *   每股价值 = 估值 ÷ 总股数
  * </pre>
  *
@@ -22,15 +22,18 @@ import java.util.Map;
  */
 public final class StockValuation {
 
-    /** 股票详情里“股价怎么来的”那一行要的数。multipleX10 = 倍数 × 10。 */
+    /** 股票详情里“股价怎么来的”那一行要的数。multipleX10 = 倍数（天）× 10。 */
     public record Breakdown(long netAssets, long dailyProfit, int multipleX10, long companyValue) {}
 
     private StockValuation() {}
 
-    /** 央行利率决定的利润倍数（× 10）。 */
+    /**
+     * 央行利率决定的利润倍数（天数 × 10）：估值里算进多少天的利润。
+     * 公司一天的利润只有家底的零点几个百分点，倍数太小的话股价几乎等于家底，央行加息对股价也没影响。
+     */
     public static int multipleX10(int rateBps) {
-        long m = 100_000L / (Math.max(0, rateBps) + 800);
-        return (int) Math.max(40, Math.min(120, m));
+        long m = 1_200_000L / (Math.max(0, rateBps) + 500);
+        return (int) Math.max(400, Math.min(2_400, m));
     }
 
     public static int currentMultipleX10() {
