@@ -56,6 +56,22 @@ public class FinanceGuiOpener {
 
     public static void open(ServerPlayer player, FinanceScreenMode initialMode,
                             FinanceTerminalType sourceType, BlockPos sourcePos) {
+        FinanceProvider provider = collect(player, initialMode, sourceType, sourcePos);
+        NetworkHooks.openScreen(player, provider, provider::write);
+    }
+
+    /** 金融中心开着时，用最新数据替换服务端菜单并推送给客户端；没开着则什么都不做。 */
+    public static void refresh(ServerPlayer player) {
+        if (!(player.containerMenu instanceof FinanceMenu menu) || !menu.stillValid(player)) return;
+        FinanceProvider provider = collect(player, menu.getInitialMode(), menu.getSourceType(), menu.getSourcePos());
+        menu.replaceData(provider.createMenu(menu.containerId, player.getInventory(), player));
+        finance.network.FinancePacketHandler.CHANNEL.send(
+                net.minecraftforge.network.PacketDistributor.PLAYER.with(() -> player),
+                new finance.network.FinanceMenuRefreshPacket(menu.containerId, provider::write));
+    }
+
+    private static FinanceProvider collect(ServerPlayer player, FinanceScreenMode initialMode,
+                                           FinanceTerminalType sourceType, BlockPos sourcePos) {
         UUID playerId = player.getUUID();
         boolean admin = player.hasPermissions(2);
         UUID boardroomCompanyId = null;
@@ -261,10 +277,7 @@ public class FinanceGuiOpener {
         long warehouseCapacity = finance.warehouse.WarehouseManager.totalCapacity(playerId);
         boolean warehouseOverCapacity = warehouseUsed > warehouseCapacity;
 
-        // 打开菜单
-        NetworkHooks.openScreen(player,
-                new FinanceProvider(marketData, orderRows, balance, frozenBalance, inventory, companyInfo, companyRows, stockRows, stockHoldingRows, stockOrderRows, transactionRows, assetBundle.summary(), assetBundle.rows(), priceAlertRows, conditionalStockOrderRows, companyFinancingRows, companyProposalRows, dashboard, CompanyManager.getDividendRatio(), CompanyManager.getDividendCycleDays(), mcInv, initialMode, sourceType, player.serverLevel().dimension().location().toString(), sourcePos, warehouseUsed, warehouseCapacity, warehouseOverCapacity),
-                buffer -> FinanceMenu.writeAll(buffer, marketData, orderRows, balance, frozenBalance, inventory, companyInfo, companyRows, stockRows, stockHoldingRows, stockOrderRows, transactionRows, assetBundle.summary(), assetBundle.rows(), priceAlertRows, conditionalStockOrderRows, companyFinancingRows, companyProposalRows, dashboard, CompanyManager.getDividendRatio(), CompanyManager.getDividendCycleDays(), mcInv, initialMode, sourceType, player.serverLevel().dimension().location().toString(), sourcePos, warehouseUsed, warehouseCapacity, warehouseOverCapacity));
+        return new FinanceProvider(marketData, orderRows, balance, frozenBalance, inventory, companyInfo, companyRows, stockRows, stockHoldingRows, stockOrderRows, transactionRows, assetBundle.summary(), assetBundle.rows(), priceAlertRows, conditionalStockOrderRows, companyFinancingRows, companyProposalRows, dashboard, CompanyManager.getDividendRatio(), CompanyManager.getDividendCycleDays(), mcInv, initialMode, sourceType, player.serverLevel().dimension().location().toString(), sourcePos, warehouseUsed, warehouseCapacity, warehouseOverCapacity);
     }
 
     private static FinanceMenu.CompanyInfo toCompanyInfo(Company company) { return toCompanyInfo(company,true); }
@@ -556,6 +569,10 @@ public class FinanceGuiOpener {
         @Override
         public Component getDisplayName() {
             return Component.literal("金融中心");
+        }
+
+        void write(net.minecraft.network.FriendlyByteBuf buffer) {
+            FinanceMenu.writeAll(buffer, marketData, orderRows, balance, frozenBalance, inventory, companyInfo, allCompanies, stocks, stockHoldings, stockOrders, transactions, assetSummary, assetRows, priceAlerts, conditionalStockOrders, companyFinancingRows, companyProposalRows, dashboard, dividendRatio, dividendCycleDays, mcInventory, initialMode, sourceType, sourceDimension, sourcePos, warehouseUsed, warehouseCapacity, warehouseOverCapacity);
         }
 
         @Override

@@ -114,35 +114,36 @@ public class FinanceMenu extends AbstractContainerMenu {
                                       List<EconomyTrendRow> trends) {}
 
     // ---- 字段 ----
+    // 数据字段不是 final：界面开着时由 replaceData 换成服务端推来的新快照；入口信息（模式、来源方块）保持不变。
 
-    private final List<MarketRow> marketData;
-    private final List<OrderRow> playerOrders;
-    private final long balance;
-    private final long frozenBalance;
-    private final Map<String, Integer> playerInventory;
-    private final CompanyInfo playerCompany; // null = 无公司
-    private final List<CompanyInfo> allCompanies;
-    private final List<StockRow> stocks;
-    private final List<StockHoldingRow> stockHoldings;
-    private final List<StockOrderRow> stockOrders;
-    private final List<TransactionRow> transactions;
-    private final AssetSummary assetSummary;
-    private final List<AssetRow> assetRows;
-    private final List<PriceAlertRow> priceAlerts;
-    private final List<ConditionalStockOrderRow> conditionalStockOrders;
-    private final List<CompanyFinancingRow> companyFinancingRows;
-    private final List<CompanyProposalRow> companyProposalRows;
-    private final EconomyDashboardRow dashboard;
-    private final double dividendRatio;
-    private final int dividendCycleDays;
-    private final Map<String, Integer> mcInventory; // 商品ID → MC物品栏数量
+    private List<MarketRow> marketData;
+    private List<OrderRow> playerOrders;
+    private long balance;
+    private long frozenBalance;
+    private Map<String, Integer> playerInventory;
+    private CompanyInfo playerCompany; // null = 无公司
+    private List<CompanyInfo> allCompanies;
+    private List<StockRow> stocks;
+    private List<StockHoldingRow> stockHoldings;
+    private List<StockOrderRow> stockOrders;
+    private List<TransactionRow> transactions;
+    private AssetSummary assetSummary;
+    private List<AssetRow> assetRows;
+    private List<PriceAlertRow> priceAlerts;
+    private List<ConditionalStockOrderRow> conditionalStockOrders;
+    private List<CompanyFinancingRow> companyFinancingRows;
+    private List<CompanyProposalRow> companyProposalRows;
+    private EconomyDashboardRow dashboard;
+    private double dividendRatio;
+    private int dividendCycleDays;
+    private Map<String, Integer> mcInventory; // 商品ID → MC物品栏数量
     private final FinanceScreenMode initialMode;
     private final FinanceTerminalType sourceType;
     private final String sourceDimension;
     private final BlockPos sourcePos;
-    private final long warehouseUsed;
-    private final long warehouseCapacity;
-    private final boolean warehouseOverCapacity;
+    private long warehouseUsed;
+    private long warehouseCapacity;
+    private boolean warehouseOverCapacity;
 
     // ---- 构造 ----
 
@@ -275,6 +276,34 @@ public class FinanceMenu extends AbstractContainerMenu {
     public long getWarehouseUsed() { return warehouseUsed; }
     public long getWarehouseCapacity() { return warehouseCapacity; }
     public boolean isWarehouseOverCapacity() { return warehouseOverCapacity; }
+
+    /** 用新快照替换数据（服务端刷新和客户端收到刷新包时调用），不改入口模式与来源方块。 */
+    public void replaceData(FinanceMenu fresh) {
+        this.marketData = fresh.marketData;
+        this.playerOrders = fresh.playerOrders;
+        this.balance = fresh.balance;
+        this.frozenBalance = fresh.frozenBalance;
+        this.playerInventory = fresh.playerInventory;
+        this.playerCompany = fresh.playerCompany;
+        this.allCompanies = fresh.allCompanies;
+        this.stocks = fresh.stocks;
+        this.stockHoldings = fresh.stockHoldings;
+        this.stockOrders = fresh.stockOrders;
+        this.transactions = fresh.transactions;
+        this.assetSummary = fresh.assetSummary;
+        this.assetRows = fresh.assetRows;
+        this.priceAlerts = fresh.priceAlerts;
+        this.conditionalStockOrders = fresh.conditionalStockOrders;
+        this.companyFinancingRows = fresh.companyFinancingRows;
+        this.companyProposalRows = fresh.companyProposalRows;
+        this.dashboard = fresh.dashboard;
+        this.dividendRatio = fresh.dividendRatio;
+        this.dividendCycleDays = fresh.dividendCycleDays;
+        this.mcInventory = fresh.mcInventory;
+        this.warehouseUsed = fresh.warehouseUsed;
+        this.warehouseCapacity = fresh.warehouseCapacity;
+        this.warehouseOverCapacity = fresh.warehouseOverCapacity;
+    }
 
     @Override
     public boolean stillValid(Player player) {

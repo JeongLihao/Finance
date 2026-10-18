@@ -67,7 +67,7 @@ public final class WarehouseScreen extends AbstractContainerScreen<WarehouseMenu
     protected void renderLabels(GuiGraphics graphics, int mouseX, int mouseY) {
         drawClipped(graphics, title.getString(), 10, 9, 300, 0xFF202020);
         drawClipped(graphics, Component.translatable("screen.finance.warehouse.summary", menu.ownerName(),
-                menu.used(), menu.capacity(), menu.status().name()).getString(), 10, 25, 300, 0xFF555555);
+                menu.used(), menu.capacity(), FinanceFormat.label(menu.status())).getString(), 10, 25, 300, 0xFF555555);
         drawClipped(graphics, Component.translatable("screen.finance.warehouse.columns").getString(),
                 12, 43, 296, 0xFF555555);
 
@@ -76,8 +76,9 @@ public final class WarehouseScreen extends AbstractContainerScreen<WarehouseMenu
         for (int i = rowOffset; i < end; i++) {
             WarehouseMenu.CommodityRow row = menu.rows().get(i);
             if (i == selected) graphics.fill(8, y - 2, 312, y + 10, 0xFFD5E3C7);
-            String text = row.name() + " [" + row.id() + "] 总" + row.custodyAmount()+" / 质"
-                    +row.pledgedAmount()+" / 可"+row.availableAmount()+" / 身"+row.inventoryAmount()
+            String text = row.name() + "  仓库 " + row.custodyAmount()
+                    + (row.pledgedAmount() > 0 ? "（押 " + row.pledgedAmount() + "）" : "")
+                    + "  可用 " + row.availableAmount() + "  背包 " + row.inventoryAmount()
                     + (row.physical() ? "" : "  (虚拟)");
             drawClipped(graphics, text, 12, y, 296, row.physical() ? 0xFF202020 : 0xFF8A6500);
             y += 12;
@@ -91,8 +92,8 @@ public final class WarehouseScreen extends AbstractContainerScreen<WarehouseMenu
             int shipmentEnd = Math.min(menu.shipments().size(), shipmentOffset + CONTRACT_ROWS);
             for (int i = shipmentOffset; i < shipmentEnd; i++) {
                 WarehouseMenu.ShipmentRow row = menu.shipments().get(i);
-                String line = row.commodityId() + " x" + row.quantity() + "  " + row.source()
-                        + "→" + row.destination() + "  D" + row.deadlineDay() + "  " + row.status();
+                String line = FinanceFormat.commodityDisplayName(row.commodityId()) + " x" + row.quantity() + "  " + row.source()
+                        + "→" + row.destination() + "  第" + row.deadlineDay() + "天前  " + FinanceFormat.label(row.status());
                 drawClipped(graphics, line, 12, contractY, 296, 0xFF202020);
                 contractY += 12;
             }
@@ -101,8 +102,8 @@ public final class WarehouseScreen extends AbstractContainerScreen<WarehouseMenu
             for (int i = contractOffset; i < contractEnd; i++) {
                 WarehouseMenu.ContractRow row = menu.contracts().get(i);
                 if (i == selectedContract) graphics.fill(8, contractY - 2, 312, contractY + 10, 0xFFD5E3C7);
-                String line = row.commodityId() + " x" + row.quantity() + "  奖励 " + row.reward()
-                        + "  D" + row.deadlineDay() + "  " + row.status();
+                String line = FinanceFormat.commodityDisplayName(row.commodityId()) + " x" + row.quantity() + "  奖励 " + row.reward()
+                        + "  第" + row.deadlineDay() + "天前  " + FinanceFormat.label(row.status());
                 drawClipped(graphics, line, 12, contractY, 296, 0xFF202020);
                 contractY += 12;
             }

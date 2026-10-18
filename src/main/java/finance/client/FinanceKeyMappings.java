@@ -14,29 +14,23 @@ import net.minecraftforge.fml.common.Mod;
 import org.lwjgl.glfw.GLFW;
 
 /**
- * 金融中心客户端快捷键。
+ * 金融中心客户端快捷键：只占一个键（默认 K，原版和常见模组都不用）。
+ * 教程中心在金融中心标题栏，教程目标的显示开关在教程中心里。
  */
 public class FinanceKeyMappings {
 
     public static final KeyMapping OPEN_FINANCE = new KeyMapping(
             "key.finance.open_gui",
             InputConstants.Type.KEYSYM,
-            GLFW.GLFW_KEY_F,
+            GLFW.GLFW_KEY_K,
             "key.categories.finance"
     );
-
-    public static final KeyMapping OPEN_GUIDE = new KeyMapping(
-            "key.finance.open_guide", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_J, "key.categories.finance");
-    public static final KeyMapping TOGGLE_TUTORIAL = new KeyMapping(
-            "key.finance.toggle_tutorial", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_U, "key.categories.finance");
 
     @Mod.EventBusSubscriber(modid = FinanceMod.MOD_ID, bus = Mod.EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
     public static class ModBusEvents {
         @SubscribeEvent
         public static void registerKeyMappings(RegisterKeyMappingsEvent event) {
             event.register(OPEN_FINANCE);
-            event.register(OPEN_GUIDE);
-            event.register(TOGGLE_TUTORIAL);
         }
     }
 
@@ -54,8 +48,6 @@ public class FinanceKeyMappings {
             while (OPEN_FINANCE.consumeClick()) {
                 FinancePacketHandler.CHANNEL.sendToServer(new OpenFinanceGuiPacket());
             }
-            while (OPEN_GUIDE.consumeClick()) TutorialHubScreen.open();
-            while (TOGGLE_TUTORIAL.consumeClick()) TutorialClientState.toggleVisible();
         }
     }
 }

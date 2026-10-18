@@ -67,10 +67,10 @@ public final class CompanyGameplayScreen extends AbstractContainerScreen<Company
         factoryTab = menu.factory() != null && (factoryTab || menu.statusKey().startsWith("finance.factory."));
         if (factoryTab) capitalTab = false;
         if (menu.factory() != null) FactoryOutlineRenderer.show(menu.factory(), menu.pos());
-        target = box(10, 184, 90, "UUID");
-        commodity = box(104, 184, 60, "ID");
-        quantity = box(168, 184, 40, "Qty");
-        reward = box(212, 184, 50, "Money");
+        target = box(10, 184, 90, "对方编号");
+        commodity = box(104, 184, 60, "商品");
+        quantity = box(168, 184, 40, "数量");
+        reward = box(212, 184, 50, "金额");
         quantity.setMaxLength(8);
         reward.setMaxLength(12);
         quantity.setValue("10");
@@ -142,10 +142,10 @@ public final class CompanyGameplayScreen extends AbstractContainerScreen<Company
         }
 
         String valuation = menu.inventoryValuationDegraded() ? "~" : "";
-        drawClipped(graphics, menu.operatingHealth() + "  INV " + valuation + menu.inventoryValue()
-                + "  CAP " + menu.warehouseUsed() + "/" + menu.warehouseCapacity()
-                + "  SHIP " + menu.activeShipments() + "  DEBT " + menu.debtPrincipal()
-                + "  DUE7 " + menu.dueWithinSevenDays(), 10, 119, 300, 0xFF555555);
+        drawClipped(graphics, FinanceFormat.label(menu.operatingHealth()) + "  货值 " + valuation + menu.inventoryValue()
+                + "  仓位 " + menu.warehouseUsed() + "/" + menu.warehouseCapacity()
+                + "  在途 " + menu.activeShipments() + "  负债 " + menu.debtPrincipal()
+                + "  7天内到期 " + menu.dueWithinSevenDays(), 10, 119, 300, 0xFF555555);
 
         drawClipped(graphics, Component.translatable("screen.finance.company_gameplay.contracts").getString(),
                 10, 133, 300, 0xFF202020);

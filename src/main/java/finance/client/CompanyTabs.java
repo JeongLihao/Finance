@@ -318,7 +318,7 @@ public final class CompanyTabs {
         int actionY = cardY + 134;
         if (data.actions().isEmpty()) FinanceGui.drawClippedString(screen.font(), g, "暂无回购或收购要约", 12, actionY, 260, FinanceGui.COL_TEXT_DIM);
         for (GovernanceResponsePacket.ActionRow action : data.actions().stream().limit(1).toList()) {
-            FinanceGui.drawClippedString(screen.font(), g, action.type() + "  " + action.status() + "  价格 " + action.price()
+            FinanceGui.drawClippedString(screen.font(), g, FinanceFormat.label(action.type()) + "  " + FinanceFormat.label(action.status()) + "  价格 " + action.price()
                     + "  股份 " + action.shares() + "  截止 D" + action.endDay(), 12, actionY, 360, FinanceGui.COL_TEXT);
         }
         int controlsY=cardY+160;

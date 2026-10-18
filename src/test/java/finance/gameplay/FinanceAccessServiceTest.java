@@ -21,6 +21,15 @@ class FinanceAccessServiceTest {
     }
 
     @Test
+    void portableLedgerOpensTheFullFinanceCenter() {
+        FinanceAccessDecision result = authorize(FinanceTerminalType.PORTABLE_LEDGER,
+                FinanceScreenMode.ADVANCED, 0, true, 0, defaultPolicy());
+        assertTrue(result.allowed());
+        assertEquals(FinanceScreenMode.ADVANCED, result.screenMode());
+        assertEquals(FinanceScreenMode.ADVANCED, FinanceAccessService.modeFor(FinanceTerminalType.PORTABLE_LEDGER));
+    }
+
+    @Test
     void marketTerminalOnlyOpensMarketMode() {
         assertTrue(authorize(FinanceTerminalType.MARKET_TERMINAL,
                 FinanceScreenMode.MARKET, 0, true, 4, defaultPolicy()).allowed());

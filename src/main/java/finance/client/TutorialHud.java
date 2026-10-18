@@ -32,7 +32,7 @@ public final class TutorialHud {
         if (translationBase == null) return;
         Component title = Component.translatable(translationBase + ".title");
         Component hint = Component.translatable(translationBase + ".hint");
-        Component controls = Component.translatable("finance.tutorial.controls");
+        Component controls = Component.translatable("finance.tutorial.controls", FinanceKeyMappings.OPEN_FINANCE.getTranslatedKeyMessage());
         Font font = minecraft.font;
         int width = Math.min(220, event.getWindow().getGuiScaledWidth() - 16);
         List<FormattedCharSequence> hintLines = font.split(hint, width - 18);

@@ -64,6 +64,8 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
     boolean restructuringView = false;
     boolean companyDetailsView = false;
     float layoutScale = 1.0F;
+    /** 页签与初始选中项只在第一次 init 时设定。 */
+    boolean entryConfigured = false;
 
 
     // ---- 行情标签（国际交易）控件 ----
@@ -131,6 +133,8 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
     static final int MACRO_TAB = 12;
     /** 标题栏右侧“更多操作”按钮。 */
     static final int MORE_BUTTON_W = 56, MORE_BUTTON_X = FinanceGui.PANEL_WIDTH - MORE_BUTTON_W - 6, MORE_BUTTON_Y = 1;
+    /** 标题栏“教程”按钮（原来要按 J 打开教程中心）。 */
+    static final int GUIDE_BUTTON_W = 32, GUIDE_BUTTON_X = MORE_BUTTON_X - GUIDE_BUTTON_W - 4;
     /** 金额、价格、数量类输入框的上限（输入框最多 12 位）。 */
     static final long MAX_INPUT_AMOUNT = 999_999_999_999L;
     /** 行情表滚动到的第一行。商品多于可见行数时用滚轮翻看。 */
@@ -164,13 +168,17 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         refreshCache();
 
         isAdmin = minecraft != null && minecraft.player != null && minecraft.player.hasPermissions(2);
-        configureEntryTabs(menu.getInitialMode());
-        adminSubTab = 0;
-        governanceView = false;
-        restructuringView = false;
-        companyDetailsView = false;
-        selectedCommodity = chooseInitialCommodity();
-        selectedStock = "";
+        // init 在调整窗口大小、从“更多操作”或教程返回时也会再跑一次：只在第一次决定页签和选中项，之后保留玩家所在的位置
+        if (!entryConfigured) {
+            entryConfigured = true;
+            configureEntryTabs(menu.getInitialMode());
+            adminSubTab = 0;
+            governanceView = false;
+            restructuringView = false;
+            companyDetailsView = false;
+            selectedCommodity = chooseInitialCommodity();
+            selectedStock = "";
+        }
 
         // 行情标签 — 国际交易数量输入框
         intlQuantityBox = new EditBox(font, leftPos + 40, contentTop() + FinanceGui.MARKET_TRADE_Y + 53, 48, 16, Component.literal("数量"));
@@ -285,25 +293,39 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         updateInputVisibility();
     }
 
+    /** 玩家可见的页签（按使用频率排）；管理员额外有仪表和管理。 */
+    static final int[] PLAYER_TAB_ORDER = {0, 1, 2, 3, 4, 5, 9, MACRO_TAB, 7, 6, 8};
+
+    /** 不论从哪个入口进来都能看到全部页签，入口只决定先停在哪一页。 */
     private void configureEntryTabs(FinanceScreenMode mode) {
         FinanceScreenMode safeMode = mode == null ? FinanceScreenMode.ADVANCED : mode;
-        allowedTabIndices = switch (safeMode) {
-            case MARKET -> new int[]{0, 1, 2};
-            case COMPANY -> new int[]{4};
-            case BANK -> new int[]{9};
-            case ADVANCED -> new int[]{0, 5, 6, 7, 8, 9, MACRO_TAB};
-            case ADMIN -> isAdmin ? new int[]{10, 11} : new int[]{10};
-            case WAREHOUSE -> new int[]{3};
-            case WALLET -> new int[]{7};
-        };
+        allowedTabIndices = isAdmin
+                ? java.util.stream.IntStream.concat(java.util.Arrays.stream(PLAYER_TAB_ORDER), java.util.stream.IntStream.of(10, 11)).toArray()
+                : PLAYER_TAB_ORDER.clone();
         String[] labels = (isAdmin ? ADMIN_TABS : BASE_TABS);
         tabNames = new String[allowedTabIndices.length];
         for (int i = 0; i < allowedTabIndices.length; i++) {
             int index = allowedTabIndices[i];
             tabNames[i] = index == MACRO_TAB ? "宏观" : index < labels.length ? labels[index] : BASE_TABS[Math.min(index, BASE_TABS.length - 1)];
         }
-        currentTab = allowedTabIndices[0];
+        currentTab = switch (safeMode) {
+            case MARKET, ADVANCED -> 0;
+            case COMPANY -> 4;
+            case BANK -> 9;
+            case ADMIN -> 10;
+            case WAREHOUSE -> 3;
+            case WALLET -> 7;
+        };
         if (safeMode == FinanceScreenMode.BANK) financialSubTab = 7;
+    }
+
+    /** 服务端推来了新快照（余额、库存、订单……）：刷新缓存，页签、输入框内容和选中项保持不变。 */
+    void onDataRefreshed() {
+        lastSelectedCommodity = "";
+        refreshCache();
+        commodityCacheDirty = true;
+        categorizedCacheDirty = true;
+        updateInputVisibility();
     }
 
     void refreshCache() {
@@ -406,8 +428,9 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         int panelMouseY = absoluteMouseY - topPos;
         FinanceGui.drawClippedString(font, g, "金融中心", 10, 4, 130, FinanceGui.COL_TEXT);
         if (!statusMessage.isEmpty()) {
-            FinanceGui.drawClippedString(font, g, statusMessage, 118, 4, MORE_BUTTON_X - 124, FinanceGui.COL_ACCENT);
+            FinanceGui.drawClippedString(font, g, statusMessage, 118, 4, GUIDE_BUTTON_X - 124, FinanceGui.COL_ACCENT);
         }
+        FinanceGui.drawButton(font, g, "教程", GUIDE_BUTTON_X, MORE_BUTTON_Y, GUIDE_BUTTON_W, false);
         FinanceGui.drawButton(font, g, "更多操作", MORE_BUTTON_X, MORE_BUTTON_Y, MORE_BUTTON_W, false);
         renderTabs(g, mouseX, panelMouseY);
 
@@ -448,7 +471,9 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
             if (active || hovered) {
                 g.fill(x, FinanceGui.TAB_Y - 1, x + w, FinanceGui.TAB_Y + FinanceGui.TAB_H, 0xFFECE6D5);
             }
-            FinanceGui.drawClippedString(font, g, label, x + 5, FinanceGui.TAB_Y + 2, w - 10, textColor);
+            // 页签多时宽度很窄：文字居中，只留 2 像素边距
+            int labelX = x + Math.max(2, (w - font.width(label)) / 2);
+            FinanceGui.drawClippedString(font, g, label, labelX, FinanceGui.TAB_Y + 2, w - 4, textColor);
             if (active) {
                 g.fill(x + 3, FinanceGui.TAB_Y + FinanceGui.TAB_H - 1, x + w - 3, FinanceGui.TAB_Y + FinanceGui.TAB_H, FinanceGui.COL_ACCENT);
             }
@@ -479,6 +504,10 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         // 标题栏“更多操作”：原来只能用命令完成的玩家功能
         if (mx >= MORE_BUTTON_X && mx < MORE_BUTTON_X + MORE_BUTTON_W && my >= MORE_BUTTON_Y && my < MORE_BUTTON_Y + 13) {
             PlayerServicesScreen.open();
+            return true;
+        }
+        if (mx >= GUIDE_BUTTON_X && mx < GUIDE_BUTTON_X + GUIDE_BUTTON_W && my >= MORE_BUTTON_Y && my < MORE_BUTTON_Y + 13) {
+            TutorialHubScreen.open(this);
             return true;
         }
 
@@ -585,8 +614,13 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        return ScreenInput.handleTextBoxKey(getFocused(), keyCode, scanCode, modifiers)
-                || super.keyPressed(keyCode, scanCode, modifiers);
+        if (ScreenInput.handleTextBoxKey(getFocused(), keyCode, scanCode, modifiers)) return true;
+        // 再按一次金融中心快捷键就关掉（输入框有焦点时上面已经把按键当作输入吃掉了）
+        if (FinanceKeyMappings.OPEN_FINANCE.matches(keyCode, scanCode)) {
+            onClose();
+            return true;
+        }
+        return super.keyPressed(keyCode, scanCode, modifiers);
     }
 
 

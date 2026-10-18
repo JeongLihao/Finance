@@ -26,6 +26,8 @@ public class GuiFeedbackPacket {
         FinancePacketHandler.CHANNEL.send(
                 PacketDistributor.PLAYER.with(() -> player),
                 new GuiFeedbackPacket(message));
+        // 每个操作都以一条结果提示收尾：借此在下一 tick 把新的余额、库存、订单推给开着的金融中心
+        FinanceMenuRefresher.markDirty(player);
     }
 
     public static void encode(GuiFeedbackPacket packet, FriendlyByteBuf buffer) {

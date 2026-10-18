@@ -24,7 +24,8 @@ public enum FinanceTerminalType {
 
     public Set<FinanceScreenMode> allowedModes() {
         return switch (this) {
-            case PORTABLE_LEDGER -> Set.of(FinanceScreenMode.WALLET);
+            // 随身账本就是随身金融中心：完整页签（ADVANCED），WALLET 仅为旧调用保留
+            case PORTABLE_LEDGER -> Set.of(FinanceScreenMode.ADVANCED, FinanceScreenMode.WALLET);
             case MARKET_TERMINAL -> Set.of(FinanceScreenMode.MARKET);
             case WAREHOUSE_CONTROLLER -> Set.of(FinanceScreenMode.WAREHOUSE);
             case BANK_COUNTER -> Set.of(FinanceScreenMode.BANK);

@@ -28,12 +28,29 @@ public final class TutorialHubScreen extends Screen {
     private Button pageButton;
     private boolean optionalPage;
 
+    /** 从金融中心打开时关闭后回到金融中心；为 null 时直接回到游戏。 */
+    private final net.minecraft.client.gui.screens.Screen parent;
+
     public TutorialHubScreen() {
+        this(null);
+    }
+
+    public TutorialHubScreen(net.minecraft.client.gui.screens.Screen parent) {
         super(Component.translatable("screen.finance.tutorial.title"));
+        this.parent = parent;
     }
 
     public static void open() {
         Minecraft.getInstance().setScreen(new TutorialHubScreen());
+    }
+
+    public static void open(net.minecraft.client.gui.screens.Screen parent) {
+        Minecraft.getInstance().setScreen(new TutorialHubScreen(parent));
+    }
+
+    @Override
+    public void onClose() {
+        if (minecraft != null) minecraft.setScreen(parent);
     }
 
     @Override

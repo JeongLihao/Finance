@@ -220,6 +220,88 @@ public final class FinanceFormat {
         return price * quantity;
     }
 
+    /** 枚举状态名 → 玩家看得懂的中文（ACTIVE → 正常）。界面上不再直接显示英文常量名。 */
+    private static final Map<String, String> STATUS_LABELS = Map.ofEntries(
+            Map.entry("DRAFT", "草稿"),
+            Map.entry("SUBSCRIPTION", "认购中"),
+            Map.entry("ACTIVE", "正常"),
+            Map.entry("MATURED", "已到期"),
+            Map.entry("DEFAULTED", "违约"),
+            Map.entry("CANCELLED", "已取消"),
+            Map.entry("DELINQUENT", "逾期"),
+            Map.entry("REPAID", "已还清"),
+            Map.entry("SURPLUS", "过剩"),
+            Map.entry("BALANCED", "平衡"),
+            Map.entry("TIGHT", "偏紧"),
+            Map.entry("SHORTAGE", "短缺"),
+            Map.entry("PENDING", "待处理"),
+            Map.entry("MARGIN_CALL", "要补钱"),
+            Map.entry("LIQUIDATING", "清算中"),
+            Map.entry("LIQUIDATED", "已清算"),
+            Map.entry("RELEASE_PENDING", "待解押"),
+            Map.entry("INPUT_COST", "锁原料价"),
+            Map.entry("OUTPUT_PRICE", "锁售价"),
+            Map.entry("NORMAL", "正常"),
+            Map.entry("SUSPENDED", "暂停"),
+            Map.entry("EXPIRED", "已过期"),
+            Map.entry("EXHAUSTED", "额度用完"),
+            Map.entry("INVENTORY_DISASTER", "库存险"),
+            Map.entry("BUSINESS_INTERRUPTION", "停工险"),
+            Map.entry("BANK_LOAN_CREDIT", "贷款险"),
+            Map.entry("REPORTED", "已报案"),
+            Map.entry("REVIEWING", "审核中"),
+            Map.entry("NEEDS_INFORMATION", "待补材料"),
+            Map.entry("APPROVED", "已批准"),
+            Map.entry("PARTIALLY_PAID", "部分赔付"),
+            Map.entry("PAID", "已赔付"),
+            Map.entry("REJECTED", "已拒绝"),
+            Map.entry("WITHDRAWN", "已撤回"),
+            Map.entry("SUBSCRIPTION_PAUSED", "暂停申购"),
+            Map.entry("REDEMPTION_PAUSED", "暂停赎回"),
+            Map.entry("CLOSED", "已关闭"),
+            Map.entry("WATCH", "观察"),
+            Map.entry("RESTRICTED", "受限"),
+            Map.entry("RESOLUTION", "处置中"),
+            Map.entry("FAILED", "失败"),
+            Map.entry("MERGED", "已合并"),
+            Map.entry("OVER_CAPACITY", "超容量"),
+            Map.entry("DISABLED", "已停用"),
+            Map.entry("ORPHANED", "失联"),
+            Map.entry("RAID_ALERT", "袭击警报"),
+            Map.entry("REBUILDING", "重建中"),
+            Map.entry("QUARANTINED", "冻结"),
+            Map.entry("OPEN", "可接"),
+            Map.entry("ACCEPTED", "已接"),
+            Map.entry("COMPLETED", "已完成"),
+            Map.entry("REFUNDED", "已退款"),
+            Map.entry("READY", "待发"),
+            Map.entry("IN_TRANSIT", "运输中"),
+            Map.entry("DELIVERED", "已送达"),
+            Map.entry("LOSS_PENDING", "疑似丢失"),
+            Map.entry("HEALTHY", "运转正常"),
+            Map.entry("MATERIAL_SHORTAGE", "缺原料"),
+            Map.entry("CAPACITY_BLOCKED", "仓库满了"),
+            Map.entry("LOGISTICS_DELAY", "运输延误"),
+            Map.entry("DEBT_PRESSURE", "负债吃紧"),
+            Map.entry("BANKRUPTCY_RISK", "有破产风险"),
+            Map.entry("UNHEDGED", "未对冲"),
+            Map.entry("PARTIAL", "部分对冲"),
+            Map.entry("TARGET_MET", "已达标"),
+            Map.entry("OVER_HEDGED", "对冲过量"),
+            Map.entry("PASSED", "已通过"),
+            Map.entry("EXECUTED", "已执行"),
+            Map.entry("LOW", "低"),
+            Map.entry("MEDIUM", "中"),
+            Map.entry("HIGH", "高"),
+            Map.entry("CRITICAL", "很高"));
+
+    /** 把枚举或状态字符串翻成中文；没有收录的原样返回。 */
+    public static String label(Object status) {
+        if (status == null) return "";
+        String key = status instanceof Enum<?> e ? e.name() : status.toString();
+        return STATUS_LABELS.getOrDefault(key, key);
+    }
+
     /** 设施状态的中文名；未知状态原样返回。 */
     public static String facilityStatusLabel(String status) {
         if (status == null) return "";

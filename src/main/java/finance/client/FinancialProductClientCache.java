@@ -17,7 +17,7 @@ public final class FinancialProductClientCache {
     private static final AtomicLong SEQUENCE = new AtomicLong();
     private static Entry entry = empty();
     private FinancialProductClientCache() { }
-    public static long begin() { long id=SEQUENCE.updateAndGet(v->v==Long.MAX_VALUE?1:v+1); entry=new Entry(State.LOADING,id,System.currentTimeMillis(),0,"",List.of(),List.of(),List.of(),List.of(),List.of(),0,0,0); return id; }
+    public static long begin() { long id=SEQUENCE.updateAndGet(v->v==Long.MAX_VALUE?1:v+1); Entry old=entry; entry=old.state()==State.READY?new Entry(State.READY,id,System.currentTimeMillis(),old.benchmarkRateBps(),old.riskSummary(),old.indices(),old.bonds(),old.loans(),old.bondOrders(),old.bills(),old.yield7Bps(),old.yield30Bps(),old.yield90Bps()):new Entry(State.LOADING,id,System.currentTimeMillis(),0,"",List.of(),List.of(),List.of(),List.of(),List.of(),0,0,0); return id; }
     public static void accept(FinancialProductResponsePacket p) { if(p.requestId()==entry.requestId()) entry=new Entry(State.READY,p.requestId(),0,p.benchmarkRateBps(),p.riskSummary(),p.indices(),p.bonds(),p.loans(),p.bondOrders(),p.bills(),p.yield7Bps(),p.yield30Bps(),p.yield90Bps()); }
     public static Entry get() { if(entry.state()==State.LOADING && System.currentTimeMillis()-entry.requestedAt()>3000) entry=new Entry(State.SLOW,entry.requestId(),entry.requestedAt(),0,"",List.of(),List.of(),List.of(),List.of(),List.of(),0,0,0); return entry; }
     public static void clear() { entry=empty(); }

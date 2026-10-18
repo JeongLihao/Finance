@@ -69,7 +69,7 @@ public final class FinanceAccessService {
 
     public static FinanceScreenMode modeFor(FinanceTerminalType terminal) {
         return switch (terminal) {
-            case PORTABLE_LEDGER -> FinanceScreenMode.WALLET;
+            case PORTABLE_LEDGER -> FinanceScreenMode.ADVANCED;
             case MARKET_TERMINAL -> FinanceScreenMode.MARKET;
             case WAREHOUSE_CONTROLLER -> FinanceScreenMode.WAREHOUSE;
             case BANK_COUNTER -> FinanceScreenMode.BANK;

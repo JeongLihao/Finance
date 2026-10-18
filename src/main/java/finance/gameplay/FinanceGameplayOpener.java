@@ -23,17 +23,17 @@ public final class FinanceGameplayOpener {
     public static GameplayActionResult openPortableLedger(ServerPlayer player) {
         boolean verified = holdsLedger(player);
         FinanceAccessContext context = context(player, FinanceTerminalType.PORTABLE_LEDGER,
-                FinanceScreenMode.WALLET, null, verified);
+                FinanceScreenMode.ADVANCED, null, verified);
         FinanceAccessDecision decision = FinanceAccessService.validatePortableLedger(context, FinanceAccessPolicy.current());
         return openDecision(player, decision, FinanceTerminalType.PORTABLE_LEDGER);
     }
 
+    /** 快捷键：和右键账本一样打开完整金融中心，不要求身上带着账本（上手不设门槛）。 */
     public static GameplayActionResult openShortcut(ServerPlayer player) {
         if (FinanceConfig.minecraftFirstMode()) {
             if (!FinanceConfig.enablePortableLedger()) return deny(player, "finance.access.portable_disabled");
-            if (!hasLedger(player)) return deny(player, "finance.access.ledger_required");
             FinanceAccessContext context = context(player, FinanceTerminalType.PORTABLE_LEDGER,
-                    FinanceScreenMode.WALLET, null, true);
+                    FinanceScreenMode.ADVANCED, null, true);
             return openDecision(player, FinanceAccessService.validatePortableLedger(
                     context, FinanceAccessPolicy.current()), FinanceTerminalType.PORTABLE_LEDGER);
         }
@@ -124,9 +124,6 @@ public final class FinanceGameplayOpener {
         return isLedger(player.getMainHandItem()) || isLedger(player.getOffhandItem());
     }
 
-    private static boolean hasLedger(ServerPlayer player) {
-        return holdsLedger(player) || player.getInventory().contains(new ItemStack(ModItems.PORTABLE_LEDGER.get()));
-    }
 
     private static boolean isLedger(ItemStack stack) {
         return !stack.isEmpty() && stack.is(ModItems.PORTABLE_LEDGER.get());
