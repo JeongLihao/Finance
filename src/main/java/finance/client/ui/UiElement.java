@@ -16,14 +16,14 @@ public record UiElement(Kind kind, int x, int y, int w, int h, String text, int 
         /** 背景色块、卡片边框：可以和别的东西叠在一起。 */
         FILL, BORDER,
         /** 以下几种是“实体”，彼此不许重叠。 */
-        TEXT, BUTTON, BUTTON_DISABLED, ICON, PROGRESS, INPUT, CHART,
+        TEXT, BUTTON, BUTTON_DISABLED, ICON, PROGRESS, INPUT, CHART, CANDLES,
         /** 只负责点击的透明区域。 */
         HOTSPOT
     }
 
     public boolean solid() {
         return switch (kind) {
-            case TEXT, BUTTON, BUTTON_DISABLED, ICON, PROGRESS, INPUT, CHART -> true;
+            case TEXT, BUTTON, BUTTON_DISABLED, ICON, PROGRESS, INPUT, CHART, CANDLES -> true;
             default -> false;
         };
     }

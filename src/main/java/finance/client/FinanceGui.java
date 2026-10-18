@@ -185,6 +185,32 @@ public final class FinanceGui {
         }
     }
 
+    /** 游戏小时 K 线：bars 为开、高、低、收四个数一组；涨绿跌红，没有数据时只画底框。 */
+    public static void drawHourCandles(GuiGraphics g, List<Long> bars, int x, int y, int w, int h) {
+        g.fill(x, y, x + w, y + h, 0x55FFFFFF);
+        FinanceGui.drawSimpleBorder(g, x, y, w, h, 0x66555555);
+        int n = bars == null ? 0 : bars.size() / 4;
+        if (n == 0 || w <= 4 || h <= 4) return;
+        long min = Long.MAX_VALUE, max = Long.MIN_VALUE;
+        for (int i = 0; i < n; i++) {
+            min = Math.min(min, bars.get(i * 4 + 2));
+            max = Math.max(max, bars.get(i * 4 + 1));
+        }
+        if (max <= min) max = min + 1;
+        int plotY = y + 2, plotH = Math.max(1, h - 4);
+        float slot = (w - 4) / (float) Math.max(n, 8);
+        int body = Math.max(1, Math.round(slot * 0.6F));
+        for (int i = 0; i < n; i++) {
+            long open = bars.get(i * 4), high = bars.get(i * 4 + 1), low = bars.get(i * 4 + 2), close = bars.get(i * 4 + 3);
+            int color = close >= open ? COL_GOOD : COL_BAD;
+            int cx = x + 2 + Math.round(slot * i + slot / 2);
+            int top = scaleGraphY(high, min, max, plotY, plotH), bottom = scaleGraphY(low, min, max, plotY, plotH);
+            g.fill(cx, top, cx + 1, bottom + 1, color);
+            int o = scaleGraphY(open, min, max, plotY, plotH), c = scaleGraphY(close, min, max, plotY, plotH);
+            g.fill(cx - body / 2, Math.min(o, c), cx - body / 2 + body, Math.max(o, c) + 1, color);
+        }
+    }
+
     public static int scaleGraphY(long value, long min, long max, int y, int h) {
         double ratio = (double) (value - min) / Math.max(1.0, max - min);
         return y + h - (int) Math.round(ratio * h);

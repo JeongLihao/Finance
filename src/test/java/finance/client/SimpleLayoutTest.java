@@ -200,13 +200,26 @@ class SimpleLayoutTest {
     @Test void stockDetailNeverOverlaps() {
         List<String> problems = new ArrayList<>();
         for (SimplePages.View v : views()) {
-            if (v.stocks().isEmpty()) continue;
-            SimplePages.State s = new SimplePages.State();
-            s.page = SimplePages.Page.INVEST;
-            s.selectedStock = v.stocks().get(0).symbol();
-            UiBuilder ui = new UiBuilder(TextMeasure.ESTIMATE, m -> {});
-            SimplePages.layout(ui, v, s, NO_OP);
-            for (String p : UiLayoutCheck.problems(ui.elements(), FinanceGui.PANEL_WIDTH, FinanceGui.PANEL_HEIGHT)) problems.add("详情: " + p);
+            for (boolean candles : new boolean[]{false, true}) {
+                if (!v.stocks().isEmpty()) {
+                    SimplePages.State s = new SimplePages.State();
+                    s.page = SimplePages.Page.INVEST;
+                    s.candles = candles;
+                    s.selectedStock = v.stocks().get(0).symbol();
+                    UiBuilder ui = new UiBuilder(TextMeasure.ESTIMATE, m -> {});
+                    SimplePages.layout(ui, v, s, NO_OP);
+                    for (String p : UiLayoutCheck.problems(ui.elements(), FinanceGui.PANEL_WIDTH, FinanceGui.PANEL_HEIGHT)) problems.add("股票详情: " + p);
+                }
+                if (!v.market().isEmpty()) {
+                    SimplePages.State s = new SimplePages.State();
+                    s.page = SimplePages.Page.TRADE;
+                    s.candles = candles;
+                    s.selectedCommodity = v.market().get(0).commodityId();
+                    UiBuilder ui = new UiBuilder(TextMeasure.ESTIMATE, m -> {});
+                    SimplePages.layout(ui, v, s, NO_OP);
+                    for (String p : UiLayoutCheck.problems(ui.elements(), FinanceGui.PANEL_WIDTH, FinanceGui.PANEL_HEIGHT)) problems.add("商品详情: " + p);
+                }
+            }
         }
         assertTrue(problems.isEmpty(), () -> problems.size() + " 处排版问题，例如：\n" + String.join("\n", problems.subList(0, Math.min(15, problems.size()))));
     }

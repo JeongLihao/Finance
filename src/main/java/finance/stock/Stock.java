@@ -259,6 +259,10 @@ public class Stock {
         priceEngine.recordSnapshot(volume);
     }
 
+    public void recordPriceSnapshotIfChanged() {
+        priceEngine.recordSnapshotIfChanged();
+    }
+
     /**
      * 每 MC 天调用 —— 基本面更新 + 日统计重置。
      * 注意：创始人锁仓递减已拆出到 {@link #tickFounderLockupDay()}，仅由日结算显式驱动；

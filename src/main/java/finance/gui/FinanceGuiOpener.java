@@ -98,7 +98,7 @@ public class FinanceGuiOpener {
                     price.getCommodityId(), price.getMidPrice(),
                     price.getBidPrice(), price.getAskPrice(),
                     price.getDayChange(), price.getDayVolume(), stock,
-                    price.getDayHigh(), price.getDayLow(), commodityHistory(price)));
+                    price.getDayHigh(), price.getDayLow(), commodityHistory(price), commodityHourBars(price)));
         }
 
         // 2. 全市场订单（标记当前玩家自己的订单）
@@ -161,7 +161,8 @@ public class FinanceGuiOpener {
                     marketMakerBid(stock),
                     marketMakerAsk(stock),
                     marketMakerHalted(stock),
-                    marketMakerInventoryLevel(stock)));
+                    marketMakerInventoryLevel(stock),
+                    stockHourBars(stock)));
         }
 
         List<FinanceMenu.StockHoldingRow> stockHoldingRows = new ArrayList<>();
@@ -335,7 +336,7 @@ public class FinanceGuiOpener {
     private static List<Long> commodityHistory(MarketPrice price) {
         List<Long> history = new ArrayList<>();
         List<MarketPrice.PriceSnapshot> snapshots = price.getSnapshots();
-        int start = Math.max(0, snapshots.size() - 24);
+        int start = Math.max(0, snapshots.size() - HISTORY_POINTS);
         for (int i = start; i < snapshots.size(); i++) {
             history.add(snapshots.get(i).getPrice());
         }
@@ -348,7 +349,7 @@ public class FinanceGuiOpener {
     private static List<Long> stockHistory(Stock stock) {
         List<Long> history = new ArrayList<>();
         List<finance.stock.StockPriceEngine.PriceSnapshot> snapshots = stock.getSnapshots();
-        int start = Math.max(0, snapshots.size() - 24);
+        int start = Math.max(0, snapshots.size() - HISTORY_POINTS);
         for (int i = start; i < snapshots.size(); i++) {
             history.add(snapshots.get(i).getPrice());
         }
@@ -356,6 +357,31 @@ public class FinanceGuiOpener {
             history.add(stock.getLastPrice());
         }
         return history;
+    }
+
+    /** 走势图的点数：快照只在价格变动时记，所以就是最近这么多次价格变动。 */
+    static final int HISTORY_POINTS = 60;
+
+    private static long millis(java.time.LocalDateTime time) {
+        return time == null ? 0 : time.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli();
+    }
+
+    private static List<Long> commodityHourBars(MarketPrice price) {
+        List<Long> times = new ArrayList<>(), prices = new ArrayList<>();
+        for (MarketPrice.PriceSnapshot s : price.getSnapshots()) {
+            times.add(millis(s.getTimestamp()));
+            prices.add(s.getPrice());
+        }
+        return finance.chart.HourBars.build(times, prices, finance.chart.HourBars.MAX_BARS);
+    }
+
+    private static List<Long> stockHourBars(Stock stock) {
+        List<Long> times = new ArrayList<>(), prices = new ArrayList<>();
+        for (finance.stock.StockPriceEngine.PriceSnapshot s : stock.getSnapshots()) {
+            times.add(millis(s.getTimestamp()));
+            prices.add(s.getPrice());
+        }
+        return finance.chart.HourBars.build(times, prices, finance.chart.HourBars.MAX_BARS);
     }
 
     /**

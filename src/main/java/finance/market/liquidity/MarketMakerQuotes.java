@@ -112,10 +112,15 @@ public final class MarketMakerQuotes {
         if (commodityId == null || commodityId.isEmpty()) {
             return null;
         }
-        MarketPrice mp = NpcMarketMaker.getMarketPrice(commodityId);
+        return commodityQuote(NpcMarketMaker.getMarketPrice(commodityId));
+    }
+
+    /** 某个商品价格对象的做市报价：玩家实际成交用它，界面显示的买卖价也用它。 */
+    public static QuoteView commodityQuote(MarketPrice mp) {
         if (mp == null) {
             return null;
         }
+        String commodityId = mp.getCommodityId();
         long mid = mp.getMidPrice();
         long basePrice = mp.getBasePrice();
         long inventory = CommodityInventoryManager.getCommodityAmount(NpcMarketMaker.NPC_UUID, commodityId);

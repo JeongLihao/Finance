@@ -50,6 +50,7 @@ public final class UiPainter {
                     g.fill(e.x(), e.y(), e.x() + (int) Math.round(e.w() * e.value()), e.bottom(), FinanceGui.COL_GOOD);
                 }
                 case CHART -> FinanceGui.drawTrendGraph(g, e.series(), e.x(), e.y(), e.w(), e.h(), e.color());
+                case CANDLES -> FinanceGui.drawHourCandles(g, e.series(), e.x(), e.y(), e.w(), e.h());
                 case INPUT, HOTSPOT -> { }
             }
         }

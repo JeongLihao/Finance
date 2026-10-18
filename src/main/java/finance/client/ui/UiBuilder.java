@@ -203,6 +203,12 @@ public final class UiBuilder {
                 series == null ? List.of() : List.copyOf(series)));
     }
 
+    /** K 线：bars 为开、高、低、收四个数一组。 */
+    public void candles(int x, int y, int w, int h, List<Long> bars) {
+        out.add(new UiElement(UiElement.Kind.CANDLES, x, y, w, h, null, 0, 1, null, null, null, 0,
+                bars == null ? List.of() : List.copyOf(bars)));
+    }
+
     public void icon(int x, int y, String commodityId) {
         out.add(new UiElement(UiElement.Kind.ICON, x, y, 10, 10, null, 0, 1, null, null, commodityId, 0));
     }

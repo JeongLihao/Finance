@@ -136,12 +136,12 @@ public final class RivalService {
         return best;
     }
 
-    /** 卖价 / 基准价（基点）；拿不到价格返回 0。 */
+    /** 中间价 / 基准价（基点）；拿不到价格返回 0。用中间价而不是含价差的卖价，判断紧缺不受做市价差影响。 */
     static long premiumBps(String commodity) {
         MarketPrice mp = NpcMarketMaker.getMarketPrice(commodity);
         Commodity c = CommodityRegistry.getCommodity(commodity);
         if (mp == null || c == null || c.getBasePrice() <= 0) return 0;
-        return mp.getAskPrice() * 10_000 / c.getBasePrice();
+        return mp.getMidPrice() * 10_000 / c.getBasePrice();
     }
 
     // ---------------------------------------------------------------- 经营决策

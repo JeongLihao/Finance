@@ -38,9 +38,15 @@ public class FinanceMenu extends AbstractContainerMenu {
 
     // ---- 数据记录 ----
 
+    /** hourBars：按游戏小时合成的 K 线，开高低收四个数一组（见 {@link finance.chart.HourBars}）。 */
     public record MarketRow(String commodityId, long midPrice, long bidPrice, long askPrice,
                             double dayChange, int dayVolume, int marketStock,
-                            long dayHigh, long dayLow, List<Long> priceHistory) {}
+                            long dayHigh, long dayLow, List<Long> priceHistory, List<Long> hourBars) {
+        public MarketRow(String commodityId, long midPrice, long bidPrice, long askPrice, double dayChange, int dayVolume,
+                         int marketStock, long dayHigh, long dayLow, List<Long> priceHistory) {
+            this(commodityId, midPrice, bidPrice, askPrice, dayChange, dayVolume, marketStock, dayHigh, dayLow, priceHistory, List.of());
+        }
+    }
 
     public record OrderRow(UUID orderId, String commodityId, String type, long price, int quantity, boolean ownedByPlayer) {}
 
@@ -68,7 +74,16 @@ public class FinanceMenu extends AbstractContainerMenu {
                            /** 做市商是否熔断暂停（Phase 2 熔断）。 */
                            boolean mmHalted,
                            /** 库存水位：0=充足，1=紧张，2=熔断。 */
-                           int mmLevel) {}
+                           int mmLevel,
+                           /** 按游戏小时合成的 K 线，开高低收四个数一组。 */
+                           List<Long> hourBars) {
+        public StockRow(String symbol, String name, long lastPrice, double dayChange, long dayVolume, long availableShares,
+                        long fairValue, long dayHigh, long dayLow, List<Long> priceHistory, long expectedDividendPerShare,
+                        long lastDividendPerShare, long lastDividendTotal, long mmBid, long mmAsk, boolean mmHalted, int mmLevel) {
+            this(symbol, name, lastPrice, dayChange, dayVolume, availableShares, fairValue, dayHigh, dayLow, priceHistory,
+                    expectedDividendPerShare, lastDividendPerShare, lastDividendTotal, mmBid, mmAsk, mmHalted, mmLevel, List.of());
+        }
+    }
 
     public record StockHoldingRow(String symbol, long quantity, long averageCost) {}
 
@@ -399,6 +414,7 @@ public class FinanceMenu extends AbstractContainerMenu {
             buffer.writeLong(r.dayHigh());
             buffer.writeLong(r.dayLow());
             writeLongList(buffer, r.priceHistory());
+            writeLongList(buffer, r.hourBars());
         }
     }
 
@@ -409,7 +425,7 @@ public class FinanceMenu extends AbstractContainerMenu {
             list.add(new MarketRow(
                     buffer.readUtf(64), buffer.readLong(), buffer.readLong(),
                     buffer.readLong(), buffer.readDouble(), buffer.readVarInt(), buffer.readVarInt(),
-                    buffer.readLong(), buffer.readLong(), readLongList(buffer)));
+                    buffer.readLong(), buffer.readLong(), readLongList(buffer), readLongList(buffer)));
         }
         return list;
     }
@@ -544,6 +560,7 @@ public class FinanceMenu extends AbstractContainerMenu {
             buffer.writeLong(row.mmAsk());
             buffer.writeBoolean(row.mmHalted());
             buffer.writeVarInt(row.mmLevel());
+            writeLongList(buffer, row.hourBars());
         }
     }
 
@@ -556,7 +573,7 @@ public class FinanceMenu extends AbstractContainerMenu {
                     buffer.readDouble(), buffer.readLong(), buffer.readLong(), buffer.readLong(),
                     buffer.readLong(), buffer.readLong(), readLongList(buffer),
                     buffer.readLong(), buffer.readLong(), buffer.readLong(),
-                    buffer.readLong(), buffer.readLong(), buffer.readBoolean(), buffer.readVarInt()));
+                    buffer.readLong(), buffer.readLong(), buffer.readBoolean(), buffer.readVarInt(), readLongList(buffer)));
         }
         return rows;
     }

@@ -143,14 +143,21 @@ public class MarketPrice {
         return spread;
     }
 
-    /** 国际市场买入价（玩家卖出商品时的单价），最低为 1 */
+    /**
+     * 市场收购价（玩家卖出时每个拿到的钱），最低为 1。
+     * 和实际成交用同一个做市报价，界面显示多少就成交多少；暂停报价时退回中间价 ± 固定价差。
+     */
     public long getBidPrice() {
-        return Math.max(1, (long) (midPrice * (1 - spread)));
+        var quote = finance.market.liquidity.MarketMakerQuotes.commodityQuote(this);
+        if (quote == null || quote.halted() || quote.bid() <= 0) return Math.max(1, (long) (midPrice * (1 - spread)));
+        return Math.max(1, quote.bid());
     }
 
-    /** 国际市场卖出价（玩家买入商品时的单价） */
+    /** 市场出售价（玩家买入时每个要付的钱），与 {@link #getBidPrice()} 同源。 */
     public long getAskPrice() {
-        return (long) (midPrice * (1 + spread));
+        var quote = finance.market.liquidity.MarketMakerQuotes.commodityQuote(this);
+        if (quote == null || quote.halted() || quote.ask() <= 0) return (long) (midPrice * (1 + spread));
+        return quote.ask();
     }
 
     // ---- 24h 统计 getter ----
@@ -305,7 +312,9 @@ public class MarketPrice {
         trimSnapshots();
     }
 
+    /** 定时快照只在价格变了时记一个点，走势图上每个点都是一次价格变动。 */
     public void recordPeriodicSnapshot() {
+        if (!snapshots.isEmpty() && snapshots.get(snapshots.size() - 1).getPrice() == midPrice) return;
         snapshots.add(new PriceSnapshot(LocalDateTime.now(), midPrice, 0));
         trimSnapshots();
     }

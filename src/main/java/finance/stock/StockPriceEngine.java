@@ -280,6 +280,12 @@ public class StockPriceEngine {
         trimSnapshots();
     }
 
+    /** 定时快照：价格没变就不记，走势图上每个点都是一次价格变动。 */
+    public void recordSnapshotIfChanged() {
+        if (!snapshots.isEmpty() && snapshots.get(snapshots.size() - 1).getPrice() == currentPrice) return;
+        recordSnapshot(0);
+    }
+
     public void addSnapshotDirect(PriceSnapshot snapshot) {
         if (snapshot == null) {
             return;

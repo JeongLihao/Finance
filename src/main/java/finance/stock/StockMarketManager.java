@@ -202,7 +202,7 @@ public class StockMarketManager {
     public static void recalculateAllPrices() {
         for (Stock stock : STOCKS.values()) {
             stock.recalculateFromCurrent();
-            stock.recordPriceSnapshot(0);
+            stock.recordPriceSnapshotIfChanged();
         }
         if (!STOCKS.isEmpty()) {
             EconomySavedData.markDirty();
