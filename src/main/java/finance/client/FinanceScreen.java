@@ -321,12 +321,12 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         };
         if (safeMode == FinanceScreenMode.BANK) financialSubTab = 7;
         // 方块终端进来时，简单模式停在对应的那一页；央行控制台是管理员工具，直接进高级页签
-        simple.page = switch (safeMode) {
-            case MARKET, WAREHOUSE -> SimpleCenter.Page.TRADE;
-            case COMPANY -> SimpleCenter.Page.COMPANY;
-            case BANK -> SimpleCenter.Page.INVEST;
-            default -> SimpleCenter.Page.HOME;
-        };
+        simple.setPage(switch (safeMode) {
+            case MARKET, WAREHOUSE -> SimplePages.Page.TRADE;
+            case COMPANY -> SimplePages.Page.COMPANY;
+            case BANK -> SimplePages.Page.INVEST;
+            default -> SimplePages.Page.HOME;
+        });
         advancedView = safeMode == FinanceScreenMode.ADMIN;
     }
 
@@ -428,6 +428,13 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
             graphics.pose().popPose();
         }
         renderTooltip(graphics, virtualMouseX, virtualMouseY);
+        if (!advancedView) {
+            // 被截断的文字、灰色按钮：悬停显示全文或原因
+            graphics.pose().pushPose();
+            graphics.pose().translate(leftPos, topPos, 300);
+            simple.renderTooltip(graphics, virtualMouseX - leftPos, virtualMouseY - topPos);
+            graphics.pose().popPose();
+        }
         graphics.pose().popPose();
     }
 
