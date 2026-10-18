@@ -124,6 +124,132 @@ public final class SimpleCenterService {
         return Result.ok(message + "。", -spent);
     }
 
+    // ------------------------------------------------------------ 挂单
+
+    /** 挂单：卖单直接用背包里的货，买单先冻结要花的钱。市场价格到了就自动成交（见 MarketOrderFiller）。 */
+    public static Result placeOrder(ServerPlayer player, String commodityId, boolean sell, long price, int quantity) {
+        Commodity commodity = CommodityRegistry.getCommodity(commodityId);
+        if (commodity == null) return Result.fail("这种东西不能挂单。");
+        if (price <= 0 || quantity <= 0) return Result.fail("价格和数量都要大于 0。");
+        String name = commodity.getDisplayName();
+        UUID id = player.getUUID();
+        if (sell) {
+            if (commodity.getItemId() == null || commodity.getItemId().isEmpty()) return Result.fail("这种东西不能挂单。");
+            int owned = InventoryUtil.countItemInInventory(player, commodity.getItemId());
+            if (owned < quantity) return Result.fail("背包里只有 " + owned + " 个" + name + "。");
+            if (!CommodityInventoryManager.canAddCommodity(id, commodityId, quantity)) return Result.fail("一次挂太多了，少挂一点。");
+            int removed = InventoryUtil.removeFromInventory(player, commodity.getItemId(), quantity);
+            if (removed < quantity || !CommodityInventoryManager.addCommodity(id, commodityId, removed)) {
+                InventoryUtil.addToInventory(player, commodity.getItemId(), removed);
+                return Result.fail("挂单失败，东西已还给你。");
+            }
+            if (!finance.market.MarketManager.placeOrder(new finance.market.Order(id, commodityId, finance.market.OrderType.SELL, price, quantity))) {
+                if (CommodityInventoryManager.removeCommodity(id, commodityId, quantity)) {
+                    InventoryUtil.addToInventory(player, commodity.getItemId(), quantity);
+                }
+                return Result.fail("挂单失败，东西已还给你。");
+            }
+            return Result.ok("已挂卖单：" + quantity + " 个" + name + "，每个 " + MoneyFormat.pounds(price)
+                    + "。市场收购价涨到这个数就自动卖出。", 0);
+        }
+        long total;
+        try {
+            total = Math.multiplyExact(price, (long) quantity);
+        } catch (ArithmeticException e) {
+            return Result.fail("金额太大了。");
+        }
+        if (AccountManager.getBalance(id) < total) return Result.fail("钱不够，这张买单要先冻结 " + MoneyFormat.pounds(total) + "。");
+        if (!finance.market.MarketManager.placeOrder(new finance.market.Order(id, commodityId, finance.market.OrderType.BUY, price, quantity))) {
+            return Result.fail("挂单失败。");
+        }
+        return Result.ok("已挂买单：" + quantity + " 个" + name + "，每个 " + MoneyFormat.pounds(price)
+                + "，先冻结 " + MoneyFormat.pounds(total) + "。市场出售价跌到这个数就自动买入。", 0);
+    }
+
+    public static Result cancelOrder(ServerPlayer player, UUID orderId) {
+        if (orderId == null) return Result.fail("请求无效。");
+        if (!finance.market.MarketManager.cancelOrder(orderId, player.getUUID())) return Result.fail("这张挂单已经成交或不存在。");
+        return Result.ok("已撤单，冻结的钱或货已经退回。卖单的货在“暂存”里，可以取回背包。", 0);
+    }
+
+    /** 把暂存在市场账上的某种货全部取回背包（背包满了掉在脚下）。 */
+    public static Result takeGoods(ServerPlayer player, String commodityId) {
+        Commodity commodity = CommodityRegistry.getCommodity(commodityId);
+        if (commodity == null || commodity.getItemId() == null || commodity.getItemId().isEmpty()) return Result.fail("这种东西取不出来。");
+        UUID id = player.getUUID();
+        int amount = Math.min(64 * 36, CommodityInventoryManager.getCommodityAmount(id, commodityId));
+        if (amount <= 0) return Result.fail("没有暂存的" + commodity.getDisplayName() + "。");
+        if (!CommodityInventoryManager.removeCommodity(id, commodityId, amount)) return Result.fail("取回失败。");
+        InventoryUtil.addToInventory(player, commodity.getItemId(), amount);
+        return Result.ok("取回 " + amount + " 个" + commodity.getDisplayName() + "。", 0);
+    }
+
+    // ------------------------------------------------------------ 锁价合同（期货）
+
+    /** 每种市场商品都保持一份 7 天后到期的合约，玩家才有东西可锁（以前要管理员手动开）。 */
+    public static void ensureFuturesListed(long day) {
+        if (!FinanceConfig.futuresEnabled() || day < 0) return;
+        for (String commodityId : NpcMarketMaker.getAllMarketPrices().keySet()) {
+            if (finance.futures.FuturesMarketManager.contracts().size() >= finance.futures.FuturesMarketManager.MAX_CONTRACTS - 8) return;
+            if (!finance.futures.FuturesMarketManager.hasLiveContractForCommodity(commodityId)) {
+                finance.futures.FuturesMarketManager.createStandard(commodityId, day, day + 6, day + 7);
+            }
+        }
+    }
+
+    /** 锁价：sell=true 锁定卖价（担心降价），false 锁定买价（担心涨价）。保证金不够时自动从钱包补。 */
+    public static Result lockPrice(ServerPlayer player, UUID contractId, boolean sell, long quantity) {
+        finance.futures.FuturesContract c = contractId == null ? null : finance.futures.FuturesMarketManager.contract(contractId);
+        if (c == null || !c.canTrade()) return Result.fail("这份合同现在不能交易。");
+        if (quantity <= 0) return Result.fail("份数要大于 0。");
+        long[] quote = finance.futures.FuturesMarketMaker.getQuote(contractId);
+        if (quote == null) return Result.fail("市场暂时不报价，稍后再试。");
+        long price = sell ? quote[0] : quote[1];
+        UUID id = player.getUUID();
+        long need = finance.futures.FuturesMath.margin(price, c.contractSize(), quantity, FinanceConfig.futuresInitialMarginBps());
+        if (need < 0) return Result.fail("金额太大了。");
+        long shortfall = need - finance.futures.MarginManager.availableToWithdraw(id);
+        long deposited = 0;
+        if (shortfall > 0) {
+            if (AccountManager.getBalance(id) < shortfall) return Result.fail("钱不够交保证金，需要 " + MoneyFormat.pounds(shortfall) + "。");
+            if (!finance.futures.MarginManager.deposit(id, shortfall)) return Result.fail("保证金转入失败。");
+            deposited = shortfall;
+        }
+        var result = finance.futures.FuturesMarketManager.place(id, contractId,
+                sell ? finance.futures.FuturesOrderSide.SELL : finance.futures.FuturesOrderSide.BUY, price, quantity);
+        if (!result.success()) return Result.fail(result.message());
+        Commodity commodity = CommodityRegistry.getCommodity(c.commodityId());
+        String name = commodity == null ? c.commodityId() : commodity.getDisplayName();
+        String what = sell ? "锁定卖价" : "锁定买价";
+        return Result.ok(what + "：" + quantity + " 份" + name + "（每份 " + c.contractSize() + " 个），每个 "
+                + MoneyFormat.pounds(price) + "，第 " + c.maturityDay() + " 天按差价结算。"
+                + (deposited > 0 ? "已从钱包转入保证金 " + MoneyFormat.pounds(deposited) + "。" : ""), -deposited);
+    }
+
+    /** 提前平掉一份合同：按当前报价反向成交。 */
+    public static Result closeLock(ServerPlayer player, UUID contractId) {
+        UUID id = player.getUUID();
+        finance.futures.FuturesPosition position = contractId == null ? null : finance.futures.MarginManager.findPosition(id, contractId);
+        if (position == null || position.signedQuantity() == 0) return Result.fail("你没有这份合同。");
+        long[] quote = finance.futures.FuturesMarketMaker.getQuote(contractId);
+        if (quote == null) return Result.fail("市场暂时不报价，稍后再试。");
+        boolean wasSeller = position.signedQuantity() < 0;
+        long quantity = Math.abs(position.signedQuantity());
+        var result = finance.futures.FuturesMarketManager.place(id, contractId,
+                wasSeller ? finance.futures.FuturesOrderSide.BUY : finance.futures.FuturesOrderSide.SELL,
+                wasSeller ? quote[1] : quote[0], quantity);
+        if (!result.success()) return Result.fail(result.message());
+        return Result.ok("已平掉合同。不用的保证金可以点“取回保证金”。", 0);
+    }
+
+    public static Result withdrawMargin(ServerPlayer player) {
+        UUID id = player.getUUID();
+        long free = finance.futures.MarginManager.availableToWithdraw(id);
+        if (free <= 0) return Result.fail("没有可以取回的保证金（还有合同在身上时要留着）。");
+        if (!finance.futures.MarginManager.withdraw(id, free)) return Result.fail("取回失败。");
+        return Result.ok("取回保证金 " + MoneyFormat.pounds(free) + "。", free);
+    }
+
     // ------------------------------------------------------------ 公司
 
     /** 工厂等级 = 生产线 + 仓储 + 管理三项等级之和。 */
@@ -247,6 +373,7 @@ public final class SimpleCenterService {
     public static Status status(ServerPlayer player, List<String> summary) {
         UUID id = player.getUUID();
         long day = EconomyCycleService.currentMcDay(player.server);
+        ensureFuturesListed(day);
         CommercialBank bank = mainBank();
         BankCustomerAccount account = demandAccount(id, bank, day, false);
         long bankBalance = account != null && account.status() == BankAccountStatus.ACTIVE

@@ -451,6 +451,14 @@ public class MarketManager {
         return cancelled;
     }
 
+    /** 撤下一张挂单并退回冻结的钱或货，不记“撤单”流水（市场代成交时用）。 */
+    public static boolean releaseOrder(Order order) {
+        if (order == null || !ORDERS.contains(order) || !refundOrderAssets(order)) return false;
+        removeOrderDirect(order);
+        EconomySavedData.markDirty();
+        return true;
+    }
+
     private static boolean refundOrderAssets(Order order) {
         if (order.getType() == OrderType.BUY) {
             long totalCost = MathUtil.multiplyExactOrNegative1(order.getPrice(), order.getQuantity());

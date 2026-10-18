@@ -28,9 +28,10 @@ final class SimpleCenter {
     final SimplePages.State state = new SimplePages.State();
     private List<UiElement> elements = List.of();
     private final SimplePages.Actions actions = new SimplePages.Actions() {
-        @Override public void simple(SimpleActionPacket.Action action, String target, long amount) {
+        @Override public void simple(SimpleActionPacket.Action action, String target, long amount, long price) {
             screen.setStatus("处理中……");
-            FinancePacketHandler.CHANNEL.sendToServer(new SimpleActionPacket(action, target, amount));
+            FinancePacketHandler.CHANNEL.sendToServer(new SimpleActionPacket(action, target, amount, price));
+            if (action.name().contains("LOCK") || action == SimpleActionPacket.Action.WITHDRAW_MARGIN) lastFuturesRequest = 0;
         }
         @Override public void company(CompanyManagementAction action, long amount) {
             screen.setStatus("处理中……");
@@ -76,11 +77,25 @@ final class SimpleCenter {
                 assets == null ? 0 : assets.stockValue(), menu.getMcInventory(), menu.getMarketData(),
                 menu.getTransactions(), menu.getPlayerCompany(), menu.getStocks(), menu.getStockHoldings(),
                 SimpleClientState.status(), SimpleClientState.playerChooses(), SimpleClientState.playerWantsAdvanced(),
-                SimpleClientState.pendingSummary());
+                SimpleClientState.pendingSummary(), menu.getPlayerOrders(), menu.getPlayerInventory(),
+                FuturesClientCache.get().data());
+    }
+
+    /** 锁价合同页的数据走期货查询包；在那一页时每 3 秒（或操作后马上）重新拉一次。 */
+    private long lastFuturesRequest;
+
+    private void maybeRequestFutures() {
+        if (state.page != SimplePages.Page.TRADE || state.tradeTab != 2) return;
+        long now = System.currentTimeMillis();
+        if (now - lastFuturesRequest < 3_000) return;
+        lastFuturesRequest = now;
+        // 先等服务端把操作结果算完再拉
+        FinancePacketHandler.CHANNEL.sendToServer(new finance.network.FuturesRequestPacket(FuturesClientCache.begin()));
     }
 
     /** 按当前数据重新排版。 */
     void relayout() {
+        maybeRequestFutures();
         UiBuilder ui = new UiBuilder(screen.font()::width, screen::setStatus);
         SimplePages.layout(ui, view(), state, actions);
         elements = ui.elements();

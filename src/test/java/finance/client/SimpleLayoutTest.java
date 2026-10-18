@@ -29,7 +29,7 @@ class SimpleLayoutTest {
     static final String LONG_NAME = "超级无敌巨型钢铁联合矿业与农业与林业控股集团有限公司";
 
     private static final SimplePages.Actions NO_OP = new SimplePages.Actions() {
-        @Override public void simple(SimpleActionPacket.Action action, String target, long amount) {}
+        @Override public void simple(SimpleActionPacket.Action action, String target, long amount, long price) {}
         @Override public void company(CompanyManagementAction action, long amount) {}
         @Override public void createCompany(CompanyType type) {}
         @Override public void stock(boolean buy, String symbol, int quantity) {}
@@ -70,7 +70,28 @@ class SimpleLayoutTest {
                         "央行下次开会：" + LONG_NAME, "上次开会：" + LONG_NAME), List.of()) : null;
         List<String> summary = balance == HUGE ? List.of("收入 +" + HUGE + LONG_NAME, "卖东西 " + LONG_NAME, "分红 " + LONG_NAME,
                 "其他收入 " + LONG_NAME) : List.of();
-        return new SimplePages.View(balance, -HUGE, HUGE, backpack, market, tx, company, stocks, holdings, st, true, true, summary);
+        List<FinanceMenu.OrderRow> orders = new ArrayList<>();
+        for (int i = 0; i < (manyRows ? 8 : 1); i++) {
+            orders.add(new FinanceMenu.OrderRow(UUID.randomUUID(), market.get(0).commodityId(), i % 2 == 0 ? "SELL" : "BUY", HUGE, 99_999, true));
+        }
+        Map<String, Integer> stored = manyRows ? Map.of("a_very_long_commodity_id_one", 99_999, "a_very_long_commodity_id_two", 99_999) : Map.of();
+        return new SimplePages.View(balance, -HUGE, HUGE, backpack, market, tx, company, stocks, holdings, st, true, true, summary,
+                orders, stored, futures(manyRows));
+    }
+
+    static finance.network.FuturesResponsePacket futures(boolean many) {
+        List<finance.network.FuturesResponsePacket.ContractRow> contracts = new ArrayList<>();
+        List<finance.network.FuturesResponsePacket.PositionRow> positions = new ArrayList<>();
+        List<finance.network.FuturesResponsePacket.MmQuoteRow> quotes = new ArrayList<>();
+        for (int i = 0; i < (many ? 9 : 2); i++) {
+            UUID id = UUID.randomUUID();
+            contracts.add(new finance.network.FuturesResponsePacket.ContractRow(id, "LONGCODE" + i, LONG_NAME, finance.futures.FuturesContractStatus.TRADING,
+                    64, 99_999, 99_999, HUGE, HUGE, HUGE, HUGE, HUGE));
+            positions.add(new finance.network.FuturesResponsePacket.PositionRow(id, -9_999, HUGE, HUGE, -HUGE, HUGE));
+            if (i % 2 == 0) quotes.add(new finance.network.FuturesResponsePacket.MmQuoteRow(id, HUGE, HUGE, 0));
+        }
+        return new finance.network.FuturesResponsePacket(1, HUGE, HUGE, HUGE, HUGE, HUGE, HUGE, finance.futures.MarginRiskStatus.NORMAL,
+                0, 0, contracts, positions, List.of(), List.of(), quotes, false);
     }
 
     static List<SimplePages.View> views() {
@@ -97,6 +118,7 @@ class SimpleLayoutTest {
         SimplePages.State s = new SimplePages.State();
         s.page = page;
         s.homeTab = subTab;
+        s.tradeTab = subTab;
         s.recordScroll = scroll;
         s.tradeScroll = scroll;
         s.investScroll = scroll;
