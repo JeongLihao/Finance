@@ -299,7 +299,7 @@ public final class SimpleCenterService {
         if (company == null) return Result.fail("你还没有公司。");
         if (company.isPublic()) return Result.fail("公司已经上市了。");
         long totalShares = Math.round(QUICK_IPO_SHARES / CompanyIPOService.DEFAULT_FLOAT_RATIO);
-        long price = Math.max(1, Math.min(CompanyIPOService.MAX_ISSUE_PRICE, company.getEstimatedValue() / totalShares));
+        long price = Math.max(1, Math.min(CompanyIPOService.MAX_ISSUE_PRICE, finance.stock.StockValuation.companyValue(company) / totalShares));
         long quantity = Math.min(QUICK_IPO_SHARES, Math.max(1, CompanyIPOService.MAX_TOTAL_RAISE / price));
         long before = AccountManager.getBalance(playerId);
         CompanyIPOService.IPOResult result = CompanyIPOService.ipo(playerId, company.getCompanyId(), price, quantity);
@@ -371,7 +371,23 @@ public final class SimpleCenterService {
                          String advancedMode, List<String> extras, List<String> opportunities, List<String> weather,
                          List<String> summary, List<SimpleInvestService.Product> products,
                          List<SimpleInvestService.Holding> holdings, SimpleInvestService.MarginInfo margin,
-                         SimpleBossService.BossInfo boss, finance.network.PlayerServicesResponsePacket.Cash cash) {}
+                         SimpleBossService.BossInfo boss, finance.network.PlayerServicesResponsePacket.Cash cash,
+                         List<Valuation> valuations) {}
+
+    /** 一只股票“股价怎么来的”：家底、日利润、倍数（× 10）、总股数。 */
+    public record Valuation(String symbol, long netAssets, long dailyProfit, int multipleX10, long shares) {}
+
+    static List<Valuation> valuations() {
+        List<Valuation> out = new ArrayList<>();
+        for (finance.stock.Stock stock : finance.stock.StockMarketManager.getListedStocks()) {
+            Company c = CompanyManager.getCompany(stock.getCompanyId());
+            if (c == null) continue;
+            var b = finance.stock.StockValuation.of(c);
+            out.add(new Valuation(stock.getSymbol(), b.netAssets(), b.dailyProfit(), b.multipleX10(), stock.getTotalShares()));
+            if (out.size() >= 32) break;
+        }
+        return out;
+    }
 
     public static Status status(ServerPlayer player) {
         return status(player, List.of());
@@ -391,12 +407,13 @@ public final class SimpleCenterService {
         return new Status(bankBalance, rate,
                 company == null ? 0 : factoryLevel(company),
                 company == null ? 0 : nextUpgradeCost(company),
-                company == null ? 0 : company.getEstimatedValue(),
+                company == null ? 0 : finance.stock.StockValuation.companyValue(company),
                 FinanceConfig.simpleIpoMinValuation(), FinanceConfig.simpleStockUnlockBalance(),
                 FinanceConfig.simpleAdvancedMode(), List.copyOf(FinanceConfig.simpleExtras()), opportunities(player), weather(player), summary,
                 SimpleInvestService.products(), SimpleInvestService.holdings(player), SimpleInvestService.marginInfo(id),
                 SimpleBossService.info(player),
-                finance.playerservice.PlayerServicesService.cash(id, new finance.cash.PlayerCashPurse(player), day));
+                finance.playerservice.PlayerServicesService.cash(id, new finance.cash.PlayerCashPurse(player), day),
+                valuations());
     }
 
     // ------------------------------------------------------------ 经济天气

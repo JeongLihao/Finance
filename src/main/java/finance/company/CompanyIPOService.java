@@ -80,9 +80,10 @@ public class CompanyIPOService {
         }
 
         long minValuation = FinanceConfig.simpleIpoMinValuation();
-        if (company.getEstimatedValue() < minValuation) {
+        long valuation = finance.stock.StockValuation.companyValue(company);
+        if (valuation < minValuation) {
             return fail("公司估值要达到 " + finance.util.MoneyFormat.pounds(minValuation) + " 才能上市，现在是 "
-                    + finance.util.MoneyFormat.pounds(company.getEstimatedValue()) + "。");
+                    + finance.util.MoneyFormat.pounds(valuation) + "（家底加最近的利润，借来的钱不算）。");
         }
 
         if (issueQuantity > 100_000L) {

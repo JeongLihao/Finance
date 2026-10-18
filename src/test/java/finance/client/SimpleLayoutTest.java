@@ -74,7 +74,8 @@ class SimpleLayoutTest {
                         "央行下次开会：" + LONG_NAME, "上次开会：" + LONG_NAME), List.of(), products(manyRows), investHoldings(manyRows),
                 new finance.simple.SimpleInvestService.MarginInfo(HUGE, HUGE, 101, 130,
                         Map.of("S0", HUGE, "S1", HUGE), Map.of("S0", HUGE)),
-                boss(manyRows), new finance.network.PlayerServicesResponsePacket.Cash(true, HUGE, HUGE, HUGE, HUGE, HUGE, HUGE, HUGE, HUGE, HUGE)) : null;
+                boss(manyRows), new finance.network.PlayerServicesResponsePacket.Cash(true, HUGE, HUGE, HUGE, HUGE, HUGE, HUGE, HUGE, HUGE, HUGE),
+                List.of(new SimpleCenterService.Valuation("S0", HUGE, -HUGE, 120, HUGE), new SimpleCenterService.Valuation("S1", HUGE, HUGE, 40, 1))) : null;
         List<String> summary = balance == HUGE ? List.of("收入 +" + HUGE + LONG_NAME, "卖东西 " + LONG_NAME, "分红 " + LONG_NAME,
                 "其他收入 " + LONG_NAME) : List.of();
         List<FinanceMenu.OrderRow> orders = new ArrayList<>();

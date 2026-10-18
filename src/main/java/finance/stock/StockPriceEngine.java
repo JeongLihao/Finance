@@ -170,6 +170,12 @@ public class StockPriceEngine {
         recalculate();
     }
 
+    /** 直接设定每股价值（新估值，见 {@link StockValuation}），现价随后逐步向它靠拢。 */
+    public void setFairValueTarget(long newFairValue) {
+        this.fairValue = Math.max(1, newFairValue);
+        recalculate();
+    }
+
     /**
      * 成交时调用 —— 盘口推动动量。
      * 买入push价格向上、卖出向下，幅度 ∝ 成交量占流通股比例。

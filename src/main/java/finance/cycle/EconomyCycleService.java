@@ -29,6 +29,9 @@ public final class EconomyCycleService {
     private static long lastTickDayProcessed = Long.MIN_VALUE;
 
     /** 世界切换时重置日结算幂等标记，避免新世界的同一天被误判为已处理。 */
+    /** 1 游戏小时 = 1000 tick。 */
+    static final long TICKS_PER_MC_HOUR = 1_000L;
+
     public static void resetDirect() {
         lastTickDayProcessed = Long.MIN_VALUE;
     }
@@ -58,6 +61,10 @@ public final class EconomyCycleService {
         }
 
         FinancialCycleService.advanceTo(mcDay);
+
+        if (gameTime % TICKS_PER_MC_HOUR == 0) {
+            StockMarketManager.updateFairValuesHourly();
+        }
 
         if (gameTime % NOISE_INTERVAL == 0) {
             tickNoiseAndMomentum(server);

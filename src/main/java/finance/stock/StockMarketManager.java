@@ -139,16 +139,25 @@ public class StockMarketManager {
                 continue;
             }
 
-            long companyValue = company.getReportBasedAssetValue();
-            long smoothedDailyProfit = company.getSmoothedDailyProfit();
-            double industrySentiment = company.getIndustrySentiment();
-
-            stock.updateFairValueAndResetDay(companyValue, stock.getTotalShares(), smoothedDailyProfit, industrySentiment);
+            stock.setFairValueTarget(StockValuation.perShare(company, stock.getTotalShares()));
+            stock.newDayReset();
             changed = true;
         }
         if (changed) {
             EconomySavedData.markDirty();
         }
+    }
+
+    /** 每游戏小时重算每股价值，股价不再一天跳一大步。 */
+    public static void updateFairValuesHourly() {
+        boolean changed = false;
+        for (Stock stock : STOCKS.values()) {
+            Company company = CompanyManager.getCompany(stock.getCompanyId());
+            if (company == null || stock.getTotalShares() <= 0) continue;
+            stock.setFairValueTarget(StockValuation.perShare(company, stock.getTotalShares()));
+            changed = true;
+        }
+        if (changed) EconomySavedData.markDirty();
     }
 
     /**

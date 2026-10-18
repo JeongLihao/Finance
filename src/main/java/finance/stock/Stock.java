@@ -288,6 +288,10 @@ public class Stock {
         priceEngine.newDayReset();
     }
 
+    public void setFairValueTarget(long fairValue) {
+        priceEngine.setFairValueTarget(fairValue);
+    }
+
     // ---- 持久化支持 ----
 
     public void setFairValue(long fairValue) {

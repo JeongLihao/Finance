@@ -919,8 +919,7 @@ final class SimplePages {
         SimpleInvestService.MarginInfo m = v.status() == null ? SimpleInvestService.MarginInfo.EMPTY : v.status().margin();
         long shorted = m.shorts().getOrDefault(symbol, 0L), levered = m.levered().getOrDefault(symbol, 0L);
         if (!extra(v, "margin") && shorted == 0 && levered == 0) {
-            ui.wrapped(LEFT + 2, y, WIDTH - 4, "股价怎么来的：公司的家底加上最近赚的钱，再除以股数。央行加息时股价通常会跌。", DIM,
-                    Math.max(1, (BOTTOM - y) / UiBuilder.LINE));
+            ui.wrapped(LEFT + 2, y, WIDTH - 4, valuationText(v, row), DIM, Math.max(1, (BOTTOM - y) / UiBuilder.LINE));
             return;
         }
         lx = LEFT + 2 + ui.text(LEFT + 2, y + 3, 40, "进阶", DIM) + 8;
@@ -934,6 +933,21 @@ final class SimplePages {
         String held = (levered > 0 ? "加倍买了 " + levered + " 股。" : "") + (shorted > 0 ? "借股卖出了 " + shorted + " 股。" : "");
         ui.wrapped(LEFT + 2, y, WIDTH - 4, held + "加倍买：你出一半钱、券商借一半，涨了赚双倍，跌太多会被强制卖出。借股卖出：赌它会跌，涨了就亏。",
                 DIM, Math.max(1, (BOTTOM - y) / UiBuilder.LINE));
+    }
+
+    /** “股价怎么来的”：家底 + 日利润 × 倍数，÷ 股数；现价比每股价值贵还是便宜。 */
+    static String valuationText(View v, FinanceMenu.StockRow row) {
+        SimpleCenterService.Valuation val = v.status() == null ? null
+                : v.status().valuations().stream().filter(x -> x.symbol().equals(row.symbol())).findFirst().orElse(null);
+        if (val == null || val.shares() <= 0) {
+            return "股价怎么来的：公司的家底加上最近赚的钱，再除以股数。央行加息时股价通常会跌。";
+        }
+        long perShare = Math.max(1, row.fairValue());
+        long price = Math.max(1, row.lastPrice());
+        String verdict = price > perShare * 11 / 10 ? "现价偏贵" : price < perShare * 9 / 10 ? "现价偏便宜" : "现价合理";
+        return "股价怎么来的：家底 " + MoneyFormat.compact(val.netAssets()) + " + 日利润 " + MoneyFormat.signed(val.dailyProfit())
+                + " × " + String.format(java.util.Locale.ROOT, "%.1f", val.multipleX10() / 10.0) + " 倍，÷ " + val.shares()
+                + " 股 ≈ 每股 " + MoneyFormat.compact(perShare) + "，" + verdict + "。倍数看央行利率，加息时变小，股价跟着跌。";
     }
 
     /** 价格图：右边两个小按钮切换“走势”（每次价格变动一个点）和“K线”（每游戏小时一根）。 */

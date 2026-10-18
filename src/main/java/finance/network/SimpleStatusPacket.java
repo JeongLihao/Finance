@@ -100,6 +100,12 @@ public record SimpleStatusPacket(SimpleCenterService.Status status) {
         buf.writeBoolean(c.enabled());
         for (long v : new long[]{c.balance(), c.cashOnHand(), c.emeralds(), c.emeraldToCash(), c.cashToEmerald(),
                 c.sellLeft(), c.buyLeft(), c.sellLimit(), c.buyLimit()}) buf.writeVarLong(Math.max(0, v));
+        List<SimpleCenterService.Valuation> vals = s.valuations().subList(0, Math.min(MAX_ROWS, s.valuations().size()));
+        buf.writeVarInt(vals.size());
+        for (SimpleCenterService.Valuation v : vals) {
+            buf.writeUtf(cut(v.symbol()), MAX_TEXT); buf.writeVarLong(Math.max(0, v.netAssets())); buf.writeLong(v.dailyProfit());
+            buf.writeVarInt(Math.max(0, v.multipleX10())); buf.writeVarLong(Math.max(0, v.shares()));
+        }
     }
 
     static final int MAX_ROWS = 32;
@@ -176,8 +182,13 @@ public record SimpleStatusPacket(SimpleCenterService.Status status) {
         for (int i = 0; i < cv.length; i++) cv[i] = buf.readVarLong();
         PlayerServicesResponsePacket.Cash cash = new PlayerServicesResponsePacket.Cash(cashEnabled, cv[0], cv[1], cv[2], cv[3],
                 cv[4], cv[5], cv[6], cv[7], cv[8]);
+        n = count(buf);
+        List<SimpleCenterService.Valuation> vals = new ArrayList<>(n);
+        for (int i = 0; i < n; i++) {
+            vals.add(new SimpleCenterService.Valuation(buf.readUtf(MAX_TEXT), buf.readVarLong(), buf.readLong(), buf.readVarInt(), buf.readVarLong()));
+        }
         return new SimpleStatusPacket(new SimpleCenterService.Status(bank, rate, level, cost, valuation, ipoMin,
-                stockUnlock, mode, extras, opportunities, weather, summary, products, holdings, margin, boss, cash));
+                stockUnlock, mode, extras, opportunities, weather, summary, products, holdings, margin, boss, cash, vals));
     }
 
     public static void handle(SimpleStatusPacket p, Supplier<NetworkEvent.Context> ctx) {
