@@ -1172,7 +1172,7 @@ public final class FinanceConfig {
                 .defineInRange("stockUnlockBalance", SIMPLE_STOCK_UNLOCK_VALUE, 0L, 1_000_000_000L);
         SIMPLE_IPO_MIN_VALUATION = builder.comment("公司估值达到多少便士后才能上市。开公司很便宜，这个门槛防止“开公司→上市→提现”刷钱。")
                 .defineInRange("ipoMinValuation", SIMPLE_IPO_MIN_VALUATION_VALUE, 0L, 1_000_000_000L);
-        SIMPLE_ADVANCED_MODE = builder.comment("高级模式（挂单、期货、保险、治理等全部原有页面）：player = 玩家自己在首页打开；always = 所有人都显示；never = 所有人都隐藏。")
+        SIMPLE_ADVANCED_MODE = builder.comment("原有的全部页签（旧界面）：always = 所有人右上角都有“高级”入口；其他值 = 只有 OP 能从“管理”进入。新的四页已经包含全部玩家功能。")
                 .define("advancedMode", SIMPLE_ADVANCED_MODE_VALUE);
         builder.pop();
 

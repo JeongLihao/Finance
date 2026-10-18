@@ -25,7 +25,11 @@ public record SimpleActionPacket(Action action, String target, long amount, long
         /** 股票进阶：target = 股票代码，amount = 股数。 */
         LEVER_BUY, LEVER_REPAY, SHORT_SELL, SHORT_COVER, COLLATERAL_WITHDRAW,
         /** 自动卖出：target = 股票代码，amount = 股数，price = 触发价；取消：target = 条件单 ID。 */
-        AUTO_SELL_UP, AUTO_SELL_DOWN, CANCEL_AUTO
+        AUTO_SELL_UP, AUTO_SELL_DOWN, CANCEL_AUTO,
+        /** 当老板：target = 险种 / 提案模板 / 提案 ID / 公司 ID；amount = 金额。 */
+        INSURE, PROPOSE, VOTE_YES, VOTE_NO, COMPANY_LOAN, TAKEOVER, SQUEEZE, CHARTER_BANK, SET_WAGE,
+        /** 实体现金：amount = 便士或绿宝石颗数。 */
+        CASH_DEPOSIT, CASH_WITHDRAW, EMERALD_SELL, EMERALD_BUY
     }
 
     public SimpleActionPacket(Action action, String target, long amount) {
@@ -88,8 +92,30 @@ public record SimpleActionPacket(Action action, String target, long amount, long
             case AUTO_SELL_UP, AUTO_SELL_DOWN -> invest(finance.simple.SimpleInvestService.autoSell(player, safe(p.target),
                     p.action == Action.AUTO_SELL_UP, p.price, Math.max(1, p.amount)));
             case CANCEL_AUTO -> invest(finance.simple.SimpleInvestService.cancelAuto(player, uuid(p.target)));
+            case INSURE -> invest(finance.simple.SimpleBossService.insure(player, safe(p.target)));
+            case PROPOSE -> invest(finance.simple.SimpleBossService.propose(player, safe(p.target)));
+            case VOTE_YES, VOTE_NO -> invest(finance.simple.SimpleBossService.vote(player, uuid(p.target), p.action == Action.VOTE_YES));
+            case COMPANY_LOAN -> invest(finance.simple.SimpleBossService.loan(player, Math.max(0, p.amount)));
+            case TAKEOVER -> invest(finance.simple.SimpleBossService.takeover(player, uuid(p.target)));
+            case SQUEEZE -> invest(finance.simple.SimpleBossService.squeeze(player, uuid(p.target)));
+            case CHARTER_BANK -> invest(finance.simple.SimpleBossService.charterBank(player, Math.max(0, p.amount)));
+            case SET_WAGE -> invest(finance.simple.SimpleBossService.setWage(player, Math.max(0, p.amount)));
+            case CASH_DEPOSIT, CASH_WITHDRAW, EMERALD_SELL, EMERALD_BUY -> cash(player, p.action, Math.max(0, p.amount));
         };
         GuiFeedbackPacket.send(player, result.message(), result.moneyDelta());
+    }
+
+    private static SimpleCenterService.Result cash(ServerPlayer player, Action action, long amount) {
+        var service = switch (action) {
+            case CASH_DEPOSIT -> finance.playerservice.PlayerServicesService.Action.CASH_DEPOSIT;
+            case CASH_WITHDRAW -> finance.playerservice.PlayerServicesService.Action.CASH_WITHDRAW;
+            case EMERALD_SELL -> finance.playerservice.PlayerServicesService.Action.EMERALD_SELL;
+            default -> finance.playerservice.PlayerServicesService.Action.EMERALD_BUY;
+        };
+        long before = finance.account.AccountManager.getBalance(player.getUUID());
+        var r = finance.playerservice.PlayerServicesService.act(player, player.getUUID(), service, "", amount, 0, 0, 0,
+                finance.cycle.EconomyCycleService.currentMcDay(player.server));
+        return new SimpleCenterService.Result(r.success(), r.message(), finance.account.AccountManager.getBalance(player.getUUID()) - before);
     }
 
     private static SimpleCenterService.Result invest(finance.simple.SimpleInvestService.Result r) {

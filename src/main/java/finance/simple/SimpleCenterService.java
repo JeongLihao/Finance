@@ -364,7 +364,8 @@ public final class SimpleCenterService {
                          long companyValuation, long ipoMinValuation, long stockUnlockBalance,
                          String advancedMode, List<String> opportunities, List<String> weather,
                          List<String> summary, List<SimpleInvestService.Product> products,
-                         List<SimpleInvestService.Holding> holdings, SimpleInvestService.MarginInfo margin) {}
+                         List<SimpleInvestService.Holding> holdings, SimpleInvestService.MarginInfo margin,
+                         SimpleBossService.BossInfo boss, finance.network.PlayerServicesResponsePacket.Cash cash) {}
 
     public static Status status(ServerPlayer player) {
         return status(player, List.of());
@@ -387,7 +388,9 @@ public final class SimpleCenterService {
                 company == null ? 0 : company.getEstimatedValue(),
                 FinanceConfig.simpleIpoMinValuation(), FinanceConfig.simpleStockUnlockBalance(),
                 FinanceConfig.simpleAdvancedMode(), opportunities(player), weather(player), summary,
-                SimpleInvestService.products(), SimpleInvestService.holdings(player), SimpleInvestService.marginInfo(id));
+                SimpleInvestService.products(), SimpleInvestService.holdings(player), SimpleInvestService.marginInfo(id),
+                SimpleBossService.info(player),
+                finance.playerservice.PlayerServicesService.cash(id, new finance.cash.PlayerCashPurse(player), day));
     }
 
     // ------------------------------------------------------------ 经济天气

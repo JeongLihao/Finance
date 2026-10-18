@@ -2,6 +2,7 @@ package finance.network;
 
 import finance.simple.SimpleCenterService;
 import finance.simple.SimpleInvestService;
+import finance.simple.SimpleBossService;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.api.distmarker.Dist;
@@ -73,6 +74,31 @@ public record SimpleStatusPacket(SimpleCenterService.Status status) {
         buf.writeVarInt(Math.max(0, m.liquidationPct()));
         writeMap(buf, m.levered());
         writeMap(buf, m.shorts());
+        SimpleBossService.BossInfo b = s.boss();
+        buf.writeBoolean(b.publicCompany());
+        buf.writeVarInt(Math.max(0, b.dividendPct()));
+        buf.writeBoolean(b.wageActive());
+        buf.writeVarLong(Math.max(0, b.wage()));
+        buf.writeVarLong(Math.max(0, b.reservationWage()));
+        List<SimpleBossService.Insurance> insurance = b.insurance().subList(0, Math.min(MAX_ROWS, b.insurance().size()));
+        buf.writeVarInt(insurance.size());
+        for (SimpleBossService.Insurance i : insurance) {
+            buf.writeUtf(cut(i.product()), MAX_TEXT); buf.writeUtf(cut(i.name()), MAX_TEXT);
+            buf.writeVarLong(Math.max(0, i.coverage())); buf.writeLong(i.premium()); buf.writeBoolean(i.active()); buf.writeVarLong(Math.max(0, i.expiryDay()));
+        }
+        List<SimpleBossService.Target> targets = b.targets().subList(0, Math.min(MAX_ROWS, b.targets().size()));
+        buf.writeVarInt(targets.size());
+        for (SimpleBossService.Target t : targets) {
+            buf.writeUtf(cut(t.companyId()), MAX_TEXT); buf.writeUtf(cut(t.name()), MAX_TEXT);
+            buf.writeVarLong(Math.max(0, t.sharePrice())); buf.writeVarInt(Math.max(0, t.myPctX10())); buf.writeBoolean(t.squeezable());
+        }
+        buf.writeBoolean(b.ownsBank());
+        buf.writeVarLong(Math.max(0, b.bankMinCapital()));
+        buf.writeVarLong(Math.max(0, b.bankCharterFee()));
+        PlayerServicesResponsePacket.Cash c = s.cash() == null ? PlayerServicesResponsePacket.Cash.EMPTY : s.cash();
+        buf.writeBoolean(c.enabled());
+        for (long v : new long[]{c.balance(), c.cashOnHand(), c.emeralds(), c.emeraldToCash(), c.cashToEmerald(),
+                c.sellLeft(), c.buyLeft(), c.sellLimit(), c.buyLimit()}) buf.writeVarLong(Math.max(0, v));
     }
 
     static final int MAX_ROWS = 32;
@@ -125,8 +151,31 @@ public record SimpleStatusPacket(SimpleCenterService.Status status) {
         }
         SimpleInvestService.MarginInfo margin = new SimpleInvestService.MarginInfo(buf.readVarLong(), buf.readVarLong(),
                 buf.readVarInt(), buf.readVarInt(), readMap(buf), readMap(buf));
+        boolean isPublic = buf.readBoolean();
+        int dividend = buf.readVarInt();
+        boolean wageActive = buf.readBoolean();
+        long wage = buf.readVarLong(), reservation = buf.readVarLong();
+        n = count(buf);
+        List<SimpleBossService.Insurance> insurance = new ArrayList<>(n);
+        for (int i = 0; i < n; i++) {
+            insurance.add(new SimpleBossService.Insurance(buf.readUtf(MAX_TEXT), buf.readUtf(MAX_TEXT), buf.readVarLong(),
+                    buf.readLong(), buf.readBoolean(), buf.readVarLong()));
+        }
+        n = count(buf);
+        List<SimpleBossService.Target> targets = new ArrayList<>(n);
+        for (int i = 0; i < n; i++) {
+            targets.add(new SimpleBossService.Target(buf.readUtf(MAX_TEXT), buf.readUtf(MAX_TEXT), buf.readVarLong(),
+                    buf.readVarInt(), buf.readBoolean()));
+        }
+        SimpleBossService.BossInfo boss = new SimpleBossService.BossInfo(isPublic, dividend, wageActive, wage, reservation,
+                insurance, targets, buf.readBoolean(), buf.readVarLong(), buf.readVarLong());
+        boolean cashEnabled = buf.readBoolean();
+        long[] cv = new long[9];
+        for (int i = 0; i < cv.length; i++) cv[i] = buf.readVarLong();
+        PlayerServicesResponsePacket.Cash cash = new PlayerServicesResponsePacket.Cash(cashEnabled, cv[0], cv[1], cv[2], cv[3],
+                cv[4], cv[5], cv[6], cv[7], cv[8]);
         return new SimpleStatusPacket(new SimpleCenterService.Status(bank, rate, level, cost, valuation, ipoMin,
-                stockUnlock, mode, opportunities, weather, summary, products, holdings, margin));
+                stockUnlock, mode, opportunities, weather, summary, products, holdings, margin, boss, cash));
     }
 
     public static void handle(SimpleStatusPacket p, Supplier<NetworkEvent.Context> ctx) {

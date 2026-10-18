@@ -105,7 +105,7 @@ public final class PlayerServicesService {
                 detail.title(), detail.lines(), cash(player, purse, day));
     }
 
-    static Cash cash(UUID player, CashPurse purse, long day) {
+    public static Cash cash(UUID player, CashPurse purse, long day) {
         CashService.Quote q = CashService.quote(purse, day);
         return new Cash(q.enabled(), AccountManager.getBalance(player), purse == null ? 0 : purse.cashTotal(),
                 purse == null ? 0 : purse.emeralds(), q.emeraldToCash(), q.cashToEmerald(),
@@ -128,7 +128,7 @@ public final class PlayerServicesService {
         return b.toString().trim();
     }
 
-    static Bank bank(UUID player) {
+    public static Bank bank(UUID player) {
         UUID bankId = PlayerBankService.bankOfOwner(player);
         CommercialBank bank = bankId == null ? null : BankingManager.bank(bankId);
         long minCapital = Math.max(1, FinanceConfig.playerBankMinCapital());
@@ -191,7 +191,7 @@ public final class PlayerServicesService {
                 Math.max(0, FinanceConfig.treasuryBondMinAmount()), Math.max(0, FinanceConfig.treasuryBondEarlyFee()));
     }
 
-    static Macro macro(UUID player) {
+    public static Macro macro(UUID player) {
         Company own = CompanyManager.getCompanyByOwner(player);
         if (!MacroEconomyService.active()) return new Macro(false, own == null ? "" : own.getName(), 0, 0, NewsService.enabled(), 0);
         long wage = own == null ? 0 : MacroLaborService.wageOf(own.getCompanyId());

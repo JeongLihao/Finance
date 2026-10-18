@@ -78,7 +78,7 @@ final class SimpleCenter {
                 menu.getTransactions(), menu.getPlayerCompany(), menu.getStocks(), menu.getStockHoldings(),
                 SimpleClientState.status(), SimpleClientState.playerChooses(), SimpleClientState.playerWantsAdvanced(),
                 SimpleClientState.pendingSummary(), menu.getPlayerOrders(), menu.getPlayerInventory(),
-                FuturesClientCache.get().data(), menu.getConditionalStockOrders());
+                FuturesClientCache.get().data(), menu.getConditionalStockOrders(), menu.getCompanyProposalRows());
     }
 
     /** 锁价合同页的数据走期货查询包；在那一页时每 3 秒（或操作后马上）重新拉一次。 */

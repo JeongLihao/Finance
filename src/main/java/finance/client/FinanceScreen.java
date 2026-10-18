@@ -330,6 +330,11 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         advancedView = safeMode == FinanceScreenMode.ADMIN;
     }
 
+    /** 旧的全部页签（含仪表、管理）只给 OP；服务器把 simpleCenter.advancedMode 设成 always 时所有人都能进。 */
+    boolean oldPagesAllowed() {
+        return isAdmin || finance.client.simple.SimpleClientState.advancedAllowed();
+    }
+
     /** 服务端推来了新快照（余额、库存、订单……）：刷新缓存，页签、输入框内容和选中项保持不变。 */
     void onDataRefreshed() {
         lastSelectedCommodity = "";
@@ -450,8 +455,8 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         }
         if (!advancedView) {
             FinanceGui.drawButton(font, g, "教程", GUIDE_BUTTON_X, MORE_BUTTON_Y, GUIDE_BUTTON_W, false);
-            if (finance.client.simple.SimpleClientState.advancedAllowed()) {
-                FinanceGui.drawButton(font, g, "高级", MORE_BUTTON_X, MORE_BUTTON_Y, MORE_BUTTON_W, false);
+            if (oldPagesAllowed()) {
+                FinanceGui.drawButton(font, g, isAdmin ? "管理" : "高级", MORE_BUTTON_X, MORE_BUTTON_Y, MORE_BUTTON_W, false);
             }
             simple.render(g, mouseX, panelMouseY);
             return;
@@ -534,7 +539,7 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
                 TutorialHubScreen.open(this);
                 return true;
             }
-            if (onMore && finance.client.simple.SimpleClientState.advancedAllowed()) {
+            if (onMore && oldPagesAllowed()) {
                 advancedView = true;
                 dropdownOpen = false;
                 updateInputVisibility();

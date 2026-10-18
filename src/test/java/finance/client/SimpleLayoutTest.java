@@ -69,7 +69,8 @@ class SimpleLayoutTest {
                 List.of("利率 99.99%：" + LONG_NAME + LONG_NAME, "物价一年涨 99.99%：" + LONG_NAME + LONG_NAME + LONG_NAME,
                         "央行下次开会：" + LONG_NAME, "上次开会：" + LONG_NAME), List.of(), products(manyRows), investHoldings(manyRows),
                 new finance.simple.SimpleInvestService.MarginInfo(HUGE, HUGE, 101, 130,
-                        Map.of("S0", HUGE, "S1", HUGE), Map.of("S0", HUGE))) : null;
+                        Map.of("S0", HUGE, "S1", HUGE), Map.of("S0", HUGE)),
+                boss(manyRows), new finance.network.PlayerServicesResponsePacket.Cash(true, HUGE, HUGE, HUGE, HUGE, HUGE, HUGE, HUGE, HUGE, HUGE)) : null;
         List<String> summary = balance == HUGE ? List.of("收入 +" + HUGE + LONG_NAME, "卖东西 " + LONG_NAME, "分红 " + LONG_NAME,
                 "其他收入 " + LONG_NAME) : List.of();
         List<FinanceMenu.OrderRow> orders = new ArrayList<>();
@@ -78,7 +79,16 @@ class SimpleLayoutTest {
         }
         Map<String, Integer> stored = manyRows ? Map.of("a_very_long_commodity_id_one", 99_999, "a_very_long_commodity_id_two", 99_999) : Map.of();
         return new SimplePages.View(balance, -HUGE, HUGE, backpack, market, tx, company, stocks, holdings, st, true, true, summary,
-                orders, stored, futures(manyRows), autos(manyRows));
+                orders, stored, futures(manyRows), autos(manyRows), proposals(manyRows));
+    }
+
+    static List<FinanceMenu.CompanyProposalRow> proposals(boolean many) {
+        List<FinanceMenu.CompanyProposalRow> out = new ArrayList<>();
+        for (int i = 0; i < (many ? 4 : 1); i++) {
+            out.add(new FinanceMenu.CompanyProposalRow(UUID.randomUUID(), UUID.randomUUID(), "DIVIDEND", LONG_NAME, "", 1, 2, 3, 0, 99_999,
+                    0.5, HUGE, HUGE, false, "ACTIVE", "", false, "", 0, 0));
+        }
+        return out;
     }
 
     static List<FinanceMenu.ConditionalStockOrderRow> autos(boolean many) {
@@ -102,6 +112,15 @@ class SimpleLayoutTest {
         }
         return new finance.network.FuturesResponsePacket(1, HUGE, HUGE, HUGE, HUGE, HUGE, HUGE, finance.futures.MarginRiskStatus.NORMAL,
                 0, 0, contracts, positions, List.of(), List.of(), quotes, false);
+    }
+
+    static finance.simple.SimpleBossService.BossInfo boss(boolean many) {
+        List<finance.simple.SimpleBossService.Insurance> insurance = List.of(
+                new finance.simple.SimpleBossService.Insurance("INVENTORY_DISASTER", LONG_NAME, HUGE, HUGE, false, 0),
+                new finance.simple.SimpleBossService.Insurance("BUSINESS_INTERRUPTION", LONG_NAME, HUGE, HUGE, true, 99_999));
+        List<finance.simple.SimpleBossService.Target> targets = new ArrayList<>();
+        for (int i = 0; i < (many ? 6 : 1); i++) targets.add(new finance.simple.SimpleBossService.Target(UUID.randomUUID().toString(), LONG_NAME, HUGE, 999, i % 2 == 0));
+        return new finance.simple.SimpleBossService.BossInfo(many, 90, true, HUGE, HUGE, insurance, targets, !many, HUGE, HUGE);
     }
 
     static List<finance.simple.SimpleInvestService.Product> products(boolean many) {
@@ -147,6 +166,7 @@ class SimpleLayoutTest {
         s.homeTab = subTab;
         s.tradeTab = subTab;
         s.investTab = subTab;
+        s.companyTab = subTab;
         s.productScroll = scroll;
         s.recordScroll = scroll;
         s.tradeScroll = scroll;
@@ -161,7 +181,7 @@ class SimpleLayoutTest {
         for (SimplePages.View v : views()) {
             for (SimplePages.Page page : SimplePages.Page.values()) {
                 for (int scroll : new int[]{0, 5, 999}) {
-                    for (int sub = 0; sub < 3; sub++) {
+                    for (int sub = 0; sub < 4; sub++) {
                         for (String p : UiLayoutCheck.problems(layout(v, page, scroll, sub), FinanceGui.PANEL_WIDTH, FinanceGui.PANEL_HEIGHT)) {
                             problems.add(page + "/" + sub + ": " + p);
                         }

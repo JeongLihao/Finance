@@ -10,6 +10,7 @@ import finance.gui.FinanceMenu;
 import finance.network.SimpleActionPacket;
 import finance.simple.SimpleCenterService;
 import finance.simple.SimpleInvestService;
+import finance.simple.SimpleBossService;
 import finance.util.MoneyFormat;
 
 import java.util.ArrayList;
@@ -36,14 +37,15 @@ final class SimplePages {
                 List<FinanceMenu.StockHoldingRow> holdings, SimpleCenterService.Status status,
                 boolean playerChoosesAdvanced, boolean wantsAdvanced, List<String> pendingSummary,
                 List<FinanceMenu.OrderRow> orders, Map<String, Integer> storedGoods,
-                finance.network.FuturesResponsePacket futures, List<FinanceMenu.ConditionalStockOrderRow> autoOrders) {}
+                finance.network.FuturesResponsePacket futures, List<FinanceMenu.ConditionalStockOrderRow> autoOrders,
+                List<FinanceMenu.CompanyProposalRow> proposals) {}
 
     /** 页面上的状态（当前页、滚动位置、新公司行业）。 */
     static final class State {
         Page page = Page.HOME;
         int tradeScroll, investScroll, recordScroll;
         /** 各页的小标签：首页 0 今天 / 1 经济天气 / 2 全部记录；买卖 0 马上买卖 / 1 挂单 / 2 锁价合同。 */
-        int homeTab, tradeTab, investTab, productScroll;
+        int homeTab, tradeTab, investTab, companyTab, productScroll;
         /** 投资页：正在看详情的股票（null 表示看列表）；理财买入金额。 */
         String selectedStock;
         long productAmount = 1_000;
@@ -219,12 +221,6 @@ final class SimplePages {
 
         y += 47;
         int labelW = ui.text(LEFT + 2, y, 60, "最近", DIM);
-        if (v.playerChoosesAdvanced()) {
-            boolean on = v.wantsAdvanced();
-            String label = (on ? "[√]" : "[ ]") + " 显示高级功能";
-            int tx = ui.textRight(RIGHT - 2, y, WIDTH - labelW - 12, label, DIM);
-            ui.hotspot(tx, y - 2, RIGHT - 2 - tx, 12, () -> a.setWantsAdvanced(!on));
-        }
         List<FinanceMenu.TransactionRow> rows = v.transactions();
         if (rows.isEmpty()) ui.text(LEFT + PAD, y + 12, 200, "还没有交易。", DIM);
         for (int i = 0; i < Math.min(2, rows.size()); i++) {
@@ -268,7 +264,7 @@ final class SimplePages {
             return new Goal("把工厂升到满级（" + level + " / " + SimpleCenterService.MAX_FACTORY_LEVEL + "）",
                     level / (double) SimpleCenterService.MAX_FACTORY_LEVEL, Page.COMPANY);
         }
-        return new Goal("你已经是大亨了！", 1, Page.HOME);
+        return new Goal("你已经是大亨了！试试“当老板”里的收购。", 1, Page.COMPANY);
     }
 
     // ================================================================ 买卖
@@ -504,10 +500,20 @@ final class SimplePages {
         }
         SimpleCenterService.Status st = v.status();
         CompanyType type = typeOf(info.type());
-        ui.text(LEFT + 2, TOP, WIDTH - 2, info.name() + " · " + info.type() + (info.isPublic() ? " · 已上市" : ""), TEXT);
+        int top = subTabs(ui, TOP, List.of("经营", "当老板", "保险"), s.companyTab, i -> s.companyTab = i);
+        int tabsRight = LEFT + 2 + ui.width("经营") + ui.width("当老板") + ui.width("保险") + 2 * 14 + 12;
+        ui.textRight(RIGHT - 2, TOP, RIGHT - 2 - tabsRight, info.name() + " · " + info.type() + (info.isPublic() ? " · 已上市" : ""), DIM);
+        if (s.companyTab == 1) {
+            bossTab(ui, v, a, top);
+            return;
+        }
+        if (s.companyTab == 2) {
+            insuranceTab(ui, v, a, top);
+            return;
+        }
 
         // 今天
-        int y = TOP + 12;
+        int y = top;
         ui.card(LEFT, y, WIDTH, 52, CARD, CARD_BORDER);
         long transfer = Math.min(info.cash(), 10_000L);
         List<Btn> money = List.of(
@@ -530,7 +536,7 @@ final class SimplePages {
         }
 
         // 工厂
-        y += 58;
+        y += 56;
         ui.card(LEFT, y, WIDTH, 38, CARD, CARD_BORDER);
         int level = st == null ? info.productionLevel() + info.storageLevel() + info.managementLevel() : st.factoryLevel();
         boolean full = level >= SimpleCenterService.MAX_FACTORY_LEVEL;
@@ -544,7 +550,7 @@ final class SimplePages {
         ui.text(LEFT + PAD, y + 25, textW, "升级：每天产得更多、开销更少。", DIM);
 
         // 上市
-        y += 44;
+        y += 42;
         ui.card(LEFT, y, WIDTH, 48, CARD, CARD_BORDER);
         if (info.isPublic()) {
             ui.text(LEFT + PAD, y + 4, WIDTH - 2 * PAD, "公司已上市。", FinanceGui.COL_GOOD);
@@ -559,6 +565,150 @@ final class SimplePages {
             ui.progress(LEFT + PAD, y + 16, textW, valuation / (double) Math.max(1, min));
             ui.wrapped(LEFT + PAD, y + 25, textW, "把公司 40% 的股份卖给大家，换一大笔钱进公司账上。要付上市费，发行价按估值自动定。", DIM, 2);
         }
+        wageRow(ui, v, a, y + 52);
+    }
+
+    // ---------------------------------------------------------------- 当老板
+
+    static SimpleBossService.BossInfo boss(View v) {
+        return v.status() == null ? SimpleBossService.BossInfo.EMPTY : v.status().boss();
+    }
+
+    static void bossTab(UiBuilder ui, View v, Actions a, int y) {
+        SimpleBossService.BossInfo b = boss(v);
+        FinanceMenu.CompanyInfo info = v.company();
+
+        // 股东大会
+        ui.text(LEFT + 2, y, 120, "股东大会", DIM);
+        y += 12;
+        if (b.publicCompany()) {
+            long nextPct = Math.min(100, b.dividendPct() + 10);
+            y += ui.buttonFlow(LEFT + 2, y, WIDTH - 4, 3, List.of(
+                    new Btn("提议分红提到 " + nextPct + "%", () -> a.simple(SimpleActionPacket.Action.PROPOSE, "dividend", 0, 0),
+                            b.dividendPct() >= 100 ? "分红已经是 100%" : null),
+                    new Btn("提议增发 10% 融资", () -> a.simple(SimpleActionPacket.Action.PROPOSE, "issue", 0, 0), null),
+                    new Btn("提议回购 5%", () -> a.simple(SimpleActionPacket.Action.PROPOSE, "buyback", 0, 0), null))) + 3;
+        } else {
+            ui.text(LEFT + PAD, y + 2, WIDTH - PAD, "公司上市后可以开股东大会：调分红、增发融资、回购股份。", DIM);
+            y += 14;
+        }
+        List<FinanceMenu.CompanyProposalRow> open = v.proposals().stream()
+                .filter(p -> "ACTIVE".equals(p.status()) && !p.playerVoted()).toList();
+        for (int i = 0; i < Math.min(2, open.size()); i++) {
+            FinanceMenu.CompanyProposalRow p = open.get(i);
+            String id = p.proposalId().toString();
+            int bx = ui.buttonsRight(RIGHT - 2, y - 2, 2, List.of(
+                    new Btn("赞成", () -> a.simple(SimpleActionPacket.Action.VOTE_YES, id, 0, 0), null),
+                    new Btn("反对", () -> a.simple(SimpleActionPacket.Action.VOTE_NO, id, 0, 0), null)));
+            long votes = Math.max(1, p.yesVotes() + p.noVotes());
+            String owner = info != null && info.companyId().equals(p.companyId()) ? "我的公司" : "持股公司";
+            ui.text(LEFT + PAD, y, bx - LEFT - PAD - 6, owner + "「" + p.title() + "」赞成 " + (p.yesVotes() * 100 / votes)
+                    + "%，第 " + p.endMcDay() + " 天截止", TEXT);
+            y += 15;
+        }
+        y += 2;
+
+        // 借钱
+        ui.text(LEFT + 2, y, 120, "向银行借钱（钱进公司账上，30 天内分期还）", DIM);
+        y += 12;
+        y += ui.buttonFlow(LEFT + 2, y, WIDTH - 4, 3, List.of(
+                new Btn("借 50 磅", () -> a.simple(SimpleActionPacket.Action.COMPANY_LOAN, "", 5_000, 0), null),
+                new Btn("借 200 磅", () -> a.simple(SimpleActionPacket.Action.COMPANY_LOAN, "", 20_000, 0), null))) + 5;
+
+        // 收购
+        ui.text(LEFT + 2, y, WIDTH - 4, "收购别家公司（按现价高 10% 出价，想买到 51%）", DIM);
+        y += 12;
+        if (b.targets().isEmpty()) {
+            ui.text(LEFT + PAD, y, WIDTH - PAD, "还没有别的公司上市。", DIM);
+            y += 13;
+        }
+        for (int i = 0; i < Math.min(3, b.targets().size()); i++) {
+            SimpleBossService.Target t = b.targets().get(i);
+            String id = t.companyId();
+            int bx = t.squeezable()
+                    ? ui.buttonRight(RIGHT - 2, y - 2, "买下剩余股份", () -> a.simple(SimpleActionPacket.Action.SQUEEZE, id, 0, 0), null)
+                    : ui.buttonRight(RIGHT - 2, y - 2, "出价收购", () -> a.simple(SimpleActionPacket.Action.TAKEOVER, id, 0, 0), null);
+            ui.text(LEFT + PAD, y, bx - LEFT - PAD - 6, t.name() + "  每股 " + MoneyFormat.compact(t.sharePrice())
+                    + "  我持有 " + (t.myPctX10() / 10.0) + "%", TEXT);
+            y += 15;
+        }
+        y += 2;
+
+        // 银行
+        if (y + 13 <= BOTTOM) {
+            if (b.ownsBank()) {
+                ui.text(LEFT + 2, y + 2, WIDTH - 4, "你已经有自己的银行了。", DIM);
+            } else {
+                long need = b.bankMinCapital() + b.bankCharterFee();
+                int bx = ui.button(LEFT + 2, y, "开一家银行（资本 " + MoneyFormat.compact(b.bankMinCapital()) + " + 牌照 "
+                                + MoneyFormat.compact(b.bankCharterFee()) + "）",
+                        () -> a.simple(SimpleActionPacket.Action.CHARTER_BANK, "", b.bankMinCapital(), 0),
+                        v.balance() >= need ? null : "要 " + MoneyFormat.pounds(need));
+                ui.text(LEFT + 2 + bx + 6, y + 3, RIGHT - LEFT - bx - 10, "别人存钱给你，你放贷赚利差", DIM);
+            }
+        }
+    }
+
+    static void insuranceTab(UiBuilder ui, View v, Actions a, int y) {
+        y += ui.wrapped(LEFT + 2, y, WIDTH - 4, "给公司上保险：出事时保险公司按保额赔钱。每次保 7 天，到期再续。", DIM, 2) + 6;
+        List<SimpleBossService.Insurance> list = boss(v).insurance();
+        if (list.isEmpty()) ui.text(LEFT + PAD, y, WIDTH, "正在读取……", DIM);
+        for (SimpleBossService.Insurance i : list) {
+            ui.card(LEFT, y, WIDTH, 36, CARD, CARD_BORDER);
+            String product = i.product();
+            int bx;
+            if (i.active()) {
+                bx = ui.textRight(RIGHT - PAD, y + 13, 120, "已在保，第 " + i.expiryDay() + " 天到期", FinanceGui.COL_GOOD) - 6;
+            } else {
+                bx = ui.buttonRight(RIGHT - PAD, y + 11, "投保", () -> a.simple(SimpleActionPacket.Action.INSURE, product, 0, 0),
+                        i.premium() < 0 ? "公司还没有足够的经营记录" : v.balance() < i.premium() ? "保费要 " + MoneyFormat.pounds(i.premium()) : null) - 6;
+            }
+            ui.text(LEFT + PAD, y + 5, bx - LEFT - PAD, i.name(), TEXT);
+            ui.text(LEFT + PAD, y + 19, bx - LEFT - PAD, "最多赔 " + MoneyFormat.pounds(i.coverage())
+                    + (i.premium() >= 0 ? "，保费 " + MoneyFormat.pounds(i.premium()) : ""), DIM);
+            y += 40;
+        }
+    }
+
+    /** 经营页最下面：工人日工资（宏观经济开启时）。 */
+    static void wageRow(UiBuilder ui, View v, Actions a, int y) {
+        SimpleBossService.BossInfo b = boss(v);
+        if (!b.wageActive()) return;
+        long wage = b.wage(), step = Math.max(1, wage / 10);
+        int bx = ui.buttonsRight(RIGHT - 2, y, 2, List.of(
+                new Btn("-", () -> a.simple(SimpleActionPacket.Action.SET_WAGE, "", Math.max(0, wage - step), 0), wage <= 0 ? "已经是 0" : null),
+                new Btn("+", () -> a.simple(SimpleActionPacket.Action.SET_WAGE, "", wage + step, 0), null)));
+        ui.text(LEFT + 2, y + 3, bx - LEFT - 8, "工人日工资 " + MoneyFormat.pounds(wage) + "（低于 "
+                + MoneyFormat.pounds(b.reservationWage()) + " 招不到人）", wage < b.reservationWage() ? FinanceGui.COL_BAD : TEXT);
+    }
+
+    // ---------------------------------------------------------------- 现金
+
+    static void cashTab(UiBuilder ui, View v, Actions a, int y) {
+        var c = v.status() == null ? null : v.status().cash();
+        if (c == null || !c.enabled()) {
+            ui.text(LEFT + PAD, y + 2, WIDTH, "服务器没有开启实体现金。", DIM);
+            return;
+        }
+        y += ui.wrapped(LEFT + 2, y, WIDTH - 4, "现金是背包里的便士铜币、10 便士硬币和 1 磅纸币，和账户里的钱 1:1 互换；也可以和绿宝石兑换。", DIM, 2) + 6;
+        ui.card(LEFT, y, WIDTH, 38, CARD, CARD_BORDER);
+        ui.text(LEFT + PAD, y + 5, WIDTH - 2 * PAD, "账户 " + MoneyFormat.pounds(c.balance()) + "    身上现金 " + MoneyFormat.pounds(c.cashOnHand()), TEXT);
+        ui.buttonFlow(LEFT + PAD, y + 20, WIDTH - 2 * PAD, 3, List.of(
+                new Btn("身上现金全部存入", () -> a.simple(SimpleActionPacket.Action.CASH_DEPOSIT, "", c.cashOnHand(), 0),
+                        c.cashOnHand() > 0 ? null : "身上没有现金"),
+                new Btn("取出 1 磅", () -> a.simple(SimpleActionPacket.Action.CASH_WITHDRAW, "", 100, 0), c.balance() >= 100 ? null : "账户不到 1 磅"),
+                new Btn("取出 10 磅", () -> a.simple(SimpleActionPacket.Action.CASH_WITHDRAW, "", 1_000, 0), c.balance() >= 1_000 ? null : "账户不到 10 磅")));
+        y += 44;
+        ui.card(LEFT, y, WIDTH, 50, CARD, CARD_BORDER);
+        ui.text(LEFT + PAD, y + 5, WIDTH - 2 * PAD, "绿宝石 " + c.emeralds() + " 颗：卖 1 颗得 " + MoneyFormat.pounds(c.emeraldToCash())
+                + "，买 1 颗付 " + MoneyFormat.pounds(c.cashToEmerald()), TEXT);
+        ui.text(LEFT + PAD, y + 17, WIDTH - 2 * PAD, "今天还能卖 " + c.sellLeft() + " 颗、买 " + c.buyLeft() + " 颗（现金从背包里扣、放进背包）", DIM);
+        ui.buttonFlow(LEFT + PAD, y + 31, WIDTH - 2 * PAD, 3, List.of(
+                new Btn("卖 1 颗", () -> a.simple(SimpleActionPacket.Action.EMERALD_SELL, "", 1, 0), c.emeralds() > 0 && c.sellLeft() > 0 ? null : "没有可卖的绿宝石"),
+                new Btn("卖 16 颗", () -> a.simple(SimpleActionPacket.Action.EMERALD_SELL, "", Math.min(16, c.emeralds()), 0),
+                        c.emeralds() > 0 && c.sellLeft() > 0 ? null : "没有可卖的绿宝石"),
+                new Btn("买 1 颗", () -> a.simple(SimpleActionPacket.Action.EMERALD_BUY, "", 1, 0),
+                        c.cashOnHand() >= c.cashToEmerald() && c.buyLeft() > 0 ? null : "身上现金不够或今天买满了")));
     }
 
     static void newCompany(UiBuilder ui, View v, State s, Actions a) {
@@ -587,10 +737,11 @@ final class SimplePages {
     // ================================================================ 投资
 
     static void invest(UiBuilder ui, View v, State s, Actions a) {
-        int y = subTabs(ui, TOP, List.of("股票", "理财", "我的理财"), s.investTab, i -> { s.investTab = i; s.selectedStock = null; });
+        int y = subTabs(ui, TOP, List.of("股票", "理财", "我的理财", "现金"), s.investTab, i -> { s.investTab = i; s.selectedStock = null; });
         switch (s.investTab) {
             case 1 -> products(ui, v, s, a, y);
             case 2 -> myProducts(ui, v, a, y);
+            case 3 -> cashTab(ui, v, a, y);
             default -> {
                 FinanceMenu.StockRow selected = s.selectedStock == null ? null
                         : v.stocks().stream().filter(r -> r.symbol().equals(s.selectedStock)).findFirst().orElse(null);

@@ -60,10 +60,7 @@ public final class SimpleClientState {
 
     /** 金融中心是否显示“高级”按钮。 */
     public static boolean advancedAllowed() {
-        String mode = status == null ? "player" : status.advancedMode();
-        if ("always".equals(mode)) return true;
-        if ("never".equals(mode)) return false;
-        return playerWantsAdvanced();
+        return status != null && "always".equals(status.advancedMode());
     }
 
     /** 服务器是否让玩家自己选择。 */
