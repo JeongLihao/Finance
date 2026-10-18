@@ -36,6 +36,7 @@ class SimpleLayoutTest {
         @Override public void status(String message) {}
         @Override public void show(SimplePages.Page page) {}
         @Override public void setWantsAdvanced(boolean on) {}
+        @Override public void dismissSummary() {}
     };
 
     static FinanceMenu.CompanyInfo company(boolean owned, boolean isPublic, boolean risk) {
@@ -64,8 +65,12 @@ class SimpleLayoutTest {
         for (int i = 0; i < 5; i++) tx.add(new FinanceMenu.TransactionRow(0, UUID.randomUUID(), "COMMODITY_SELL", HUGE, HUGE, LONG_NAME));
         SimpleCenterService.Status st = status ? new SimpleCenterService.Status(HUGE, 12_345, 7, HUGE, HUGE, 20_000, 3_000, "player",
                 List.of(LONG_NAME + "需要 9999 个面包，送去能拿 " + HUGE + " 便士（去村里的贸易站交货）",
-                        "背包里的 2304 个" + LONG_NAME + "现在能卖很多钱", "第三条机会" + LONG_NAME)) : null;
-        return new SimplePages.View(balance, -HUGE, HUGE, backpack, market, tx, company, stocks, holdings, st, true, true);
+                        "背包里的 2304 个" + LONG_NAME + "现在能卖很多钱", "第三条机会" + LONG_NAME),
+                List.of("利率 99.99%：" + LONG_NAME + LONG_NAME, "物价一年涨 99.99%：" + LONG_NAME + LONG_NAME + LONG_NAME,
+                        "央行下次开会：" + LONG_NAME, "上次开会：" + LONG_NAME), List.of()) : null;
+        List<String> summary = balance == HUGE ? List.of("收入 +" + HUGE + LONG_NAME, "卖东西 " + LONG_NAME, "分红 " + LONG_NAME,
+                "其他收入 " + LONG_NAME) : List.of();
+        return new SimplePages.View(balance, -HUGE, HUGE, backpack, market, tx, company, stocks, holdings, st, true, true, summary);
     }
 
     static List<SimplePages.View> views() {
@@ -85,8 +90,14 @@ class SimpleLayoutTest {
     }
 
     static List<UiElement> layout(SimplePages.View v, SimplePages.Page page, int scroll) {
+        return layout(v, page, scroll, 0);
+    }
+
+    static List<UiElement> layout(SimplePages.View v, SimplePages.Page page, int scroll, int subTab) {
         SimplePages.State s = new SimplePages.State();
         s.page = page;
+        s.homeTab = subTab;
+        s.recordScroll = scroll;
         s.tradeScroll = scroll;
         s.investScroll = scroll;
         UiBuilder ui = new UiBuilder(TextMeasure.ESTIMATE, m -> {});
@@ -99,8 +110,10 @@ class SimpleLayoutTest {
         for (SimplePages.View v : views()) {
             for (SimplePages.Page page : SimplePages.Page.values()) {
                 for (int scroll : new int[]{0, 5, 999}) {
-                    for (String p : UiLayoutCheck.problems(layout(v, page, scroll), FinanceGui.PANEL_WIDTH, FinanceGui.PANEL_HEIGHT)) {
-                        problems.add(page + ": " + p);
+                    for (int sub = 0; sub < 3; sub++) {
+                        for (String p : UiLayoutCheck.problems(layout(v, page, scroll, sub), FinanceGui.PANEL_WIDTH, FinanceGui.PANEL_HEIGHT)) {
+                            problems.add(page + "/" + sub + ": " + p);
+                        }
                     }
                 }
             }

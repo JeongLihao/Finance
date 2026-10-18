@@ -236,9 +236,15 @@ public final class SimpleCenterService {
     /** 首页和其他三页需要、但金融中心快照里没有的数据。 */
     public record Status(long bankBalance, int bankRateBps, int factoryLevel, long nextUpgradeCost,
                          long companyValuation, long ipoMinValuation, long stockUnlockBalance,
-                         String advancedMode, List<String> opportunities) {}
+                         String advancedMode, List<String> opportunities, List<String> weather,
+                         List<String> summary) {}
 
     public static Status status(ServerPlayer player) {
+        return status(player, List.of());
+    }
+
+    /** summary 只在打开金融中心时带上（“上次打开以来”的小结），刷新时为空。 */
+    public static Status status(ServerPlayer player, List<String> summary) {
         UUID id = player.getUUID();
         long day = EconomyCycleService.currentMcDay(player.server);
         CommercialBank bank = mainBank();
@@ -252,7 +258,82 @@ public final class SimpleCenterService {
                 company == null ? 0 : nextUpgradeCost(company),
                 company == null ? 0 : company.getEstimatedValue(),
                 FinanceConfig.simpleIpoMinValuation(), FinanceConfig.simpleStockUnlockBalance(),
-                FinanceConfig.simpleAdvancedMode(), opportunities(player));
+                FinanceConfig.simpleAdvancedMode(), opportunities(player), weather(player), summary);
+    }
+
+    // ------------------------------------------------------------ 经济天气
+
+    /** 利率、物价、央行动向，每条都配一句“对你意味着什么”。 */
+    static List<String> weather(ServerPlayer player) {
+        List<String> out = new ArrayList<>();
+        int rate = finance.policy.MonetaryPolicyService.benchmarkRateBasisPoints();
+        String rateMeaning = rate >= 500 ? "存钱利息高，借钱贵。" : rate <= 200 ? "借钱便宜，存钱利息少。" : "利率适中。";
+        out.add("利率 " + pct(rate) + "：" + rateMeaning);
+        int inflation = finance.centralbank.CentralBankService.inflationBps();
+        int target = finance.centralbank.CentralBankService.inflationTargetBps();
+        String priceMeaning = inflation > target + 100 ? "东西在变贵：手里的货会升值，放着的现金会变不值钱。"
+                : inflation < 0 ? "东西在变便宜：现金更值钱，囤货可能亏。" : "物价稳定。";
+        out.add("物价一年涨 " + pct(inflation) + "（央行目标 " + pct(target) + "）：" + priceMeaning);
+        finance.policy.PolicyMeetingService.PolicyOutlook outlook = finance.policy.PolicyMeetingService.outlook();
+        long today = EconomyCycleService.currentMcDay(player.server);
+        String when = outlook.nextMeetingDay() < 0 ? "日程未定" : outlook.nextMeetingDay() <= today ? "今天"
+                : (outlook.nextMeetingDay() - today) + " 天后";
+        String lean = outlook.recommendedBps() > outlook.currentBps() ? "可能加息：存款利息会涨，贷款会变贵。"
+                : outlook.recommendedBps() < outlook.currentBps() ? "可能降息：贷款会变便宜，存款利息会降。" : "大概率不变。";
+        out.add("央行下次开会：" + when + "，" + lean);
+        List<finance.centralbank.CentralBankService.Decision> decisions = finance.centralbank.CentralBankService.decisions();
+        if (!decisions.isEmpty()) {
+            finance.centralbank.CentralBankService.Decision d = decisions.get(decisions.size() - 1);
+            out.add("上次开会（第 " + d.day() + " 天）：利率 " + pct(d.rateBefore()) + " → " + pct(d.rateAfter()) + "。");
+        }
+        return out;
+    }
+
+    static String pct(int bps) {
+        return String.format(java.util.Locale.ROOT, "%.2f%%", bps / 100.0);
+    }
+
+    // ------------------------------------------------------------ 上次打开以来
+
+    private static final String LAST_OPEN_TAG = "finance_last_open";
+
+    /** “上次打开以来”收入和支出的小结；第一次打开或期间没有记账时返回空表。会把“上次打开时间”更新为现在。 */
+    public static List<String> summarySinceLastOpen(ServerPlayer player) {
+        CompoundTag data = player.getPersistentData();
+        java.time.LocalDateTime now = java.time.LocalDateTime.now();
+        long last = data.getLong(LAST_OPEN_TAG);
+        data.putLong(LAST_OPEN_TAG, now.toEpochSecond(java.time.ZoneOffset.UTC));
+        if (last <= 0) return List.of();
+        java.time.LocalDateTime since = java.time.LocalDateTime.ofEpochSecond(last, 0, java.time.ZoneOffset.UTC);
+        return summarize(player.getUUID(), AccountManager.getTransactions(), since);
+    }
+
+    /** 从最新的记录往前数到 since 为止，按“卖东西 / 分红 / 其他收入 / 支出”汇总。 */
+    static List<String> summarize(UUID player, List<TransactionRecord> records, java.time.LocalDateTime since) {
+        long sales = 0, dividends = 0, otherIn = 0, spent = 0;
+        for (int i = records.size() - 1; i >= 0; i--) {
+            TransactionRecord r = records.get(i);
+            if (r.getTimestamp() == null || !r.getTimestamp().isAfter(since)) break;
+            long amount = Math.max(0, r.getAmount());
+            boolean in = player.equals(r.getTo()), out = player.equals(r.getFrom());
+            if (in == out) continue;
+            if (out) {
+                spent += amount;
+                continue;
+            }
+            switch (r.getType()) {
+                case COMMODITY_SELL, NPC_BUY, MARKET_TRADE, STOCK_SELL -> sales += amount;
+                case DIVIDEND, BANK_DIVIDEND -> dividends += amount;
+                default -> otherIn += amount;
+            }
+        }
+        if (sales + dividends + otherIn + spent == 0) return List.of();
+        List<String> lines = new ArrayList<>();
+        lines.add("收入 " + MoneyFormat.signed(sales + dividends + otherIn) + "，支出 " + MoneyFormat.pounds(spent) + "。");
+        if (sales > 0) lines.add("卖东西 +" + MoneyFormat.pounds(sales));
+        if (dividends > 0) lines.add("分红 +" + MoneyFormat.pounds(dividends));
+        if (otherIn > 0) lines.add("其他收入 +" + MoneyFormat.pounds(otherIn));
+        return lines;
     }
 
     /** 今日机会：最值钱的村庄需求一条 + 背包里最值钱的两种东西。 */

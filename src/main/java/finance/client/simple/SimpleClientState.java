@@ -25,12 +25,22 @@ public final class SimpleClientState {
     private static final List<Floater> FLOATERS = new ArrayList<>();
     public static final long FLOAT_MILLIS = 1_600;
 
-    public static void accept(SimpleCenterService.Status s) { status = s; }
+    /** “上次打开以来”的小结：收到后在首页弹出，点“知道了”关掉。 */
+    private static List<String> pendingSummary = List.of();
+
+    public static void accept(SimpleCenterService.Status s) {
+        status = s;
+        if (s != null && !s.summary().isEmpty()) pendingSummary = List.copyOf(s.summary());
+    }
+
+    public static List<String> pendingSummary() { return pendingSummary; }
+
+    public static void dismissSummary() { pendingSummary = List.of(); }
 
     /** 还没收到时返回 null。 */
     public static SimpleCenterService.Status status() { return status; }
 
-    public static void clear() { status = null; FLOATERS.clear(); }
+    public static void clear() { status = null; FLOATERS.clear(); pendingSummary = List.of(); }
 
     public static void pushMoney(long delta) {
         if (delta == 0) return;

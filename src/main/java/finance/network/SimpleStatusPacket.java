@@ -15,11 +15,29 @@ import java.util.function.Supplier;
 /** 服务端 → 客户端：简单模式四页需要、但金融中心快照里没有的数据（银行存款、工厂等级、今日机会……）。 */
 public record SimpleStatusPacket(SimpleCenterService.Status status) {
 
-    static final int MAX_OPPORTUNITIES = 3, MAX_TEXT = 160;
+    static final int MAX_LINES = 6, MAX_TEXT = 160;
 
     public static void send(ServerPlayer player) {
+        send(player, List.of());
+    }
+
+    public static void send(ServerPlayer player, List<String> summary) {
         FinancePacketHandler.CHANNEL.send(PacketDistributor.PLAYER.with(() -> player),
-                new SimpleStatusPacket(SimpleCenterService.status(player)));
+                new SimpleStatusPacket(SimpleCenterService.status(player, summary)));
+    }
+
+    private static void writeLines(FriendlyByteBuf buf, List<String> lines) {
+        List<String> safe = lines.subList(0, Math.min(MAX_LINES, lines.size()));
+        buf.writeVarInt(safe.size());
+        for (String line : safe) buf.writeUtf(line.length() > MAX_TEXT ? line.substring(0, MAX_TEXT) : line, MAX_TEXT);
+    }
+
+    private static List<String> readLines(FriendlyByteBuf buf) {
+        int n = buf.readVarInt();
+        if (n < 0 || n > MAX_LINES) throw new IllegalArgumentException("lines");
+        List<String> lines = new ArrayList<>(n);
+        for (int i = 0; i < n; i++) lines.add(buf.readUtf(MAX_TEXT));
+        return lines;
     }
 
     public static void encode(SimpleStatusPacket p, FriendlyByteBuf buf) {
@@ -32,9 +50,9 @@ public record SimpleStatusPacket(SimpleCenterService.Status status) {
         buf.writeVarLong(Math.max(0, s.ipoMinValuation()));
         buf.writeVarLong(Math.max(0, s.stockUnlockBalance()));
         buf.writeUtf(s.advancedMode(), 16);
-        List<String> lines = s.opportunities().subList(0, Math.min(MAX_OPPORTUNITIES, s.opportunities().size()));
-        buf.writeVarInt(lines.size());
-        for (String line : lines) buf.writeUtf(line.length() > MAX_TEXT ? line.substring(0, MAX_TEXT) : line, MAX_TEXT);
+        writeLines(buf, s.opportunities());
+        writeLines(buf, s.weather());
+        writeLines(buf, s.summary());
     }
 
     public static SimpleStatusPacket decode(FriendlyByteBuf buf) {
@@ -42,12 +60,8 @@ public record SimpleStatusPacket(SimpleCenterService.Status status) {
         int rate = buf.readVarInt(), level = buf.readVarInt();
         long cost = buf.readVarLong(), valuation = buf.readVarLong(), ipoMin = buf.readVarLong(), stockUnlock = buf.readVarLong();
         String mode = buf.readUtf(16);
-        int n = buf.readVarInt();
-        if (n < 0 || n > MAX_OPPORTUNITIES) throw new IllegalArgumentException("opportunities");
-        List<String> lines = new ArrayList<>(n);
-        for (int i = 0; i < n; i++) lines.add(buf.readUtf(MAX_TEXT));
         return new SimpleStatusPacket(new SimpleCenterService.Status(bank, rate, level, cost, valuation, ipoMin,
-                stockUnlock, mode, lines));
+                stockUnlock, mode, readLines(buf), readLines(buf), readLines(buf)));
     }
 
     public static void handle(SimpleStatusPacket p, Supplier<NetworkEvent.Context> ctx) {

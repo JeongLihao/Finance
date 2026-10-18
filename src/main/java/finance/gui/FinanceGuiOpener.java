@@ -57,9 +57,10 @@ public class FinanceGuiOpener {
     public static void open(ServerPlayer player, FinanceScreenMode initialMode,
                             FinanceTerminalType sourceType, BlockPos sourcePos) {
         long starter = finance.simple.SimpleCenterService.grantStarterIfNeeded(player);
+        java.util.List<String> summary = finance.simple.SimpleCenterService.summarySinceLastOpen(player);
         FinanceProvider provider = collect(player, initialMode, sourceType, sourcePos);
         NetworkHooks.openScreen(player, provider, provider::write);
-        finance.network.SimpleStatusPacket.send(player);
+        finance.network.SimpleStatusPacket.send(player, summary);
         if (starter > 0) {
             finance.network.GuiFeedbackPacket.send(player, "欢迎！送你 " + finance.util.MoneyFormat.pounds(starter)
                     + " 启动资金，先去“买卖”页看看。", starter);

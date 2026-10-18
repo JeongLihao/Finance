@@ -51,6 +51,7 @@ final class SimpleCenter {
         }
         @Override public void status(String message) { screen.setStatus(message); }
         @Override public void show(SimplePages.Page page) { SimpleCenter.this.show(page); }
+        @Override public void dismissSummary() { SimpleClientState.dismissSummary(); }
         @Override public void setWantsAdvanced(boolean on) {
             SimpleClientState.setPlayerWantsAdvanced(on);
             screen.setStatus(on ? "已显示高级功能：右上角“高级”里是原有的全部页面。" : "已隐藏高级功能。");
@@ -74,7 +75,8 @@ final class SimpleCenter {
         return new SimplePages.View(menu.getBalance(), assets == null ? 0 : assets.todayProfit(),
                 assets == null ? 0 : assets.stockValue(), menu.getMcInventory(), menu.getMarketData(),
                 menu.getTransactions(), menu.getPlayerCompany(), menu.getStocks(), menu.getStockHoldings(),
-                SimpleClientState.status(), SimpleClientState.playerChooses(), SimpleClientState.playerWantsAdvanced());
+                SimpleClientState.status(), SimpleClientState.playerChooses(), SimpleClientState.playerWantsAdvanced(),
+                SimpleClientState.pendingSummary());
     }
 
     /** 按当前数据重新排版。 */
@@ -104,6 +106,10 @@ final class SimpleCenter {
         int step = (int) -Math.signum(delta);
         if (state.page == SimplePages.Page.TRADE) {
             state.tradeScroll += step;
+            return true;
+        }
+        if (state.page == SimplePages.Page.HOME && state.homeTab == 2) {
+            state.recordScroll += step;
             return true;
         }
         if (state.page == SimplePages.Page.INVEST) {

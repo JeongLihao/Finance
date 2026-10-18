@@ -33,12 +33,14 @@ final class SimplePages {
                 List<FinanceMenu.MarketRow> market, List<FinanceMenu.TransactionRow> transactions,
                 FinanceMenu.CompanyInfo company, List<FinanceMenu.StockRow> stocks,
                 List<FinanceMenu.StockHoldingRow> holdings, SimpleCenterService.Status status,
-                boolean playerChoosesAdvanced, boolean wantsAdvanced) {}
+                boolean playerChoosesAdvanced, boolean wantsAdvanced, List<String> pendingSummary) {}
 
     /** 页面上的状态（当前页、滚动位置、新公司行业）。 */
     static final class State {
         Page page = Page.HOME;
-        int tradeScroll, investScroll;
+        int tradeScroll, investScroll, recordScroll;
+        /** 各页的小标签：首页 0 今天 / 1 经济天气 / 2 全部记录。 */
+        int homeTab;
         CompanyType newCompanyType = CompanyType.RAW_MATERIALS;
     }
 
@@ -51,6 +53,7 @@ final class SimplePages {
         void status(String message);
         void show(Page page);
         void setWantsAdvanced(boolean on);
+        void dismissSummary();
     }
 
     static final int W = FinanceGui.PANEL_WIDTH, H = FinanceGui.PANEL_HEIGHT;
@@ -67,7 +70,7 @@ final class SimplePages {
     static void layout(UiBuilder ui, View v, State s, Actions a) {
         tabs(ui, s, a);
         switch (s.page) {
-            case HOME -> home(ui, v, a);
+            case HOME -> home(ui, v, s, a);
             case TRADE -> trade(ui, v, s, a);
             case COMPANY -> company(ui, v, s, a);
             case INVEST -> invest(ui, v, s, a);
@@ -91,11 +94,86 @@ final class SimplePages {
         }
     }
 
+    /** 页内的一排小标签；返回内容开始的 y。 */
+    static int subTabs(UiBuilder ui, int y, List<String> labels, int selected, java.util.function.IntConsumer select) {
+        int x = LEFT + 2;
+        for (int i = 0; i < labels.size(); i++) {
+            String label = labels.get(i);
+            int w = ui.width(label);
+            boolean on = i == selected;
+            ui.text(x, y, w, label, on ? TEXT : DIM);
+            if (on) ui.fill(x, y + 10, w, 1, FinanceGui.COL_ACCENT);
+            int index = i;
+            ui.hotspot(x - 3, y - 2, w + 6, 13, () -> select.accept(index));
+            x += w + 14;
+        }
+        ui.fill(LEFT, y + 12, WIDTH, 1, 0xFFCFC8B4);
+        return y + 16;
+    }
+
     // ================================================================ 首页
 
-    static void home(UiBuilder ui, View v, Actions a) {
+    static void home(UiBuilder ui, View v, State s, Actions a) {
+        if (!v.pendingSummary().isEmpty()) {
+            summary(ui, v, a);
+            return;
+        }
+        int y = subTabs(ui, TOP, List.of("今天", "经济天气", "全部记录"), s.homeTab, i -> s.homeTab = i);
+        switch (s.homeTab) {
+            case 1 -> weather(ui, v, y);
+            case 2 -> records(ui, v, s, y);
+            default -> today(ui, v, a, y);
+        }
+    }
+
+    /** “上次打开以来”的小结卡片：挡住首页内容，点“知道了”关掉。 */
+    static void summary(UiBuilder ui, View v, Actions a) {
+        int x = LEFT + 40, w = WIDTH - 80, y = TOP + 24;
+        List<String> lines = v.pendingSummary();
+        int h = 34 + lines.size() * UiBuilder.LINE + 20;
+        ui.card(x, y, w, h, CARD, CARD_BORDER);
+        ui.text(x + PAD, y + 6, w - 2 * PAD, "上次打开以来", TEXT);
+        for (int i = 0; i < lines.size(); i++) {
+            ui.text(x + PAD, y + 22 + i * UiBuilder.LINE, w - 2 * PAD, lines.get(i), i == 0 ? TEXT : DIM);
+        }
+        ui.buttonRight(x + w - PAD, y + h - 18, "知道了", a::dismissSummary, null);
+    }
+
+    static void weather(UiBuilder ui, View v, int y) {
         SimpleCenterService.Status st = v.status();
-        int y = TOP;
+        List<String> lines = st == null ? List.of("正在读取……") : st.weather();
+        y += 2;
+        for (String line : lines) {
+            y += ui.wrapped(LEFT + PAD, y, WIDTH - 2 * PAD, line, TEXT, 3) + 8;
+        }
+        ui.wrapped(LEFT + PAD, Math.max(y, BOTTOM - 22), WIDTH - 2 * PAD,
+                "利率和物价由央行每天自动调整。利率高时适合存钱，利率低时适合借钱扩大公司。", DIM, 2);
+    }
+
+    static final int RECORD_ROWS = 15;
+
+    static void records(UiBuilder ui, View v, State s, int y) {
+        List<FinanceMenu.TransactionRow> rows = v.transactions();
+        s.recordScroll = clamp(s.recordScroll, 0, Math.max(0, rows.size() - RECORD_ROWS));
+        if (rows.isEmpty()) ui.text(LEFT + PAD, y + 2, 200, "还没有交易。", DIM);
+        int amountW = 96, typeW = 70;
+        for (int i = s.recordScroll; i < Math.min(rows.size(), s.recordScroll + RECORD_ROWS); i++) {
+            FinanceMenu.TransactionRow r = rows.get(i);
+            ui.text(LEFT + 2, y, typeW, FinanceFormat.displayTransactionType(r.type()), TEXT);
+            String what = (r.objectName().isEmpty() ? "" : displayObject(r.objectName())) + (r.quantity() > 1 ? " ×" + r.quantity() : "");
+            ui.text(LEFT + 2 + typeW + 6, y, WIDTH - typeW - amountW - 16, what, DIM);
+            ui.textRight(RIGHT - 2, y, amountW, MoneyFormat.pounds(r.amount()), TEXT);
+            y += UiBuilder.LINE;
+        }
+        if (rows.size() > RECORD_ROWS) {
+            ui.textRight(RIGHT - 2, BOTTOM - 9, 160, "滚轮翻页 " + (s.recordScroll + 1) + "-"
+                    + Math.min(rows.size(), s.recordScroll + RECORD_ROWS) + " / " + rows.size(), DIM);
+        }
+    }
+
+    static void today(UiBuilder ui, View v, Actions a, int top) {
+        SimpleCenterService.Status st = v.status();
+        int y = top;
         ui.card(LEFT, y, WIDTH, 42, CARD, CARD_BORDER);
         int rightX = 236;
         ui.text(LEFT + PAD, y + 4, 60, "钱包", DIM);
@@ -106,22 +184,22 @@ final class SimplePages {
                 + "  股票 " + MoneyFormat.compact(v.stockValue()), DIM);
         if (ownsCompany(v)) ui.text(rightX, y + 29, colW, "公司估值 " + MoneyFormat.compact(valuation(v)), DIM);
 
-        y += 48;
-        ui.card(LEFT, y, WIDTH, 40, CARD, CARD_BORDER);
+        y += 46;
+        ui.card(LEFT, y, WIDTH, 38, CARD, CARD_BORDER);
         Goal goal = goal(v);
         int buttonX = ui.buttonRight(RIGHT - PAD, y + 13, "去看看", () -> a.show(goal.page()), null);
         ui.text(LEFT + PAD, y + 4, 100, "下一个目标", DIM);
         ui.text(LEFT + PAD, y + 16, buttonX - LEFT - PAD - 8, goal.text(), TEXT);
-        ui.progress(LEFT + PAD, y + 29, buttonX - LEFT - PAD - 8, goal.progress());
+        ui.progress(LEFT + PAD, y + 28, buttonX - LEFT - PAD - 8, goal.progress());
 
-        y += 46;
+        y += 42;
         ui.text(LEFT + 2, y, 100, "今日机会", DIM);
         List<String> chances = st == null ? List.of("正在读取……") : st.opportunities();
         for (int i = 0; i < Math.min(3, chances.size()); i++) {
             ui.text(LEFT + PAD, y + 12 + i * UiBuilder.LINE, WIDTH - PAD, "· " + chances.get(i), TEXT);
         }
 
-        y += 50;
+        y += 47;
         int labelW = ui.text(LEFT + 2, y, 60, "最近", DIM);
         if (v.playerChoosesAdvanced()) {
             boolean on = v.wantsAdvanced();
@@ -131,7 +209,7 @@ final class SimplePages {
         }
         List<FinanceMenu.TransactionRow> rows = v.transactions();
         if (rows.isEmpty()) ui.text(LEFT + PAD, y + 12, 200, "还没有交易。", DIM);
-        for (int i = 0; i < Math.min(3, rows.size()); i++) {
+        for (int i = 0; i < Math.min(2, rows.size()); i++) {
             FinanceMenu.TransactionRow r = rows.get(i);
             String line = FinanceFormat.displayTransactionType(r.type())
                     + (r.objectName().isEmpty() ? "" : " " + displayObject(r.objectName()))
