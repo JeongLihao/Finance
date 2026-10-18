@@ -859,6 +859,7 @@ final class SimplePages {
         if (!active) {
             ui.wrapped(LEFT + PAD, cardY + 4, WIDTH - 2 * PAD, locked
                     ? "钱包满 " + MoneyFormat.pounds(unlock(v)) + " 后才能买股票（还差 " + MoneyFormat.pounds(unlock(v) - v.balance()) + "）。理财随时可以买。"
+                    : extra(v, "margin") ? "买股票：涨了卖掉赚差价，拿着每周有分红。点公司名字看走势、设自动卖出、加倍买或借股卖出。"
                     : "买股票：涨了卖掉赚差价，拿着每周有分红。点公司名字看走势、设自动卖出。", DIM, 2);
             return;
         }
