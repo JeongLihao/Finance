@@ -41,15 +41,42 @@ public final class CashService {
 
     private CashService() { }
 
+    /** 市场上的绿宝石商品 ID：注册了就按市场价浮动，没注册（自定义配置）就按配置的固定价。 */
+    public static final String EMERALD = "emerald";
+
+    /** 央行发出去、还在玩家手里的钞票总面值（取现、卖绿宝石发出；存入、买绿宝石收回）。物品被销毁时不会减少。 */
+    private static long notesOutstanding;
+
+    public static long notesOutstanding() { return notesOutstanding; }
+
+    public static void restoreNotesOutstanding(long value) { notesOutstanding = Math.max(0, value); }
+
+    private static void notesIssued(long amount) {
+        if (amount > 0) notesOutstanding = finance.util.MathUtil.saturatedAddNonNegative(notesOutstanding, amount);
+    }
+
+    private static void notesRetired(long amount) {
+        if (amount > 0) notesOutstanding = Math.max(0, notesOutstanding - amount);
+    }
+
+    static finance.market.MarketPrice emeraldMarket() {
+        if (finance.commodity.CommodityRegistry.getCommodity(EMERALD) == null) return null;
+        return finance.market.NpcMarketMaker.getMarketPrice(EMERALD);
+    }
+
     // ---------------------------------------------------------------- 报价
 
-    /** 每颗绿宝石换得的便士。 */
+    /** 每颗绿宝石换得的便士：市场收购价（浮动）；没有绿宝石市场时用配置的固定价。 */
     public static long emeraldToCash() {
+        finance.market.MarketPrice mp = emeraldMarket();
+        if (mp != null) return Math.max(1, mp.getBidPrice());
         return Math.max(1, FinanceConfig.cashEmeraldToCash());
     }
 
     /** 买一颗绿宝石要付的便士；不低于 {@link #emeraldToCash()}，保证没有来回套利。 */
     public static long cashToEmerald() {
+        finance.market.MarketPrice mp = emeraldMarket();
+        if (mp != null) return Math.max(emeraldToCash() + 1, mp.getAskPrice());
         return Math.max(emeraldToCash(), FinanceConfig.cashCashToEmerald());
     }
 
@@ -80,6 +107,7 @@ public final class CashService {
             giveAmount(purse, want);
             return Result.fail("入账失败，现金已退回。");
         }
+        notesRetired(want);
         AccountManager.addTransactionRecord(new TransactionRecord(ISSUER, player, want, TransactionType.CASH_DEPOSIT,
                 player, "现金", want));
         return Result.ok("已存入 " + want + " 便士" + (change > 0 ? "（找零 " + change + "）" : "")
@@ -96,6 +124,7 @@ public final class CashService {
         if (balance < amount) return Result.fail("账户可用余额只有 " + balance + " 便士。");
         if (!AccountManager.withdraw(player, amount)) return Result.fail("扣款失败，请稍后重试。");
         giveAmount(purse, amount);
+        notesIssued(amount);
         AccountManager.addTransactionRecord(new TransactionRecord(player, ISSUER, amount, TransactionType.CASH_WITHDRAW,
                 player, "现金", amount));
         return Result.ok("已取出 " + amount + " 便士现金，账户余额 " + AccountManager.getBalance(player) + "。");
@@ -112,8 +141,19 @@ public final class CashService {
         if (count > q.sellLeft()) return Result.fail("今天还能卖出 " + q.sellLeft() + " 颗绿宝石（每日 " + q.sellLimit() + " 颗）。");
         if (purse.emeralds() < count) return Result.fail("身上只有 " + purse.emeralds() + " 颗绿宝石。");
         long cash = Math.multiplyExact(count, q.emeraldToCash());
+        finance.market.MarketPrice market = emeraldMarket();
+        if (market != null && AccountManager.getBalance(finance.market.NpcMarketMaker.NPC_UUID) < cash) {
+            return Result.fail("市场今天收绿宝石的钱不够了，明天再来。");
+        }
         if (!purse.removeEmeralds(count)) return Result.fail("扣除绿宝石失败。");
+        if (market != null) {
+            // 浮动价：市场出钱、收下绿宝石，库存多了价格就跌
+            AccountManager.withdraw(finance.market.NpcMarketMaker.NPC_UUID, cash);
+            finance.commodity.CommodityInventoryManager.addCommodity(finance.market.NpcMarketMaker.NPC_UUID, EMERALD, (int) count);
+            finance.market.NpcMarketMaker.recordNpcTrade(EMERALD, true, (int) count, q.emeraldToCash());
+        }
         giveAmount(purse, cash);
+        notesIssued(cash);
         purse.setQuotaUsed(QUOTA_SELL, day, purse.quotaUsed(QUOTA_SELL, day) + count);
         AccountManager.addTransactionRecord(new TransactionRecord(ISSUER, player, cash, TransactionType.EMERALD_SELL,
                 player, "绿宝石", count));
@@ -130,7 +170,17 @@ public final class CashService {
         long cost = Math.multiplyExact(count, q.cashToEmerald());
         long total = purse.cashTotal();
         if (total < cost) return Result.fail("需要 " + cost + " 便士现金，身上只有 " + total + "。可以先从账户取现。");
+        finance.market.MarketPrice market = emeraldMarket();
+        if (market != null && finance.commodity.CommodityInventoryManager.getCommodityAmount(finance.market.NpcMarketMaker.NPC_UUID, EMERALD) < count) {
+            return Result.fail("市场上没有这么多绿宝石了，等别人卖了再来。");
+        }
         long change = takeExact(purse, cost);
+        if (market != null) {
+            finance.commodity.CommodityInventoryManager.removeCommodity(finance.market.NpcMarketMaker.NPC_UUID, EMERALD, (int) count);
+            AccountManager.deposit(finance.market.NpcMarketMaker.NPC_UUID, cost);
+            finance.market.NpcMarketMaker.recordNpcTrade(EMERALD, false, (int) count, q.cashToEmerald());
+        }
+        notesRetired(cost);
         purse.giveEmeralds(count);
         purse.setQuotaUsed(QUOTA_BUY, day, purse.quotaUsed(QUOTA_BUY, day) + count);
         AccountManager.addTransactionRecord(new TransactionRecord(player, ISSUER, cost, TransactionType.EMERALD_BUY,

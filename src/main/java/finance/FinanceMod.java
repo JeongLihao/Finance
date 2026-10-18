@@ -137,6 +137,8 @@ public class FinanceMod {
         CommodityRegistry.registerDefault(new Commodity("obsidian", "minecraft:obsidian", "黑曜石", CommodityCategory.BUILDING_BLOCKS, 30).reserveTier(0));
         CommodityRegistry.registerDefault(new Commodity("ender_pearl", "minecraft:ender_pearl", "末影珍珠", CommodityCategory.MISCELLANEOUS, 60).reserveTier(0));
         CommodityRegistry.registerDefault(new Commodity("diamond", "minecraft:diamond", "钻石", CommodityCategory.RAW_MATERIALS, 300).reserveTier(0));
+        // 绿宝石是普通商品、价格浮动：村民交易刷得越多，它就越便宜，不会冲垮货币（央行不供应）
+        CommodityRegistry.registerDefault(new Commodity(finance.cash.CashService.EMERALD, "minecraft:emerald", "绿宝石", CommodityCategory.MISCELLANEOUS, 50).reserveTier(0));
     }
 
     /** 注册所有命令 */

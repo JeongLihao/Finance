@@ -442,7 +442,18 @@ public final class SimpleCenterService {
             out.add("上次开会（第 " + d.day() + " 天）：利率 " + pct(d.rateBefore()) + " → " + pct(d.rateAfter()) + "。");
         }
         out.add(reserveLine());
+        out.add(moneyLine());
         return out;
+    }
+
+    /** 流通中的钱和最近 7 天的变化。 */
+    static String moneyLine() {
+        var m = finance.centralbank.MoneySupplyService.summary();
+        String head = "流通中的钱 " + MoneyFormat.compact(m.circulating()) + "（账户 " + MoneyFormat.compact(m.accounts())
+                + "、公司 " + MoneyFormat.compact(m.companies()) + "、央行钞票 " + MoneyFormat.compact(m.notes()) + "）";
+        if (!m.hasHistory()) return head + "。钱都是央行发的，钱比货涨得快，物价就会涨。";
+        return head + "，最近 7 天" + (m.change7d() >= 0 ? "多了 " : "少了 ") + MoneyFormat.compact(Math.abs(m.change7d()))
+                + "。钱比货涨得快，物价就会涨，央行会加息把钱收回去。";
     }
 
     /** 央行储备投放到第几档、下一档还差多少成交额。 */

@@ -167,10 +167,14 @@ final class SimplePages {
         List<String> lines = st == null ? List.of("正在读取……") : st.weather();
         y += 2;
         for (String line : lines) {
-            y += ui.wrapped(LEFT + PAD, y, WIDTH - 2 * PAD, line, TEXT, 3) + 8;
+            int room = (BOTTOM - y) / UiBuilder.LINE;
+            if (room <= 0) break;
+            y += ui.wrapped(LEFT + PAD, y, WIDTH - 2 * PAD, line, TEXT, Math.min(3, room)) + 5;
         }
-        ui.wrapped(LEFT + PAD, Math.max(y, BOTTOM - 22), WIDTH - 2 * PAD,
-                "利率和物价由央行每天自动调整。利率高时适合存钱，利率低时适合借钱扩大公司。", DIM, 2);
+        if (y + 2 * UiBuilder.LINE <= BOTTOM) {
+            ui.wrapped(LEFT + PAD, Math.max(y, BOTTOM - 22), WIDTH - 2 * PAD,
+                    "利率和物价由央行每天自动调整。利率高时适合存钱，利率低时适合借钱扩大公司。", DIM, 2);
+        }
     }
 
     static final int RECORD_ROWS = 15;
@@ -736,7 +740,7 @@ final class SimplePages {
             ui.text(LEFT + PAD, y + 2, WIDTH, "服务器没有开启实体现金。", DIM);
             return;
         }
-        y += ui.wrapped(LEFT + 2, y, WIDTH - 4, "现金是背包里的便士铜币、10 便士硬币和 1 磅纸币，和账户里的钱 1:1 互换；也可以和绿宝石兑换。", DIM, 2) + 6;
+        y += ui.wrapped(LEFT + 2, y, WIDTH - 4, "现金是央行发行的便士铜币、10 便士硬币和 1 磅纸币，和账户里的钱 1:1 互换。绿宝石按市场价换，价格每天在变。", DIM, 2) + 6;
         ui.card(LEFT, y, WIDTH, 38, CARD, CARD_BORDER);
         ui.text(LEFT + PAD, y + 5, WIDTH - 2 * PAD, "账户 " + MoneyFormat.pounds(c.balance()) + "    身上现金 " + MoneyFormat.pounds(c.cashOnHand()), TEXT);
         ui.buttonFlow(LEFT + PAD, y + 20, WIDTH - 2 * PAD, 3, List.of(
@@ -746,7 +750,7 @@ final class SimplePages {
                 new Btn("取出 10 磅", () -> a.simple(SimpleActionPacket.Action.CASH_WITHDRAW, "", 1_000, 0), c.balance() >= 1_000 ? null : "账户不到 10 磅")));
         y += 44;
         ui.card(LEFT, y, WIDTH, 50, CARD, CARD_BORDER);
-        ui.text(LEFT + PAD, y + 5, WIDTH - 2 * PAD, "绿宝石 " + c.emeralds() + " 颗：卖 1 颗得 " + MoneyFormat.pounds(c.emeraldToCash())
+        ui.text(LEFT + PAD, y + 5, WIDTH - 2 * PAD, "绿宝石 " + c.emeralds() + " 颗：现在卖 1 颗得 " + MoneyFormat.pounds(c.emeraldToCash())
                 + "，买 1 颗付 " + MoneyFormat.pounds(c.cashToEmerald()), TEXT);
         ui.text(LEFT + PAD, y + 17, WIDTH - 2 * PAD, "今天还能卖 " + c.sellLeft() + " 颗、买 " + c.buyLeft() + " 颗（现金从背包里扣、放进背包）", DIM);
         ui.buttonFlow(LEFT + PAD, y + 31, WIDTH - 2 * PAD, 3, List.of(
