@@ -6,14 +6,18 @@ import finance.gameplay.FinanceTerminalType;
 import finance.warehouse.WarehouseManager;
 import finance.warehouse.WarehouseRecord;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.StringRepresentable;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.BaseEntityBlock;
+import net.minecraft.world.level.block.Mirror;
 import net.minecraft.world.level.block.RenderShape;
+import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
@@ -42,7 +46,10 @@ public final class WarehouseControllerBlock extends BaseEntityBlock {
 
     public WarehouseControllerBlock(Properties properties) {
         super(properties);
-        registerDefaultState(stateDefinition.any().setValue(INDICATOR, Indicator.NORMAL));
+        registerDefaultState(stateDefinition
+                .any()
+                .setValue(INDICATOR, Indicator.NORMAL)
+                .setValue(FacingShapes.FACING, Direction.NORTH));
     }
 
     @Override
@@ -105,9 +112,24 @@ public final class WarehouseControllerBlock extends BaseEntityBlock {
     }
 
     @Override
+    public BlockState getStateForPlacement(BlockPlaceContext context) {
+        return FacingShapes.facingPlacer(defaultBlockState(), context);
+    }
+
+    @Override
+    public BlockState rotate(BlockState state, Rotation rotation) {
+        return FacingShapes.rotate(state, rotation);
+    }
+
+    @Override
+    public BlockState mirror(BlockState state, Mirror mirror) {
+        return FacingShapes.mirror(state, mirror);
+    }
+
+    @Override
     protected void createBlockStateDefinition(
             StateDefinition.Builder<net.minecraft.world.level.block.Block, BlockState> builder) {
-        builder.add(INDICATOR);
+        builder.add(INDICATOR, FacingShapes.FACING);
     }
 
     @Override

@@ -1,39 +1,42 @@
-"""Procedural 16x16 pixel-art textures for the Finance mod, in a Create-mod-like style.
+"""Detail textures for the Finance mod's block models, plus its item icons, in vanilla 16px style.
 
 Usage: python tools/textures/gen_textures.py [output_assets_textures_dir]
 Default output: src/main/resources/assets/finance/textures
 
-Style notes (after Create's casings): chunky 2px metal frames (andesite / brass / copper)
-with soft top-left light, recessed wooden centers, warm low-saturation ramps, no pure-black
-outlines, brass-rimmed gauges and amber nixie-style displays.
+The block models (tools/textures/gen_models.py) build most surfaces from vanilla textures
+(dark oak, smooth stone, quartz, iron bars, wool...). This script only draws what vanilla
+has no texture for: screens, drawers, awnings, the notice board, status lamps and items.
+Colours stay close to the vanilla palette so the pieces sit next to vanilla materials.
 """
-import math
 import os
 import sys
 
 from PIL import Image
 
-# ramps, dark -> light
-ANDESITE = ['#353638', '#4e5052', '#6a6c6d', '#868886', '#a3a4a0', '#c2c1bb']
-BRASS = ['#4a2e12', '#774c1b', '#a46e28', '#cc9638', '#e8bf58', '#fbe496']
-COPPER = ['#4a2216', '#7a3922', '#a9532f', '#cf7444', '#e99863', '#f7c08c']
-WOOD = ['#3a2615', '#533720', '#6c492a', '#876034', '#a27741', '#b98d52']
-DARKWOOD = ['#1f140b', '#2e1f11', '#412c18', '#553a20', '#6a4a2a', '#7e5a34']
-SPRUCE = ['#2e1d10', '#432c18', '#5a3c21', '#714d2b', '#8a6036', '#a07343']
-FELT = ['#14341f', '#1d4a2b', '#285f37', '#357545', '#468b54']
-CORK = ['#5e4026', '#7a5634', '#966c42', '#b08552', '#c49c66']
-PAPER = ['#7d6a4c', '#ab9672', '#cfbd96', '#e8dcbc', '#f7f0dc']
-DISPLAY = ['#120e0b', '#1b1611', '#262019', '#332a20']
-DIAL = ['#8d877b', '#c9c3b4', '#ebe6d8', '#fbf8ee']
-TEAL = ['#0f2e2d', '#174443', '#1f5b58', '#2b736e', '#3f8d85', '#5ba89c']
+DARK_OAK = ['#26190b', '#33210e', '#3f2a13', '#4b3218', '#5a3e1f', '#6b4c28']
+SPRUCE = ['#3b2812', '#4f3519', '#614321', '#72512a', '#866236', '#9a7343']
+OAK = ['#5e4a2b', '#7a6038', '#94774a', '#ad8d57', '#bc9862', '#c8a46f']
+STONE = ['#4a4a4a', '#5f5f5f', '#747474', '#8a8a8a', '#a0a0a0', '#b6b6b6']
+IRON = ['#4a4a4a', '#6e6e6e', '#949494', '#bdbdbd', '#d8d8d8', '#ececec']
+BLACKSTONE = ['#16131a', '#1e1a22', '#28232b', '#332d35', '#3d3640', '#4a434c']
+GOLD = ['#5a3d04', '#8a6406', '#c2930c', '#e6b81f', '#f8d743', '#fdf09a']
+PAPER = ['#8a7a5c', '#b3a27c', '#d1c39d', '#e6dbb9', '#f2ead2', '#fbf7ea']
+CORK = ['#5c3e22', '#73502d', '#8a6238', '#9d7243', '#b0844f']
+LEATHER = ['#1b3a1f', '#24502a', '#2f6635', '#3d7d42', '#4f9452']
+SCREEN = ['#0c0f0e', '#121816', '#18211e', '#203029']
 GLOW = {
-    'amber': ['#5c2208', '#b04e12', '#ec8a2a', '#ffc066', '#fff0c8'],
-    'green': ['#173f16', '#2f7d27', '#58bf43', '#9fe67c', '#e2ffd0'],
-    'yellow': ['#5e420a', '#b98a18', '#efc439', '#ffe385', '#fff8d8'],
-    'red': ['#4e0f0d', '#a0261d', '#e2483a', '#ff8f78', '#ffe0d6'],
-    'gray': ['#2c2d2f', '#4a4c4f', '#6a6d70', '#8e9194', '#b4b6b8'],
-    'orange': ['#5a250a', '#b4521a', '#ee7f2c', '#ffb36a', '#ffe6c4'],
+    'green': ['#1d5a1d', '#3a9a2a', '#6fdc4a', '#b8ff8e', '#f0ffe2'],
+    'yellow': ['#6a4c0a', '#b88d14', '#f1c232', '#ffe68a', '#fffbe0'],
+    'red': ['#5a1210', '#a8261c', '#e8473a', '#ff9a86', '#fff0ea'],
+    'orange': ['#5c280a', '#b0521a', '#f08a2e', '#ffc072', '#fff1dc'],
+    'gray': ['#2a2a2c', '#3d3d40', '#55565a', '#6e7075', '#888a8e'],
 }
+WOOL = {  # stripe colour ramps for the stall awning
+    'green': ['#3d5c18', '#4f7a1e', '#5f8f23'],
+    'yellow': ['#b88a10', '#dcab18', '#f2c22a'],
+    'red': ['#7c1b18', '#9c2722', '#b5312b'],
+}
+WHITE_WOOL = ['#c9cbc6', '#dfe1dc', '#eef0ec']
 
 
 def h(x, y, s=0):
@@ -50,9 +53,6 @@ class Tex:
         if 0 <= x < 16 and 0 <= y < 16:
             self.g[y][x] = c
         return self
-
-    def get(self, x, y):
-        return self.g[y][x]
 
     def rect(self, x0, y0, x1, y1, c):
         for y in range(y0, y1 + 1):
@@ -81,6 +81,14 @@ class Tex:
                     self.px(x0 + dx, y0 + dy, legend[ch])
         return self
 
+    def fill(self, x0, y0, x1, y1, ramp, base, seed, rate=7):
+        for y in range(y0, y1 + 1):
+            for x in range(x0, x1 + 1):
+                r = h(x, y, seed) % rate
+                i = base - 1 if r == 0 else base + 1 if r == 1 else base
+                self.px(x, y, ramp[max(0, min(len(ramp) - 1, i))])
+        return self
+
     def save(self, path):
         im = Image.new('RGBA', (16, 16), (0, 0, 0, 0))
         for y in range(16):
@@ -92,530 +100,358 @@ class Tex:
         im.save(path)
 
 
-def jitter(ramp, i, x, y, seed, rate=6):
-    r = h(x, y, seed) % rate
-    if r == 0:
-        i -= 1
-    elif r == 1:
-        i += 1
-    return ramp[max(0, min(len(ramp) - 1, i))]
-
-
-# ---------------------------------------------------------------- materials
-
-def planks(t, x0, y0, x1, y1, ramp, seed=0, plank=4, vertical=False):
-    """Soft wooden planks with grain, highlight on each plank's top edge."""
+def planks(t, x0, y0, x1, y1, ramp, seed, height=4):
+    """Vanilla-like horizontal planks: dark seam under each board, staggered joints."""
     for y in range(y0, y1 + 1):
+        row = (y - y0) % height
+        board = (y - y0) // height
         for x in range(x0, x1 + 1):
-            a, b = (x - x0, y - y0) if not vertical else (y - y0, x - x0)
-            row = b % plank
-            board = b // plank
-            if row == 0:
-                i = 3
-            elif row == plank - 1:
-                i = 1
+            if row == height - 1 or (x + board * 7 + seed) % 16 == 0:
+                c = ramp[1]
             else:
-                i = 2
-            # butt joints offset per board
-            if (a + board * 5 + seed) % 11 == 0 and row != 0:
-                i = 1
-            elif h(a // 4, b, seed + board) % 6 == 0 and 0 < row < plank - 1:
-                i = 3
-            t.px(x, y, jitter(ramp, i, x, y, seed + 7, 18))
+                r = h(x // 2, y, seed + board) % 6
+                c = ramp[2] if r == 0 else ramp[4] if r == 1 else ramp[3]
+            t.px(x, y, c)
     return t
 
 
-def frame(t, ramp, seed=0, inset_shadow=None):
-    """Create-style 2px metal frame with soft lighting and rounded inner corners."""
-    for y in range(16):
-        for x in range(16):
-            ring = min(x, y, 15 - x, 15 - y)
-            if ring > 1:
-                continue
-            lit = (x + y) < 15  # top-left half
-            if ring == 0:
-                i = 2 if lit else 1
-                if x in (0, 15) and y in (0, 15):
-                    i = 1
-            else:
-                i = 4 if lit else 3
-            t.px(x, y, jitter(ramp, i, x, y, seed, 14))
-    # highlight streaks on top/left ring 1
-    for k in range(3, 13):
-        if h(k, 0, seed) % 3 == 0:
-            t.px(k, 1, ramp[5])
-    # bolts in the corners of ring 1
-    for (bx, by) in ((1, 1), (14, 1), (1, 14), (14, 14)):
-        t.px(bx, by, ramp[5] if (bx, by) == (1, 1) else ramp[4] if bx + by < 15 else ramp[2])
-    # recessed shadow just inside the frame
-    if inset_shadow:
-        dark, light = inset_shadow
-        for k in range(2, 14):
-            t.px(k, 2, dark).px(2, k, dark)
-        # rounded inner corners
-        t.px(2, 2, ramp[3]).px(13, 2, ramp[3]).px(2, 13, ramp[2]).px(13, 13, ramp[2])
+# ---------------------------------------------------------------- screens and panels
+
+def screen(t, x0, y0, x1, y1):
+    """Blackstone bezel around a dark glass screen."""
+    t.rect(x0, y0, x1, y1, BLACKSTONE[2])
+    t.bevel(x0, y0, x1, y1, BLACKSTONE[4], BLACKSTONE[1])
+    t.rect(x0 + 1, y0 + 1, x1 - 1, y1 - 1, SCREEN[1])
+    t.px(x0 + 1, y0 + 1, SCREEN[3])
     return t
 
 
-def casing(metal, wood=WOOD, seed=0):
-    t = Tex()
-    planks(t, 2, 2, 13, 13, wood, seed=seed)
-    frame(t, metal, seed, inset_shadow=(wood[0], wood[4]))
-    return t
-
-
-def recessed(t, x0, y0, x1, y1, ramp):
-    """Dark recessed panel with a lip: shadow on top-left, light on bottom-right."""
-    t.rect(x0, y0, x1, y1, ramp[1])
-    t.bevel(x0, y0, x1, y1, ramp[0], ramp[3])
-    return t
-
-
-def lamp(t, cx, cy, glow, rim=BRASS):
-    """4x4 glowing glass in a brass rim, top-left of the glass at (cx, cy)."""
-    t.box(cx - 1, cy - 1, cx + 4, cy + 4, rim[2])
-    t.bevel(cx - 1, cy - 1, cx + 4, cy + 4, rim[4], rim[1])
-    t.px(cx - 1, cy - 1, rim[3]).px(cx + 4, cy + 4, rim[0])
-    for y in range(4):
-        for x in range(4):
-            d = x + y
-            t.px(cx + x, cy + y, glow[3] if d <= 1 else glow[2] if d <= 4 else glow[1])
-    t.px(cx, cy, glow[4]).px(cx + 1, cy, glow[4])
-    return t
-
-
-def bolt(t, x, y, ramp):
-    t.px(x, y, ramp[4]).px(x + 1, y + 1, ramp[1]).px(x + 1, y, ramp[3]).px(x, y + 1, ramp[2])
-
-
-# ---------------------------------------------------------------- casings / tops
-
-def machine_casing():
-    return casing(ANDESITE, WOOD, seed=1)
-
-
-def teal_casing():
-    return casing(BRASS, DARKWOOD, seed=3)
-
-
-def machine_top():
-    t = casing(ANDESITE, WOOD, seed=5)
-    # shaft socket: andesite square with a dark axle
-    recessed(t, 5, 5, 10, 10, ANDESITE)
-    t.rect(6, 6, 9, 9, ANDESITE[3])
-    t.bevel(6, 6, 9, 9, ANDESITE[5], ANDESITE[2])
-    t.rect(7, 7, 8, 8, ANDESITE[1])
-    t.px(7, 7, ANDESITE[0])
-    return t
-
-
-def indicator(glow):
-    t = casing(ANDESITE, WOOD, seed=9)
-    recessed(t, 4, 4, 11, 11, ANDESITE)
-    lamp(t, 6, 6, GLOW[glow])
-    # light spill on the wood
-    if glow != 'gray':
-        for x, y in ((7, 3), (8, 3), (3, 7), (3, 8), (12, 7), (12, 8), (7, 12), (8, 12)):
-            t.px(x, y, GLOW[glow][1])
-    return t
-
-
-# ---------------------------------------------------------------- machines
-
-def display_panel(seed):
-    t = Tex()
-    frame(t, BRASS, seed)
-    recessed(t, 2, 2, 13, 13, DISPLAY)
-    return t
-
-
-def market_terminal():
-    t = display_panel(11)
-    A, G, R = GLOW['amber'], GLOW['green'], GLOW['red']
-    D = DISPLAY
-    # three ticker lines: arrow + amber digits
-    rows = [(4, G, True), (7, R, False), (10, G, True)]
-    for y, col, up in rows:
+def market_screen():
+    """North face of the price board (uv x 1..15, y 0..9): three ticker rows."""
+    t = Tex().rect(0, 0, 15, 15, BLACKSTONE[2])
+    screen(t, 1, 0, 14, 8)
+    G, R, W = GLOW['green'], GLOW['red'], '#9fb3a9'
+    for y, col, up in ((2, G, True), (4, R, False), (6, G, True)):
         if up:
-            t.px(4, y - 1, col[3]).rect(3, y, 5, y, col[2])
+            t.px(4, y - 1, col[2]).rect(3, y, 5, y, col[2])
         else:
-            t.rect(3, y - 1, 5, y - 1, col[2]).px(4, y, col[3])
-        for x in (7, 8, 9, 11, 12):
-            t.px(x, y - 1, A[2]).px(x, y, A[3] if (x + y) % 3 else A[2])
-        t.px(10, y, A[1])
-    for y in (5, 8):
-        t.rect(3, y + 1, 12, y + 1, D[2])
-    t.px(12, 3, A[4])
+            t.rect(3, y - 1, 5, y - 1, col[2]).px(4, y, col[2])
+        t.rect(7, y, 9, y, W).rect(11, y, 12, y, col[3])
     return t
 
 
-def securities_terminal():
-    t = display_panel(13)
-    A = GLOW['amber']
-    D = DISPLAY
-    for y in (5, 8, 11):
-        for x in range(3, 13, 2):
-            t.px(x, y, D[3])
-    pts = [(3, 10), (5, 9), (6, 10), (8, 7), (9, 8), (11, 5), (12, 4)]
-    for (x0, y0), (x1, y1) in zip(pts, pts[1:]):
-        n = max(abs(x1 - x0), abs(y1 - y0))
-        for k in range(n + 1):
-            x = x0 + round((x1 - x0) * k / n)
-            y = y0 + round((y1 - y0) * k / n)
-            t.px(x, y + 1, A[1])
-            t.px(x, y, A[3])
-    t.px(12, 4, A[4]).px(12, 3, A[2])
-    # volume ticks
-    for x, hgt in ((4, 1), (7, 1), (10, 1), (12, 1)):
-        t.rect(x, 12 - hgt + 1, x, 12, GLOW['green'][1])
+def securities_screen():
+    """North face of the monitor (uv x 2..14, y 0..7): candlestick chart."""
+    t = Tex().rect(0, 0, 15, 15, BLACKSTONE[2])
+    screen(t, 2, 0, 13, 6)
+    for x in range(3, 13, 2):
+        t.px(x, 3, SCREEN[3])
+    for x, top, bot, up in ((4, 3, 4, False), (6, 2, 4, True), (8, 2, 3, True), (10, 1, 3, True), (12, 1, 2, True)):
+        col = GLOW['green'] if up else GLOW['red']
+        t.rect(x, top, x, bot, col[2]).px(x, top, col[3])
     return t
 
 
-def bank_counter():
-    t = Tex()
-    planks(t, 2, 2, 13, 13, DARKWOOD, seed=15)
-    frame(t, BRASS, 15, inset_shadow=(DARKWOOD[0], DARKWOOD[4]))
-    # teller window with brass bars over teal glass
-    recessed(t, 3, 3, 12, 8, TEAL)
-    t.px(4, 4, TEAL[5]).px(5, 4, TEAL[4]).px(4, 5, TEAL[4])
-    for x in (5, 8, 10):
-        t.rect(x, 4, x, 7, BRASS[3])
-        t.px(x, 4, BRASS[5]).px(x, 7, BRASS[1])
-    t.rect(4, 6, 11, 6, BRASS[2])
-    # counter ledge + coin slot
-    t.rect(2, 9, 13, 9, BRASS[4])
-    t.rect(2, 10, 13, 10, BRASS[1])
-    t.rect(6, 12, 9, 12, DARKWOOD[0])
-    t.rect(6, 11, 9, 11, BRASS[2]).px(6, 11, BRASS[4])
-    for x, y in ((3, 11), (11, 11)):
-        bolt(t, x, y, BRASS)
-    return t
-
-
-def central_bank_console():
-    t = Tex()
-    planks(t, 2, 2, 13, 13, DARKWOOD, seed=17)
-    frame(t, BRASS, 17, inset_shadow=(DARKWOOD[0], DARKWOOD[4]))
-    L = {'e': BRASS[5], 'd': BRASS[4], 'c': BRASS[2], 'b': BRASS[1],
-         'W': DIAL[2], 'w': DIAL[1], 'g': GLOW['green'][2], 'y': GLOW['yellow'][2], 'r': GLOW['red'][2],
-         'n': DARKWOOD[1], 'h': ANDESITE[0]}
-    t.grid(2, 2, [
-        "....eeed....",
-        "..eegggyyd..",
-        ".eggWWWWyrd.",
-        ".egWWWWWWrc.",
-        "egWWWWWWnWrc",
-        "eWWWWWWnWWWc",
-        "dWWWWWhWWWWb",
-        "dWWWWWWWWwwb",
-        ".cWWWWWWwwb.",
-        ".cwWWWWwwwb.",
-        "..cbwwwwbb..",
-        "....bbbb....",
-    ], L)
-    return t
-
-
-def company_desk():
-    t = Tex()
-    planks(t, 0, 0, 15, 15, DARKWOOD, seed=19, plank=5)
-    t.bevel(0, 0, 15, 15, DARKWOOD[3], DARKWOOD[0])
-    # desktop lip with green leather
-    t.rect(1, 1, 14, 3, WOOD[3])
-    t.rect(1, 1, 14, 1, WOOD[4])
-    t.rect(2, 2, 13, 2, FELT[3])
-    t.rect(1, 4, 14, 4, DARKWOOD[0])
-    for y0 in (6, 11):
-        t.rect(2, y0, 13, y0 + 3, WOOD[2])
-        t.bevel(2, y0, 13, y0 + 3, WOOD[4], WOOD[0])
-        t.rect(3, y0 + 1, 12, y0 + 2, WOOD[3])
-        t.rect(6, y0 + 1, 9, y0 + 1, BRASS[3]).px(6, y0 + 1, BRASS[5])
-        t.rect(7, y0 + 2, 8, y0 + 2, BRASS[1])
-    for x, y in ((0, 0), (14, 0), (0, 14), (14, 14)):
-        bolt(t, x, y, BRASS)
-    return t
-
-
-def boardroom_table():
-    t = Tex()
-    planks(t, 0, 0, 15, 15, DARKWOOD, seed=21, plank=4, vertical=True)
-    t.bevel(0, 0, 15, 15, DARKWOOD[4], DARKWOOD[0])
-    t.box(2, 2, 13, 13, BRASS[3])
-    t.bevel(2, 2, 13, 13, BRASS[4], BRASS[1])
-    for y in range(3, 13):
+def keyboard():
+    """Top of the keyboard slab (uv x 3..13, z 2..6)."""
+    t = Tex().rect(0, 0, 15, 15, BLACKSTONE[2])
+    t.rect(3, 2, 12, 5, BLACKSTONE[1])
+    for y in (2, 4):
         for x in range(3, 13):
-            t.px(x, y, jitter(FELT, 2, x, y, 23, 7))
-    t.bevel(3, 3, 12, 12, FELT[1], FELT[3])
-    for x, y in ((1, 1), (13, 1), (1, 13), (13, 13)):
-        bolt(t, x, y, BRASS)
+            t.px(x, y, STONE[4] if (x + y // 2) % 2 == 0 else STONE[3])
+    t.rect(5, 5, 10, 5, STONE[3])
     return t
 
 
-COG = [
-    "....4433....",
-    ".44.4433.33.",
-    ".4444433333.",
-    "..44444333..",
-    "4444DDDC3322",
-    "4444DaAB3322",
-    "3333DAAB2222",
-    "3333CBBB2222",
-    "..33332222..",
-    ".3333322222.",
-    ".33.3222.22.",
-    "....3222....",
-]
-
-
-def cog(t, wood=SPRUCE, hub=ANDESITE):
-    """Create-style cogwheel face filling the 12x12 inner area."""
-    L = {'4': wood[4], '3': wood[3], '2': wood[2],
-         'a': hub[0], 'A': hub[1], 'B': hub[3], 'C': hub[4], 'D': hub[5]}
-    t.grid(2, 2, COG, L)
-    # drop shadow onto the recessed background
-    for y, row in enumerate(COG):
-        for x, ch in enumerate(row):
-            if ch != '.':
-                for nx, ny in ((x + 1, y + 1),):
-                    if ny < 12 and nx < 12 and COG[ny][nx] == '.':
-                        t.px(nx + 2, ny + 2, DISPLAY[0])
+def gauge_panel():
+    """Top of the central bank's sloped panel (uv x 2..14, z 3..13): dial and buttons."""
+    t = Tex().rect(0, 0, 15, 15, BLACKSTONE[2])
+    t.rect(2, 3, 13, 12, BLACKSTONE[3])
+    t.bevel(2, 3, 13, 12, BLACKSTONE[5], BLACKSTONE[1])
+    t.grid(3, 3, [
+        "...GGGG...",
+        ".GGWWWWGG.",
+        ".GgWWWWrG.",
+        "GWgWWWWrWG",
+        "GWWWWWWnWG",
+        "GWWWWWnWWG",
+        "GWWWWkWWWG",
+        ".GWWWWWWG.",
+        ".GGWWWWGG.",
+        "...GGGG...",
+    ], {'G': GOLD[3], 'W': '#ece6d2', 'g': GLOW['green'][1], 'r': GLOW['red'][1],
+        'n': BLACKSTONE[1], 'k': BLACKSTONE[0]})
+    t.px(4, 4, GOLD[4]).px(3, 6, GOLD[4]).px(11, 11, GOLD[1]).px(12, 9, GOLD[1])
     return t
 
 
-def company_factory_controller():
+def factory_panel():
+    """North face of the company factory controller cabinet (uv x 1..15, y 3..16)."""
+    t = Tex().fill(0, 0, 15, 15, STONE, 3, 5, rate=9)
+    t.rect(1, 3, 14, 15, STONE[3])
+    t.bevel(1, 3, 14, 15, STONE[4], STONE[1])
+    t.grid(5, 4, ["..GGGG..", ".GWWWnG.", "GWWWnWWG", "GWWkWWWG", ".GWWWWG.", "..GGGG.."],
+           {'G': IRON[1], 'W': '#e8e4d8', 'n': GLOW['red'][1], 'k': BLACKSTONE[0]})
+    for x, col in ((4, GLOW['green']), (7, GLOW['yellow']), (10, GLOW['red'])):
+        t.rect(x, 11, x + 1, 11, col[2]).px(x, 11, col[3])
+    t.rect(3, 13, 12, 13, BLACKSTONE[1]).rect(3, 14, 12, 14, STONE[2])
+    return t
+
+
+# ---------------------------------------------------------------- furniture details
+
+def teller_grille():
+    """Teller window bars (cutout), sampled through uv y 0..7: rail on top, bars every 3px."""
     t = Tex()
-    frame(t, ANDESITE, 29)
-    recessed(t, 2, 2, 13, 13, DISPLAY)
-    cog(t)
-    lamp_c = GLOW['green']
-    t.px(12, 3, lamp_c[3]).px(12, 4, lamp_c[1]).px(11, 3, BRASS[2])
+    for x in range(1, 16, 3):
+        t.rect(x, 1, x, 7, IRON[3]).px(x, 7, IRON[1])
+    t.rect(0, 0, 15, 0, IRON[4]).rect(0, 1, 15, 1, IRON[2])
     return t
 
 
-def warehouse_controller():
-    t = casing(ANDESITE, WOOD, seed=31)
-    # tank window gauge on the left
-    recessed(t, 3, 3, 6, 12, DISPLAY)
-    levels = [GLOW['green']] * 4 + [GLOW['yellow']] * 2 + [GLOW['orange']]
-    for k, g in enumerate(levels):
-        y = 11 - k
-        t.px(4, y, g[3]).px(5, y, g[2])
-    t.px(4, 4, '#3a3f44').px(5, 4, '#2b2f33')
-    t.rect(3, 7, 3, 7, ANDESITE[4])
-    # crate on the right with andesite corners
-    t.rect(8, 4, 12, 11, SPRUCE[3])
-    t.bevel(8, 4, 12, 11, SPRUCE[4], SPRUCE[1])
-    for i in range(6):
-        x = 8 + round(i * 4 / 5)
-        t.px(x, 5 + i, SPRUCE[0]).px(20 - x, 5 + i, SPRUCE[0])
-    t.rect(8, 4, 12, 4, SPRUCE[5])
-    for x, y in ((8, 4), (12, 4), (8, 11), (12, 11)):
-        t.px(x, y, ANDESITE[4] if y == 4 else ANDESITE[2])
+def desk_drawers():
+    """North face of the desk pedestal (uv x 0..7, y 2..16): two drawers."""
+    t = planks(Tex(), 0, 0, 15, 15, DARK_OAK, seed=3)
+    for y0 in (3, 9):
+        t.rect(1, y0, 5, y0 + 4, DARK_OAK[3])
+        t.bevel(1, y0, 5, y0 + 4, DARK_OAK[5], DARK_OAK[1])
+        t.rect(2, y0 + 2, 4, y0 + 2, IRON[2]).px(2, y0 + 2, IRON[4])
     return t
 
 
-# ---------------------------------------------------------------- furniture / stations
+def ledger_cover():
+    """Green leather book cover with gold corners."""
+    t = Tex().fill(0, 0, 15, 15, LEATHER, 2, 11, rate=8)
+    t.bevel(0, 0, 15, 15, LEATHER[3], LEATHER[0])
+    for x, y in ((1, 1), (14, 1), (1, 14), (14, 14)):
+        t.px(x, y, GOLD[3])
+    t.rect(6, 6, 9, 9, GOLD[2]).px(6, 6, GOLD[4]).px(9, 9, GOLD[1])
+    return t
 
-AWNING = {
-    'green': ['#1e5a2a', '#2f7d3a', '#4aa055'],
-    'yellow': ['#94690f', '#c99a22', '#e8be45'],
-    'red': ['#7a1c1c', '#a92c26', '#cf4a3c'],
-}
-CLOTH = ['#b7ad98', '#ddd3bf', '#f2ecdf']
+
+def ledger_paper():
+    """Paper with ruled ledger lines: loose sheets and book page edges."""
+    t = Tex().rect(0, 0, 15, 15, PAPER[4])
+    for y in range(2, 15, 2):
+        t.rect(1, y, 14, y, PAPER[2])
+    for x, y in ((3, 4), (4, 4), (6, 4), (3, 8), (5, 8), (7, 8), (3, 12), (4, 12)):
+        t.px(x, y, PAPER[0])
+    t.rect(10, 4, 12, 4, '#3d7a3d').rect(10, 8, 11, 8, '#a83a2a').rect(10, 12, 12, 12, '#3d7a3d')
+    return t
 
 
-def settlement_station(state):
-    aw = AWNING[state]
+def awning(color):
+    """Striped canvas; stripes run along v so they slope down the canopy, hem on the last rows."""
     t = Tex()
-    planks(t, 0, 0, 15, 15, SPRUCE, seed=37, plank=4)
-    # awning: soft shaded stripes
+    col = WOOL[color]
     for x in range(16):
-        c = aw if (x // 2) % 2 == 0 else CLOTH
-        t.px(x, 0, c[0])
-        t.rect(x, 1, x, 3, c[1])
-        t.px(x, 1, c[2])
-        if x % 4 in (1, 2):
-            t.px(x, 4, c[0])
-    t.rect(0, 5, 15, 5, SPRUCE[0])
-    t.rect(0, 4, 15, 4, SPRUCE[0]) if False else None
-    for x in range(16):
-        if x % 4 not in (1, 2):
-            t.px(x, 4, SPRUCE[0])
-    # posts
-    for x in (0, 15):
-        t.rect(x, 4, x, 15, SPRUCE[1])
-    t.rect(1, 4, 1, 15, SPRUCE[3]) if False else None
-    # counter top
-    t.rect(1, 10, 14, 10, SPRUCE[5])
-    t.rect(1, 11, 14, 11, SPRUCE[1])
-    if state == 'red':
-        # closed shutter
-        planks(t, 1, 6, 14, 9, WOOD, seed=3, plank=2)
-        t.rect(7, 6, 8, 9, WOOD[1])
-        t.px(7, 8, ANDESITE[4]).px(8, 8, ANDESITE[2])
-    else:
-        t.rect(1, 6, 14, 9, SPRUCE[0])
-        E = ['#1c6b4a', '#2fae6e', '#7ff0b0']
-        t.px(3, 7, E[1]).px(2, 8, E[1]).px(3, 8, E[2]).px(4, 8, E[0]).px(3, 9, E[0])
-        t.rect(6, 8, 8, 9, '#b06a2a').rect(6, 8, 8, 8, '#d89448').px(8, 9, '#7d4a1d')
-        if state == 'green':
-            t.px(10, 9, BRASS[4]).px(11, 9, BRASS[2]).px(10, 8, BRASS[5]).px(11, 8, BRASS[3])
-            t.rect(12, 7, 13, 9, WOOD[3]).rect(12, 7, 13, 7, WOOD[5]).px(13, 9, WOOD[1])
-        else:
-            t.px(11, 9, BRASS[4]).px(12, 9, BRASS[2])
+        ramp = col if (x // 2) % 2 == 0 else WHITE_WOOL
+        for y in range(16):
+            r = h(x, y, 7) % 7
+            t.px(x, y, ramp[0] if r == 0 else ramp[2] if r == 1 else ramp[1])
+        t.px(x, 15, ramp[0])
     return t
 
 
-def survey_board():
-    t = Tex()
-    for y in range(2, 14):
-        for x in range(2, 14):
-            t.px(x, y, jitter(CORK, 2, x, y, 41, 4))
-    frame(t, SPRUCE, 41, inset_shadow=(CORK[0], CORK[4]))
-    # map
-    t.rect(7, 3, 12, 8, PAPER[3])
-    t.bevel(7, 3, 12, 8, PAPER[4], PAPER[1])
-    L = {'g': FELT[3], 'G': FELT[4], 'b': '#4a86b8', 'B': '#79acd6', 'x': GLOW['red'][2]}
-    t.grid(8, 4, ["gG.bB", "g..bb", ".x.g.", "bb.gG"], L)
-    # notes
-    t.rect(3, 3, 5, 7, PAPER[4]).bevel(3, 3, 5, 7, PAPER[4], PAPER[2])
-    t.px(4, 5, PAPER[0]).px(4, 6, PAPER[1])
-    t.rect(3, 9, 7, 12, PAPER[3]).bevel(3, 9, 7, 12, PAPER[4], PAPER[1])
-    t.rect(4, 10, 6, 10, PAPER[0]).rect(4, 11, 5, 11, PAPER[1])
-    t.rect(9, 10, 12, 12, GLOW['yellow'][3]).bevel(9, 10, 12, 12, GLOW['yellow'][4], GLOW['yellow'][2])
-    t.px(10, 11, GLOW['yellow'][1])
-    for x, y in ((4, 3), (9, 3), (5, 9), (10, 10)):
+def notice_board():
+    """North face of the survey board (uv y 1..13): cork with pinned notes and a map."""
+    t = Tex().fill(0, 0, 15, 15, CORK, 2, 13, rate=4)
+    t.rect(8, 2, 13, 7, PAPER[3]).bevel(8, 2, 13, 7, PAPER[4], PAPER[1])
+    t.grid(9, 3, ["gg.b", "g..b", ".x.g", "bb.g"],
+           {'g': '#5f8a3a', 'b': '#4a7ab0', 'x': GLOW['red'][1]})
+    t.rect(2, 2, 5, 6, PAPER[4]).bevel(2, 2, 5, 6, PAPER[5], PAPER[2])
+    t.rect(3, 4, 4, 4, PAPER[1])
+    t.rect(3, 8, 7, 11, PAPER[3]).bevel(3, 8, 7, 11, PAPER[4], PAPER[1])
+    t.rect(4, 9, 6, 9, PAPER[0]).rect(4, 10, 5, 10, PAPER[1])
+    t.rect(9, 9, 12, 11, GLOW['yellow'][3]).bevel(9, 9, 12, 11, GLOW['yellow'][4], GLOW['yellow'][2])
+    for x, y in ((3, 2), (10, 2), (5, 8), (10, 9)):
         t.px(x, y, GLOW['red'][2])
     return t
 
 
-# ---------------------------------------------------------------- items
-
-def item(rows, legend):
-    t = Tex()
-    t.grid(0, 0, rows, legend)
+def warehouse_front():
+    """Full-block front: spruce frame, two shelves holding crates and sacks."""
+    t = planks(Tex(), 0, 0, 15, 15, SPRUCE, seed=9)
+    for y0 in (1, 8):
+        t.rect(1, y0, 14, y0 + 5, SPRUCE[0])
+        t.rect(1, y0 + 6, 14, y0 + 6, SPRUCE[4])
+    t.box(0, 0, 15, 15, SPRUCE[1])
+    for x0 in (2, 8):
+        t.rect(x0, 3, x0 + 4, 6, OAK[3]).bevel(x0, 3, x0 + 4, 6, OAK[5], OAK[1])
+        t.px(x0 + 1, 4, OAK[1]).px(x0 + 3, 5, OAK[1])
+    t.grid(2, 10, [".sss.", "sSSSs", "sSSSs", "sssss"], {'s': '#a28a5e', 'S': '#bba377'})
+    t.rect(9, 10, 12, 13, SPRUCE[3]).box(9, 10, 12, 13, SPRUCE[1]).rect(10, 11, 11, 12, SPRUCE[4])
     return t
 
 
+def factory_front():
+    """Factory front: stone frame, iron hatch with a glowing slit."""
+    t = Tex().fill(0, 0, 15, 15, STONE, 3, 21, rate=8)
+    t.bevel(0, 0, 15, 15, STONE[4], STONE[1])
+    t.rect(3, 3, 12, 12, IRON[1]).bevel(3, 3, 12, 12, IRON[3], IRON[0])
+    t.rect(5, 4, 10, 5, IRON[2]).rect(5, 11, 10, 11, IRON[2])
+    t.rect(4, 7, 11, 9, BLACKSTONE[1])
+    t.rect(5, 8, 10, 8, GLOW['orange'][2]).px(6, 8, GLOW['orange'][3]).px(9, 8, GLOW['orange'][3])
+    for x in (4, 11):
+        for y in (4, 11):
+            t.px(x, y, IRON[4])
+    return t
+
+
+def factory_side():
+    t = Tex().fill(0, 0, 15, 15, STONE, 3, 23, rate=8)
+    t.bevel(0, 0, 15, 15, STONE[4], STONE[1])
+    for y in (5, 10):
+        t.rect(0, y, 15, y, IRON[1]).rect(0, y - 1, 15, y - 1, IRON[3])
+        for x in (2, 13):
+            t.px(x, y - 1, IRON[5])
+    return t
+
+
+def factory_top():
+    t = Tex().fill(0, 0, 15, 15, STONE, 3, 25, rate=8)
+    t.bevel(0, 0, 15, 15, STONE[4], STONE[1])
+    t.rect(4, 4, 11, 11, IRON[1]).bevel(4, 4, 11, 11, IRON[0], IRON[3])
+    for y in (5, 7, 9):
+        t.rect(5, y, 10, y, BLACKSTONE[0])
+    return t
+
+
+def lamp(color):
+    """Status lamp, sampled through uv 4..12 on the small lamp cubes."""
+    g = GLOW[color]
+    t = Tex().rect(0, 0, 15, 15, g[1])
+    t.rect(4, 4, 11, 11, g[2])
+    t.box(4, 4, 11, 11, g[1])
+    t.rect(4, 4, 11, 4, g[2])
+    t.rect(5, 5, 7, 7, g[3]).px(5, 5, g[4])
+    t.rect(9, 10, 10, 10, g[1])
+    return t
+
+
+# ---------------------------------------------------------------- items (vanilla item style)
+
+def item(rows, legend):
+    assert all(len(r) == 16 for r in rows), rows
+    return Tex().grid(0, 0, rows, legend)
+
+
 def finance_guide():
-    L = {'o': TEAL[0], '1': TEAL[1], '2': TEAL[2], '3': TEAL[3], '4': TEAL[4], '5': TEAL[5],
-         'a': BRASS[0], 'b': BRASS[1], 'c': BRASS[2], 'd': BRASS[3], 'e': BRASS[4], 'f': BRASS[5],
-         'p': PAPER[2], 'q': PAPER[3], 'r': PAPER[4], 'n': PAPER[1]}
+    L = {'o': '#1b2f2f', '2': '#2d5e60', '3': '#3b7779', '4': '#5aa0a0',
+         'g': GOLD[3], 'G': GOLD[4], 'b': GOLD[1], 'P': PAPER[5], 'p': PAPER[3], 'q': PAPER[1]}
     return item([
         "................",
+        "................",
         "...ooooooooooo..",
-        "..oed444444443o.",
-        "..ob3333333332o.",
-        "..o23333ddd332o.",
-        "..o2333dfedc32o.",
-        "..o2333ed1cb32o.",
-        "..o2333dccbb32o.",
-        "..o23333bbb332o.",
-        "..o2333333333 2o.".replace(' ', ''),
-        "..o2333333333 2o.".replace(' ', ''),
-        "..od22222222dbo.",
-        "..oarrrrrrrrrao.",
-        "..oqqqqqqqqqqpo.",
-        "...onnnnnnnnnno.",
-        "....oooooooooo..",
+        "..o43333333332o.",
+        "..o43333333332o.",
+        "..o43333GGb332o.",
+        "..o4333GgggG32o.",
+        "..o4333ggogb32o.",
+        "..o4333Ggggb32o.",
+        "..o43333bbb332o.",
+        "..o43333333332o.",
+        "..o22222222222o.",
+        "..oPPPPPPPPPPpo.",
+        "..oqqqqqqqqqqqo.",
+        "...ooooooooooo..",
+        "................",
     ], L)
 
 
 def portable_ledger():
-    L = {'o': WOOD[0], '1': WOOD[1], '2': WOOD[2], '3': WOOD[3], '4': WOOD[4],
-         'A': ANDESITE[1], 'B': ANDESITE[3], 'C': ANDESITE[4], 'D': ANDESITE[5],
-         'p': PAPER[2], 'q': PAPER[3], 'r': PAPER[4], 'n': PAPER[1],
-         'g': GLOW['green'][1], 'x': GLOW['red'][1]}
+    L = {'o': '#3a2410', '2': OAK[2], '3': OAK[3], '4': OAK[4],
+         'i': IRON[1], 'I': IRON[3], 'J': IRON[4],
+         'P': PAPER[5], 'p': PAPER[3], 'q': PAPER[1], 'g': '#3d7a3d', 'r': '#a83a2a'}
     return item([
         "................",
-        "......AAAA......",
-        ".....ADCCBA.....",
-        "..oooABBBBAooo..",
-        "..o43AAAAAA34o..",
-        "..o3rrrrrrrr2o..",
-        "..o3rggrrxxq2o..",
-        "..o3qnnnnnnq2o..",
-        "..o3rgrgrrxq2o..",
-        "..o3qnnnnnnq2o..",
-        "..o3rgggrrgq2o..",
-        "..o3qnnnnnnq2o..",
-        "..o3rrrrrqqp2o..",
-        "..o2222222221o..",
-        "..o1111111111o..",
+        "......iiii......",
+        ".....iJIIi......",
+        "...oooiiiiooo...",
+        "...o4PPPPPP3o...",
+        "...o4PgPrrP3o...",
+        "...o4qqqqqq3o...",
+        "...o4PggPrP3o...",
+        "...o4qqqqqq3o...",
+        "...o4PgggPP3o...",
+        "...o4qqqqqq3o...",
+        "...o4PPPPPp3o...",
+        "...o33333333o...",
+        "...o22222222o...",
         "...oooooooooo...",
+        "................",
     ], L)
 
 
 def sealed_cargo_crate():
-    L = {'o': SPRUCE[0], '1': SPRUCE[1], '2': SPRUCE[2], '3': SPRUCE[3], '4': SPRUCE[4], '5': SPRUCE[5],
-         'b': BRASS[1], 'c': BRASS[2], 'd': BRASS[3], 'e': BRASS[4], 'f': BRASS[5],
-         'q': PAPER[1], 'r': PAPER[2],
-         'R': GLOW['red'][0], 'S': GLOW['red'][1], 'T': GLOW['red'][2], 'U': GLOW['red'][3]}
+    L = {'o': '#3b2812', '1': SPRUCE[1], '3': SPRUCE[3], '4': SPRUCE[4], '5': SPRUCE[5],
+         'i': IRON[2], 'I': IRON[4], 'r': '#7c1b18', 'R': '#b5312b', 'S': '#e05a48', 's': PAPER[2]}
     return item([
         "................",
-        ".oooooooooooooo.",
-        ".ofe5555rq555eo.",
-        ".oe44444rq4444o.",
-        ".o333333rq3333o.",
-        ".o222222rq2222o.",
-        ".orrrrrSSSrrrro.",
-        ".oqqqqSUTSqqqqo.",
-        ".o5555STTR5555o.",
-        ".o44444SRRq444o.",
-        ".o333333rq3333o.",
-        ".o222222rq2222o.",
-        ".od11111rq111co.",
-        ".occ1111rq11cbo.",
-        ".oooooooooooooo.",
+        "................",
+        "..oooooooooooo..",
+        "..oI55555555Io..",
+        "..o4444444444o..",
+        "..o3333ss3333o..",
+        "..o1111ss1111o..",
+        "..o5555RR5555o..",
+        "..o444RSRr444o..",
+        "..o3333rr3333o..",
+        "..o1111ss1111o..",
+        "..o5555ss5555o..",
+        "..oi44444444io..",
+        "..oooooooooooo..",
+        "................",
         "................",
     ], L)
 
 
 def survey_note():
-    L = {'o': PAPER[0], 'n': PAPER[1], 'p': PAPER[2], 'q': PAPER[3], 'r': PAPER[4],
-         'g': FELT[3], 'G': FELT[4], 'b': '#4a86b8', 'B': '#79acd6',
-         'x': GLOW['red'][2], 'y': GLOW['red'][1]}
+    L = {'o': PAPER[0], 'P': PAPER[4], 'q': PAPER[2],
+         'g': '#5f8a3a', 'b': '#4a7ab0', 'x': GLOW['red'][1]}
     return item([
         "................",
-        "..oooooooooooo..",
-        ".orrrrrrqrrrrro.",
-        ".orGGrrrqrrBBro.",
-        ".orGggrrqrbBbro.",
-        ".orrgryrqrrbrro.",
-        ".orrrrryqrrrrro.",
-        ".orrrrrrqyrrGro.",
-        ".orBBrrrqryGgro.",
-        ".obBbrrrqrxgroo.",
-        ".orbrrrxqxrrpo..",
-        ".orrrrrrxrrnno..",
-        ".oqqqqqxqxqno...",
-        ".oppppppqppo....",
-        "..ooooooooo.....",
+        "................",
+        "...oooooooooo...",
+        "..oPPPPPPPPPPo..",
+        "..oPggPPPPbbPo..",
+        "..oPgPPxPPPbPo..",
+        "..oPPPPPxPPPPo..",
+        "..oPPbPPPxPPPo..",
+        "..oPbbPPPPxgPo..",
+        "..oPPPPPPPxggo..",
+        "..oPPPPPPxPPo...",
+        "..oqqqqqqqqo....",
+        "...oooooooo.....",
+        "................",
+        "................",
         "................",
     ], L)
 
 
 TEXTURES = {
-    'block/machine_casing': machine_casing,
-    'block/machine_top': machine_top,
-    'block/teal_casing': teal_casing,
-    'block/indicator_normal': lambda: indicator('green'),
-    'block/indicator_warning': lambda: indicator('yellow'),
-    'block/indicator_risk': lambda: indicator('red'),
-    'block/indicator_offline': lambda: indicator('gray'),
-    'block/indicator_full': lambda: indicator('orange'),
-    'block/market_terminal': market_terminal,
-    'block/securities_terminal': securities_terminal,
-    'block/bank_counter': bank_counter,
-    'block/central_bank_console': central_bank_console,
-    'block/company_desk': company_desk,
-    'block/boardroom_table': boardroom_table,
-    'block/company_factory_controller': company_factory_controller,
-    'block/warehouse_controller': warehouse_controller,
-    'block/settlement_trade_station_green': lambda: settlement_station('green'),
-    'block/settlement_trade_station_yellow': lambda: settlement_station('yellow'),
-    'block/settlement_trade_station_red': lambda: settlement_station('red'),
-    'block/survey_board': survey_board,
+    'block/market_screen': market_screen,
+    'block/securities_screen': securities_screen,
+    'block/keyboard': keyboard,
+    'block/gauge_panel': gauge_panel,
+    'block/factory_panel': factory_panel,
+    'block/teller_grille': teller_grille,
+    'block/desk_drawers': desk_drawers,
+    'block/ledger_cover': ledger_cover,
+    'block/ledger_paper': ledger_paper,
+    'block/awning_green': lambda: awning('green'),
+    'block/awning_yellow': lambda: awning('yellow'),
+    'block/awning_red': lambda: awning('red'),
+    'block/notice_board': notice_board,
+    'block/warehouse_front': warehouse_front,
+    'block/factory_front': factory_front,
+    'block/factory_side': factory_side,
+    'block/factory_top': factory_top,
+    'block/indicator_normal': lambda: lamp('green'),
+    'block/indicator_warning': lambda: lamp('yellow'),
+    'block/indicator_risk': lambda: lamp('red'),
+    'block/indicator_offline': lambda: lamp('gray'),
+    'block/indicator_full': lambda: lamp('orange'),
     'item/finance_guide': finance_guide,
     'item/portable_ledger': portable_ledger,
     'item/sealed_cargo_crate': sealed_cargo_crate,

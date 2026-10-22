@@ -32,38 +32,45 @@ public final class ModBlocks {
                 .pushReaction(PushReaction.BLOCK);
     }
 
+    /** Furniture-style terminals: their models are smaller than a full block, so they must not cull neighbours. */
+    private static BlockBehaviour.Properties furnitureProperties() {
+        return terminalProperties().noOcclusion();
+    }
+
     public static final RegistryObject<Block> MARKET_TERMINAL = BLOCKS.register(
             "market_terminal",
-            () -> new FinanceTerminalBlock(terminalProperties(), FinanceTerminalType.MARKET_TERMINAL));
+            () -> new FinanceTerminalBlock(furnitureProperties(), FinanceTerminalType.MARKET_TERMINAL));
     public static final RegistryObject<Block> WAREHOUSE_CONTROLLER =
             BLOCKS.register("warehouse_controller", () -> new WarehouseControllerBlock(terminalProperties()));
     public static final RegistryObject<Block> BANK_COUNTER = BLOCKS.register(
-            "bank_counter", () -> new FinanceTerminalBlock(terminalProperties(), FinanceTerminalType.BANK_COUNTER));
+            "bank_counter", () -> new FinanceTerminalBlock(furnitureProperties(), FinanceTerminalType.BANK_COUNTER));
     public static final RegistryObject<Block> COMPANY_DESK =
-            BLOCKS.register("company_desk", () -> new CompanyDeskBlock(terminalProperties()));
+            BLOCKS.register("company_desk", () -> new CompanyDeskBlock(furnitureProperties()));
     public static final RegistryObject<Block> COMPANY_FACTORY_CONTROLLER = BLOCKS.register(
-            "company_factory_controller", () -> new CompanyFactoryControllerBlock(terminalProperties()));
+            "company_factory_controller", () -> new CompanyFactoryControllerBlock(furnitureProperties()));
     public static final RegistryObject<Block> SECURITIES_TERMINAL = BLOCKS.register(
             "securities_terminal",
-            () -> new FinanceTerminalBlock(terminalProperties(), FinanceTerminalType.SECURITIES_TERMINAL));
+            () -> new FinanceTerminalBlock(furnitureProperties(), FinanceTerminalType.SECURITIES_TERMINAL));
     public static final RegistryObject<Block> CENTRAL_BANK_CONSOLE = BLOCKS.register(
             "central_bank_console",
-            () -> new FinanceTerminalBlock(terminalProperties(), FinanceTerminalType.CENTRAL_BANK_CONSOLE));
+            () -> new FinanceTerminalBlock(furnitureProperties(), FinanceTerminalType.CENTRAL_BANK_CONSOLE));
     public static final RegistryObject<Block> BOARDROOM_TABLE =
-            BLOCKS.register("boardroom_table", () -> new BoardroomTableBlock(terminalProperties()));
+            BLOCKS.register("boardroom_table", () -> new BoardroomTableBlock(furnitureProperties()));
     public static final RegistryObject<Block> SETTLEMENT_TRADE_STATION = BLOCKS.register(
             "settlement_trade_station",
             () -> new SettlementTradeStationBlock(BlockBehaviour.Properties.of()
                     .mapColor(MapColor.WOOD)
                     .strength(2.5F)
                     .sound(SoundType.WOOD)
-                    .pushReaction(PushReaction.BLOCK)));
+                    .pushReaction(PushReaction.BLOCK)
+                    .noOcclusion()));
     public static final RegistryObject<Block> SURVEY_BOARD = BLOCKS.register(
             "survey_board",
             () -> new SurveyBoardBlock(BlockBehaviour.Properties.of()
                     .mapColor(MapColor.WOOD)
                     .strength(2.0F)
-                    .sound(SoundType.WOOD)));
+                    .sound(SoundType.WOOD)
+                    .noOcclusion()));
     public static final RegistryObject<Block> FACTORY = BLOCKS.register(
             "factory",
             () -> new FactoryBlock(BlockBehaviour.Properties.of()

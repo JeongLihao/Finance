@@ -1,1 +1,1 @@
-{"variants":{"":{"model":"finance:block/survey_board"}}}
+{"variants":{"facing=north":{"model":"finance:block/survey_board"},"facing=east":{"model":"finance:block/survey_board","y":90},"facing=south":{"model":"finance:block/survey_board","y":180},"facing=west":{"model":"finance:block/survey_board","y":270}}}

@@ -1,1 +1,1 @@
-{"variants":{"":{"model":"finance:block/factory"}}}
+{"variants":{"facing=north":{"model":"finance:block/factory"},"facing=east":{"model":"finance:block/factory","y":90},"facing=south":{"model":"finance:block/factory","y":180},"facing=west":{"model":"finance:block/factory","y":270}}}

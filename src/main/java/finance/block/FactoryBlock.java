@@ -3,6 +3,7 @@ package finance.block;
 import finance.block.entity.FactoryBlockEntity;
 import finance.gui.FactoryGuiOpener;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Containers;
 import net.minecraft.world.InteractionHand;
@@ -12,11 +13,15 @@ import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.BaseEntityBlock;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Mirror;
 import net.minecraft.world.level.block.RenderShape;
+import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityTicker;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.phys.BlockHitResult;
 import org.jetbrains.annotations.Nullable;
 
@@ -28,6 +33,22 @@ import org.jetbrains.annotations.Nullable;
 public final class FactoryBlock extends BaseEntityBlock {
     public FactoryBlock(Properties properties) {
         super(properties);
+        registerDefaultState(stateDefinition.any().setValue(FacingShapes.FACING, Direction.NORTH));
+    }
+
+    @Override
+    protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
+        builder.add(FacingShapes.FACING);
+    }
+
+    @Override
+    public BlockState rotate(BlockState state, Rotation rotation) {
+        return FacingShapes.rotate(state, rotation);
+    }
+
+    @Override
+    public BlockState mirror(BlockState state, Mirror mirror) {
+        return FacingShapes.mirror(state, mirror);
     }
 
     @Override
@@ -90,6 +111,6 @@ public final class FactoryBlock extends BaseEntityBlock {
     @Nullable
     @Override
     public BlockState getStateForPlacement(BlockPlaceContext context) {
-        return defaultBlockState();
+        return FacingShapes.facingPlacer(defaultBlockState(), context);
     }
 }

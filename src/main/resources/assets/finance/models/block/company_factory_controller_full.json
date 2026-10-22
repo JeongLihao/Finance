@@ -1,1 +1,1 @@
-{"parent":"finance:block/company_factory_controller","textures":{"top":"finance:block/indicator_full"}}
+{"parent":"finance:block/company_factory_controller","textures":{"lamp":"finance:block/indicator_full"}}

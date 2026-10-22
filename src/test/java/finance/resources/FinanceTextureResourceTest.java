@@ -16,22 +16,28 @@ import org.junit.jupiter.api.Test;
 
 class FinanceTextureResourceTest {
     private static final List<String> BLOCK_TEXTURES = List.of(
-            "bank_counter",
-            "boardroom_table",
-            "central_bank_console",
-            "company_desk",
-            "company_factory_controller",
             "indicator_full",
             "indicator_normal",
             "indicator_offline",
             "indicator_risk",
             "indicator_warning",
-            "machine_casing",
-            "machine_top",
-            "market_terminal",
-            "securities_terminal",
-            "teal_casing",
-            "warehouse_controller");
+            "market_screen",
+            "securities_screen",
+            "keyboard",
+            "gauge_panel",
+            "factory_panel",
+            "teller_grille",
+            "desk_drawers",
+            "ledger_cover",
+            "ledger_paper",
+            "awning_green",
+            "awning_yellow",
+            "awning_red",
+            "notice_board",
+            "warehouse_front",
+            "factory_front",
+            "factory_side",
+            "factory_top");
 
     @Test
     void financeBlocksAndItemsHaveReadableSquareTextures() throws Exception {
@@ -53,7 +59,10 @@ class FinanceTextureResourceTest {
                 "company_factory_controller",
                 "market_terminal",
                 "securities_terminal",
-                "warehouse_controller")) {
+                "warehouse_controller",
+                "factory",
+                "settlement_trade_station",
+                "survey_board")) {
             JsonObject root = readJson("assets/finance/blockstates/" + blockState + ".json");
             for (var entry : root.getAsJsonObject("variants").entrySet()) {
                 assertModel(entry.getValue().getAsJsonObject().get("model").getAsString());
@@ -78,6 +87,7 @@ class FinanceTextureResourceTest {
         if (model.has("parent") && model.get("parent").getAsString().startsWith("finance:block/")) {
             assertModel(model.get("parent").getAsString());
         }
+        assertFaceTexturesDefined(name);
         if (model.has("textures")) {
             for (var entry : model.getAsJsonObject("textures").entrySet()) {
                 String textureId = entry.getValue().getAsString();
@@ -85,6 +95,31 @@ class FinanceTextureResourceTest {
                     String textureName = textureId.substring("finance:block/".length());
                     assertTexture("assets/finance/textures/block/" + textureName + ".png");
                 }
+            }
+        }
+    }
+
+    /** Every "#variable" an element face uses must be defined by the model or one of its finance parents. */
+    private void assertFaceTexturesDefined(String name) throws Exception {
+        java.util.Set<String> defined = new java.util.HashSet<>();
+        com.google.gson.JsonArray elements = null;
+        for (String current = name; current != null; ) {
+            JsonObject model = readJson("assets/finance/models/block/" + current + ".json");
+            if (model.has("textures")) {
+                defined.addAll(model.getAsJsonObject("textures").keySet());
+            }
+            if (elements == null && model.has("elements")) {
+                elements = model.getAsJsonArray("elements");
+            }
+            String parent = model.has("parent") ? model.get("parent").getAsString() : "";
+            current = parent.startsWith("finance:block/") ? parent.substring("finance:block/".length()) : null;
+        }
+        assertNotNull(elements, name);
+        for (var element : elements) {
+            for (var face : element.getAsJsonObject().getAsJsonObject("faces").entrySet()) {
+                String texture =
+                        face.getValue().getAsJsonObject().get("texture").getAsString();
+                assertTrue(defined.contains(texture.substring(1)), name + " " + face.getKey() + " " + texture);
             }
         }
     }
