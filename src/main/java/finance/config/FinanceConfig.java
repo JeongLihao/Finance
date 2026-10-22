@@ -148,6 +148,8 @@ public final class FinanceConfig {
     private static final long CASH_CASH_TO_EMERALD_VALUE = 60L;
     private static final int CASH_DAILY_EMERALD_SELL_LIMIT_VALUE = 64;
     private static final int CASH_DAILY_EMERALD_BUY_LIMIT_VALUE = 32;
+    private static final double INSURANCE_ACCIDENT_CHANCE_VALUE = 1.0D;
+    private static final int INSURANCE_ACCIDENT_MAX_LOSS_VALUE = 20;
     // ---- 宏观实体经济 ----
     private static final boolean MACRO_ENABLED_VALUE = true;
     private static final boolean MACRO_LABOR_ENABLED_VALUE = true;
@@ -365,6 +367,8 @@ public final class FinanceConfig {
     private static final ForgeConfigSpec.LongValue CASH_CASH_TO_EMERALD;
     private static final ForgeConfigSpec.IntValue CASH_DAILY_EMERALD_SELL_LIMIT;
     private static final ForgeConfigSpec.IntValue CASH_DAILY_EMERALD_BUY_LIMIT;
+    private static final ForgeConfigSpec.DoubleValue INSURANCE_ACCIDENT_CHANCE;
+    private static final ForgeConfigSpec.IntValue INSURANCE_ACCIDENT_MAX_LOSS;
     private static final ForgeConfigSpec.BooleanValue MACRO_ENABLED;
     private static final ForgeConfigSpec.BooleanValue MACRO_LABOR_ENABLED;
     private static final ForgeConfigSpec.IntValue MACRO_MIN_POPULATION;
@@ -1218,6 +1222,14 @@ public final class FinanceConfig {
                 .defineInRange("dailyEmeraldBuyLimit", CASH_DAILY_EMERALD_BUY_LIMIT_VALUE, 0, 100_000);
         builder.pop();
 
+        builder.push("insurance");
+        INSURANCE_ACCIDENT_CHANCE = builder.comment(
+                        "每家公司每个 MC 日发生仓库事故（火灾、水淹、鼠患）的概率，百分比。事故毁掉公司仓库里某一种未质押库存的一部分，买了库存灾害险的按保单理赔。0 = 关闭。")
+                .defineInRange("warehouseAccidentChancePercent", INSURANCE_ACCIDENT_CHANCE_VALUE, 0.0D, 100.0D);
+        INSURANCE_ACCIDENT_MAX_LOSS = builder.comment("一次仓库事故最多毁掉该种库存的百分比（最少 5%）。")
+                .defineInRange("warehouseAccidentMaxLossPercent", INSURANCE_ACCIDENT_MAX_LOSS_VALUE, 5, 100);
+        builder.pop();
+
         builder.push("simpleCenter");
         SIMPLE_STARTER_GRANT = builder.comment("新玩家第一次打开金融中心时送的启动资金（便士），每人一次。0 = 不送。")
                 .defineInRange("starterGrant", SIMPLE_STARTER_GRANT_VALUE, 0L, 1_000_000L);
@@ -1709,6 +1721,14 @@ public final class FinanceConfig {
 
     public static boolean rivalsActivismEnabled() {
         return getBoolean(RIVALS_ACTIVISM_ENABLED, RIVALS_ACTIVISM_ENABLED_VALUE);
+    }
+
+    public static double insuranceAccidentChancePercent() {
+        return getDouble(INSURANCE_ACCIDENT_CHANCE, INSURANCE_ACCIDENT_CHANCE_VALUE);
+    }
+
+    public static int insuranceAccidentMaxLossPercent() {
+        return getInt(INSURANCE_ACCIDENT_MAX_LOSS, INSURANCE_ACCIDENT_MAX_LOSS_VALUE);
     }
 
     public static boolean cashEnabled() {

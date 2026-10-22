@@ -26,10 +26,136 @@ public final class SettlementMenu extends AbstractContainerMenu {
             String pressure,
             boolean priceReliable) {}
 
+    /** 村民想买的东西：每天大约要多少、摊位卖多少钱以内村民肯买。 */
+    public record WantRow(String commodityId, String name, long dailyNeed, long fairPrice) {}
+
+    /** 玩家自己在这个聚落的摊位。 */
+    public record StallRow(UUID id, String commodityId, String name, long price, int stock, long fairPrice) {}
+
+    /** 玩家自己从这个聚落出发的商队路线。 */
+    public record RouteRow(
+            UUID id,
+            String destination,
+            String commodity,
+            int quantity,
+            int guard,
+            boolean insured,
+            String status,
+            long totalProfit) {}
+
+    public record Choice(String id, String name) {}
+
+    /** “摊位”“商路”两页的数据。destinations 的 id 是聚落 UUID，goods 的 id 是商品 ID。 */
+    public record Extras(
+            int favor,
+            List<WantRow> wants,
+            List<StallRow> stalls,
+            List<RouteRow> routes,
+            List<Choice> destinations,
+            List<Choice> goods) {
+        public static final Extras EMPTY = new Extras(0, List.of(), List.of(), List.of(), List.of(), List.of());
+
+        public Extras {
+            wants = List.copyOf(wants.subList(0, Math.min(MAX_ROWS, wants.size())));
+            stalls = List.copyOf(stalls.subList(0, Math.min(MAX_ROWS, stalls.size())));
+            routes = List.copyOf(routes.subList(0, Math.min(MAX_ROWS, routes.size())));
+            destinations = List.copyOf(destinations.subList(0, Math.min(MAX_CHOICES, destinations.size())));
+            goods = List.copyOf(goods.subList(0, Math.min(MAX_CHOICES, goods.size())));
+        }
+
+        void write(FriendlyByteBuf b) {
+            b.writeVarInt(favor + 1000);
+            b.writeVarInt(wants.size());
+            for (WantRow w : wants) {
+                b.writeUtf(limit(w.commodityId(), 64), 64);
+                b.writeUtf(limit(w.name(), 32), 32);
+                b.writeVarLong(Math.max(0, w.dailyNeed()));
+                b.writeVarLong(Math.max(0, w.fairPrice()));
+            }
+            b.writeVarInt(stalls.size());
+            for (StallRow s : stalls) {
+                b.writeUUID(s.id());
+                b.writeUtf(limit(s.commodityId(), 64), 64);
+                b.writeUtf(limit(s.name(), 32), 32);
+                b.writeVarLong(Math.max(0, s.price()));
+                b.writeVarInt(Math.max(0, s.stock()));
+                b.writeVarLong(Math.max(0, s.fairPrice()));
+            }
+            b.writeVarInt(routes.size());
+            for (RouteRow r : routes) {
+                b.writeUUID(r.id());
+                b.writeUtf(limit(r.destination(), 64), 64);
+                b.writeUtf(limit(r.commodity(), 32), 32);
+                b.writeVarInt(Math.max(0, r.quantity()));
+                b.writeVarInt(Math.max(0, r.guard()));
+                b.writeBoolean(r.insured());
+                b.writeUtf(limit(r.status(), 16), 16);
+                b.writeLong(r.totalProfit());
+            }
+            writeChoices(b, destinations);
+            writeChoices(b, goods);
+        }
+
+        static Extras read(FriendlyByteBuf b) {
+            try {
+                int favor = b.readVarInt() - 1000;
+                List<WantRow> wants = new ArrayList<>();
+                for (int i = 0, n = count(b, MAX_ROWS); i < n; i++)
+                    wants.add(new WantRow(b.readUtf(64), b.readUtf(32), b.readVarLong(), b.readVarLong()));
+                List<StallRow> stalls = new ArrayList<>();
+                for (int i = 0, n = count(b, MAX_ROWS); i < n; i++)
+                    stalls.add(new StallRow(
+                            b.readUUID(),
+                            b.readUtf(64),
+                            b.readUtf(32),
+                            b.readVarLong(),
+                            b.readVarInt(),
+                            b.readVarLong()));
+                List<RouteRow> routes = new ArrayList<>();
+                for (int i = 0, n = count(b, MAX_ROWS); i < n; i++)
+                    routes.add(new RouteRow(
+                            b.readUUID(),
+                            b.readUtf(64),
+                            b.readUtf(32),
+                            b.readVarInt(),
+                            b.readVarInt(),
+                            b.readBoolean(),
+                            b.readUtf(16),
+                            b.readLong()));
+                return new Extras(favor, wants, stalls, routes, readChoices(b), readChoices(b));
+            } catch (IndexOutOfBoundsException truncated) {
+                throw new IllegalArgumentException("truncated settlement extras", truncated);
+            }
+        }
+
+        private static void writeChoices(FriendlyByteBuf b, List<Choice> choices) {
+            b.writeVarInt(choices.size());
+            for (Choice c : choices) {
+                b.writeUtf(limit(c.id(), 64), 64);
+                b.writeUtf(limit(c.name(), 64), 64);
+            }
+        }
+
+        private static List<Choice> readChoices(FriendlyByteBuf b) {
+            List<Choice> out = new ArrayList<>();
+            for (int i = 0, n = count(b, MAX_CHOICES); i < n; i++) out.add(new Choice(b.readUtf(64), b.readUtf(64)));
+            return out;
+        }
+
+        private static int count(FriendlyByteBuf b, int max) {
+            int n = b.readVarInt();
+            if (n < 0 || n > max) throw new IllegalArgumentException("settlement extras size");
+            return n;
+        }
+    }
+
+    public static final int MAX_CHOICES = 16;
+
     private final UUID settlementId;
     private final String name, status, message;
     private final int contributionLevel, contributionPoints;
     private final List<DemandRow> rows;
+    private final Extras extras;
 
     public SettlementMenu(int id, Inventory inv, FriendlyByteBuf b) {
         this(
@@ -40,7 +166,8 @@ public final class SettlementMenu extends AbstractContainerMenu {
                 b.readVarInt(),
                 b.readVarInt(),
                 readRows(b),
-                b.readUtf(96));
+                b.readUtf(96),
+                Extras.read(b));
     }
 
     public SettlementMenu(
@@ -51,7 +178,8 @@ public final class SettlementMenu extends AbstractContainerMenu {
             int level,
             int points,
             List<DemandRow> rows,
-            String message) {
+            String message,
+            Extras extras) {
         super(ModMenus.SETTLEMENT.get(), id);
         this.settlementId = settlementId;
         this.name = limit(name, 64);
@@ -60,6 +188,7 @@ public final class SettlementMenu extends AbstractContainerMenu {
         this.contributionPoints = Math.max(0, points);
         this.rows = List.copyOf(rows.subList(0, Math.min(MAX_ROWS, rows.size())));
         this.message = limit(message, 96);
+        this.extras = extras == null ? Extras.EMPTY : extras;
     }
 
     public static void write(
@@ -70,7 +199,8 @@ public final class SettlementMenu extends AbstractContainerMenu {
             int level,
             int points,
             List<DemandRow> rows,
-            String message) {
+            String message,
+            Extras extras) {
         b.writeUUID(id);
         b.writeUtf(limit(name, 64), 64);
         b.writeUtf(limit(status, 24), 24);
@@ -94,6 +224,7 @@ public final class SettlementMenu extends AbstractContainerMenu {
             b.writeBoolean(r.priceReliable());
         }
         b.writeUtf(limit(message, 96), 96);
+        (extras == null ? Extras.EMPTY : extras).write(b);
     }
 
     static List<DemandRow> readRows(FriendlyByteBuf b) {
@@ -163,6 +294,10 @@ public final class SettlementMenu extends AbstractContainerMenu {
 
     public String message() {
         return message;
+    }
+
+    public Extras extras() {
+        return extras;
     }
 
     @Override

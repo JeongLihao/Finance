@@ -26,8 +26,7 @@ public final class CaravanCommand {
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(Commands.literal("caravan")
-                // 商队拨动全局 mid、有真实经济影响，与 /market 等经济命令同为 OP-2
-                .requires(source -> source.hasPermission(2))
+                // 玩家自己的商路：和贸易站“商路”页一样，每人路线数有上限
                 .then(Commands.literal("create")
                         .then(Commands.argument("source", StringArgumentType.string())
                                 .then(Commands.argument("dest", StringArgumentType.string())

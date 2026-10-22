@@ -9,6 +9,7 @@ import finance.village.VillageStall;
 import java.util.UUID;
 import java.util.function.Supplier;
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.network.NetworkEvent;
 
 public record VillageActionPacket(
@@ -63,77 +64,66 @@ public record VillageActionPacket(
                 GuiFeedbackPacket.send(player, "finance.village.paused");
                 return;
             }
+            String message = apply(player, p);
             UUID settlementUuid = parseUuid(p.settlementId);
-            UUID stallUuid = parseUuid(p.stallId);
-            switch (p.action) {
-                case REGISTER_STALL -> {
-                    // 开店：在目标聚落附近才能登记
-                    if (settlementUuid == null
-                            || SettlementManager.get(settlementUuid) == null
-                            || !SettlementService.isNearby(player, settlementUuid)) {
-                        GuiFeedbackPacket.send(player, "finance.village.not_nearby");
-                        return;
-                    }
-                    String commodityId = NetworkValidation.normalizeCommodityId(p.commodityId);
-                    if (!NetworkValidation.isValidCommodityId(commodityId)) {
-                        GuiFeedbackPacket.send(player, "finance.village.invalid_commodity");
-                        return;
-                    }
-                    if (p.price < 1) {
-                        GuiFeedbackPacket.send(player, "finance.village.invalid_price");
-                        return;
-                    }
-                    VillageStall stall = VillageService.registerStall(player, settlementUuid, commodityId, p.price);
-                    if (stall == null) GuiFeedbackPacket.send(player, "finance.village.register_failed");
-                }
-                case STOCK_STALL, SET_PRICE, WITHDRAW_STALL, CLOSE_STALL -> {
-                    // 摊位管理：settlementId 必须与摊位归属一致，且玩家须在该摊位所在聚落附近。
-                    // 否则 A 聚落附近可远程管理 B 聚落摊位（owner 校验仍在，无越权，但属非预期行为）。
-                    VillageStall stall = stallUuid == null ? null : VillageManager.stall(stallUuid);
-                    if (stall == null || settlementUuid == null || !settlementUuid.equals(stall.settlementId())) {
-                        GuiFeedbackPacket.send(player, "finance.village.invalid_stall");
-                        return;
-                    }
-                    if (!SettlementService.isNearby(player, stall.settlementId())) {
-                        GuiFeedbackPacket.send(player, "finance.village.not_nearby");
-                        return;
-                    }
-                    switch (p.action) {
-                        case STOCK_STALL -> {
-                            if (!validQuantity(p.quantity)) {
-                                GuiFeedbackPacket.send(player, "finance.village.invalid_quantity");
-                                return;
-                            }
-                            if (!VillageService.stockStall(player, stallUuid, p.quantity))
-                                GuiFeedbackPacket.send(player, "finance.village.stock_failed");
-                        }
-                        case SET_PRICE -> {
-                            if (p.price < 1) {
-                                GuiFeedbackPacket.send(player, "finance.village.invalid_price");
-                                return;
-                            }
-                            if (!VillageService.setStallPrice(player, stallUuid, p.price))
-                                GuiFeedbackPacket.send(player, "finance.village.set_price_failed");
-                        }
-                        case WITHDRAW_STALL -> {
-                            if (!validQuantity(p.quantity)) {
-                                GuiFeedbackPacket.send(player, "finance.village.invalid_quantity");
-                                return;
-                            }
-                            if (!VillageService.withdrawStall(player, stallUuid, p.quantity))
-                                GuiFeedbackPacket.send(player, "finance.village.withdraw_failed");
-                        }
-                        case CLOSE_STALL -> {
-                            if (!VillageService.closeStall(player, stallUuid))
-                                GuiFeedbackPacket.send(player, "finance.village.close_failed");
-                        }
-                        default -> {
-                            /* 不可达 */
-                        }
-                    }
-                }
-            }
+            var settlement = settlementUuid == null ? null : SettlementManager.get(settlementUuid);
+            if (settlement != null && SettlementService.isNearby(player, settlementUuid))
+                finance.gui.SettlementGuiOpener.open(player, settlement.anchor(), message);
+            else GuiFeedbackPacket.send(player, message);
         });
         c.setPacketHandled(true);
+    }
+
+    /** 执行摊位操作，返回要显示给玩家的提示（翻译键）。 */
+    private static String apply(ServerPlayer player, VillageActionPacket p) {
+        UUID settlementUuid = parseUuid(p.settlementId);
+        UUID stallUuid = parseUuid(p.stallId);
+        if (p.action == Action.REGISTER_STALL) {
+            // 开店：在目标聚落附近才能登记；价格填 0 表示按村民的公道价
+            if (settlementUuid == null
+                    || SettlementManager.get(settlementUuid) == null
+                    || !SettlementService.isNearby(player, settlementUuid)) return "finance.village.not_nearby";
+            String commodityId = NetworkValidation.normalizeCommodityId(p.commodityId);
+            if (!NetworkValidation.isValidCommodityId(commodityId)) return "finance.village.invalid_commodity";
+            long price = p.price > 0 ? p.price : VillageService.fairPrice(settlementUuid, commodityId, 1);
+            if (price < 1) return "finance.village.invalid_price";
+            return VillageService.registerStall(player, settlementUuid, commodityId, price) == null
+                    ? "finance.village.register_failed"
+                    : "finance.village.registered";
+        }
+        // 摊位管理：settlementId 必须与摊位归属一致，且玩家须在该摊位所在聚落附近，
+        // 否则 A 聚落附近可远程管理 B 聚落摊位（owner 校验仍在，无越权，但属非预期行为）。
+        VillageStall stall = stallUuid == null ? null : VillageManager.stall(stallUuid);
+        if (stall == null || settlementUuid == null || !settlementUuid.equals(stall.settlementId()))
+            return "finance.village.invalid_stall";
+        if (!SettlementService.isNearby(player, stall.settlementId())) return "finance.village.not_nearby";
+        return switch (p.action) {
+            case STOCK_STALL -> {
+                // 数量填 0 表示把背包里这种东西全摆上
+                int quantity = p.quantity == 0 ? Math.min(4096, VillageService.plainCount(player, stall)) : p.quantity;
+                if (!validQuantity(quantity)) yield "finance.village.invalid_quantity";
+                yield VillageService.stockStall(player, stallUuid, quantity)
+                        ? "finance.village.stocked"
+                        : "finance.village.stock_failed";
+            }
+            case SET_PRICE -> {
+                if (p.price < 1) yield "finance.village.invalid_price";
+                yield VillageService.setStallPrice(player, stallUuid, p.price)
+                        ? "finance.village.price_set"
+                        : "finance.village.set_price_failed";
+            }
+            case WITHDRAW_STALL -> {
+                // 数量填 0 表示全部取回
+                int quantity = p.quantity == 0 ? Math.min(4096, stall.stock()) : p.quantity;
+                if (!validQuantity(quantity)) yield "finance.village.invalid_quantity";
+                yield VillageService.withdrawStall(player, stallUuid, quantity)
+                        ? "finance.village.withdrawn"
+                        : "finance.village.withdraw_failed";
+            }
+            case CLOSE_STALL -> VillageService.closeStall(player, stallUuid)
+                    ? "finance.village.closed"
+                    : "finance.village.close_failed";
+            case REGISTER_STALL -> "finance.village.register_failed";
+        };
     }
 }

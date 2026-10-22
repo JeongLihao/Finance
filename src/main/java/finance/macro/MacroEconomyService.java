@@ -91,6 +91,16 @@ public final class MacroEconomyService {
     }
 
     /** 村民愿付价溢价：有本地账本历史时用价格系数，否则用调用方的覆盖率溢价。 */
+    /** 上一次集市给这个聚落排的采购计划（商品 → 份数），只读；宏观经济没开或还没排过时返回 null。 */
+    public static Map<String, Long> lastPlannedNeeds(UUID settlementId) {
+        if (!active()) return null;
+        SettlementEconomy econ = MacroEconomyManager.settlement(settlementId);
+        if (econ == null || econ.plan.isEmpty()) return null;
+        Map<String, Long> needs = new TreeMap<>();
+        econ.plan.values().forEach(goods -> goods.forEach((id, q) -> needs.merge(id, q, Long::sum)));
+        return needs;
+    }
+
     public static int premiumBps(UUID settlementId, String commodityId, int fallback) {
         if (!active()) return fallback;
         SettlementEconomy econ = MacroEconomyManager.settlement(settlementId);

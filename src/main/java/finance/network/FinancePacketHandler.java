@@ -13,7 +13,7 @@ import net.minecraftforge.network.simple.SimpleChannel;
 public class FinancePacketHandler {
 
     // OpenFinanceGuiPacket 从空载荷升级为受校验的入口类型 + 界面模式。
-    private static final String PROTOCOL_VERSION = "25";
+    private static final String PROTOCOL_VERSION = "26";
 
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             ResourceLocation.fromNamespaceAndPath(FinanceMod.MOD_ID, "gui"),
@@ -342,6 +342,13 @@ public class FinancePacketHandler {
                 VillageActionPacket::encode,
                 VillageActionPacket::decode,
                 VillageActionPacket::handle,
+                Optional.of(NetworkDirection.PLAY_TO_SERVER));
+        CHANNEL.registerMessage(
+                packetId++,
+                CaravanActionPacket.class,
+                CaravanActionPacket::encode,
+                CaravanActionPacket::decode,
+                CaravanActionPacket::handle,
                 Optional.of(NetworkDirection.PLAY_TO_SERVER));
         CHANNEL.registerMessage(
                 packetId++,

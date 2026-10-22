@@ -33,6 +33,29 @@ class SettlementMenuCodecTest {
         assertThrows(IllegalArgumentException.class, () -> SettlementMenu.readRows(truncated));
     }
 
+    @Test
+    void stallAndRouteExtrasRoundTrip() {
+        UUID stall = UUID.randomUUID(), route = UUID.randomUUID(), dest = UUID.randomUUID();
+        var extras = new SettlementMenu.Extras(
+                -12,
+                java.util.List.of(new SettlementMenu.WantRow("bread", "面包", 40, 15)),
+                java.util.List.of(new SettlementMenu.StallRow(stall, "wheat", "小麦", 9, 30, 11)),
+                java.util.List.of(new SettlementMenu.RouteRow(route, "河畔村", "煤", 32, 2, true, "PAUSED", -150)),
+                java.util.List.of(new SettlementMenu.Choice(dest.toString(), "河畔村")),
+                java.util.List.of(new SettlementMenu.Choice("coal", "煤")));
+        FriendlyByteBuf b = new FriendlyByteBuf(Unpooled.buffer());
+        extras.write(b);
+        assertEquals(extras, SettlementMenu.Extras.read(b));
+    }
+
+    @Test
+    void oversizedExtrasAreRejected() {
+        FriendlyByteBuf b = new FriendlyByteBuf(Unpooled.buffer());
+        b.writeVarInt(1000);
+        b.writeVarInt(SettlementMenu.MAX_ROWS + 1);
+        assertThrows(IllegalArgumentException.class, () -> SettlementMenu.Extras.read(b));
+    }
+
     private static void writeRow(
             FriendlyByteBuf b, int quantity, long reward, long deadline, int premium, int shortage) {
         b.writeVarInt(1);

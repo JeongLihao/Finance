@@ -1,9 +1,7 @@
 package finance.simple;
 
-import finance.cycle.EconomyCycleService;
-import finance.feedback.FeedbackNotification;
 import finance.feedback.FeedbackSeverity;
-import finance.feedback.WorldEconomyFeedbackService;
+import finance.feedback.PlayerNotices;
 import finance.futures.FuturesContract;
 import finance.futures.FuturesMath;
 import finance.futures.FuturesPosition;
@@ -17,12 +15,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
-import net.minecraft.sounds.SoundSource;
 import net.minecraftforge.server.ServerLifecycleHooks;
 
 /**
@@ -53,10 +48,9 @@ public final class BetNotices {
         } else {
             SimpleBetService.defer(l.player(), key, l.returned(), false);
         }
-        tell(
+        PlayerNotices.tell(
                 server,
                 l.player(),
-                player,
                 FeedbackSeverity.CRITICAL,
                 SoundEvents.ANVIL_LAND,
                 "finance.bet.liquidated",
@@ -81,10 +75,9 @@ public final class BetNotices {
             else SimpleBetService.defer(p.ownerId(), key, pnl, true);
             long back = SimpleBetService.sweepIdle(p.ownerId());
             String result = pnl >= 0 ? "，赚了 " + MoneyFormat.pounds(pnl) : "，亏了 " + MoneyFormat.pounds(-pnl);
-            tell(
+            PlayerNotices.tell(
                     server,
                     p.ownerId(),
-                    player,
                     FeedbackSeverity.NOTICE,
                     pnl >= 0 ? SoundEvents.PLAYER_LEVELUP : SoundEvents.ANVIL_LAND,
                     "finance.bet.settled",
@@ -106,10 +99,9 @@ public final class BetNotices {
             ServerPlayer player = server.getPlayerList().getPlayer(e.getKey());
             if (player == null) continue;
             WARNED.put(e.getKey(), day);
-            tell(
+            PlayerNotices.tell(
                     server,
                     e.getKey(),
-                    player,
                     FeedbackSeverity.WARNING,
                     SoundEvents.NOTE_BLOCK_BELL.value(),
                     "finance.bet.warning",
@@ -117,23 +109,5 @@ public final class BetNotices {
                     Long.toString(Math.round(m)));
         }
         if (WARNED.size() > 4_096) WARNED.clear();
-    }
-
-    /** 在线：聊天栏 + 提示音；离线：存进反馈队列，上线补发。 */
-    private static void tell(
-            MinecraftServer server,
-            UUID id,
-            ServerPlayer player,
-            FeedbackSeverity severity,
-            SoundEvent sound,
-            String key,
-            String... args) {
-        if (player != null) {
-            player.sendSystemMessage(Component.translatable(key, (Object[]) args));
-            player.playNotifySound(sound, SoundSource.PLAYERS, 0.8F, 1.0F);
-            return;
-        }
-        long day = Math.max(0, EconomyCycleService.currentMcDay(server));
-        WorldEconomyFeedbackService.queue(id, new FeedbackNotification(day, severity, key, List.of(args)));
     }
 }

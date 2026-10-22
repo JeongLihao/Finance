@@ -412,10 +412,19 @@ public final class InsuranceManager {
             if (p.status() == PolicyStatus.ACTIVE && p.product() == InsuranceProduct.BUSINESS_INTERRUPTION)
                 createBusinessInterruption(p.companyId(), day, p.id().getMostSignificantBits());
         }
+        WarehouseAccidentService.processDay(day);
         for (CompanyLoan l : CompanyLoanManager.loans().values())
             if (l.status() == LoanStatus.DEFAULTED && l.lenderType() == LoanLenderType.COMMERCIAL_BANK)
                 createLoanDefault(l.id(), day);
         processPayments(day);
+    }
+
+    /** 某个损失事件已批准、还没发放完的赔款合计。 */
+    public static synchronized long approvedFor(UUID eventId) {
+        return CLAIMS.values().stream()
+                .filter(c -> c.eventId().equals(eventId))
+                .mapToLong(InsuranceClaim::approvedAmount)
+                .sum();
     }
 
     public static synchronized long activeExposure() {

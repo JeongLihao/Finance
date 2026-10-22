@@ -95,6 +95,42 @@ public final class CaravanService {
         if (dest == null) {
             return Result.fail("找不到终点聚落：" + destName);
         }
+        return createRoute(ownerId, source, dest, commodityId, qty, guardLevel, insured, day);
+    }
+
+    /** 建路线（按聚落 ID，贸易站界面用；聚落重名时也不会选错）。 */
+    public static Result createRoute(
+            UUID ownerId,
+            UUID sourceId,
+            UUID destId,
+            String commodityId,
+            int qty,
+            int guardLevel,
+            boolean insured,
+            long day) {
+        if (!ModuleHealthRegistry.mayWrite(ModuleHealthRegistry.Module.CARAVAN)) {
+            return Result.fail("商队模块维护中，请稍后再试。");
+        }
+        if (ownerId == null) {
+            return Result.fail("仅玩家可建商队路线。");
+        }
+        SettlementRecord source = sourceId == null ? null : SettlementManager.get(sourceId);
+        SettlementRecord dest = destId == null ? null : SettlementManager.get(destId);
+        if (source == null || dest == null) {
+            return Result.fail("找不到聚落。");
+        }
+        return createRoute(ownerId, source, dest, commodityId, qty, guardLevel, insured, day);
+    }
+
+    private static Result createRoute(
+            UUID ownerId,
+            SettlementRecord source,
+            SettlementRecord dest,
+            String commodityId,
+            int qty,
+            int guardLevel,
+            boolean insured,
+            long day) {
         if (source.id().equals(dest.id())) {
             return Result.fail("起点与终点不能是同一聚落。");
         }

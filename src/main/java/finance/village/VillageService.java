@@ -510,6 +510,37 @@ public final class VillageService {
      *
      * @return 商品 id → 需求单位数（只含需求 &gt; 0 的商品）
      */
+    /** 村民想买的一种商品：每天大约要多少、摊位卖多少钱以内村民肯买（公道价）。 */
+    public record Want(String commodityId, long dailyNeed, long fairPrice) {}
+
+    /** 只读：这个聚落的村民每天想买什么、公道价多少，按需求量从多到少。不改动任何状态。 */
+    public static List<Want> wants(UUID settlementId) {
+        VillageRecord village = VillageManager.get(settlementId);
+        if (village == null) return List.of();
+        Map<String, Long> needs = finance.macro.MacroEconomyService.lastPlannedNeeds(settlementId);
+        if (needs == null) needs = computeNeeds(village);
+        List<Want> out = new ArrayList<>();
+        for (Map.Entry<String, Long> e : needs.entrySet()) {
+            long fair = fairPrice(settlementId, e.getKey(), e.getValue());
+            if (e.getValue() > 0 && fair > 0) out.add(new Want(e.getKey(), e.getValue(), fair));
+        }
+        out.sort((a, b) -> Long.compare(b.dailyNeed(), a.dailyNeed()));
+        return out;
+    }
+
+    /** 摊位单价不超过这个数，村民才会买（与集市结算的公道线算法一致）。0 = 算不出来。 */
+    public static long fairPrice(UUID settlementId, String commodityId, long need) {
+        MarketPrice mp = NpcMarketMaker.getMarketPrice(commodityId);
+        Commodity def = CommodityRegistry.getCommodity(commodityId);
+        if (mp == null || def == null) return 0;
+        int villageStock = Math.max(0, CommodityInventoryManager.getCommodityAmount(settlementId, commodityId));
+        double coverage = (double) villageStock / Math.max(1L, need);
+        int premium =
+                finance.macro.MacroEconomyService.premiumBps(settlementId, commodityId, premiumForCoverage(coverage));
+        long wtp = computeWtp(mp.getMidPrice(), def.getBasePrice(), premium);
+        return multiplyDivide(wtp, FinanceConfig.villageFairToleranceBps());
+    }
+
     static Map<String, Long> computeNeeds(VillageRecord v) {
         Map<String, Double> totals = new HashMap<>();
         if (v != null && v.professionMix() != null) {
@@ -671,6 +702,16 @@ public final class VillageService {
     /**
      * 上架：从玩家背包扣除实物 → 摊位库存。没货不能卖（反刷钱核心）。
      */
+    /** 玩家背包里能摆上这个摊位的普通物品数（不含改过名、附魔等带特殊数据的）。 */
+    public static int plainCount(ServerPlayer player, VillageStall stall) {
+        CommodityItemResolver.Resolution resolution = CommodityItemResolver.resolve(stall.commodityId());
+        if (player == null || !resolution.valid()) return 0;
+        int count = 0;
+        for (net.minecraft.world.item.ItemStack stack : player.getInventory().items)
+            if (stack.is(resolution.item()) && !stack.hasTag()) count += stack.getCount();
+        return count;
+    }
+
     public static boolean stockStall(ServerPlayer player, UUID stallId, int quantity) {
         if (player == null || stallId == null || quantity <= 0) {
             return false;
