@@ -149,6 +149,7 @@ public final class FinanceConfig {
     private static final int CASH_DAILY_EMERALD_SELL_LIMIT_VALUE = 64;
     private static final int CASH_DAILY_EMERALD_BUY_LIMIT_VALUE = 32;
     private static final double INSURANCE_ACCIDENT_CHANCE_VALUE = 1.0D;
+    private static final boolean SETTLEMENT_AUTO_DISCOVER_VALUE = true;
     private static final int INSURANCE_ACCIDENT_MAX_LOSS_VALUE = 20;
     // ---- 宏观实体经济 ----
     private static final boolean MACRO_ENABLED_VALUE = true;
@@ -368,6 +369,7 @@ public final class FinanceConfig {
     private static final ForgeConfigSpec.IntValue CASH_DAILY_EMERALD_SELL_LIMIT;
     private static final ForgeConfigSpec.IntValue CASH_DAILY_EMERALD_BUY_LIMIT;
     private static final ForgeConfigSpec.DoubleValue INSURANCE_ACCIDENT_CHANCE;
+    private static final ForgeConfigSpec.BooleanValue SETTLEMENT_AUTO_DISCOVER;
     private static final ForgeConfigSpec.IntValue INSURANCE_ACCIDENT_MAX_LOSS;
     private static final ForgeConfigSpec.BooleanValue MACRO_ENABLED;
     private static final ForgeConfigSpec.BooleanValue MACRO_LABOR_ENABLED;
@@ -634,6 +636,9 @@ public final class FinanceConfig {
                 .defineInRange("demandDeadlineDays", SETTLEMENT_DEADLINE_DAYS_VALUE, 1, 30);
         SETTLEMENT_REWARD_BPS = builder.comment("本地需求相对可信市场采购价的奖励比例，10000=100%。")
                 .defineInRange("rewardBasisPoints", SETTLEMENT_REWARD_BPS_VALUE, 5_000, 20_000);
+        SETTLEMENT_AUTO_DISCOVER = builder.comment(
+                        "玩家走进原版村庄时自动登记为聚落，村民集市、人口、工资和本地物价随即运转；之后在村里放贸易站会接管这个聚落。关闭后只有放了贸易站的村庄才算聚落。")
+                .define("autoDiscoverVillages", SETTLEMENT_AUTO_DISCOVER_VALUE);
         builder.pop();
         builder.push("exploration");
         EXPLORATION_ENABLED =
@@ -1721,6 +1726,10 @@ public final class FinanceConfig {
 
     public static boolean rivalsActivismEnabled() {
         return getBoolean(RIVALS_ACTIVISM_ENABLED, RIVALS_ACTIVISM_ENABLED_VALUE);
+    }
+
+    public static boolean settlementAutoDiscover() {
+        return getBoolean(SETTLEMENT_AUTO_DISCOVER, SETTLEMENT_AUTO_DISCOVER_VALUE);
     }
 
     public static double insuranceAccidentChancePercent() {

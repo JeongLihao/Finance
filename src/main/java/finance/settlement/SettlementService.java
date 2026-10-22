@@ -32,11 +32,24 @@ public final class SettlementService {
                 || station.getLevel() != player.serverLevel()
                 || station.getBlockPos().distSqr(player.blockPosition()) > 64D) return null;
         String dimension = player.serverLevel().dimension().location().toString();
+        if (SettlementManager.get(station.settlementId()) == null) {
+            // 这个村子已经自动登记过：新放的贸易站接管它，不另开一个聚落
+            SettlementRecord village = SettlementManager.adoptableNear(
+                    dimension,
+                    station.getBlockPos(),
+                    pos -> player.serverLevel().getBlockEntity(pos)
+                            instanceof finance.block.entity.SettlementTradeStationBlockEntity);
+            if (village != null) {
+                station.assignIdentity(village.id());
+                village.activate(station.getBlockPos());
+                finance.data.EconomySavedData.markDirty();
+            }
+        }
         SettlementRecord record = SettlementManager.registerOrRecover(
                 station.settlementId(),
                 dimension,
                 station.getBlockPos(),
-                "settlement." + shortId(station.settlementId()));
+                SettlementNames.forId(station.settlementId()));
         if (record != null && !record.id().equals(station.settlementId())) station.assignIdentity(record.id());
         return record;
     }
@@ -315,9 +328,5 @@ public final class SettlementService {
 
     private static boolean validKey(String k) {
         return k != null && !k.isBlank() && k.length() <= 64;
-    }
-
-    private static String shortId(UUID id) {
-        return id.toString().substring(0, 8);
     }
 }

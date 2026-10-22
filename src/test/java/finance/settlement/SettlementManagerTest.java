@@ -34,6 +34,29 @@ class SettlementManagerTest {
     }
 
     @Test
+    void tradeStationAdoptsTheAutoDiscoveredVillageNearby() {
+        String world = "minecraft:overworld";
+        BlockPos center = new BlockPos(100, 64, 100);
+        SettlementRecord village = SettlementManager.registerOrRecover(UUID.randomUUID(), world, center, "柳溪村");
+        BlockPos station = new BlockPos(130, 64, 90);
+        assertTrue(SettlementManager.anyNear(world, station));
+        assertEquals(village, SettlementManager.adoptableNear(world, station, pos -> false), "村里还没有贸易站：接管");
+        assertNull(SettlementManager.adoptableNear(world, station, pos -> true), "已经有贸易站的聚落不能被接管");
+        assertNull(SettlementManager.adoptableNear("minecraft:the_nether", station, pos -> false));
+        assertNull(SettlementManager.adoptableNear(world, new BlockPos(400, 64, 400), pos -> false), "太远算另一个村");
+        assertFalse(SettlementManager.anyNear(world, new BlockPos(400, 64, 400)));
+    }
+
+    @Test
+    void newSettlementNamesAreReadableAndUnique() {
+        UUID id = UUID.randomUUID();
+        String first = SettlementNames.forId(id);
+        assertTrue(first.endsWith("村"));
+        SettlementManager.registerOrRecover(id, "minecraft:overworld", BlockPos.ZERO, first);
+        assertEquals(first + "2", SettlementNames.forId(id), "同名时加编号");
+    }
+
+    @Test
     void repeatedDiscoveryAndNearbyRebuildRecoverStableIdentity() {
         UUID id = UUID.randomUUID();
         BlockPos pos = new BlockPos(10, 64, 10);

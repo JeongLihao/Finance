@@ -728,5 +728,6 @@
   "screen.finance.exchange_note.label": "金额（便士，100 便士 = 1 磅）",
   "screen.finance.exchange_note.sign": "签发",
   "screen.finance.exchange_note.need_amount": "请填写金额",
-  "screen.finance.exchange_note.too_much": "最多 %s 便士"
+  "screen.finance.exchange_note.too_much": "最多 %s 便士",
+  "finance.settlement.discovered": "你来到了%s。村民每天赶集买东西；在村里放一个聚落贸易站，就能接村里的需求、摆摊卖货、跑商队。"
 }

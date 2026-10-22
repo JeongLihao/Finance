@@ -728,5 +728,6 @@
   "screen.finance.exchange_note.label": "Amount in pence (100 pence = £1)",
   "screen.finance.exchange_note.sign": "Sign",
   "screen.finance.exchange_note.need_amount": "Enter an amount",
-  "screen.finance.exchange_note.too_much": "At most %s pence"
+  "screen.finance.exchange_note.too_much": "At most %s pence",
+  "finance.settlement.discovered": "You've arrived at %s. Villagers shop at the market every day; place a settlement trade station here to take their requests, run a stall and send caravans."
 }

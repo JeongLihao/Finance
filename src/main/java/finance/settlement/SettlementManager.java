@@ -65,6 +65,31 @@ public final class SettlementManager {
         return created;
     }
 
+    /** 自动登记的村庄和后来放的贸易站算同一个聚落：在这个距离内就接管。 */
+    public static final double VILLAGE_RADIUS = 96D;
+
+    /**
+     * 同维度、VILLAGE_RADIUS 内最近的一个还没有贸易站的启用聚落（自动登记的村庄）。
+     * hasStation 判断某个锚点上是不是真的有贸易站。
+     */
+    public static SettlementRecord adoptableNear(
+            String dimension, BlockPos pos, java.util.function.Predicate<BlockPos> hasStation) {
+        return SETTLEMENTS.values().stream()
+                .filter(s -> s.dimensionId().equals(dimension)
+                        && s.status() != SettlementStatus.DISABLED
+                        && s.anchor().distSqr(pos) <= VILLAGE_RADIUS * VILLAGE_RADIUS
+                        && !hasStation.test(s.anchor()))
+                .min(Comparator.comparingDouble(s -> s.anchor().distSqr(pos)))
+                .orElse(null);
+    }
+
+    /** 同维度 VILLAGE_RADIUS 内有没有任何聚落（不论有没有贸易站）。 */
+    public static boolean anyNear(String dimension, BlockPos pos) {
+        return SETTLEMENTS.values().stream()
+                .anyMatch(s -> s.dimensionId().equals(dimension)
+                        && s.anchor().distSqr(pos) <= VILLAGE_RADIUS * VILLAGE_RADIUS);
+    }
+
     public static boolean restoreSettlement(SettlementRecord record) {
         if (record == null
                 || SETTLEMENTS.size() >= MAX_SETTLEMENTS
