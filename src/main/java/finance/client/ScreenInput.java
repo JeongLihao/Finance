@@ -37,15 +37,20 @@ final class ScreenInput {
         return parseInRange(text, 1, max).orElse(-1);
     }
 
-    /** 解析 min..max 的整数；空、非数字、越界都返回空。 */
+    /** 解析 min..max 的整数；空、非数字、越界都返回空。界面金额带千分位显示，所以允许 "1,200" 这类写法。 */
     static OptionalLong parseInRange(String text, long min, long max) {
         if (text == null) return OptionalLong.empty();
         try {
-            long value = Long.parseLong(text.trim());
+            long value = Long.parseLong(stripGrouping(text));
             return value >= min && value <= max ? OptionalLong.of(value) : OptionalLong.empty();
         } catch (NumberFormatException exception) {
             return OptionalLong.empty();
         }
+    }
+
+    /** 去掉千分位逗号（含中文逗号）、下划线和空白，其他字符原样交给 parseLong 判断。 */
+    static String stripGrouping(String text) {
+        return text.replaceAll("[,，_\\s]", "");
     }
 
     /** 输入不合法时的状态栏提示。 */

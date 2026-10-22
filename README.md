@@ -450,5 +450,9 @@ creditBMinimumScore = 30
 - [实体物流资产生命周期](docs/LOGISTICS_ASSET_LIFECYCLE.md)：运单状态、运输托管、载体支持、公司权限和失败恢复策略。
 - [生存进程与设施等级矩阵](docs/SURVIVAL_PROGRESSION_MATRIX.md)：配方、解锁、升级成本、身份防复制和平衡样本。
 - [多人验收](docs/PHASE6_MULTIPLAYER_ACCEPTANCE.md)：隔离专服、三个客户端、八入口视觉与资产闭环验收方法。
-- [DEVELOPMENT_NOTES.md](DEVELOPMENT_NOTES.md)：开发笔记和模块结构。
-- [STOCK-SYSTEM-SUMMARY.md](STOCK-SYSTEM-SUMMARY.md)：股票系统设计与实现总结。
+- [开发笔记](docs/dev/DEVELOPMENT_NOTES.md)：开发笔记和模块结构。
+- [股票系统总结](docs/dev/STOCK-SYSTEM-SUMMARY.md)：股票系统设计与实现总结。
+
+## 许可证
+
+Finance 以 [GNU LGPL v3.0 或更高版本](COPYING.LESSER) 发布（LGPL 引用的 GPL v3 全文见 [COPYING](COPYING)）。Minecraft、Forge 及其他依赖各自遵循其原有许可证。

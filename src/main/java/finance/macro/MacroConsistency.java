@@ -22,17 +22,17 @@ public final class MacroConsistency {
         for (SettlementEconomy econ : MacroEconomyManager.settlements()) {
             if (SettlementManager.get(econ.settlementId) == null) {
                 out.add(new DiagnosticIssue(DiagnosticSeverity.WARN, MODULE, "ORPHAN_SETTLEMENT",
-                        econ.settlementId.toString(), "Macro state references a missing settlement"));
+                        econ.settlementId.toString(), "宏观经济状态指向不存在的聚落"));
             }
             if (econ.solBps < 0 || econ.solBps > MacroFormulas.MAX_SOL || econ.employed < 0) {
                 out.add(new DiagnosticIssue(DiagnosticSeverity.ERROR, MODULE, "STATE_RANGE",
-                        econ.settlementId.toString(), "Standard of living or employment out of range"));
+                        econ.settlementId.toString(), "生活水平或就业率超出范围"));
             }
             for (Map.Entry<String, GoodBook> e : econ.goods.entrySet()) {
                 int f = e.getValue().factorBps;
                 if (f < MacroFormulas.MIN_FACTOR_BPS || f > MacroFormulas.MAX_FACTOR_BPS) {
                     out.add(new DiagnosticIssue(DiagnosticSeverity.ERROR, MODULE, "PRICE_FACTOR",
-                            econ.settlementId + "/" + e.getKey(), "Local price factor out of range"));
+                            econ.settlementId + "/" + e.getKey(), "本地物价系数超出范围"));
                 }
             }
         }
@@ -40,10 +40,10 @@ public final class MacroConsistency {
             CompanyFacilityRecord facility = CompanyFacilityManager.get(e.getKey());
             if (facility == null) {
                 out.add(new DiagnosticIssue(DiagnosticSeverity.WARN, MODULE, "ORPHAN_EMPLOYMENT",
-                        e.getKey().toString(), "Employment recorded for a missing facility"));
+                        e.getKey().toString(), "不存在的设施记录了雇工"));
             } else if (e.getValue() > MacroLaborService.jobs(facility)) {
                 out.add(new DiagnosticIssue(DiagnosticSeverity.ERROR, MODULE, "OVER_EMPLOYED",
-                        e.getKey().toString(), "Employment exceeds facility jobs"));
+                        e.getKey().toString(), "雇工人数超过设施岗位数"));
             }
         }
         return out;

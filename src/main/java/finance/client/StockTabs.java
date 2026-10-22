@@ -45,8 +45,8 @@ public final class StockTabs {
 
     /** K 线面板模式（原 FinanceScreen.ChartPanel，随股票页签迁移）。 */
     enum ChartPanel {
-        KLINE_MA("K+MA"), MACD("MACD"), RSI("RSI"), ORDER_BOOK("Book"), RECENT("Trades"),
-        RANKINGS("Ranks"), RANK_VOLUME("VolRank");
+        KLINE_MA("K线+均线"), MACD("MACD"), RSI("RSI"), ORDER_BOOK("盘口"), RECENT("最近成交"),
+        RANKINGS("涨跌排行"), RANK_VOLUME("成交量排行");
         private final String label;
         ChartPanel(String label) { this.label = label; }
         ChartPanel next() { return values()[(ordinal() + 1) % values().length]; }

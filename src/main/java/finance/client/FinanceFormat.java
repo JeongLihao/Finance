@@ -331,12 +331,15 @@ public final class FinanceFormat {
         };
     }
 
+    /** 只用于预览和加减按钮：解析失败按 1 处理；真正发包前统一走 FinanceScreen.requireAmount 校验。 */
     public static long parseLong(String s) {
-        try { return Long.parseLong(s); } catch (Exception e) { return 1; }
+        if (s == null) return 1;
+        try { return Long.parseLong(ScreenInput.stripGrouping(s)); } catch (NumberFormatException e) { return 1; }
     }
 
     public static int parseInt(String s) {
-        try { return Integer.parseInt(s); } catch (Exception e) { return 1; }
+        if (s == null) return 1;
+        try { return Integer.parseInt(ScreenInput.stripGrouping(s)); } catch (NumberFormatException e) { return 1; }
     }
 
     public static String commodityDisplayName(String commodityId) {

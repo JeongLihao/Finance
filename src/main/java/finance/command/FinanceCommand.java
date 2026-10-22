@@ -68,7 +68,7 @@ public class FinanceCommand {
 
                                                                             if (!AccountManager.deposit(target.getUUID(), amount)) {
                                                                                 context.getSource().sendFailure(Component.literal(
-                                                                                        "Target account cannot accept that amount."));
+                                                                                        "目标账户收不下这笔钱（会超出余额上限）。"));
                                                                                 return 0;
                                                                             }
 
@@ -108,8 +108,8 @@ public class FinanceCommand {
                                 .executes(context -> {
                                     long day = EconomyCycleService.currentMcDay(context.getSource().getServer());
                                     DiagnosticReport report = DiagnosticManager.runFull(day);
-                                    context.getSource().sendSuccess(() -> Component.literal("Finance DataVersion="
-                                            + EconomySavedData.currentDataVersion() + " " + report.summary()), false);
+                                    context.getSource().sendSuccess(() -> Component.literal("金融数据版本 "
+                                            + EconomySavedData.currentDataVersion() + "，" + report.summary()), false);
                                     int shown = 0;
                                     for (DiagnosticIssue issue : report.issues()) {
                                         if (issue.severity() == DiagnosticSeverity.INFO || shown++ >= 10) continue;
@@ -123,13 +123,13 @@ public class FinanceCommand {
                         .then(Commands.literal("status")
                                 .requires(source -> source.hasPermission(2))
                                 .executes(context -> {
-                                    context.getSource().sendSuccess(() -> Component.literal("Finance DataVersion="
+                                    context.getSource().sendSuccess(() -> Component.literal("金融数据版本 "
                                             + EconomySavedData.currentDataVersion()), false);
                                     ModuleHealthRegistry.statuses().forEach((module, status) ->
                                             context.getSource().sendSuccess(() -> Component.literal(module + "="
                                                     + status.state() + (status.reason().isBlank() ? "" : " " + status.reason())), false));
                                     DiagnosticReport latest = DiagnosticManager.latest();
-                                    if (latest != null) context.getSource().sendSuccess(() -> Component.literal("Latest " + latest.summary()), false);
+                                    if (latest != null) context.getSource().sendSuccess(() -> Component.literal("最近一次诊断：" + latest.summary()), false);
                                     return 1;
                                 }))
 

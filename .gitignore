@@ -26,3 +26,7 @@ forge*changelog.txt
 
 # runtime logs
 logs/
+build-*.log
+
+# 宣传视频不进仓库，发布时作为 Release 附件上传
+promo/*.mp4

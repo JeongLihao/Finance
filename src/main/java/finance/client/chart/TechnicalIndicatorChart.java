@@ -17,7 +17,7 @@ public final class TechnicalIndicatorChart {
         panel(g, x, y, width, height);
         MacdIndicator.Result value = MacdIndicator.calculate(IndicatorService.closes(bars));
         double range = maxAbs(value.dif(), value.dea(), value.histogram());
-        if (range <= 0) { g.drawCenteredString(font, "Not enough MACD data", x + width / 2, y + height / 2, 0xFF666666); return; }
+        if (range <= 0) { g.drawCenteredString(font, "MACD 数据不足", x + width / 2, y + height / 2, 0xFF666666); return; }
         int zero = y + height / 2;
         g.fill(x + 2, zero, x + width - 2, zero + 1, 0xFFAAAAAA);
         double slot = (double) (width - 8) / Math.max(1, bars.size());

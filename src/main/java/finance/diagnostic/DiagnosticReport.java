@@ -19,7 +19,7 @@ public record DiagnosticReport(UUID reportId, Instant createdAt, long mcDay,
         for (DiagnosticSeverity severity : DiagnosticSeverity.values()) result.put(severity, count(severity));
         return result;
     }
-    public String summary() { return "report=" + reportId + " info=" + count(DiagnosticSeverity.INFO)
-            + " warn=" + count(DiagnosticSeverity.WARN) + " error=" + count(DiagnosticSeverity.ERROR)
-            + " fatal=" + count(DiagnosticSeverity.FATAL) + " durationMs=" + durationNanos / 1_000_000.0; }
+    public String summary() { return "报告 " + reportId + "：提示 " + count(DiagnosticSeverity.INFO)
+            + "，警告 " + count(DiagnosticSeverity.WARN) + "，错误 " + count(DiagnosticSeverity.ERROR)
+            + "，致命 " + count(DiagnosticSeverity.FATAL) + "，耗时 " + durationNanos / 1_000_000.0 + " 毫秒"; }
 }

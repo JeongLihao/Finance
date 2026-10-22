@@ -72,6 +72,23 @@ class CrashMechanicsTest {
         assertTrue(stock.getAnchorPrice() < afterDump, "强制卖出卖进市场，继续压低股价");
     }
 
+    @Test void debtLeftAfterForcedSaleIsSettledFromCollateralThenBadDebt() {
+        UUID id = trader(16_000);
+        assertTrue(MarginService.marginBuy(id, SYMBOL, 300).success());
+        MarginAccount acct = MarginPoolManager.getAccount(id);
+        long debtBefore = acct.getFinancedDebt();
+        // 单笔成交最多推动 50%，连砸三笔才能跌到每股价值的 0.2 倍下限：卖光融资股也还不清垫付款
+        for (int i = 0; i < 3; i++) stock.recordTrade(1, 3_000, false);
+        assertTrue(300 * stock.impactedPrice(300, false) < debtBefore, "前提：卖出所得不够还债");
+        assertFalse(MarginService.checkLiquidations().isEmpty());
+        assertTrue(acct.getFinancedShares().isEmpty(), "融资股全部卖掉");
+        assertEquals(0, acct.getFinancedDebt(), "剩下的垫付款不再挂着");
+        assertEquals(0, acct.getFinancedInterestOwed());
+        assertEquals(0, acct.getCashCollateral(), "缺口先扣光现金保证金");
+        assertTrue(acct.getBadDebt() > 0, "还不够的部分记不良债务");
+        assertFalse(MarginService.marginBuy(id, SYMBOL, 1).success(), "有不良债务时不能新开仓");
+    }
+
     @Test void breakerStopsForcedSalesForAMinute() {
         UUID id = trader(20_000);
         assertTrue(MarginService.marginBuy(id, SYMBOL, 300).success());

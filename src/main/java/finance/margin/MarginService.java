@@ -24,7 +24,8 @@ import java.util.UUID;
  *   <li>融资股不计入并购举牌门槛（见 {@link #financedSharesOf})</li>
  * </ul>
  *
- * <p>成交价统一按 {@link Stock#getFairValue()}（基本面定价），避免订单簿操纵传导。
+ * <p>开仓按市价（{@link Stock#getAnchorPrice()}），平仓和强制卖出按自己推动之后的价格
+ * （{@link Stock#impactedPrice}）成交并卖进市场，加杠杆来回买卖必亏。
  */
 public final class MarginService {
 
@@ -135,7 +136,7 @@ public final class MarginService {
      *
      * <p>首付 50% 从现金保证金扣除，券商垫付剩余 50%。
      * 垫付资金<b>不经过玩家自由账户</b>，直接结算（防借钱套现）。
-     * 成交价按 fairValue。
+     * 成交价按市价。
      */
     public static synchronized Result marginBuy(UUID playerId, String symbol, long qty) {
         if (playerId == null || qty <= 0) {
@@ -293,7 +294,7 @@ public final class MarginService {
     }
 
     /**
-     * 买券还券 —— 按 fairValue 系统结算。
+     * 买券还券 —— 按买回推高之后的价格结算。
      *
      * <p>qty <= 0 表示全部归还。结算顺序：冻结资金 → 现金保证金；
      * 不足部分记不良债务。全还时剩余冻结资金解冻至自由账户。
@@ -445,6 +446,22 @@ public final class MarginService {
         return liquidated;
     }
 
+    /**
+     * 融资股全部卖完后还欠的本息：先用现金保证金补，再不够记不良债务。
+     * 不处理的话这笔债会一直挂着，账户既不会再被强平，保证金也取不出来。
+     */
+    private static void settleResidualFinancedDebt(MarginAccount acct) {
+        if (!acct.getFinancedShares().isEmpty()) return;
+        long owed = acct.getFinancedDebt() + acct.getFinancedInterestOwed();
+        if (owed <= 0) return;
+        long fromCollateral = Math.min(acct.getCashCollateral(), owed);
+        acct.reduceCashCollateral(fromCollateral);
+        long rest = owed - fromCollateral;
+        if (rest > 0) acct.addBadDebt(rest);
+        acct.reduceFinancedInterest(acct.getFinancedInterestOwed());
+        acct.reduceFinancedDebt(acct.getFinancedDebt());
+    }
+
     private static boolean tradable(MarginAccount acct) {
         for (String symbol : acct.getFinancedShares().keySet()) {
             Stock s = StockMarketManager.getStock(symbol);
@@ -476,6 +493,7 @@ public final class MarginService {
         if (proceeds > 0) AccountManager.deposit(playerId, proceeds);
         acct.removeFinancedShares(key, qty);
         stock.recordTrade(price, qty, false);
+        settleResidualFinancedDebt(acct);
         EconomySavedData.markDirty();
         return Result.ok(String.format("平掉融资仓 %s %d 股 @%d。", key, qty, price));
     }
@@ -534,8 +552,8 @@ public final class MarginService {
     }
 
     /**
-     * 强制平仓：融资仓按 fairValue 卖出先息后本还款；
-     * 融券仓按 fairValue 买回（冻结资金 → 保证金 → 不良债务）。
+     * 强制平仓：融资仓按推动之后的价格卖进市场，先息后本还款，卖完仍不够的部分
+     * 用现金保证金补、再不够记不良债务；融券仓按推动之后的价格买回（冻结资金 → 保证金 → 不良债务）。
      * 停牌股跳过（无公允执行价），退市（股票不存在）按 0 结算。
      */
     private static void liquidate(MarginAccount acct, List<String> log) {
@@ -563,6 +581,7 @@ public final class MarginService {
             if (stock != null && qty > 0) stock.recordTrade(price, qty, false); // 卖进市场，继续压低股价
             log.add(String.format("强平融资 %s %d股@%d", symbol, qty, price));
         }
+        settleResidualFinancedDebt(acct);
         // ---- 强平融券仓 ----
         for (String symbol : new ArrayList<>(acct.getShortPositions().keySet())) {
             Stock stock = StockMarketManager.getStock(symbol);

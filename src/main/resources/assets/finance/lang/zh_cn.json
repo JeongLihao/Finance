@@ -1,6 +1,6 @@
 {
   "key.finance.open_gui": "打开/关闭金融中心",
-  "key.categories.finance": "Finance",
+  "key.categories.finance": "金融",
   "finance.access.allowed": "允许访问金融界面",
   "finance.access.opened": "已打开高级金融界面",
   "finance.access.denied": "无法访问该金融功能",

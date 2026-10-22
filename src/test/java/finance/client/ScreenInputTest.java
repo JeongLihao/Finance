@@ -55,6 +55,18 @@ class ScreenInputTest {
     }
 
     @Test
+    void thousandsSeparatorsCopiedFromTheScreenAreAccepted() {
+        // 界面金额按千分位显示，玩家照抄 "1,200" 不应被当成非法输入
+        assertEquals(1_200L, ScreenInput.parsePositive("1,200", FinanceScreen.MAX_INPUT_AMOUNT));
+        assertEquals(1_234_567L, ScreenInput.parsePositive("1，234，567", FinanceScreen.MAX_INPUT_AMOUNT));
+        assertEquals(10_000L, ScreenInput.parsePositive("10 000", FinanceScreen.MAX_INPUT_AMOUNT));
+        assertEquals(-1L, ScreenInput.parsePositive("12.5", FinanceScreen.MAX_INPUT_AMOUNT));
+        assertEquals(-1L, ScreenInput.parsePositive("-1,000", FinanceScreen.MAX_INPUT_AMOUNT));
+        assertEquals(1_200L, FinanceFormat.parseLong("1,200"));
+        assertEquals(1, FinanceFormat.parseInt(null));
+    }
+
+    @Test
     void rangeMessageNamesTheFieldAndItsLimits() {
         assertEquals("期限须为 2～3650 的整数", ScreenInput.rangeMessage("期限", 2, 3650));
         assertEquals("金额须为不小于 1 的整数", ScreenInput.rangeMessage("金额", 1, FinanceScreen.MAX_INPUT_AMOUNT));
