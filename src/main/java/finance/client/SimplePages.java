@@ -1132,25 +1132,25 @@ final class SimplePages {
         y += 19;
         if (bet) {
             var contract = betContract(v, id);
-            String block = v.futures() == null ? "正在读取合约……" : contract == null ? "这种东西现在没有可押的合约，明天再来" : null;
+            String betBlock = v.futures() == null ? "正在读取合约……" : contract == null ? "这种东西现在没有可押的合约，明天再来" : null;
             String text;
             if (contract == null) {
-                text = "商品押注：押价格涨还是跌，到期按价格结算。" + (block == null ? "" : block + "。");
+                text = "商品押注：押价格涨还是跌，到期按价格结算。" + (betBlock == null ? "" : betBlock + "。");
             } else {
                 var q = quote(v, contract);
                 long price = Math.max(1, (q.bid() + q.ask()) / 2);
                 int bps = v.status() == null ? 1_000 : v.status().futuresMarginBps();
                 SimpleBetService.Preview pv = SimpleBetService.futuresPreview(s.betStake, price, contract.size(), bps);
                 if (pv.quantity() <= 0) {
-                    block = "至少投入 " + MoneyFormat.pounds(SimpleBetService.futuresMinStake(price, contract.size(), bps));
-                    text = "商品押注一份 = " + contract.size() + " 个，" + block + "。";
+                    betBlock = "至少投入 " + MoneyFormat.pounds(SimpleBetService.futuresMinStake(price, contract.size(), bps));
+                    text = "商品押注一份 = " + contract.size() + " 个，" + betBlock + "。";
                 } else {
                     text = "投入 " + MoneyFormat.pounds(s.betStake) + " 签 " + pv.quantity() + " 份（共 " + pv.quantity() * contract.size()
                             + " 个）：价格涨 10% 看涨赚 " + MoneyFormat.pounds(pv.swing10()) + "，看跌亏同样多。第 "
                             + contract.maturityDay() + " 天自动结算，押金退回钱包。";
                 }
             }
-            y += betRow(ui, v, s, a, y, "f:" + id, block);
+            y += betRow(ui, v, s, a, y, "f:" + id, betBlock);
             ui.wrapped(LEFT + 2, y, WIDTH - 4, text, DIM, Math.max(1, Math.min(2, (BOTTOM - y) / UiBuilder.LINE)));
             return;
         }
