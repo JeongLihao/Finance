@@ -53,12 +53,6 @@ public final class NpcInvestorManager {
         DECISIONS.addLast(decision);
     }
 
-    /** 最近的决策记录，新 → 旧。 */
-    public static synchronized List<Decision> recentDecisions(int limit) {
-        List<Decision> all = new ArrayList<>(DECISIONS);
-        Collections.reverse(all);
-        return all.subList(0, Math.max(0, Math.min(limit, all.size())));
-    }
 
     public static synchronized List<Decision> decisionsDirect() { return List.copyOf(DECISIONS); }
 

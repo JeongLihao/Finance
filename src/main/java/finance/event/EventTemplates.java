@@ -77,17 +77,8 @@ public class EventTemplates {
                 commodityId, multiplier, duration);
     }
 
-    public static List<Template> getMinorEvents() {
-        return Collections.unmodifiableList(MINOR);
-    }
 
-    public static List<Template> getMajorEvents() {
-        return Collections.unmodifiableList(MAJOR);
-    }
 
-    public static List<Template> getBlackSwanEvents() {
-        return Collections.unmodifiableList(BLACK_SWANS);
-    }
 
     /** 事件模板 */
     public static class Template {

@@ -297,13 +297,6 @@ public class CompanyManager {
         }
     }
 
-    /** 清空所有公司（数据加载前调用） */
-    public static void clearCompanies() {
-        COMPANIES.clear();
-        OWNER_INDEX.clear();
-        NAME_INDEX.clear();
-        EconomySavedData.markDirty();
-    }
 
     public static void clearCompaniesDirect() {
         COMPANIES.clear();

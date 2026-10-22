@@ -89,6 +89,4 @@ public final class NpcGovernanceManager {
         lastProcessedDay = Long.MIN_VALUE;
     }
 
-    /** 测试与诊断用：当前记录键集合。 */
-    static synchronized Set<String> voteKeys() { return new LinkedHashSet<>(VOTES.keySet()); }
 }

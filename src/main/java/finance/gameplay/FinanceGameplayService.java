@@ -37,11 +37,4 @@ public final class FinanceGameplayService {
         return FinanceAccessService.authorize(context, FinanceAccessPolicy.current());
     }
 
-    /** 用于纯逻辑测试和后续终端会话构造，避免客户端提供玩家身份。 */
-    static FinanceAccessContext verifiedContext(UUID playerId, FinanceTerminalType type,
-                                                int permissionLevel, double distanceSquared) {
-        return new FinanceAccessContext(playerId, type, FinanceAccessService.modeFor(type),
-                "minecraft:overworld", type.isPhysicalTerminal() ? net.minecraft.core.BlockPos.ZERO : null,
-                0L, permissionLevel, true, true, distanceSquared);
-    }
 }

@@ -175,7 +175,6 @@ public final class BondMarketManager {
     public static void restoreSequence(long value) { nextSequence = value > 0 ? value : 1; }
     public static void addOrderDirect(BondOrder order) { if (order != null && ORDERS.size() < MAX_ORDERS) ORDERS.add(order); }
     public static void addTradeDirect(BondTrade trade) { if (trade != null && TRADES.size() < MAX_TRADES) { TRADES.add(trade); LAST_PRICES.put(trade.bondId(), trade.pricePerUnit()); } }
-    public static void putLastPriceDirect(UUID bondId, long price) { if (bondId != null && price > 0) LAST_PRICES.put(bondId, price); }
     public static void clearDirect() { ORDERS.clear(); TRADES.clear(); LAST_PRICES.clear(); nextSequence = 1; }
     public record Result(boolean success, UUID orderId, String message) {
         static Result ok(UUID id, String message) { return new Result(true, id, message); }

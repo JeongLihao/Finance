@@ -142,7 +142,6 @@ public final class WarehouseManager {
                 || record.companyId() != null && CompanyMembershipService.hasPermission(record.companyId(),
                 player.getUUID(), CompanyPermission.WITHDRAW_WAREHOUSE));
     }
-    public static boolean canConfigure(ServerPlayer player, WarehouseRecord record) { return canView(player, record); }
 
     private static boolean makeRoomForRecord() {
         if (WAREHOUSES.size() < MAX_RECORDS) return true;

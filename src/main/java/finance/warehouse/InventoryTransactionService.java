@@ -106,17 +106,6 @@ public final class InventoryTransactionService {
         return true;
     }
 
-    public static boolean rollbackInsertion(Inventory inventory, InsertionPlan plan) {
-        for (SlotMutation mutation : plan.mutations()) {
-            ItemStack current = inventory.getItem(mutation.slot());
-            ItemStack before = mutation.expectedBefore();
-            int expected = before.getCount() + mutation.amount();
-            if (!current.is(plan.item()) || current.getCount() != expected || current.hasTag()) return false;
-        }
-        for (SlotMutation mutation : plan.mutations()) inventory.setItem(mutation.slot(), mutation.expectedBefore().copy());
-        inventory.setChanged();
-        return true;
-    }
 
     private static boolean sameExact(ItemStack first, ItemStack second) {
         if (first.isEmpty() || second.isEmpty()) return first.isEmpty() && second.isEmpty();

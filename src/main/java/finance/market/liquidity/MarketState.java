@@ -46,17 +46,11 @@ public final class MarketState {
         return lastPrice;
     }
 
-    public long getReferencePrice() {
-        return referencePrice;
-    }
 
     public long getInventory() {
         return inventory;
     }
 
-    public long getTargetInventory() {
-        return targetInventory;
-    }
 
     public double getVolatility() {
         return volatility;

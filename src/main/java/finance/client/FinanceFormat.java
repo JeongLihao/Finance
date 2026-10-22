@@ -88,9 +88,6 @@ public final class FinanceFormat {
         return FinanceFormat.displaySymbol(row.symbol());
     }
 
-    public static String displayHoldingSymbol(String symbol) {
-        return FinanceFormat.displaySymbol(symbol);
-    }
 
     public static String displaySymbol(String symbol) {
         return switch (symbol) {

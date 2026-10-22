@@ -1296,7 +1296,6 @@ public final class FinanceConfig {
     public static int settlementDeadlineDays(){return getInt(SETTLEMENT_DEADLINE_DAYS,SETTLEMENT_DEADLINE_DAYS_VALUE);}
     public static int settlementRewardBasisPoints(){return getInt(SETTLEMENT_REWARD_BPS,SETTLEMENT_REWARD_BPS_VALUE);}
     public static boolean explorationEnabled(){return getBoolean(EXPLORATION_ENABLED,EXPLORATION_ENABLED_VALUE);}
-    public static boolean explorationWorldgenEnabled(){return getBoolean(EXPLORATION_WORLDGEN_ENABLED,EXPLORATION_WORLDGEN_ENABLED_VALUE);}
     public static int explorationCooldownDays(){return getInt(EXPLORATION_COOLDOWN_DAYS,EXPLORATION_COOLDOWN_DAYS_VALUE);}
     public static int explorationMaxDistance(){return getInt(EXPLORATION_MAX_DISTANCE,EXPLORATION_MAX_DISTANCE_VALUE);}
     public static int explorationDeadlineDays(){return getInt(EXPLORATION_DEADLINE_DAYS,EXPLORATION_DEADLINE_DAYS_VALUE);}

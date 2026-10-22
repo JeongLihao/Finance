@@ -75,7 +75,4 @@ public class Commodity {
         return basePrice;
     }
 
-    public void setBasePrice(long basePrice) {
-        this.basePrice = basePrice;
-    }
 }

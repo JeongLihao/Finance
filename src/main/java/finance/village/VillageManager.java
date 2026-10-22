@@ -127,12 +127,6 @@ public final class VillageManager {
         return out;
     }
 
-    public static List<VillageStall> stallsForOwner(UUID ownerId) {
-        List<VillageStall> out = new ArrayList<>();
-        if (ownerId == null) return out;
-        for (VillageStall s : STALLS.values()) if (ownerId.equals(s.ownerId())) out.add(s);
-        return out;
-    }
 
     /**
      * 移除摊位并返回 true；不存在返回 false。

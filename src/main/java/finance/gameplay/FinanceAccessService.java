@@ -59,9 +59,6 @@ public final class FinanceAccessService {
         return authorize(context, policy);
     }
 
-    public static boolean mayOpen(FinanceAccessContext context, FinanceAccessPolicy policy) {
-        return authorize(context, policy).allowed();
-    }
 
     public static java.util.Set<FinanceScreenMode> allowedModes(FinanceTerminalType terminal) {
         return terminal == null ? java.util.Set.of() : terminal.allowedModes();

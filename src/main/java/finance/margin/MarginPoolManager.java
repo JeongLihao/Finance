@@ -37,9 +37,6 @@ public final class MarginPoolManager {
         return ACCOUNTS.computeIfAbsent(playerId, MarginAccount::new);
     }
 
-    public static boolean hasAccount(UUID playerId) {
-        return ACCOUNTS.containsKey(playerId);
-    }
 
     public static Map<UUID, MarginAccount> accounts() {
         return ACCOUNTS;

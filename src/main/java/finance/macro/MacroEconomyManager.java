@@ -75,7 +75,6 @@ public final class MacroEconomyManager {
 
     public static Map<UUID, Long> employmentDirect() { return Collections.unmodifiableMap(EMPLOYMENT); }
 
-    public static Map<UUID, UUID> laborSourcesDirect() { return Collections.unmodifiableMap(LABOR_SOURCE); }
 
     static void retainFacilities(java.util.Set<UUID> ids) {
         EMPLOYMENT.keySet().retainAll(ids);
@@ -88,7 +87,6 @@ public final class MacroEconomyManager {
         return w == null ? Math.max(0, defaultWage) : w;
     }
 
-    public static boolean hasCustomWage(UUID companyId) { return companyId != null && WAGES.containsKey(companyId); }
 
     static boolean setWage(UUID companyId, long wage) {
         if (companyId == null || wage < 0) return false;

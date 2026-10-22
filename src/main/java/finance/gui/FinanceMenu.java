@@ -286,7 +286,6 @@ public class FinanceMenu extends AbstractContainerMenu {
     public Map<String, Integer> getMcInventory() { return mcInventory; }
     public FinanceScreenMode getInitialMode() { return initialMode; }
     public FinanceTerminalType getSourceType() { return sourceType; }
-    public String getSourceDimension() { return sourceDimension; }
     public BlockPos getSourcePos() { return sourcePos; }
     public long getWarehouseUsed() { return warehouseUsed; }
     public long getWarehouseCapacity() { return warehouseCapacity; }

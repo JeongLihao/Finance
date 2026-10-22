@@ -25,9 +25,6 @@ public enum WarehouseTier {
         return this == BASIC ? REINFORCED : this == REINFORCED ? INDUSTRIAL : null;
     }
 
-    public static WarehouseTier fromLevel(int level) {
-        return level >= 3 ? INDUSTRIAL : level == 2 ? REINFORCED : BASIC;
-    }
 
     public static WarehouseTier fromLegacyCapacity(int capacity) {
         if (capacity > FinanceConfig.warehouseCapacity(2)) return INDUSTRIAL;

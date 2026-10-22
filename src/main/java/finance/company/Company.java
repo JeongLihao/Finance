@@ -558,18 +558,6 @@ public class Company {
         return Math.max(0, Math.round(netAssets * inventoryDiscount));
     }
 
-    /**
-     * 获取股息率（每股分红 / 股价）—— 用于 GUI 显示。
-     * 假设总股本 10000，则股息 = dailyProfit / 10000 / 股价 * 365天。
-     * 简化：按最近日利润年化。
-     */
-    public double getDividendYieldPercent() {
-        if (getEstimatedValue() <= 0) return 0;
-        long recentDailyProfit = getSmoothedDailyProfit();
-        long annualProfit = recentDailyProfit * 365; // 粗估
-        long totalValue = getEstimatedValue();
-        return totalValue > 0 ? (double) annualProfit / totalValue * 100 : 0;
-    }
 
     // ---- P4：IPO ----
 

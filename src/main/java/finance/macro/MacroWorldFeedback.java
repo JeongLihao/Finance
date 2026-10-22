@@ -80,8 +80,6 @@ public final class MacroWorldFeedback {
 
     public static List<Announcement> queued() { return new ArrayList<>(QUEUE); }
 
-    /** 测试用：只清空公告队列，保留状态基线。 */
-    static void clearDirectQueueForTest() { QUEUE.clear(); }
 
     /** 宏观日结末尾调用：比较昨天和今天，状态翻转时发公告。 */
     static void onDayClosed() {

@@ -8,11 +8,4 @@ package finance.market.liquidity;
 public record QuoteView(String market, String symbol, long mid, long bid, long ask,
                         boolean halted, String haltReason) {
 
-    /** 价差比例 (ask - bid) / mid，供 GUI 显示。 */
-    public double spreadRatio() {
-        if (mid <= 0) {
-            return 0.0;
-        }
-        return (double) (ask - bid) / (double) mid;
-    }
 }

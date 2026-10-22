@@ -50,21 +50,6 @@ public class Stock {
     @Deprecated
     private long availableShares;
 
-    /**
-     * 兼容旧存档的构造（用于从 NBT 加载旧数据）。
-     * 参数：symbol, name, companyId, totalShares, availableShares, lastPrice, previousClose, dayVolume
-     * 新建议：改用完整构造。
-     */
-    @Deprecated
-    public static Stock fromLegacyData(String symbol, String name, UUID companyId, long totalShares,
-                                       long availableShares, long lastPrice, long previousClose, long dayVolume) {
-        return new Stock(symbol, name, companyId, totalShares,
-                availableShares, // floatShares = availableShares
-                0,              // ownerShares = 0
-                lastPrice,      // currentPrice
-                lastPrice       // fairValue = lastPrice（旧逻辑）
-        );
-    }
 
     /** 完整构造（支持新字段） */
     public Stock(String symbol, String name, UUID companyId, long totalShares,
@@ -169,22 +154,7 @@ public class Stock {
 
     // ---- 交易相关（旧 API 兼容） ----
 
-    public boolean removeAvailableShares(long quantity) {
-        if (quantity <= 0 || floatShares < quantity) return false;
-        floatShares -= quantity;
-        availableShares = floatShares; // 同步兼容字段
-        return true;
-    }
 
-    public void addAvailableShares(long quantity) {
-        if (quantity > 0) {
-            floatShares += quantity;
-            if (floatShares > totalShares) {
-                floatShares = totalShares;
-            }
-            availableShares = floatShares;
-        }
-    }
 
     public boolean canIncreaseShares(long quantity) {
         return quantity > 0
@@ -279,24 +249,11 @@ public class Stock {
         priceEngine.recalculateFromCurrent();
     }
 
-    public void recordPriceSnapshot(long volume) {
-        priceEngine.recordSnapshot(volume);
-    }
 
     public void recordPriceSnapshotIfChanged() {
         priceEngine.recordSnapshotIfChanged();
     }
 
-    /**
-     * 每 MC 天调用 —— 基本面更新 + 日统计重置。
-     * 注意：创始人锁仓递减已拆出到 {@link #tickFounderLockupDay()}，仅由日结算显式驱动；
-     * 开服初始化复用本方法更新公允价值时，不再消耗锁仓天数（P1-2：每次重启曾偷减 1 天）。
-     */
-    public void updateFairValueAndResetDay(long companyAssetValue, long totalShares,
-                                           long smoothedDailyProfit, double industrySentiment) {
-        priceEngine.updateFairValue(companyAssetValue, totalShares, smoothedDailyProfit, industrySentiment);
-        priceEngine.newDayReset();
-    }
 
     /**
      * 创始人锁定期按天递减 —— 仅由日结算（{@code StockMarketManager.tickNewDay}）调用，

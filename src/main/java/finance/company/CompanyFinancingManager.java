@@ -158,15 +158,6 @@ public final class CompanyFinancingManager {
         return null;
     }
 
-    public static CompanyFinancingProject getProjectBySymbol(String symbol) {
-        String normalized = StockMarketManager.normalizeSymbol(symbol);
-        for (CompanyFinancingProject project : PROJECTS) {
-            if (project.getSymbol().equals(normalized)) {
-                return project;
-            }
-        }
-        return null;
-    }
 
     public static List<CompanyFinancingProject> getProjects() {
         return PROJECTS;

@@ -196,12 +196,6 @@ public final class MarketMakerQuotes {
     // 熔断
     // ---------------------------------------------------------------
 
-    private static boolean deviates(long lastPrice, long referencePrice, double threshold) {
-        if (referencePrice <= 0 || lastPrice <= 0) {
-            return false;
-        }
-        return (double) Math.abs(lastPrice - referencePrice) / (double) referencePrice > threshold;
-    }
 
     private static String haltReason(long lastPrice, long referencePrice, String name) {
         if (referencePrice <= 0) {

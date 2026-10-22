@@ -347,9 +347,6 @@ public class MarketPrice {
         this.midPrice = midPrice;
     }
 
-    public void setSpread(double spread) {
-        this.spread = spread;
-    }
 
     public void setTradeMomentum(double tradeMomentum) {
         this.tradeMomentum = tradeMomentum;
@@ -389,16 +386,6 @@ public class MarketPrice {
         noiseOffset = 0;
     }
 
-    /**
-     * 仅重置 24h OHLC（服务器重启时用于已持久化的商品，
-     * 保留 snapshots、momentum、noiseOffset）。
-     */
-    public void resetDayStatsOnly() {
-        dayHigh = midPrice;
-        dayLow = midPrice;
-        dayVolume = 0;
-        dayOpen = midPrice;
-    }
 
     /** 每个 MC 天结束时调用，重置日内统计并记录新一天的开盘价 */
     public void newDayReset() {
@@ -414,10 +401,6 @@ public class MarketPrice {
         trimSnapshots();
     }
 
-    /** 设置最近一次计算的国际市场库存（持久化恢复后使用，使 recalculateFromCurrent 可用） */
-    public void setLastNpcStock(long stock) {
-        this.lastNpcStock = stock;
-    }
 
     private static double clamp(double value, double min, double max) {
         return Math.max(min, Math.min(max, value));

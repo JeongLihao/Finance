@@ -148,9 +148,6 @@ public class AccountManager {
         return success;
     }
 
-    public static boolean settleFrozenPayment(UUID playerId, long reservedAmount, long paymentAmount) {
-        return settleFrozenFunds(playerId, reservedAmount, paymentAmount);
-    }
 
     /** Atomically settles buyer frozen funds and credits the seller. */
     public static synchronized boolean settleFrozenTransfer(UUID buyerId, UUID sellerId,
@@ -197,13 +194,6 @@ public class AccountManager {
         return true;
     }
 
-    public static synchronized boolean rollbackSettledFrozenPayment(UUID buyerId, long reservedAmount, long paymentAmount) {
-        if (buyerId == null || reservedAmount <= 0 || paymentAmount <= 0) return false;
-        Account buyer = getAccount(buyerId);
-        if (!buyer.rollbackFrozenSettlement(reservedAmount, paymentAmount)) return false;
-        EconomySavedData.markDirty();
-        return true;
-    }
 
     // ================================================================
     // 交易记录管理

@@ -59,18 +59,6 @@ public final class BondPortfolioManager {
         return true;
     }
 
-    /** Initializes or adds cost after another authoritative path already added quantity. */
-    public static synchronized boolean recordAcquisition(UUID bondId, UUID playerId, long quantity, long price) {
-        if (quantity <= 0 || price < 0) return false;
-        BondPosition position = position(bondId, playerId);
-        if (position == null) return false;
-        BigInteger added = BigInteger.valueOf(price).multiply(BigInteger.valueOf(quantity));
-        BigInteger next = BigInteger.valueOf(position.totalCost()).add(added);
-        if (next.compareTo(BigInteger.valueOf(Long.MAX_VALUE)) > 0) return false;
-        position.setTotalCost(next.longValue());
-        EconomySavedData.markDirty();
-        return true;
-    }
 
     public static synchronized boolean freeze(UUID bondId, UUID playerId, long quantity) {
         BondPosition position = position(bondId, playerId);

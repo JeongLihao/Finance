@@ -66,7 +66,6 @@ public final class WarehouseRecord {
     public Set<String> operationKeys() { return Set.copyOf(operationKeys); }
 
     public void setStatus(WarehouseStatus status) { if (status != null) this.status = status; }
-    public void setLastAuditDay(long day) { if (day >= -1) lastAuditDay = day; }
     public void bindCompany(UUID companyId) { this.companyId = companyId; }
     public boolean upgrade(WarehouseTier target, int newCapacity) {
         if (target == null || tier.next() != target || newCapacity < capacityUnits) return false;

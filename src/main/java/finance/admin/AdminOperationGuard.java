@@ -16,7 +16,6 @@ public final class AdminOperationGuard {
         while(PENDING.size()>=MAX_PENDING)PENDING.remove(PENDING.keySet().iterator().next());PENDING.put(key,tick);return false;
     }
     public static synchronized void audit(UUID player,String action,String subject,long tick,boolean success){AUDIT.addLast(new AuditEntry(player,action,subject,tick,success));while(AUDIT.size()>MAX_AUDIT)AUDIT.removeFirst();}
-    public static synchronized List<AuditEntry> auditLog(){return List.copyOf(AUDIT);}
     public static synchronized void clear(){PENDING.clear();AUDIT.clear();}
     public record AuditEntry(UUID player,String action,String subject,long serverTick,boolean success){}
 }

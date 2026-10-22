@@ -130,9 +130,6 @@ public final class SealedCargoCrateItem extends Item {
         return ShipmentService.markLost(readUuid(stack, SHIPMENT), readUuid(stack, TOKEN), reason);
     }
 
-    public static boolean isSealed(ItemStack stack) {
-        return validVersion(stack) && readUuid(stack, SHIPMENT) != null && readUuid(stack, TOKEN) != null;
-    }
 
     public static void seal(ItemStack stack, Shipment shipment) {
         if (stack == null || shipment == null) return;

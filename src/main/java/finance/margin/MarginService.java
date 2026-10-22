@@ -644,11 +644,6 @@ public final class MarginService {
         return acct.financedSharesOf(norm(symbol));
     }
 
-    /** 不良债务（供信用/命令展示） */
-    public static long badDebtOf(UUID playerId) {
-        MarginAccount acct = MarginPoolManager.accounts().get(playerId);
-        return acct == null ? 0 : acct.getBadDebt();
-    }
 
     /**
      * 偿还不良债务（自由资金）。还清前冻结新开仓。
