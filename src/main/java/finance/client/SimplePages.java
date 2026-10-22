@@ -370,8 +370,9 @@ final class SimplePages {
                         SimpleActionPacket.Action action = actionOf(card.action());
                         if (action != null) a.simple(action, card.target(), card.amount(), 0);
                     };
-            // 收购、买下剩余股份、开银行一下子花很多钱，要点两次
-            boolean big = List.of("TAKEOVER", "SQUEEZE", "CHARTER_BANK").contains(card.action());
+            // 收购、买下剩余股份、开银行、发债、抵押都是大额操作，要点两次
+            boolean big = List.of("TAKEOVER", "SQUEEZE", "CHARTER_BANK", "ISSUE_BOND", "PLEDGE")
+                    .contains(card.action());
             Btn b = confirm(s, a, "card:" + card.action() + ":" + card.target(), card.button(), run, null, big);
             textRight = ui.buttonRight(RIGHT - 2, y, b.label(), b.action(), b.blocked()) - 6;
         }
@@ -1461,7 +1462,15 @@ final class SimplePages {
                         + String.format(java.util.Locale.ROOT, "（今天 %+.1f%%）", row.dayChange()),
                 FinanceGui.changeColor(row.dayChange()));
         y += 16;
-        priceChart(ui, s, y, 42, row.priceHistory(), row.hourBars(), FinanceGui.changeColor(row.dayChange()));
+        priceChart(
+                ui,
+                s,
+                y,
+                42,
+                row.priceHistory(),
+                row.hourBars(),
+                FinanceGui.changeColor(row.dayChange()),
+                () -> a.simple(SimpleActionPacket.Action.PRICE_ALERT, "s:" + symbol, 0, 0));
         y += 46;
         ui.text(
                 LEFT + 2,
@@ -1589,15 +1598,20 @@ final class SimplePages {
                 + " 股 ≈ 每股 " + MoneyFormat.compact(perShare) + "，" + verdict + "。倍数看央行利率，加息时变小，股价跟着跌。";
     }
 
-    /** 价格图：右边两个小按钮切换“走势”（每次价格变动一个点）和“K线”（每游戏小时一根）。 */
-    static void priceChart(UiBuilder ui, State s, int y, int h, List<Long> line, List<Long> bars, int color) {
-        int bw = Math.max(ui.buttonWidth("走势"), ui.buttonWidth("K线"));
+    /**
+     * 价格图：右边小按钮切换“走势”（每次价格变动一个点）和“K线”（每游戏小时一根），
+     * 第三个“提醒我”在价格涨或跌 10% 时提醒（alert 为 null 时不显示）。
+     */
+    static void priceChart(
+            UiBuilder ui, State s, int y, int h, List<Long> line, List<Long> bars, int color, Runnable alert) {
+        int bw = Math.max(Math.max(ui.buttonWidth("走势"), ui.buttonWidth("K线")), ui.buttonWidth("提醒我"));
         int chartW = WIDTH - 4 - bw - 4;
         if (s.candles) ui.candles(LEFT + 2, y, chartW, h, bars);
         else ui.chart(LEFT + 2, y, chartW, h, line, color);
         int bx = LEFT + 2 + chartW + 4;
         ui.button(bx, y, "走势", () -> s.candles = false, s.candles ? null : "正在看走势：每次价格变动一个点");
-        ui.button(bx, y + UiBuilder.BUTTON_H + 3, "K线", () -> s.candles = true, s.candles ? "正在看 K 线：每游戏小时一根" : null);
+        ui.button(bx, y + UiBuilder.BUTTON_H + 1, "K线", () -> s.candles = true, s.candles ? "正在看 K 线：每游戏小时一根" : null);
+        if (alert != null) ui.button(bx, y + 2 * (UiBuilder.BUTTON_H + 1), "提醒我", alert, null);
     }
 
     static void commodityDetail(UiBuilder ui, View v, State s, Actions a, FinanceMenu.MarketRow row, int y) {
@@ -1620,8 +1634,16 @@ final class SimplePages {
                 FinanceGui.changeColor(row.dayChange()));
         y += 16;
         boolean bet = extra(v, "futures"), betLocked = !bet && locked(v, "bet");
-        int chartH = bet ? 36 : betLocked ? 58 : 70;
-        priceChart(ui, s, y, chartH, row.priceHistory(), row.hourBars(), FinanceGui.changeColor(row.dayChange()));
+        int chartH = bet ? 40 : betLocked ? 58 : 70;
+        priceChart(
+                ui,
+                s,
+                y,
+                chartH,
+                row.priceHistory(),
+                row.hourBars(),
+                FinanceGui.changeColor(row.dayChange()),
+                () -> a.simple(SimpleActionPacket.Action.PRICE_ALERT, "c:" + id, 0, 0));
         y += chartH + 4;
         ui.text(
                 LEFT + 2,

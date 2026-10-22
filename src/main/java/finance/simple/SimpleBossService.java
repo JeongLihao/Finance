@@ -249,6 +249,102 @@ public final class SimpleBossService {
                 : fail(r.message());
     }
 
+    static final int BOND_SUBSCRIPTION_DAYS = 3, BOND_TERM_DAYS = 90, BOND_COUPON_DAYS = 30;
+
+    /**
+     * 发公司债借钱：每张 1 磅，票息 = 央行利率 + 信用利差 + 1%，认购 3 天、期限 90 天、每 30 天付一次息。
+     * 认购期里 NPC 分红派会把债买下（见 NpcBondDemand），认购期结束钱进公司账上。
+     */
+    public static SimpleInvestService.Result issueBond(ServerPlayer player, long amount) {
+        UUID id = player.getUUID();
+        Company company = CompanyManager.getCompanyByOwner(id);
+        if (company == null) return fail("先开一家公司。");
+        long quantity = amount / 100;
+        if (quantity <= 0) return fail("至少借 1 磅。");
+        int coupon = finance.policy.MonetaryPolicyService.benchmarkRateBasisPoints()
+                + finance.debt.CompanyCreditService.rate(company).spreadBasisPoints()
+                + 100;
+        long day = EconomyCycleService.currentMcDay(player.server);
+        String code = bondCode(company, day);
+        var r = finance.debt.CorporateBondManager.issue(
+                id,
+                company.getCompanyId(),
+                code,
+                100,
+                quantity,
+                coupon,
+                day,
+                BOND_SUBSCRIPTION_DAYS,
+                BOND_TERM_DAYS,
+                BOND_COUPON_DAYS);
+        return r.success()
+                ? new SimpleInvestService.Result(
+                        true,
+                        "发了 " + MoneyFormat.pounds(quantity * 100) + " 的公司债（年息 " + coupon / 100.0 + "%）。"
+                                + BOND_SUBSCRIPTION_DAYS + " 天认购期结束后钱到公司账上，" + BOND_TERM_DAYS + " 天后还本。",
+                        0)
+                : fail(r.message());
+    }
+
+    private static String bondCode(Company company, long day) {
+        String prefix = company.getCompanyId().toString().substring(0, 4).toUpperCase(java.util.Locale.ROOT);
+        String code = prefix + "B" + day;
+        return code.length() > 16 ? code.substring(0, 16) : code;
+    }
+
+    /** 用公司仓库里最值钱的一种库存抵押借钱（全部可用数量，按 60% 估值放款）。 */
+    public static SimpleInvestService.Result pledge(ServerPlayer player) {
+        UUID id = player.getUUID();
+        Company company = CompanyManager.getCompanyByOwner(id);
+        if (company == null) return fail("先开一家公司。");
+        CommercialBank bank = SimpleCenterService.mainBank();
+        if (bank == null) return fail("现在没有银行营业。");
+        String best = null;
+        long bestValue = 0;
+        int bestQuantity = 0;
+        for (var c : finance.commodity.CommodityRegistry.getAllCommodities()) {
+            int available =
+                    finance.gameplay.company.CompanyInventoryFacade.availableInsurableInventory(company, c.getId());
+            var price = finance.market.NpcMarketMaker.getMarketPrice(c.getId());
+            if (available <= 0 || price == null) continue;
+            long value = price.getMidPrice() * available;
+            if (value > bestValue) {
+                best = c.getId();
+                bestValue = value;
+                bestQuantity = available;
+            }
+        }
+        if (best == null) return fail("公司仓库里没有能抵押的货。");
+        long day = EconomyCycleService.currentMcDay(player.server);
+        var r = finance.collateral.InventoryCollateralService.apply(
+                id,
+                company.getCompanyId(),
+                bank.id(),
+                best,
+                bestQuantity,
+                day,
+                UUID.randomUUID().toString().substring(0, 32));
+        return r.success()
+                ? new SimpleInvestService.Result(
+                        true,
+                        "用 " + bestQuantity + " 个" + SimpleBetService.commodityName(best)
+                                + "抵押借到了钱。货价跌太多会被要求补货，还清后货自动解押。",
+                        0)
+                : fail(pledgeFailure(r.message()));
+    }
+
+    private static String pledgeFailure(String key) {
+        return switch (key) {
+            case "finance.collateral.denied" -> "公司现在不能抵押借款（快破产了，或还是旧式自动经营）。";
+            case "finance.collateral.active" -> "这批货已经押着一笔贷款了，先还清再押。";
+            case "finance.collateral.inventory" -> "公司仓库里的货不够。";
+            case "finance.collateral.limit" -> "抵押贷款数量到上限了。";
+            case "finance.collateral.loan_denied" -> "银行不肯放这笔贷款（信用或银行资金不足）。";
+            case "finance.collateral.no_price", "finance.collateral.no_value" -> "这批货现在估不出价，换个时候再试。";
+            default -> "抵押没办成。";
+        };
+    }
+
     /** 公开收购：按现价高 10% 出价，想买到 51% 的股份，期限 7 天。 */
     public static SimpleInvestService.Result takeover(ServerPlayer player, UUID companyId) {
         Company target = companyId == null ? null : CompanyManager.getCompany(companyId);

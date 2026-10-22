@@ -128,6 +128,7 @@ public final class CorporateBondManager {
     }
 
     public static void processDay(long day) {
+        NpcBondDemand.processDay(day);
         for (CorporateBond bond : new ArrayList<>(BONDS.values())) {
             if (bond.status() == BondStatus.SUBSCRIPTION && day >= bond.subscriptionEndDay()) activateOrCancel(bond);
             if (bond.status() != BondStatus.ACTIVE) continue;

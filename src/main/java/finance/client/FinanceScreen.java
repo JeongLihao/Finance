@@ -352,7 +352,10 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
                     case MARKET, WAREHOUSE -> SimplePages.Page.TRADE;
                     case COMPANY -> SimplePages.Page.COMPANY;
                     case BANK -> SimplePages.Page.INVEST;
-                    default -> SimplePages.Page.HOME;
+                        // 证券终端：股票、理财、押注都在“投资”页
+                    default -> menu.getSourceType() == finance.gameplay.FinanceTerminalType.SECURITIES_TERMINAL
+                            ? SimplePages.Page.INVEST
+                            : SimplePages.Page.HOME;
                 });
         advancedView = safeMode == FinanceScreenMode.ADMIN;
     }

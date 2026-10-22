@@ -416,6 +416,34 @@ public final class SimpleInvestService {
 
     // ------------------------------------------------------------ 小工具
 
+    /** 价格提醒：target = s:股票代码 或 c:商品 ID，按现价设“涨 10%”“跌 10%”两条提醒，到价时聊天栏通知。 */
+    public static Result priceAlert(ServerPlayer player, String target) {
+        boolean stock = target.startsWith("s:");
+        String id = target.length() > 2 ? target.substring(2) : "";
+        long price;
+        if (stock) {
+            var s = finance.stock.StockMarketManager.getStock(id);
+            price = s == null ? 0 : s.getLastPrice();
+        } else {
+            var mp = finance.market.NpcMarketMaker.getMarketPrice(id);
+            price = mp == null ? 0 : mp.getMidPrice();
+        }
+        if (price <= 0 || (!stock && !target.startsWith("c:"))) return fail("现在没有价格，没法设提醒。");
+        var type = stock ? finance.alert.PriceAlertType.STOCK : finance.alert.PriceAlertType.COMMODITY;
+        long up = Math.max(price + 1, price * 11 / 10), down = Math.max(1, price * 9 / 10);
+        var a = finance.alert.PriceAlertManager.addAlert(
+                player.getUUID(), type, id, finance.alert.PriceAlertDirection.ABOVE, up);
+        if (!a.success()) return fail(a.message());
+        var b = finance.alert.PriceAlertManager.addAlert(
+                player.getUUID(), type, id, finance.alert.PriceAlertDirection.BELOW, down);
+        if (!b.success()) {
+            finance.alert.PriceAlertManager.cancelAlert(
+                    player.getUUID(), a.alert().getAlertId());
+            return fail(b.message());
+        }
+        return new Result(true, "涨到 " + MoneyFormat.pounds(up) + " 或跌到 " + MoneyFormat.pounds(down) + " 时会在聊天栏提醒你。", 0);
+    }
+
     private static Result fail(String message) {
         return new Result(false, message, 0);
     }

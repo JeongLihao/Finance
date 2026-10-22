@@ -42,6 +42,36 @@ class CorporateBondManagerTest {
     }
 
     @Test
+    void npcDividendInvestorsFillTheBondDuringSubscription() {
+        var npc = finance.npcinvestor.NpcInvestorArchetype.DIVIDEND.accountId();
+        finance.npcinvestor.NpcInvestorManager.ensureAccounts();
+        AccountManager.deposit(npc, 10_000_000);
+        var issued = CorporateBondManager.issue(owner, companyId, "NPC1", 100, 300, 2_000, 0, 3, 90, 30);
+        assertTrue(issued.success(), issued.message());
+        CorporateBond bond = CorporateBondManager.bonds().get(issued.id());
+        CorporateBondManager.processDay(0);
+        assertEquals(100, bond.subscribedQuantity(), "三天认购期，第一天买三分之一");
+        CorporateBondManager.processDay(1);
+        CorporateBondManager.processDay(2);
+        assertEquals(300, bond.subscribedQuantity(), "认购期最后一天之前买满");
+        CorporateBondManager.processDay(3);
+        assertEquals(BondStatus.ACTIVE, bond.status());
+        assertEquals(1_030_000, CompanyManager.getCompany(companyId).getCash());
+        assertEquals(10_000_000 - 30_000, AccountManager.getBalance(npc));
+    }
+
+    @Test
+    void npcInvestorsBuyLessWhenShortOfCash() {
+        var npc = finance.npcinvestor.NpcInvestorArchetype.DIVIDEND.accountId();
+        finance.npcinvestor.NpcInvestorManager.ensureAccounts();
+        AccountManager.deposit(npc, 4_000);
+        var issued = CorporateBondManager.issue(owner, companyId, "NPC2", 100, 300, 2_000, 0, 1, 90, 30);
+        assertTrue(issued.success(), issued.message());
+        CorporateBondManager.processDay(0);
+        assertEquals(10, CorporateBondManager.bonds().get(issued.id()).subscribedQuantity(), "每天最多花余额的四分之一");
+    }
+
+    @Test
     void insufficientCompanyCashDefaultsWithoutPartialCouponPayment() {
         var issued = CorporateBondManager.issue(owner, companyId, "BC2", 100_000, 2, 10_000, 0, 1, 10, 2);
         assertTrue(issued.success(), issued.message());

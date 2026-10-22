@@ -5,6 +5,8 @@ import finance.commodity.CommodityRegistry;
 import finance.company.Company;
 import finance.company.CompanyFinancialReport;
 import finance.company.CompanyManager;
+import finance.debt.BondStatus;
+import finance.debt.CorporateBondManager;
 import finance.market.MarketPrice;
 import finance.market.NpcMarketMaker;
 import finance.settlement.DemandStatus;
@@ -91,6 +93,14 @@ public final class SimpleOpportunityService {
             } else {
                 out.add(Card.act("公司快撑不住了：先向银行借 50 磅周转，30 天内分期还。", "借 50 磅", "COMPANY_LOAN", "", 5_000, true));
             }
+            boolean bondOpen = CorporateBondManager.bonds().values().stream()
+                    .anyMatch(
+                            b -> b.companyId().equals(company.getCompanyId()) && b.status() == BondStatus.SUBSCRIPTION);
+            if (!bondOpen)
+                out.add(Card.act(
+                        "也可以发 100 磅公司债：NPC 投资者 3 天内认购，钱到账后 90 天还本，期间按月付息。", "发债", "ISSUE_BOND", "", 10_000, true));
+            if (pledgeValue(company) >= 5_000)
+                out.add(Card.act("仓库里的货能抵押：押给银行先借一笔，还清后货自动解押。", "抵押借钱", "PLEDGE", "", 0, true));
         }
         // 4. 招不到工人
         if (allowed.test("wage") && boss.wageActive() && boss.wage() < boss.reservationWage()) {
@@ -218,6 +228,18 @@ public final class SimpleOpportunityService {
         }
         if (out.isEmpty()) out.add(Card.go("去挖矿、种地或砍树，拿到东西后在“买卖”页卖掉。", "", ""));
         return out.subList(0, Math.min(MAX_CARDS, out.size()));
+    }
+
+    /** 公司仓库里没押出去的货按市价值多少。 */
+    static long pledgeValue(Company company) {
+        long value = 0;
+        for (Commodity c : CommodityRegistry.getAllCommodities()) {
+            int available =
+                    finance.gameplay.company.CompanyInventoryFacade.availableInsurableInventory(company, c.getId());
+            MarketPrice price = NpcMarketMaker.getMarketPrice(c.getId());
+            if (available > 0 && price != null) value += price.getMidPrice() * available;
+        }
+        return value;
     }
 
     /** 市价 ÷ 每股价值。 */

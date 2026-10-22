@@ -62,7 +62,12 @@ public record SimpleActionPacket(Action action, String target, long amount, long
         /** 押注：target = s:股票代码 或 f:商品ID，amount = 投入；结束：target = 押注 key。新动作只往后加，编码按序号。 */
         BET_UP,
         BET_DOWN,
-        BET_END
+        BET_END,
+        /** 公司缺钱：发公司债（amount = 金额）、用库存抵押借钱。 */
+        ISSUE_BOND,
+        PLEDGE,
+        /** 价格提醒：target = s:股票代码 或 c:商品 ID。 */
+        PRICE_ALERT
     }
 
     public SimpleActionPacket(Action action, String target, long amount) {
@@ -151,6 +156,10 @@ public record SimpleActionPacket(Action action, String target, long amount, long
                     case VOTE_YES, VOTE_NO -> invest(
                             finance.simple.SimpleBossService.vote(player, uuid(p.target), p.action == Action.VOTE_YES));
                     case COMPANY_LOAN -> invest(finance.simple.SimpleBossService.loan(player, Math.max(0, p.amount)));
+                    case ISSUE_BOND -> invest(
+                            finance.simple.SimpleBossService.issueBond(player, Math.max(0, p.amount)));
+                    case PLEDGE -> invest(finance.simple.SimpleBossService.pledge(player));
+                    case PRICE_ALERT -> invest(finance.simple.SimpleInvestService.priceAlert(player, safe(p.target)));
                     case TAKEOVER -> invest(finance.simple.SimpleBossService.takeover(player, uuid(p.target)));
                     case SQUEEZE -> invest(finance.simple.SimpleBossService.squeeze(player, uuid(p.target)));
                     case CHARTER_BANK -> invest(
