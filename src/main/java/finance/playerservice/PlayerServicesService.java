@@ -147,10 +147,10 @@ public final class PlayerServicesService {
                 purse == null ? 0 : purse.emeralds(),
                 q.emeraldToCash(),
                 q.cashToEmerald(),
-                q.sellLeft(),
-                q.buyLeft(),
-                q.sellLimit(),
-                q.buyLimit());
+                q.baseBid(),
+                q.baseAsk(),
+                q.recoverPercent(),
+                q.impactBps());
     }
 
     static Margin margin(UUID player) {

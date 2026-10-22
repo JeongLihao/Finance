@@ -52,6 +52,8 @@ public final class CentralBankDataSerializer {
         data.put("Decisions", decisions);
         data.put("Reserve", finance.centralbank.ReserveService.save());
         data.putLong("NotesOutstanding", finance.cash.CashService.notesOutstanding());
+        data.putDouble("EmeraldPressure", finance.cash.CashService.emeraldPressure());
+        data.putLong("EmeraldPressureDay", finance.cash.CashService.emeraldPressureDay());
         root.put(ROOT, data);
     }
 
@@ -59,9 +61,13 @@ public final class CentralBankDataSerializer {
         CentralBankService.clearDirect();
         finance.centralbank.ReserveService.clearDirect();
         finance.cash.CashService.restoreNotesOutstanding(0);
+        finance.cash.CashService.restoreEmeraldPressure(0, Long.MIN_VALUE);
         if (!root.contains(ROOT, Tag.TAG_COMPOUND)) return;
         CompoundTag data = root.getCompound(ROOT);
         finance.cash.CashService.restoreNotesOutstanding(data.getLong("NotesOutstanding"));
+        if (data.contains("EmeraldPressureDay", Tag.TAG_LONG))
+            finance.cash.CashService.restoreEmeraldPressure(
+                    data.getDouble("EmeraldPressure"), data.getLong("EmeraldPressureDay"));
         if (data.contains("Reserve", Tag.TAG_COMPOUND))
             finance.centralbank.ReserveService.load(data.getCompound("Reserve"));
         Map<UUID, Long> positions = new LinkedHashMap<>();

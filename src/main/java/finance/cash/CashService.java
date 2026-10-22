@@ -10,12 +10,17 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * 实体现金：账户余额 ⇄ 背包里的便士硬币和英镑纸币（1:1，账户单位就是便士），现金 ⇄ 绿宝石（按配置的买卖价，带每日额度）。
+ * 实体现金：账户余额 ⇄ 背包里的便士硬币和英镑纸币（1:1，账户单位就是便士），现金 ⇄ 绿宝石（浮动汇率）。
  * <p>
  * 现金是不记名的：取出时从账户扣钱、发出物品；存入时收回物品、给账户入账，谁拿着就是谁的。
  * 绿宝石兑换由“现金发行处”（{@link #ISSUER}）做对手方：收绿宝石付现金是新发行货币，
- * 卖绿宝石收现金是回收货币。买入价总是不低于卖出价，所以来回兑换只会亏点差，不会凭空赚钱；
- * 每日额度防止刷绿宝石（袭击塔、村民交易）无限印钱。
+ * 卖绿宝石收现金是回收货币。
+ * <p>
+ * 汇率浮动，不设每日额度：全服玩家卖给央行的绿宝石越多，收购价越低；买走的越多，卖价越高（每颗按
+ * {@code cash.emeraldImpactBps} 复利移动），偏离每个 MC 日向基准价回落 {@code cash.emeraldRecoveryPercent}%。
+ * 这样刷绿宝石印钱、或“低价买绿宝石 → 找村民换货 → 卖到市场”的套利，做得越多越不划算，很快自己收敛。
+ * 卖 1 颗再买回 1 颗一定亏钱（买价按卖完后的价位算，且基准卖价 ≥ 基准收购价 × 一颗的冲击），来回倒手赚不到钱。
+ * 管理员把绿宝石登记成市场商品时，改为直接和市场成交，价格由市场库存决定。
  */
 public final class CashService {
     /** 现金发行处：交易记录里绿宝石兑换和存取现金的对方。不是真实账户，不持有余额。 */
@@ -27,9 +32,6 @@ public final class CashService {
     /** 单次最多兑换的绿宝石数（一组）。 */
     public static final long MAX_EMERALDS_PER_ACTION = 64;
 
-    static final String QUOTA_SELL = "emerald_sell";
-    static final String QUOTA_BUY = "emerald_buy";
-
     public record Result(boolean success, String message) {
         static Result ok(String message) {
             return new Result(true, message);
@@ -40,15 +42,31 @@ public final class CashService {
         }
     }
 
-    /** 当前汇率和玩家今天剩余的额度。 */
+    /**
+     * 当前汇率。baseBid / baseAsk 是不受流量影响时的基准价（跟市场时等于当前价）；
+     * recoverPercent 是偏离每天回落的比例，impactBps 是每颗绿宝石移动价格的基点（跟市场时为 0）。
+     */
     public record Quote(
             boolean enabled,
             long emeraldToCash,
             long cashToEmerald,
-            long sellLeft,
-            long buyLeft,
-            long sellLimit,
-            long buyLimit) {}
+            long baseBid,
+            long baseAsk,
+            long recoverPercent,
+            long impactBps) {
+        /** 当前收购价相对基准的偏离，百分比（负数 = 绿宝石卖多了、变便宜）。 */
+        public long deviationPercent() {
+            return baseBid <= 0 ? 0 : Math.round((emeraldToCash - baseBid) * 100.0 / baseBid);
+        }
+
+        /** 给玩家看的一句汇率说明。 */
+        public String trendText() {
+            if (impactBps == 0) return recoverPercent == 0 ? "汇率跟随市场" : "固定汇率";
+            long d = deviationPercent();
+            String now = d == 0 ? "现在是基准价" : "现在比基准" + (d > 0 ? "高 " : "低 ") + Math.abs(d) + "%";
+            return now + "：大家卖得越多越便宜、买得越多越贵，每天往基准回落 " + recoverPercent + "%";
+        }
+    }
 
     private CashService() {}
 
@@ -81,33 +99,111 @@ public final class CashService {
 
     // ---------------------------------------------------------------- 报价
 
-    /** 每颗绿宝石换得的便士：市场收购价（浮动）；没有绿宝石市场时用配置的固定价。 */
-    public static long emeraldToCash() {
-        finance.market.MarketPrice mp = emeraldMarket();
-        if (mp != null) return Math.max(1, mp.getBidPrice());
+    /** 价格偏离的上下限：最低跌到基准的 1/5，最高涨到 5 倍。 */
+    private static final double MIN_FACTOR = 0.2, MAX_FACTOR = 5.0;
+
+    /** 全服绿宝石净流入（卖给央行为正，从央行买走为负），决定固定价模式下的偏离。 */
+    private static double pressure;
+
+    /** pressure 最后一次按天回落的 MC 日；MIN_VALUE 表示还没结算过。 */
+    private static long pressureDay = Long.MIN_VALUE;
+
+    public static double emeraldPressure() {
+        return pressure;
+    }
+
+    public static long emeraldPressureDay() {
+        return pressureDay;
+    }
+
+    public static void restoreEmeraldPressure(double value, long day) {
+        pressure = Double.isFinite(value) ? value : 0;
+        pressureDay = day;
+    }
+
+    private static double impact() {
+        return Math.max(0, FinanceConfig.cashEmeraldImpactBps()) / 10_000.0;
+    }
+
+    /** 把 pressure 按经过的 MC 日回落到今天。 */
+    static void settle(long day) {
+        if (pressureDay == Long.MIN_VALUE || day < pressureDay) {
+            pressureDay = day;
+            return;
+        }
+        long days = Math.min(365, day - pressureDay);
+        if (days > 0) {
+            double keep = 1 - Math.max(0, Math.min(100, FinanceConfig.cashEmeraldRecoveryPercent())) / 100.0;
+            pressure *= Math.pow(keep, days);
+            if (Math.abs(pressure) < 0.01) pressure = 0;
+            pressureDay = day;
+        }
+    }
+
+    private static double factor(double p) {
+        return Math.max(MIN_FACTOR, Math.min(MAX_FACTOR, Math.exp(-impact() * p)));
+    }
+
+    /** 固定价模式的基准收购价。 */
+    static long baseBid() {
         return Math.max(1, FinanceConfig.cashEmeraldToCash());
     }
 
-    /** 买一颗绿宝石要付的便士；不低于 {@link #emeraldToCash()}，保证没有来回套利。 */
+    /** 固定价模式的基准卖价：不低于“收购价 × 一颗的冲击”，保证卖 1 颗再买回 1 颗一定亏。 */
+    static long baseAsk() {
+        long bid = baseBid();
+        long minAsk = (long) Math.ceil(bid * Math.exp(impact())) + (impact() == 0 ? 0 : 1);
+        return Math.max(Math.max(bid, minAsk), FinanceConfig.cashCashToEmerald());
+    }
+
+    private static double bidAt(double p) {
+        return baseBid() * factor(p);
+    }
+
+    private static double askAt(double p) {
+        return baseAsk() * factor(p);
+    }
+
+    /** 卖出 n 颗一共能拿多少：逐颗按下跌后的价格累加。 */
+    static long sellProceeds(long n) {
+        double sum = 0;
+        for (long i = 0; i < n; i++) sum += bidAt(pressure + i);
+        return Math.max(n, (long) Math.floor(sum));
+    }
+
+    /** 买入 n 颗一共要付多少：逐颗按上涨后的价格累加。 */
+    static long buyCost(long n) {
+        double sum = 0;
+        for (long i = 0; i < n; i++) sum += askAt(pressure - i);
+        return (long) Math.ceil(sum);
+    }
+
+    /** 现在卖 1 颗绿宝石能拿的便士（不推进时间）。 */
+    public static long emeraldToCash() {
+        finance.market.MarketPrice mp = emeraldMarket();
+        if (mp != null) return Math.max(1, mp.getBidPrice());
+        return Math.max(1, (long) Math.floor(bidAt(pressure)));
+    }
+
+    /** 现在买 1 颗绿宝石要付的便士；总高于收购价。 */
     public static long cashToEmerald() {
         finance.market.MarketPrice mp = emeraldMarket();
         if (mp != null) return Math.max(emeraldToCash() + 1, mp.getAskPrice());
-        return Math.max(emeraldToCash(), FinanceConfig.cashCashToEmerald());
+        return Math.max(emeraldToCash() + 1, (long) Math.ceil(askAt(pressure)));
     }
 
     public static Quote quote(CashPurse purse, long day) {
-        long sellLimit = Math.max(0, FinanceConfig.cashDailyEmeraldSellLimit());
-        long buyLimit = Math.max(0, FinanceConfig.cashDailyEmeraldBuyLimit());
-        long sold = purse == null ? 0 : purse.quotaUsed(QUOTA_SELL, day);
-        long bought = purse == null ? 0 : purse.quotaUsed(QUOTA_BUY, day);
+        settle(day);
+        boolean market = emeraldMarket() != null;
+        long bid = emeraldToCash(), ask = cashToEmerald();
         return new Quote(
                 FinanceConfig.cashEnabled(),
-                emeraldToCash(),
-                cashToEmerald(),
-                Math.max(0, sellLimit - sold),
-                Math.max(0, buyLimit - bought),
-                sellLimit,
-                buyLimit);
+                bid,
+                ask,
+                market ? bid : baseBid(),
+                market ? ask : baseAsk(),
+                market ? 0 : Math.max(0, Math.min(100, FinanceConfig.cashEmeraldRecoveryPercent())),
+                market ? 0 : Math.max(0, FinanceConfig.cashEmeraldImpactBps()));
     }
 
     // ---------------------------------------------------------------- 账户 ⇄ 现金
@@ -153,49 +249,49 @@ public final class CashService {
 
     // ---------------------------------------------------------------- 现金 ⇄ 绿宝石
 
-    /** 交出绿宝石，换回现金。 */
+    /** 交出绿宝石，换回现金。卖得越多单价越低。 */
     public static Result sellEmeralds(UUID player, CashPurse purse, long count, long day) {
         Result blocked = blocked(player, purse);
         if (blocked != null) return blocked;
         if (count <= 0 || count > MAX_EMERALDS_PER_ACTION)
             return Result.fail("每次可兑换 1～" + MAX_EMERALDS_PER_ACTION + " 颗绿宝石。");
-        Quote q = quote(purse, day);
-        if (count > q.sellLeft()) return Result.fail("今天还能卖出 " + q.sellLeft() + " 颗绿宝石（每日 " + q.sellLimit() + " 颗）。");
         if (purse.emeralds() < count) return Result.fail("身上只有 " + purse.emeralds() + " 颗绿宝石。");
-        long cash = Math.multiplyExact(count, q.emeraldToCash());
+        settle(day);
         finance.market.MarketPrice market = emeraldMarket();
+        long cash = market != null ? Math.multiplyExact(count, emeraldToCash()) : sellProceeds(count);
         if (market != null && AccountManager.getBalance(finance.market.NpcMarketMaker.NPC_UUID) < cash) {
             return Result.fail("市场今天收绿宝石的钱不够了，明天再来。");
         }
         if (!purse.removeEmeralds(count)) return Result.fail("扣除绿宝石失败。");
         if (market != null) {
-            // 浮动价：市场出钱、收下绿宝石，库存多了价格就跌
+            // 跟市场：市场出钱、收下绿宝石，库存多了价格就跌
             AccountManager.withdraw(finance.market.NpcMarketMaker.NPC_UUID, cash);
             finance.commodity.CommodityInventoryManager.addCommodity(
                     finance.market.NpcMarketMaker.NPC_UUID, EMERALD, (int) count);
-            finance.market.NpcMarketMaker.recordNpcTrade(EMERALD, true, (int) count, q.emeraldToCash());
+            finance.market.NpcMarketMaker.recordNpcTrade(EMERALD, true, (int) count, cash / count);
             finance.centralbank.ReserveService.recordTrade(cash);
+        } else {
+            pressure += count;
         }
         giveAmount(purse, cash);
         notesIssued(cash);
-        purse.setQuotaUsed(QUOTA_SELL, day, purse.quotaUsed(QUOTA_SELL, day) + count);
         AccountManager.addTransactionRecord(
                 new TransactionRecord(ISSUER, player, cash, TransactionType.EMERALD_SELL, player, "绿宝石", count));
-        return Result.ok(count + " 颗绿宝石换得 " + cash + " 便士现金。今天还能卖 " + (q.sellLeft() - count) + " 颗。");
+        return Result.ok(
+                count + " 颗绿宝石换得 " + cash + " 便士现金（均价 " + cash / count + "）。现在卖 1 颗得 " + emeraldToCash() + "。");
     }
 
-    /** 用现金买绿宝石。 */
+    /** 用现金买绿宝石。买得越多单价越高。 */
     public static Result buyEmeralds(UUID player, CashPurse purse, long count, long day) {
         Result blocked = blocked(player, purse);
         if (blocked != null) return blocked;
         if (count <= 0 || count > MAX_EMERALDS_PER_ACTION)
             return Result.fail("每次可兑换 1～" + MAX_EMERALDS_PER_ACTION + " 颗绿宝石。");
-        Quote q = quote(purse, day);
-        if (count > q.buyLeft()) return Result.fail("今天还能买入 " + q.buyLeft() + " 颗绿宝石（每日 " + q.buyLimit() + " 颗）。");
-        long cost = Math.multiplyExact(count, q.cashToEmerald());
+        settle(day);
+        finance.market.MarketPrice market = emeraldMarket();
+        long cost = market != null ? Math.multiplyExact(count, cashToEmerald()) : buyCost(count);
         long total = purse.cashTotal();
         if (total < cost) return Result.fail("需要 " + cost + " 便士现金，身上只有 " + total + "。可以先从账户取现。");
-        finance.market.MarketPrice market = emeraldMarket();
         if (market != null
                 && finance.commodity.CommodityInventoryManager.getCommodityAmount(
                                 finance.market.NpcMarketMaker.NPC_UUID, EMERALD)
@@ -207,16 +303,17 @@ public final class CashService {
             finance.commodity.CommodityInventoryManager.removeCommodity(
                     finance.market.NpcMarketMaker.NPC_UUID, EMERALD, (int) count);
             AccountManager.deposit(finance.market.NpcMarketMaker.NPC_UUID, cost);
-            finance.market.NpcMarketMaker.recordNpcTrade(EMERALD, false, (int) count, q.cashToEmerald());
+            finance.market.NpcMarketMaker.recordNpcTrade(EMERALD, false, (int) count, cost / count);
             finance.centralbank.ReserveService.recordTrade(cost);
+        } else {
+            pressure -= count;
         }
         notesRetired(cost);
         purse.giveEmeralds(count);
-        purse.setQuotaUsed(QUOTA_BUY, day, purse.quotaUsed(QUOTA_BUY, day) + count);
         AccountManager.addTransactionRecord(
                 new TransactionRecord(player, ISSUER, cost, TransactionType.EMERALD_BUY, player, "绿宝石", count));
-        return Result.ok("花 " + cost + " 便士现金买入 " + count + " 颗绿宝石" + (change > 0 ? "（找零 " + change + "）" : "")
-                + "。今天还能买 " + (q.buyLeft() - count) + " 颗。");
+        return Result.ok("花 " + cost + " 便士现金买入 " + count + " 颗绿宝石（均价 " + cost / count + "）"
+                + (change > 0 ? "，找零 " + change : "") + "。现在买 1 颗付 " + cashToEmerald() + "。");
     }
 
     // ---------------------------------------------------------------- 等值兑换钞

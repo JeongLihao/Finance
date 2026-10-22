@@ -1261,12 +1261,7 @@ final class SimplePages {
                 "绿宝石 " + c.emeralds() + " 颗：现在卖 1 颗得 " + MoneyFormat.pounds(c.emeraldToCash()) + "，买 1 颗付 "
                         + MoneyFormat.pounds(c.cashToEmerald()),
                 TEXT);
-        ui.text(
-                LEFT + PAD,
-                y + 17,
-                WIDTH - 2 * PAD,
-                "今天还能卖 " + c.sellLeft() + " 颗、买 " + c.buyLeft() + " 颗（现金从背包里扣、放进背包）",
-                DIM);
+        ui.text(LEFT + PAD, y + 17, WIDTH - 2 * PAD, c.trendText(), DIM);
         ui.buttonFlow(
                 LEFT + PAD,
                 y + 31,
@@ -1276,16 +1271,16 @@ final class SimplePages {
                         new Btn(
                                 "卖 1 颗",
                                 () -> a.simple(SimpleActionPacket.Action.EMERALD_SELL, "", 1, 0),
-                                c.emeralds() > 0 && c.sellLeft() > 0 ? null : "没有可卖的绿宝石"),
+                                c.emeralds() > 0 ? null : "没有可卖的绿宝石"),
                         new Btn(
                                 "卖 16 颗",
                                 () -> a.simple(
                                         SimpleActionPacket.Action.EMERALD_SELL, "", Math.min(16, c.emeralds()), 0),
-                                c.emeralds() > 0 && c.sellLeft() > 0 ? null : "没有可卖的绿宝石"),
+                                c.emeralds() > 0 ? null : "没有可卖的绿宝石"),
                         new Btn(
                                 "买 1 颗",
                                 () -> a.simple(SimpleActionPacket.Action.EMERALD_BUY, "", 1, 0),
-                                c.cashOnHand() >= c.cashToEmerald() && c.buyLeft() > 0 ? null : "身上现金不够或今天买满了")));
+                                c.cashOnHand() >= c.cashToEmerald() ? null : "身上现金不够")));
     }
 
     static void newCompany(UiBuilder ui, View v, State s, Actions a) {

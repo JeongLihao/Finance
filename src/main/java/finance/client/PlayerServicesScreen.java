@@ -495,12 +495,7 @@ public final class PlayerServicesScreen extends Screen {
                 "卖出 1 颗绿宝石得 " + c.emeraldToCash() + " 便士    买入 1 颗绿宝石付 " + c.cashToEmerald() + " 便士",
                 1,
                 FinanceGui.COL_TEXT);
-        line(
-                g,
-                "今日还可卖出 " + c.sellLeft() + "/" + c.sellLimit() + " 颗    还可买入 " + c.buyLeft() + "/" + c.buyLimit()
-                        + " 颗",
-                2,
-                c.sellLeft() == 0 && c.buyLeft() == 0 ? FinanceGui.COL_WARN : FinanceGui.COL_TEXT);
+        line(g, c.trendText(), 2, c.deviationPercent() < -30 ? FinanceGui.COL_WARN : FinanceGui.COL_TEXT);
         wrapped(
                 g,
                 "现金有 1 便士铜币、10 便士硬币、1 磅纸币三种（100 便士 = 1 磅），和账户里的钱 1:1 互换。取现：填金额后点“取出现金”；"
@@ -512,7 +507,7 @@ public final class PlayerServicesScreen extends Screen {
                 FinanceGui.COL_TEXT_DIM);
         wrapped(
                 g,
-                "绿宝石用现金兑换（不经过账户）：先取出现金再买绿宝石，卖绿宝石得到的是现金。买卖有点差，" + "每天每人有额度，额度按 MC 日重置。",
+                "绿宝石用现金兑换（不经过账户）：先取出现金再买绿宝石，卖绿宝石得到的是现金。买卖有点差，" + "汇率随全服买卖浮动，没有每日额度。",
                 left + 10,
                 8,
                 PANEL_WIDTH - 20,

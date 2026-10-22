@@ -10,7 +10,6 @@ import finance.network.PlayerServicesResponsePacket;
 import finance.playerservice.PlayerServicesService;
 import io.netty.buffer.Unpooled;
 import java.util.EnumMap;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import net.minecraft.network.FriendlyByteBuf;
@@ -18,7 +17,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-/** 实体现金：账户 ⇄ 现金 1:1、找零、绿宝石兑换的点差与每日额度。 */
+/** 实体现金：账户 ⇄ 现金 1:1、找零、绿宝石浮动汇率（越卖越便宜、越买越贵、每天回落）。 */
 class CashServiceTest {
     private final UUID player = UUID.fromString("00000000-0000-0000-0000-00000000ca51");
     private MemoryPurse purse;
@@ -27,7 +26,6 @@ class CashServiceTest {
     static final class MemoryPurse implements CashPurse {
         final Map<Denomination, Long> cash = new EnumMap<>(Denomination.class);
         long emeralds;
-        final Map<String, long[]> quota = new HashMap<>();
 
         @Override
         public long count(Denomination d) {
@@ -61,17 +59,6 @@ class CashServiceTest {
         @Override
         public void giveEmeralds(long n) {
             emeralds += n;
-        }
-
-        @Override
-        public long quotaUsed(String key, long day) {
-            long[] v = quota.get(key);
-            return v != null && v[0] == day ? v[1] : 0;
-        }
-
-        @Override
-        public void setQuotaUsed(String key, long day, long used) {
-            quota.put(key, new long[] {day, used});
         }
     }
 
@@ -146,47 +133,84 @@ class CashServiceTest {
     }
 
     @Test
-    void sellingEmeraldsPaysCashNotAccount() {
+    void sellingEmeraldsPaysCashNotAccountAndLowersThePrice() {
         purse.emeralds = 10;
+        long before = CashService.emeraldToCash();
         var r = CashService.sellEmeralds(player, purse, 4, 1);
         assertTrue(r.success(), r.message());
         assertEquals(6, purse.emeralds);
-        assertEquals(4 * CashService.emeraldToCash(), purse.cashTotal());
-        assertEquals(1000, balance());
+        long after = CashService.emeraldToCash();
+        assertTrue(after < before, "卖了绿宝石，收购价下跌：" + before + " → " + after);
+        assertTrue(purse.cashTotal() <= 4 * before && purse.cashTotal() >= 4 * after, "逐颗按下跌后的价格结算");
+        assertEquals(1000, balance(), "现金进背包，不进账户");
     }
 
     @Test
-    void buyingEmeraldsCostsMoreThanSellingSoRoundTripLoses() {
-        assertTrue(CashService.cashToEmerald() >= CashService.emeraldToCash());
-        purse.emeralds = 8;
-        assertTrue(CashService.sellEmeralds(player, purse, 8, 1).success());
-        long cash = purse.cashTotal();
-        var r = CashService.buyEmeralds(player, purse, 8, 1);
-        if (CashService.cashToEmerald() > CashService.emeraldToCash()) {
-            assertFalse(r.success(), "卖 8 颗的钱买不回 8 颗");
-            assertEquals(cash, purse.cashTotal());
-            assertEquals(0, purse.emeralds);
-        }
-        long canBuy = cash / CashService.cashToEmerald();
-        assertTrue(CashService.buyEmeralds(player, purse, canBuy, 1).success());
-        assertEquals(canBuy, purse.emeralds);
-        assertEquals(cash - canBuy * CashService.cashToEmerald(), purse.cashTotal(), "找零正确");
+    void buyingRaisesThePrice() {
+        purse.give(Denomination.POUND, 100);
+        long before = CashService.cashToEmerald();
+        assertTrue(CashService.buyEmeralds(player, purse, 10, 1).success());
+        assertTrue(CashService.cashToEmerald() > before, "买走绿宝石，卖价上涨");
+        assertEquals(10, purse.emeralds);
     }
 
     @Test
-    void dailyQuotaLimitsSellingAndResetsNextDay() {
-        long limit = CashService.quote(purse, 1).sellLimit();
-        purse.emeralds = limit * 2 + 5;
-        long sold = 0;
-        while (sold < limit) {
-            long n = Math.min(CashService.MAX_EMERALDS_PER_ACTION, limit - sold);
-            assertTrue(CashService.sellEmeralds(player, purse, n, 1).success());
-            sold += n;
+    void roundTripAlwaysLoses() {
+        for (long n : new long[] {1, 8, 64}) {
+            EconomySavedData.resetRuntimeState();
+            MemoryPurse p = new MemoryPurse();
+            p.emeralds = n;
+            assertTrue(CashService.sellEmeralds(player, p, n, 1).success());
+            long proceeds = p.cashTotal();
+            p.give(Denomination.POUND, 1_000);
+            long cash = p.cashTotal();
+            assertTrue(CashService.buyEmeralds(player, p, n, 1).success());
+            long cost = cash - p.cashTotal();
+            assertTrue(cost > proceeds, n + " 颗：卖得 " + proceeds + "，买回要 " + cost);
         }
-        assertEquals(0, CashService.quote(purse, 1).sellLeft());
-        assertFalse(CashService.sellEmeralds(player, purse, 1, 1).success(), "当天额度用完");
-        assertEquals(limit, CashService.quote(purse, 2).sellLeft(), "第二天重置");
-        assertTrue(CashService.sellEmeralds(player, purse, 1, 2).success());
+        assertTrue(CashService.cashToEmerald() > CashService.emeraldToCash());
+    }
+
+    @Test
+    void deviationRecoversEachDay() {
+        long base = CashService.quote(purse, 1).baseBid();
+        purse.emeralds = 128;
+        assertTrue(CashService.sellEmeralds(player, purse, 64, 1).success());
+        assertTrue(CashService.sellEmeralds(player, purse, 64, 1).success(), "没有每日额度");
+        long day1 = -CashService.quote(purse, 1).deviationPercent();
+        long day2 = -CashService.quote(purse, 2).deviationPercent();
+        assertTrue(day1 > 50, "卖了 128 颗，收购价大跌：-" + day1 + "%");
+        assertTrue(day2 < day1 && day2 > day1 / 2, "过一天往回落一部分：-" + day1 + "% → -" + day2 + "%");
+        assertEquals(base, CashService.quote(purse, 200).emeraldToCash(), "很久以后回到基准价");
+    }
+
+    @Test
+    void villagerBreadArbitrageClosesItself() {
+        // 农民 1 绿宝石卖 6 个面包，面包基准价 20：6 个值 120 便士。低价买绿宝石去换面包有利可图，但越买越贵。
+        purse.give(Denomination.POUND, 500);
+        assertTrue(CashService.cashToEmerald() < 120, "一开始有套利空间");
+        long bought = 0;
+        while (CashService.cashToEmerald() < 120 && bought < 1_000) {
+            assertTrue(CashService.buyEmeralds(player, purse, 8, 1).success());
+            bought += 8;
+        }
+        assertTrue(bought < 200, "买到 " + bought + " 颗时，绿宝石已经比 6 个面包还贵，套利自己关上");
+    }
+
+    @Test
+    void pressureSurvivesSaveAndLoad() {
+        purse.emeralds = 20;
+        assertTrue(CashService.sellEmeralds(player, purse, 20, 5).success());
+        double p = CashService.emeraldPressure();
+        long price = CashService.emeraldToCash();
+        net.minecraft.nbt.CompoundTag root = new net.minecraft.nbt.CompoundTag();
+        finance.data.serializer.CentralBankDataSerializer.save(root);
+        EconomySavedData.resetRuntimeState();
+        assertEquals(0, CashService.emeraldPressure());
+        finance.data.serializer.CentralBankDataSerializer.load(root);
+        assertEquals(p, CashService.emeraldPressure(), 1e-9);
+        assertEquals(5, CashService.emeraldPressureDay());
+        assertEquals(price, CashService.emeraldToCash());
     }
 
     @Test
@@ -218,9 +242,11 @@ class CashServiceTest {
         PlayerServicesResponsePacket.encode(p, buf);
         var c = PlayerServicesResponsePacket.decode(buf).cash();
         assertEquals(750, c.balance());
-        assertEquals(250 + 2 * CashService.emeraldToCash(), c.cashOnHand());
+        assertTrue(c.cashOnHand() > 250, "卖绿宝石的钱进了背包");
         assertEquals(1, c.emeralds());
-        assertEquals(c.sellLimit() - 2, c.sellLeft());
+        assertTrue(c.deviationPercent() < 0, "卖过绿宝石，汇率低于基准");
+        assertEquals(c.baseBid(), CashService.quote(purse, 1).baseBid());
+        assertTrue(c.trendText().contains("回落"), c.trendText());
         assertTrue(c.enabled());
     }
 

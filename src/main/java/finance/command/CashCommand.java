@@ -16,7 +16,7 @@ import net.minecraft.server.level.ServerPlayer;
 /**
  * /cash —— 实体现金。与“更多操作 → 现金兑换”页调用同一套 {@link CashService}。
  * <ul>
- *   <li>/cash：查看余额、随身现金、绿宝石汇率与今日额度</li>
+ *   <li>/cash：查看余额、随身现金和绿宝石的当前汇率</li>
  *   <li>/cash withdraw ＜金额＞：从账户取出现金</li>
  *   <li>/cash deposit [金额]：把现金存入账户，不填金额则全部存入</li>
  *   <li>/cash sell ＜颗数＞ / /cash buy ＜颗数＞：用绿宝石换现金 / 用现金买绿宝石</li>
@@ -70,8 +70,7 @@ public final class CashCommand {
                         () -> Component.literal("账户余额 " + AccountManager.getBalance(player.getUUID())
                                 + "，随身现金 " + purse.cashTotal() + "，绿宝石 " + purse.emeralds() + " 颗\n"
                                 + "卖出 1 颗绿宝石得 " + q.emeraldToCash() + " 便士，买入 1 颗付 " + q.cashToEmerald() + " 便士\n"
-                                + "今日还可卖出 " + q.sellLeft() + "/" + q.sellLimit() + " 颗，买入 " + q.buyLeft() + "/"
-                                + q.buyLimit() + " 颗"
+                                + q.trendText()
                                 + (q.enabled() ? "" : "\n实体现金未启用（配置 cash.enabled）")),
                         false);
         return 1;

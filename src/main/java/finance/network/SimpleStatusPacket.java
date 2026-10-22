@@ -163,10 +163,10 @@ public record SimpleStatusPacket(SimpleCenterService.Status status) {
             c.emeralds(),
             c.emeraldToCash(),
             c.cashToEmerald(),
-            c.sellLeft(),
-            c.buyLeft(),
-            c.sellLimit(),
-            c.buyLimit()
+            c.baseBid(),
+            c.baseAsk(),
+            c.recoverPercent(),
+            c.impactBps()
         }) buf.writeVarLong(Math.max(0, v));
         List<SimpleCenterService.Valuation> vals =
                 s.valuations().subList(0, Math.min(MAX_ROWS, s.valuations().size()));

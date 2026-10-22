@@ -1,16 +1,14 @@
 package finance.cash;
 
 import finance.registry.ModItems;
-import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 
-/** 玩家背包里的现金和绿宝石；每日兑换额度存在玩家持久 NBT（finance_cash）里，死亡和重启都保留。 */
+/** 玩家背包里的现金和绿宝石。 */
 public final class PlayerCashPurse implements CashPurse {
-    private static final String TAG = "finance_cash";
 
     private final ServerPlayer player;
 
@@ -54,22 +52,6 @@ public final class PlayerCashPurse implements CashPurse {
     @Override
     public void giveEmeralds(long n) {
         give(Items.EMERALD, n);
-    }
-
-    @Override
-    public long quotaUsed(String key, long day) {
-        CompoundTag tag = player.getPersistentData().getCompound(TAG).getCompound(key);
-        return tag.getLong("day") == day ? Math.max(0, tag.getLong("used")) : 0;
-    }
-
-    @Override
-    public void setQuotaUsed(String key, long day, long used) {
-        CompoundTag root = player.getPersistentData().getCompound(TAG);
-        CompoundTag tag = new CompoundTag();
-        tag.putLong("day", day);
-        tag.putLong("used", Math.max(0, used));
-        root.put(key, tag);
-        player.getPersistentData().put(TAG, root);
     }
 
     private long count(Item item) {

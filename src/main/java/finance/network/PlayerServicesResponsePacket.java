@@ -96,10 +96,23 @@ public record PlayerServicesResponsePacket(
             long emeralds,
             long emeraldToCash,
             long cashToEmerald,
-            long sellLeft,
-            long buyLeft,
-            long sellLimit,
-            long buyLimit) {
+            long baseBid,
+            long baseAsk,
+            long recoverPercent,
+            long impactBps) {
+        /** 当前收购价相对基准的偏离，百分比。 */
+        public long deviationPercent() {
+            return baseBid <= 0 ? 0 : Math.round((emeraldToCash - baseBid) * 100.0 / baseBid);
+        }
+
+        /** 给玩家看的一句汇率说明。 */
+        public String trendText() {
+            if (impactBps == 0) return recoverPercent == 0 ? "汇率跟随市场" : "固定汇率";
+            long d = deviationPercent();
+            String now = d == 0 ? "现在是基准价" : "现在比基准" + (d > 0 ? "高 " : "低 ") + Math.abs(d) + "%";
+            return now + "：大家卖得越多越便宜、买得越多越贵，每天往基准回落 " + recoverPercent + "%";
+        }
+
         public static final Cash EMPTY = new Cash(false, 0, 0, 0, 0, 0, 0, 0, 0, 0);
     }
 
@@ -204,10 +217,10 @@ public record PlayerServicesResponsePacket(
             k2.emeralds(),
             k2.emeraldToCash(),
             k2.cashToEmerald(),
-            k2.sellLeft(),
-            k2.buyLeft(),
-            k2.sellLimit(),
-            k2.buyLimit()
+            k2.baseBid(),
+            k2.baseAsk(),
+            k2.recoverPercent(),
+            k2.impactBps()
         }) b.writeLong(v);
     }
 

@@ -520,6 +520,7 @@ public class EconomySavedData extends SavedData {
         finance.centralbank.ReserveService.clearDirect();
         finance.npcinvestor.SpeculatorService.clearDirect();
         finance.cash.CashService.restoreNotesOutstanding(0);
+        finance.cash.CashService.restoreEmeraldPressure(0, Long.MIN_VALUE);
         FinancialCycleService.clearDirect();
         finance.index.MarketIndexService.clearDirect();
         finance.policy.MonetaryPolicyService.clearDirect();

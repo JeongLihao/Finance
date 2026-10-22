@@ -144,8 +144,8 @@ public final class FinanceConfig {
     private static final boolean SIMPLE_WEEKLY_LEADERBOARD_VALUE = true;
     private static final long CASH_EMERALD_TO_CASH_VALUE = 50L;
     private static final long CASH_CASH_TO_EMERALD_VALUE = 60L;
-    private static final int CASH_DAILY_EMERALD_SELL_LIMIT_VALUE = 64;
-    private static final int CASH_DAILY_EMERALD_BUY_LIMIT_VALUE = 32;
+    private static final int CASH_EMERALD_IMPACT_BPS_VALUE = 100;
+    private static final int CASH_EMERALD_RECOVERY_PERCENT_VALUE = 25;
     private static final double INSURANCE_ACCIDENT_CHANCE_VALUE = 1.0D;
     private static final boolean SETTLEMENT_AUTO_DISCOVER_VALUE = true;
     private static final int INSURANCE_ACCIDENT_MAX_LOSS_VALUE = 20;
@@ -362,8 +362,8 @@ public final class FinanceConfig {
     private static final ForgeConfigSpec.DoubleValue RESERVE_ELASTICITY;
     private static final ForgeConfigSpec.LongValue CASH_EMERALD_TO_CASH;
     private static final ForgeConfigSpec.LongValue CASH_CASH_TO_EMERALD;
-    private static final ForgeConfigSpec.IntValue CASH_DAILY_EMERALD_SELL_LIMIT;
-    private static final ForgeConfigSpec.IntValue CASH_DAILY_EMERALD_BUY_LIMIT;
+    private static final ForgeConfigSpec.IntValue CASH_EMERALD_IMPACT_BPS;
+    private static final ForgeConfigSpec.IntValue CASH_EMERALD_RECOVERY_PERCENT;
     private static final ForgeConfigSpec.DoubleValue INSURANCE_ACCIDENT_CHANCE;
     private static final ForgeConfigSpec.BooleanValue SETTLEMENT_AUTO_DISCOVER;
     private static final ForgeConfigSpec.IntValue INSURANCE_ACCIDENT_MAX_LOSS;
@@ -1213,10 +1213,11 @@ public final class FinanceConfig {
                 .defineInRange("emeraldToCash", CASH_EMERALD_TO_CASH_VALUE, 1L, 1_000_000L);
         CASH_CASH_TO_EMERALD = builder.comment("玩家买入 1 颗绿宝石要付的便士；低于 emeraldToCash 时按 emeraldToCash 计，避免来回套利。")
                 .defineInRange("cashToEmerald", CASH_CASH_TO_EMERALD_VALUE, 1L, 1_000_000L);
-        CASH_DAILY_EMERALD_SELL_LIMIT = builder.comment("每名玩家每个 MC 日最多卖出的绿宝石数，防止袭击塔等刷绿宝石无限印钱。0 = 禁止卖出。")
-                .defineInRange("dailyEmeraldSellLimit", CASH_DAILY_EMERALD_SELL_LIMIT_VALUE, 0, 100_000);
-        CASH_DAILY_EMERALD_BUY_LIMIT = builder.comment("每名玩家每个 MC 日最多买入的绿宝石数。0 = 禁止买入。")
-                .defineInRange("dailyEmeraldBuyLimit", CASH_DAILY_EMERALD_BUY_LIMIT_VALUE, 0, 100_000);
+        CASH_EMERALD_IMPACT_BPS = builder.comment("浮动汇率：全服每卖给央行 1 颗绿宝石，买卖价都下跌这么多基点（100 = 1%），每买走 1 颗就上涨这么多。"
+                        + "代替每日额度，让刷绿宝石印钱和村民套利越做越不划算。0 = 固定汇率。")
+                .defineInRange("emeraldImpactBps", CASH_EMERALD_IMPACT_BPS_VALUE, 0, 1_000);
+        CASH_EMERALD_RECOVERY_PERCENT = builder.comment("浮动汇率：价格偏离每个 MC 日向基准价（emeraldToCash / cashToEmerald）回落的百分比。")
+                .defineInRange("emeraldRecoveryPercent", CASH_EMERALD_RECOVERY_PERCENT_VALUE, 0, 100);
         builder.pop();
 
         builder.push("insurance");
@@ -1819,12 +1820,12 @@ public final class FinanceConfig {
         return getLong(CASH_CASH_TO_EMERALD, CASH_CASH_TO_EMERALD_VALUE);
     }
 
-    public static int cashDailyEmeraldSellLimit() {
-        return getInt(CASH_DAILY_EMERALD_SELL_LIMIT, CASH_DAILY_EMERALD_SELL_LIMIT_VALUE);
+    public static int cashEmeraldImpactBps() {
+        return getInt(CASH_EMERALD_IMPACT_BPS, CASH_EMERALD_IMPACT_BPS_VALUE);
     }
 
-    public static int cashDailyEmeraldBuyLimit() {
-        return getInt(CASH_DAILY_EMERALD_BUY_LIMIT, CASH_DAILY_EMERALD_BUY_LIMIT_VALUE);
+    public static int cashEmeraldRecoveryPercent() {
+        return getInt(CASH_EMERALD_RECOVERY_PERCENT, CASH_EMERALD_RECOVERY_PERCENT_VALUE);
     }
 
     public static boolean npcVotingEnabled() {
