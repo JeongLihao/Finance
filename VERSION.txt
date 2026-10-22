@@ -1,9 +1,0 @@
-v0.4.1
-Minecraft 1.20.1 / Forge 47.4.16
-
-Current development snapshot
-- GUI layout and cross-world state fixes
-- Stock order book and settlement fixes
-- Commodity-company-stock price chain redesign
-- Central bank market stabilization
-- JUnit test baseline

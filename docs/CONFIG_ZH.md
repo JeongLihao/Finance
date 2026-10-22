@@ -3,7 +3,20 @@
 配置类型：Forge COMMON 配置。  
 配置文件由 Forge 在运行环境中生成，修改后建议重启服务器；部分参数在代码中每次使用时读取，Forge 完成配置重载后也能生效，但生产服仍建议重启以避免玩家观察到半周期变化。
 
-可复制的三套推荐配置见 [CONFIG_PRESETS.md](CONFIG_PRESETS.md) 和仓库根目录 `config-presets/`。`facilityTiers`、`logistics`、`settlements`、`exploration` 实际位于 `gameplay` 下，因此 TOML 表名分别是 `[gameplay.facilityTiers]`、`[gameplay.logistics]`、`[gameplay.settlements]`、`[gameplay.exploration]`。服务器值是权威值，客户端本地文件不能改变资产结算。
+## 配置档
+
+仓库根目录 [config-presets](../config-presets) 有四份建议配置，需要手动合并进正式配置，不会自动覆盖服务器：
+
+| 配置档 | 用途 | 主要区别 |
+| --- | --- | --- |
+| `minecraft_first` | 默认新服 | 实体终端、仓库容量、混合公司生产、证券后置 |
+| `casual_server` | 休闲合作服 | 容量和吞吐更大，物流/聚落期限更长，维护费更低，关闭全服广播 |
+| `legacy_finance` | 旧版入口 | 恢复完整 GUI 快捷入口和自动公司路径 |
+| `solo_play` | 单人 | 在 `minecraft_first` 基础上打开 NPC 股东投票、竞争公司敌对收购（`rivals.hostileTakeovers`）和股东激进主义（`rivals.activismEnabled`） |
+
+关闭某项功能只拒绝新业务，已有合同、运输、聚落需求、订单、债务和保单照常走完退款或到期流程。`worldgenEnabled` 目前必须保持 `false`。
+
+`facilityTiers`、`logistics`、`settlements`、`exploration` 实际位于 `gameplay` 下，因此 TOML 表名分别是 `[gameplay.facilityTiers]`、`[gameplay.logistics]`、`[gameplay.settlements]`、`[gameplay.exploration]`。服务器值是权威值，客户端本地文件不能改变资产结算。
 
 ## 默认配置示例
 
