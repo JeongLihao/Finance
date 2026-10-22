@@ -18,7 +18,7 @@ import net.minecraft.world.item.ItemStack;
 public final class CompanyGameplayMenu extends AbstractContainerMenu {
     public static final int MAX_MEMBERS = 64,
             MAX_WAREHOUSES = 8,
-            MAX_FACILITIES = 8,
+            MAX_FACILITIES = 16,
             MAX_CONTRACTS = 16,
             MAX_PROJECTS = 32;
 
@@ -26,7 +26,9 @@ public final class CompanyGameplayMenu extends AbstractContainerMenu {
 
     public record WarehouseRow(UUID id, long used, long capacity) {}
 
-    public record FacilityRow(UUID id, int level, String status, long lastDay) {}
+    /** 公司的一台机器：种类、位置、档次、状态、在岗/岗位。 */
+    public record FacilityRow(
+            UUID id, String type, BlockPos pos, int level, String status, long employed, long jobs) {}
 
     public record ContractRow(
             UUID id,
@@ -52,42 +54,6 @@ public final class CompanyGameplayMenu extends AbstractContainerMenu {
             UUID proposalId,
             String failureKey) {}
 
-    // ---- 厂房页（从工厂控制器打开时才有）----
-    public static final int MAX_FACTORY_METHODS = 3, MAX_FACTORY_EQUIPMENT = 8, MAX_FACTORY_FLOWS = 6;
-    /** 设备行：设备枚举名、已有、需要。 */
-    public record EquipRow(String equipment, int have, int need) {}
-    /** 投入/产出行：商品 ID、每天数量（等级 1、满员）。 */
-    public record FlowRow(String commodity, int amount) {}
-
-    public record MethodRow(
-            String tier,
-            String key,
-            boolean levelOk,
-            boolean available,
-            int jobsPerDevice,
-            List<EquipRow> equipment,
-            List<FlowRow> inputs,
-            List<FlowRow> outputs) {}
-    /**
-     * @param activeTier          当前生效档位，空串表示缺少设备或临时作坊
-     * @param retoolDaysLeft      改造期剩余天数，0 表示不在改造期
-     * @param provisionalDaysLeft 临时作坊剩余天数，-1 表示没有临时作坊
-     */
-    public record FactoryView(
-            UUID facilityId,
-            int level,
-            String status,
-            String activeTier,
-            String targetTier,
-            int retoolDaysLeft,
-            int provisionalDaysLeft,
-            long employed,
-            long jobs,
-            long jobsCap,
-            int zoneRadius,
-            int zoneBelow,
-            int zoneAbove,
-            List<MethodRow> methods) {}
 
     private final UUID companyId;
     private final String name, role, dimension, statusKey, operatingHealth;
@@ -102,7 +68,6 @@ public final class CompanyGameplayMenu extends AbstractContainerMenu {
     private final List<FacilityRow> facilities;
     private final List<ContractRow> contracts;
     private final List<ProjectRow> projects;
-    private final FactoryView factory;
 
     public CompanyGameplayMenu(int id, Inventory inventory, FriendlyByteBuf b) {
         this(
@@ -129,8 +94,7 @@ public final class CompanyGameplayMenu extends AbstractContainerMenu {
                 b.readLong(),
                 b.readVarInt(),
                 b.readLong(),
-                b.readLong(),
-                readFactory(b));
+                b.readLong());
     }
 
     public CompanyGameplayMenu(
@@ -157,8 +121,7 @@ public final class CompanyGameplayMenu extends AbstractContainerMenu {
             long warehouseCapacity,
             int activeShipments,
             long debtPrincipal,
-            long dueWithinSevenDays,
-            FactoryView factory) {
+            long dueWithinSevenDays) {
         super(ModMenus.COMPANY_GAMEPLAY.get(), id);
         this.companyId = companyId;
         this.name = name;
@@ -183,7 +146,6 @@ public final class CompanyGameplayMenu extends AbstractContainerMenu {
         this.activeShipments = Math.max(0, activeShipments);
         this.debtPrincipal = Math.max(0, debtPrincipal);
         this.dueWithinSevenDays = Math.max(0, dueWithinSevenDays);
-        this.factory = factory;
     }
 
     public static void write(
@@ -210,8 +172,7 @@ public final class CompanyGameplayMenu extends AbstractContainerMenu {
             long warehouseCapacity,
             int activeShipments,
             long debtPrincipal,
-            long dueWithinSevenDays,
-            FactoryView factory) {
+            long dueWithinSevenDays) {
         b.writeUUID(companyId);
         b.writeUtf(limit(name, 64), 64);
         b.writeLong(Math.max(0, cash));
@@ -238,9 +199,12 @@ public final class CompanyGameplayMenu extends AbstractContainerMenu {
         for (int i = 0; i < Math.min(MAX_FACILITIES, facilities.size()); i++) {
             FacilityRow r = facilities.get(i);
             b.writeUUID(r.id());
+            b.writeUtf(limit(r.type(), 16), 16);
+            b.writeBlockPos(r.pos());
             b.writeVarInt(r.level());
             b.writeUtf(limit(r.status(), 24), 24);
-            b.writeLong(r.lastDay());
+            b.writeVarLong(Math.max(0, r.employed()));
+            b.writeVarLong(Math.max(0, r.jobs()));
         }
         b.writeVarInt(Math.min(MAX_CONTRACTS, contracts.size()));
         for (int i = 0; i < Math.min(MAX_CONTRACTS, contracts.size()); i++) {
@@ -281,102 +245,9 @@ public final class CompanyGameplayMenu extends AbstractContainerMenu {
         b.writeVarInt(Math.max(0, activeShipments));
         b.writeLong(Math.max(0, debtPrincipal));
         b.writeLong(Math.max(0, dueWithinSevenDays));
-        writeFactory(b, factory);
     }
 
-    static void writeFactory(FriendlyByteBuf b, FactoryView f) {
-        b.writeBoolean(f != null);
-        if (f == null) return;
-        b.writeUUID(f.facilityId());
-        b.writeVarInt(f.level());
-        b.writeUtf(limit(f.status(), 24), 24);
-        b.writeUtf(limit(f.activeTier(), 16), 16);
-        b.writeUtf(limit(f.targetTier(), 16), 16);
-        b.writeVarInt(Math.max(0, f.retoolDaysLeft()));
-        b.writeVarInt(Math.max(-1, f.provisionalDaysLeft()) + 1);
-        b.writeVarLong(Math.max(0, f.employed()));
-        b.writeVarLong(Math.max(0, f.jobs()));
-        b.writeVarLong(Math.max(0, f.jobsCap()));
-        b.writeVarInt(f.zoneRadius());
-        b.writeVarInt(f.zoneBelow());
-        b.writeVarInt(f.zoneAbove());
-        int methods = Math.min(MAX_FACTORY_METHODS, f.methods().size());
-        b.writeVarInt(methods);
-        for (int i = 0; i < methods; i++) {
-            MethodRow m = f.methods().get(i);
-            b.writeUtf(limit(m.tier(), 16), 16);
-            b.writeUtf(limit(m.key(), 48), 48);
-            b.writeBoolean(m.levelOk());
-            b.writeBoolean(m.available());
-            b.writeVarInt(Math.max(0, m.jobsPerDevice()));
-            int eq = Math.min(MAX_FACTORY_EQUIPMENT, m.equipment().size());
-            b.writeVarInt(eq);
-            for (int j = 0; j < eq; j++) {
-                EquipRow e = m.equipment().get(j);
-                b.writeUtf(limit(e.equipment(), 24), 24);
-                b.writeVarInt(Math.max(0, e.have()));
-                b.writeVarInt(Math.max(0, e.need()));
-            }
-            writeFlows(b, m.inputs());
-            writeFlows(b, m.outputs());
-        }
-    }
 
-    private static void writeFlows(FriendlyByteBuf b, List<FlowRow> flows) {
-        int n = Math.min(MAX_FACTORY_FLOWS, flows.size());
-        b.writeVarInt(n);
-        for (int i = 0; i < n; i++) {
-            b.writeUtf(limit(flows.get(i).commodity(), 64), 64);
-            b.writeVarInt(Math.max(0, flows.get(i).amount()));
-        }
-    }
-
-    static FactoryView readFactory(FriendlyByteBuf b) {
-        if (!b.readBoolean()) return null;
-        UUID id = b.readUUID();
-        int level = b.readVarInt();
-        String status = b.readUtf(24);
-        String active = b.readUtf(16), target = b.readUtf(16);
-        int retool = b.readVarInt(), provisional = b.readVarInt() - 1;
-        long employed = b.readVarLong(), jobs = b.readVarLong(), cap = b.readVarLong();
-        int radius = b.readVarInt(), below = b.readVarInt(), above = b.readVarInt();
-        int methods = count(b, MAX_FACTORY_METHODS);
-        List<MethodRow> rows = new ArrayList<>(methods);
-        for (int i = 0; i < methods; i++) {
-            String tier = b.readUtf(16), key = b.readUtf(48);
-            boolean levelOk = b.readBoolean(), available = b.readBoolean();
-            int jobsPerDevice = b.readVarInt();
-            int eq = count(b, MAX_FACTORY_EQUIPMENT);
-            List<EquipRow> equipment = new ArrayList<>(eq);
-            for (int j = 0; j < eq; j++) equipment.add(new EquipRow(b.readUtf(24), b.readVarInt(), b.readVarInt()));
-            rows.add(new MethodRow(
-                    tier, key, levelOk, available, jobsPerDevice, List.copyOf(equipment), readFlows(b), readFlows(b)));
-        }
-        if (retool > 365 || provisional > 365 || radius > 16 || below > 16 || above > 16)
-            throw new IllegalArgumentException("invalid factory view");
-        return new FactoryView(
-                id,
-                level,
-                status,
-                active,
-                target,
-                retool,
-                provisional,
-                employed,
-                jobs,
-                cap,
-                radius,
-                below,
-                above,
-                List.copyOf(rows));
-    }
-
-    private static List<FlowRow> readFlows(FriendlyByteBuf b) {
-        int n = count(b, MAX_FACTORY_FLOWS);
-        List<FlowRow> flows = new ArrayList<>(n);
-        for (int i = 0; i < n; i++) flows.add(new FlowRow(b.readUtf(64), b.readVarInt()));
-        return List.copyOf(flows);
-    }
 
     private static List<MemberRow> readMembers(FriendlyByteBuf b) {
         int n = count(b, MAX_MEMBERS);
@@ -395,7 +266,15 @@ public final class CompanyGameplayMenu extends AbstractContainerMenu {
     private static List<FacilityRow> readFacilities(FriendlyByteBuf b) {
         int n = count(b, MAX_FACILITIES);
         List<FacilityRow> r = new ArrayList<>(n);
-        for (int i = 0; i < n; i++) r.add(new FacilityRow(b.readUUID(), b.readVarInt(), b.readUtf(24), b.readLong()));
+        for (int i = 0; i < n; i++)
+            r.add(new FacilityRow(
+                    b.readUUID(),
+                    b.readUtf(16),
+                    b.readBlockPos(),
+                    b.readVarInt(),
+                    b.readUtf(24),
+                    b.readVarLong(),
+                    b.readVarLong()));
         return r;
     }
 
@@ -534,9 +413,6 @@ public final class CompanyGameplayMenu extends AbstractContainerMenu {
         return dueWithinSevenDays;
     }
     /** 厂房页数据；不是从工厂控制器打开时为 null。 */
-    public FactoryView factory() {
-        return factory;
-    }
 
     @Override
     public boolean stillValid(Player player) {

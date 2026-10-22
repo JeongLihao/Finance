@@ -3,7 +3,6 @@ package finance.registry;
 import finance.FinanceMod;
 import finance.block.BoardroomTableBlock;
 import finance.block.CompanyDeskBlock;
-import finance.block.CompanyFactoryControllerBlock;
 import finance.block.FactoryBlock;
 import finance.block.FinanceTerminalBlock;
 import finance.block.SettlementTradeStationBlock;
@@ -46,8 +45,6 @@ public final class ModBlocks {
             "bank_counter", () -> new FinanceTerminalBlock(furnitureProperties(), FinanceTerminalType.BANK_COUNTER));
     public static final RegistryObject<Block> COMPANY_DESK =
             BLOCKS.register("company_desk", () -> new CompanyDeskBlock(furnitureProperties()));
-    public static final RegistryObject<Block> COMPANY_FACTORY_CONTROLLER = BLOCKS.register(
-            "company_factory_controller", () -> new CompanyFactoryControllerBlock(furnitureProperties()));
     public static final RegistryObject<Block> SECURITIES_TERMINAL = BLOCKS.register(
             "securities_terminal",
             () -> new FinanceTerminalBlock(furnitureProperties(), FinanceTerminalType.SECURITIES_TERMINAL));

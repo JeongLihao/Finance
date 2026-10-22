@@ -112,7 +112,7 @@ public final class MacroTabs {
         FinanceGui.drawButton(font, g, "刷新", 340, 228, 48, entry.state() == MacroClientCache.State.LOADING);
         List<Integer> tiers = data.factoryTiers();
         String footer = tiers.size() == MacroResponsePacket.FACTORY_TIER_BUCKETS
-                ? "工厂 手工" + tiers.get(0) + " 改良" + tiers.get(1) + " 工业" + tiers.get(2) + " 停产" + tiers.get(3)
+                ? "机器 1档" + tiers.get(0) + " 2档" + tiers.get(1) + " 3档" + tiers.get(2) + " 停工" + tiers.get(3)
                         + " · 央行债券/工资：更多操作"
                 : "央行债券、定存、工资、周报、商情：标题栏“更多操作”";
         FinanceGui.drawClippedString(font, g, footer, LEFT_X, 231, 270, FinanceGui.COL_TEXT_DIM); // 右边留给“对手”和“刷新”按钮

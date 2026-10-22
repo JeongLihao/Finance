@@ -4,6 +4,8 @@ import finance.block.HarvesterBlock;
 import finance.company.Company;
 import finance.config.FinanceConfig;
 import finance.factory.HarvestMode;
+import finance.gameplay.company.CompanyFacilityStatus;
+import finance.gameplay.company.CompanyFacilityType;
 import finance.factory.Harvesting;
 import finance.factory.MachineCore;
 import finance.gui.HarvesterMenu;
@@ -88,6 +90,8 @@ public final class HarvesterBlockEntity extends CompanyMachineBlockEntity {
     private final int[] shaft = {Integer.MIN_VALUE, 0};
     private int cooldown, fuelBlocks, status = IDLE;
     private long harvested;
+    /** 客户端界面显示的档次（服务端从机器记录读）。 */
+    private int clientTier = 1;
 
     private final ContainerData data = new ContainerData() {
         @Override
@@ -97,6 +101,7 @@ public final class HarvesterBlockEntity extends CompanyMachineBlockEntity {
                 case 1 -> link;
                 case 2 -> fuelBlocks;
                 case 3 -> shaft[0] == Integer.MIN_VALUE ? worldPosition.getY() - 1 : shaft[0];
+                case 4 -> tier();
                 default -> 0;
             };
         }
@@ -108,13 +113,14 @@ public final class HarvesterBlockEntity extends CompanyMachineBlockEntity {
                 case 1 -> link = value;
                 case 2 -> fuelBlocks = value;
                 case 3 -> shaft[0] = value;
+                case 4 -> clientTier = value;
                 default -> {}
             }
         }
 
         @Override
         public int getCount() {
-            return 4;
+            return 5;
         }
     };
 
@@ -129,10 +135,26 @@ public final class HarvesterBlockEntity extends CompanyMachineBlockEntity {
     public static void serverTick(Level level, BlockPos pos, BlockState state, HarvesterBlockEntity machine) {
         if (!(level instanceof ServerLevel server)) return;
         if (level.getGameTime() % 20 == 0) machine.logistics(server);
-        if (--machine.cooldown > 0) return;
+        machine.cooldown -= machine.steps();
+        if (machine.cooldown > 0) return;
         HarvestMode mode = machine.mode();
         machine.cooldown = Math.max(1, mode.interval() * 100 / Math.max(1, FinanceConfig.factorySpeedPercent()));
         machine.setStatus(machine.work(server, mode));
+    }
+
+    @Override
+    protected CompanyFacilityType facilityType() {
+        return switch (mode()) {
+            case FARM -> CompanyFacilityType.FARM;
+            case LUMBER -> CompanyFacilityType.LUMBER;
+            case MINE -> CompanyFacilityType.MINE;
+            case SHEAR -> CompanyFacilityType.SHEAR;
+        };
+    }
+
+    @Override
+    public int tier() {
+        return level != null && level.isClientSide ? clientTier : super.tier();
     }
 
     private int work(ServerLevel level, HarvestMode mode) {
@@ -182,9 +204,18 @@ public final class HarvesterBlockEntity extends CompanyMachineBlockEntity {
         }
     }
 
-    /** 每秒一次：连着公司仓库时把能卖的收获存进公司库存，采矿机补煤。 */
+    /** 每秒一次：报状态；连着公司仓库时把能卖的收获存进公司库存，采矿机补煤。 */
     private void logistics(ServerLevel level) {
-        Company company = linkedCompany(level);
+        Company company = refresh(level);
+        report(
+                level,
+                switch (status) {
+                    case FULL -> CompanyFacilityStatus.OUTPUT_FULL;
+                    case NO_FUEL -> CompanyFacilityStatus.MISSING_INPUT;
+                    case DONE -> CompanyFacilityStatus.DISABLED;
+                    // 作物没熟、附近没树没羊是正常等待，不算停产
+                    default -> CompanyFacilityStatus.ACTIVE;
+                });
         if (company == null) return;
         for (int slot = 0; slot < BIN_SIZE; slot++) store(company, slots, slot);
         if (mode().needsFuel()) refill(company, slots, SLOT_FUEL, Items.COAL);

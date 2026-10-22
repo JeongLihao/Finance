@@ -69,8 +69,7 @@ public final class FactoryBlock extends BaseEntityBlock {
             Level level, BlockPos pos, BlockState state, @Nullable LivingEntity placer, ItemStack stack) {
         super.setPlacedBy(level, pos, state, placer, stack);
         if (level.isClientSide || !(level.getBlockEntity(pos) instanceof FactoryBlockEntity factory)) return;
-        Company company = MachineOwnership.companyForPlacer(placer);
-        factory.bindCompany(company);
+        Company company = factory.bindCompany(MachineOwnership.companyForPlacer(placer));
         MachineOwnership.announce(placer, company, "block.finance.factory");
     }
 
@@ -81,6 +80,7 @@ public final class FactoryBlock extends BaseEntityBlock {
             // 掉落后立即清空 BE 内物品：堵住开着 GUI 的玩家在 stillValid 失效前
             // 点走槽内真物品的窄窗口 dup（vanilla 熔炉同款）。
             factory.clearInventory();
+            factory.unregister();
             level.updateNeighbourForOutputSignal(pos, this);
         }
         super.onRemove(state, level, pos, newState, moved);

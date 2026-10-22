@@ -551,7 +551,6 @@ public class EconomySavedData extends SavedData {
         finance.governance.CorporateActionManager.clearDirect();
         finance.npcinvestor.NpcInvestorManager.clearDirect();
         finance.npcinvestor.NpcGovernanceManager.clearDirect();
-        finance.gameplay.company.factory.FactoryService.clearDirect();
         finance.rival.RivalManager.clearDirect();
         finance.macro.MacroEconomyManager.clearDirect();
         finance.margin.MarginPoolManager.clearDirect();

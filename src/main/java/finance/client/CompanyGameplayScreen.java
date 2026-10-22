@@ -31,8 +31,6 @@ public final class CompanyGameplayScreen extends AbstractContainerScreen<Company
     private int selectedProject;
     private int projectOffset;
     private boolean capitalTab;
-    /** 厂房页：只有从工厂控制器打开（menu.factory() 非空）时才有。 */
-    private boolean factoryTab;
 
     private CapitalFundingSource capitalFundingSource = CapitalFundingSource.RETAINED_EARNINGS;
     private EditBox target;
@@ -63,10 +61,6 @@ public final class CompanyGameplayScreen extends AbstractContainerScreen<Company
         selectedProject = clampSelection(selectedProject, menu.projects().size());
         projectOffset = clampOffset(projectOffset, menu.projects().size(), 9);
         capitalTab = menu.statusKey().startsWith("finance.capital_project.");
-        // 切换生产方式后服务端会重开界面：留在厂房页
-        factoryTab = menu.factory() != null && (factoryTab || menu.statusKey().startsWith("finance.factory."));
-        if (factoryTab) capitalTab = false;
-        if (menu.factory() != null) FactoryOutlineRenderer.show(menu.factory(), menu.pos());
         target = box(10, 184, 90, "对方编号");
         commodity = box(104, 184, 60, "商品");
         quantity = box(168, 184, 40, "数量");
@@ -101,27 +95,16 @@ public final class CompanyGameplayScreen extends AbstractContainerScreen<Company
                 9,
                 300,
                 menu.risk() ? 0xFFA02020 : 0xFF202020);
-        boolean hasFactory = menu.factory() != null;
         drawClipped(
                 graphics,
                 Component.translatable("screen.finance.company_gameplay.cash", menu.cash())
                         .getString(),
                 10,
                 23,
-                hasFactory ? 128 : 180,
+                180,
                 0xFF555555);
-        if (hasFactory) {
-            tab(graphics, 144, 20, 52, "screen.finance.company_gameplay.tab.operations", !capitalTab && !factoryTab);
-            tab(graphics, 200, 20, 52, "screen.finance.company_gameplay.tab.capital", capitalTab);
-            tab(graphics, 256, 20, 54, "screen.finance.company_gameplay.tab.factory", factoryTab);
-        } else {
-            tab(graphics, 200, 20, 52, "screen.finance.company_gameplay.tab.operations", !capitalTab);
-            tab(graphics, 256, 20, 54, "screen.finance.company_gameplay.tab.capital", capitalTab);
-        }
-        if (factoryTab) {
-            renderFactory(graphics);
-            return;
-        }
+        tab(graphics, 200, 20, 52, "screen.finance.company_gameplay.tab.operations", !capitalTab);
+        tab(graphics, 256, 20, 54, "screen.finance.company_gameplay.tab.capital", capitalTab);
         if (capitalTab) {
             renderCapital(graphics);
             return;
@@ -157,14 +140,7 @@ public final class CompanyGameplayScreen extends AbstractContainerScreen<Company
         for (int i = facilityOffset; i < facilityEnd; i++) {
             CompanyGameplayMenu.FacilityRow row = menu.facilities().get(i);
             if (i == facility) graphics.fill(162, y - 2, 312, y + 10, 0xFFD5E3C7);
-            drawClipped(
-                    graphics,
-                    row.id().toString().substring(0, 8) + " L" + row.level() + " "
-                            + FinanceFormat.facilityStatusLabel(row.status()),
-                    166,
-                    y,
-                    142,
-                    0xFF202020);
+            drawClipped(graphics, machineLine(row), 166, y, 142, 0xFF202020);
             y += 12;
         }
 
@@ -227,9 +203,22 @@ public final class CompanyGameplayScreen extends AbstractContainerScreen<Company
         button(graphics, 162, 204, 72, invited ? "reject" : "invite");
         button(graphics, 238, 204, 72, "role");
         button(graphics, 10, 222, 72, "remove");
-        button(graphics, 86, 222, 72, "upgrade");
-        contractButton(graphics, 162, 222, 72);
-        button(graphics, 238, 222, 72, "advanced");
+        contractButton(graphics, 86, 222, 72);
+        button(graphics, 162, 222, 72, "advanced");
+    }
+
+    /** 机器清单的一行：种类、档次、状态、在岗/岗位、坐标。升档在机器自己的界面里做。 */
+    private String machineLine(CompanyGameplayMenu.FacilityRow row) {
+        return Component.translatable(
+                                "screen.finance.company_gameplay.machine",
+                                Component.translatable("screen.finance.company_gameplay.machine."
+                                        + row.type().toLowerCase(java.util.Locale.ROOT)),
+                                row.level(),
+                                FinanceFormat.facilityStatusLabel(row.status()),
+                                row.employed(),
+                                row.jobs(),
+                                row.pos().getX() + "," + row.pos().getY() + "," + row.pos().getZ())
+                .getString();
     }
 
     private void renderCapital(GuiGraphics graphics) {
@@ -293,236 +282,6 @@ public final class CompanyGameplayScreen extends AbstractContainerScreen<Company
         capitalButton(graphics, 86, 222, 72, "execute");
         capitalButton(graphics, 162, 222, 72, "cancel");
         capitalButton(graphics, 238, 222, 72, "advanced");
-    }
-
-    // ---------------------------------------------------------------- 厂房页
-
-    static final int CARD_WIDTH = 96, CARD_TOP = 68, CARD_BUTTON_Y = 180;
-
-    static int cardX(int index) {
-        return 10 + index * 102;
-    }
-
-    private void renderFactory(GuiGraphics graphics) {
-        CompanyGameplayMenu.FactoryView f = menu.factory();
-        String current = f.activeTier().isEmpty()
-                ? Component.translatable(
-                                f.provisionalDaysLeft() >= 0
-                                        ? "screen.finance.factory.provisional"
-                                        : "screen.finance.factory.no_method")
-                        .getString()
-                : methodName(f, f.activeTier());
-        int factor = f.retoolDaysLeft() > 0 ? 50 : 100;
-        drawClipped(
-                graphics,
-                Component.translatable(
-                                "screen.finance.factory.summary", current, factor, f.employed(), f.jobs(), f.jobsCap())
-                        .getString(),
-                10,
-                42,
-                300,
-                0xFF202020);
-        String notice;
-        int noticeColor = 0xFF8A4B18;
-        if (f.retoolDaysLeft() > 0) {
-            notice = Component.translatable("screen.finance.factory.retooling", f.retoolDaysLeft())
-                    .getString();
-        } else if (f.provisionalDaysLeft() >= 0) {
-            notice = Component.translatable("screen.finance.factory.provisional_warning", f.provisionalDaysLeft())
-                    .getString();
-            noticeColor = 0xFF9A2F2F;
-        } else if (f.activeTier().isEmpty()) {
-            notice = Component.translatable("screen.finance.factory.missing_warning")
-                    .getString();
-            noticeColor = 0xFF9A2F2F;
-        } else {
-            notice = Component.translatable(
-                            "screen.finance.factory.zone_hint",
-                            f.zoneRadius() * 2 + 1,
-                            f.zoneRadius() * 2 + 1,
-                            f.zoneBelow() + f.zoneAbove() + 1)
-                    .getString();
-            noticeColor = 0xFF666666;
-        }
-        drawClipped(graphics, notice, 10, 54, 300, noticeColor);
-
-        for (int i = 0; i < f.methods().size(); i++) {
-            CompanyGameplayMenu.MethodRow m = f.methods().get(i);
-            int x = cardX(i);
-            boolean active = m.tier().equals(f.activeTier());
-            boolean target = m.tier().equals(f.targetTier());
-            graphics.fill(x, CARD_TOP, x + CARD_WIDTH, CARD_BUTTON_Y - 2, active ? 0xFFD5E3C7 : 0xFFF2EEE3);
-            if (target) graphics.renderOutline(x, CARD_TOP, CARD_WIDTH, CARD_BUTTON_Y - 2 - CARD_TOP, 0xFF5A7A3A);
-            int y = CARD_TOP + 3;
-            drawClipped(
-                    graphics,
-                    Component.translatable("screen.finance.factory.tier."
-                                            + m.tier().toLowerCase(java.util.Locale.ROOT))
-                                    .getString()
-                            + " · "
-                            + Component.translatable("screen.finance.factory.method." + m.key())
-                                    .getString(),
-                    x + 3,
-                    y,
-                    CARD_WIDTH - 6,
-                    0xFF202020);
-            y += 11;
-            if (!m.levelOk()) {
-                drawClipped(
-                        graphics,
-                        Component.translatable("screen.finance.factory.needs_level", tierLevel(m.tier()))
-                                .getString(),
-                        x + 3,
-                        y,
-                        CARD_WIDTH - 6,
-                        0xFF9A2F2F);
-                y += 10;
-            }
-            for (CompanyGameplayMenu.EquipRow e : m.equipment()) {
-                boolean ok = e.have() >= e.need();
-                drawClipped(
-                        graphics,
-                        (ok ? "✔ " : "✘ ")
-                                + Component.translatable("screen.finance.factory.equipment."
-                                                + e.equipment().toLowerCase(java.util.Locale.ROOT))
-                                        .getString()
-                                + " " + e.have() + "/" + e.need(),
-                        x + 3,
-                        y,
-                        CARD_WIDTH - 6,
-                        ok ? 0xFF2D7D32 : 0xFF9A2F2F);
-                y += 10;
-            }
-            drawClipped(
-                    graphics,
-                    Component.translatable("screen.finance.factory.jobs_per_device", m.jobsPerDevice())
-                            .getString(),
-                    x + 3,
-                    y,
-                    CARD_WIDTH - 6,
-                    0xFF555555);
-            y += 10;
-            drawClipped(
-                    graphics,
-                    Component.translatable("screen.finance.factory.inputs").getString() + flowText(m.inputs()),
-                    x + 3,
-                    y,
-                    CARD_WIDTH - 6,
-                    0xFF555555);
-            y += 10;
-            drawClipped(
-                    graphics,
-                    Component.translatable("screen.finance.factory.outputs").getString() + flowText(m.outputs()),
-                    x + 3,
-                    y,
-                    CARD_WIDTH - 6,
-                    0xFF2D5D7D);
-            boolean enabled = canSwitch(m, target);
-            graphics.fill(x, CARD_BUTTON_Y, x + CARD_WIDTH, CARD_BUTTON_Y + 16, enabled ? 0xFFD0CAB8 : 0xFFAAA69A);
-            String label = clip(
-                    Component.translatable(
-                                    target ? "screen.finance.factory.current_target" : "screen.finance.factory.switch")
-                            .getString(),
-                    CARD_WIDTH - 6);
-            graphics.drawString(
-                    font,
-                    label,
-                    x + Math.max(3, (CARD_WIDTH - font.width(label)) / 2),
-                    CARD_BUTTON_Y + 4,
-                    enabled ? 0xFF202020 : 0xFF666666,
-                    false);
-        }
-        if (!localStatus.isEmpty()) {
-            drawClipped(graphics, localStatus, 10, 204, 300, 0xFF9A2F2F);
-        } else if (!menu.statusKey().isBlank()) {
-            drawClipped(
-                    graphics,
-                    Component.translatable(menu.statusKey()).getString(),
-                    10,
-                    204,
-                    300,
-                    menu.statusKey().endsWith("selected") ? 0xFF2D7D32 : 0xFF8A4B18);
-        } else {
-            drawClipped(
-                    graphics,
-                    Component.translatable("screen.finance.factory.switch_hint").getString(),
-                    10,
-                    204,
-                    300,
-                    0xFF666666);
-        }
-        drawClipped(
-                graphics,
-                Component.translatable("screen.finance.factory.outline_hint").getString(),
-                10,
-                222,
-                300,
-                0xFF666666);
-    }
-
-    private boolean canSwitch(CompanyGameplayMenu.MethodRow m, boolean target) {
-        if (pending || target || !m.available()) return false;
-        try {
-            return CompanyMemberRole.valueOf(menu.role()).allows(CompanyPermission.MANAGE_PRODUCTION);
-        } catch (IllegalArgumentException e) {
-            return false;
-        }
-    }
-
-    private boolean factoryMouseClicked(int mx, int my) {
-        CompanyGameplayMenu.FactoryView f = menu.factory();
-        if (my < CARD_BUTTON_Y || my >= CARD_BUTTON_Y + 16) return true;
-        for (int i = 0; i < f.methods().size(); i++) {
-            int x = cardX(i);
-            if (mx < x || mx >= x + CARD_WIDTH) continue;
-            CompanyGameplayMenu.MethodRow m = f.methods().get(i);
-            if (!canSwitch(m, m.tier().equals(f.targetTier()))) return true;
-            int tierIndex;
-            try {
-                tierIndex = finance.gameplay.company.factory.ProductionTier.valueOf(m.tier())
-                        .ordinal();
-            } catch (IllegalArgumentException e) {
-                return true;
-            }
-            FinancePacketHandler.CHANNEL.sendToServer(new CompanyGameplayActionPacket(
-                    CompanyGameplayActionPacket.Action.SET_PRODUCTION_METHOD,
-                    menu.companyId(),
-                    f.facilityId(),
-                    "",
-                    tierIndex,
-                    0,
-                    UUID.randomUUID().toString()));
-            markPending();
-            return true;
-        }
-        return true;
-    }
-
-    private String methodName(CompanyGameplayMenu.FactoryView f, String tier) {
-        for (CompanyGameplayMenu.MethodRow m : f.methods()) {
-            if (m.tier().equals(tier))
-                return Component.translatable("screen.finance.factory.method." + m.key())
-                        .getString();
-        }
-        return tier;
-    }
-
-    private static int tierLevel(String tier) {
-        try {
-            return finance.gameplay.company.factory.ProductionTier.valueOf(tier).requiredLevel();
-        } catch (IllegalArgumentException e) {
-            return 1;
-        }
-    }
-
-    private static String flowText(java.util.List<CompanyGameplayMenu.FlowRow> flows) {
-        if (flows.isEmpty()) return "—";
-        StringBuilder sb = new StringBuilder();
-        for (CompanyGameplayMenu.FlowRow r : flows) {
-            if (sb.length() > 0) sb.append(' ');
-            sb.append(FinanceFormat.commodityDisplayName(r.commodity())).append(r.amount());
-        }
-        return sb.toString();
     }
 
     private void tab(GuiGraphics graphics, int x, int y, int width, String key, boolean selected) {
@@ -628,7 +387,6 @@ public final class CompanyGameplayScreen extends AbstractContainerScreen<Company
             case "invite" -> CompanyGameplayActionPacket.Action.INVITE;
             case "role" -> CompanyGameplayActionPacket.Action.ROLE_NEXT;
             case "remove" -> CompanyGameplayActionPacket.Action.REMOVE_MEMBER;
-            case "upgrade" -> CompanyGameplayActionPacket.Action.UPGRADE_FACILITY;
             case "procure" -> contractAction();
             default -> CompanyGameplayActionPacket.Action.OPEN_ADVANCED;
         };
@@ -647,13 +405,12 @@ public final class CompanyGameplayScreen extends AbstractContainerScreen<Company
         }
         return switch (action) {
             case MODE_NEXT -> role == CompanyMemberRole.OWNER;
-            case AUTO_SELL_NEXT, UPGRADE_FACILITY -> role.allows(CompanyPermission.MANAGE_PRODUCTION);
+            case AUTO_SELL_NEXT -> role.allows(CompanyPermission.MANAGE_PRODUCTION);
             case LEAVE -> role != CompanyMemberRole.OWNER;
             case INVITE, ROLE_NEXT, REMOVE_MEMBER -> role.allows(CompanyPermission.MANAGE_MEMBERS);
             case PUBLISH_CONTRACT -> role.allows(CompanyPermission.PUBLISH_CONTRACT);
             case ACCEPT_SUPPLY_CONTRACT, DELIVER_SUPPLY_CONTRACT -> role.allows(CompanyPermission.MANAGE_PRODUCTION);
             case OPEN_ADVANCED -> role.allows(CompanyPermission.OPEN_GOVERNANCE);
-            case SET_PRODUCTION_METHOD -> role.allows(CompanyPermission.MANAGE_PRODUCTION);
             case ACCEPT_INVITE, REJECT_INVITE -> false;
         };
     }
@@ -663,18 +420,11 @@ public final class CompanyGameplayScreen extends AbstractContainerScreen<Company
         if (pending) return true;
         int mx = (int) mouseX - leftPos;
         int my = (int) mouseY - topPos;
-        if (menu.factory() != null && my >= 20 && my < 34 && mx >= 144 && mx < 310) {
-            capitalTab = mx >= 200 && mx < 252;
-            factoryTab = mx >= 256;
-            updateFieldVisibility();
-            return true;
-        }
-        if (menu.factory() == null && my >= 20 && my < 34 && mx >= 200 && mx < 310) {
+        if (my >= 20 && my < 34 && mx >= 200 && mx < 310) {
             capitalTab = mx >= 256;
             updateFieldVisibility();
             return true;
         }
-        if (factoryTab) return factoryMouseClicked(mx, my);
         if (capitalTab) return capitalMouseClicked(mx, my);
         if (mx >= 8
                 && mx < 154
@@ -727,10 +477,10 @@ public final class CompanyGameplayScreen extends AbstractContainerScreen<Company
                     default -> CompanyGameplayActionPacket.Action.ROLE_NEXT;
                 };
             } else {
+                if (column == 3) return true;
                 action = switch (column) {
                     case 0 -> CompanyGameplayActionPacket.Action.REMOVE_MEMBER;
-                    case 1 -> CompanyGameplayActionPacket.Action.UPGRADE_FACILITY;
-                    case 2 -> contractAction();
+                    case 1 -> contractAction();
                     default -> CompanyGameplayActionPacket.Action.OPEN_ADVANCED;
                 };
             }
@@ -838,7 +588,6 @@ public final class CompanyGameplayScreen extends AbstractContainerScreen<Company
         int my = (int) mouseY - topPos;
         int direction = delta > 0 ? -1 : delta < 0 ? 1 : 0;
         if (direction == 0) return false;
-        if (factoryTab) return true;
         if (capitalTab) {
             projectOffset =
                     clampOffset(projectOffset + direction, menu.projects().size(), 9);
@@ -875,8 +624,6 @@ public final class CompanyGameplayScreen extends AbstractContainerScreen<Company
             } else if (action == CompanyGameplayActionPacket.Action.ROLE_NEXT
                     || action == CompanyGameplayActionPacket.Action.REMOVE_MEMBER) {
                 id = menu.members().get(member).playerId();
-            } else if (action == CompanyGameplayActionPacket.Action.UPGRADE_FACILITY) {
-                id = menu.facilities().get(facility).id();
             } else if (action == CompanyGameplayActionPacket.Action.ACCEPT_SUPPLY_CONTRACT
                     || action == CompanyGameplayActionPacket.Action.DELIVER_SUPPLY_CONTRACT) {
                 id = menu.contracts().get(selectedContract).id();
@@ -953,7 +700,7 @@ public final class CompanyGameplayScreen extends AbstractContainerScreen<Company
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         renderBackground(graphics);
         super.render(graphics, mouseX, mouseY, partialTick);
-        if (!capitalTab && !factoryTab) {
+        if (!capitalTab) {
             boolean enabled = !pending && can(CompanyGameplayActionPacket.Action.AUTO_SELL_NEXT);
             graphics.fill(leftPos + 266, topPos + 184, leftPos + 310, topPos + 200, enabled ? 0xFFD0CAB8 : 0xFFAAA69A);
             String label = clip(
@@ -975,10 +722,9 @@ public final class CompanyGameplayScreen extends AbstractContainerScreen<Company
 
     private void updateFieldVisibility() {
         if (target == null) return;
-        target.visible = !factoryTab;
-        commodity.visible = !capitalTab && !factoryTab;
-        quantity.visible = !capitalTab && !factoryTab;
-        reward.visible = !capitalTab && !factoryTab;
+        commodity.visible = !capitalTab;
+        quantity.visible = !capitalTab;
+        reward.visible = !capitalTab;
     }
 
     private static String shortSource(CapitalFundingSource source) {

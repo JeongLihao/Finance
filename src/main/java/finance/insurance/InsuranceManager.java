@@ -238,8 +238,6 @@ public final class InsuranceManager {
                 .filter(f -> f.status() != finance.gameplay.company.CompanyFacilityStatus.ACTIVE
                         && f.status() != finance.gameplay.company.CompanyFacilityStatus.DISABLED
                         && f.status() != finance.gameplay.company.CompanyFacilityStatus.ORPHANED
-                        && f.status() != finance.gameplay.company.CompanyFacilityStatus.UNDERSTAFFED
-                        && f.status() != finance.gameplay.company.CompanyFacilityStatus.EQUIPMENT_MISSING
                         && f.statusSinceDay() >= 0
                         && f.lastProcessedDay() >= day)
                 .min(java.util.Comparator.comparingLong(finance.gameplay.company.CompanyFacilityRecord::statusSinceDay))

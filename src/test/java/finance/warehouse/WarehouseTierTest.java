@@ -7,12 +7,10 @@ import org.junit.jupiter.api.Test;
 
 class WarehouseTierTest {
     @Test
-    void tiersIncreaseOnlyPhysicalCapacityThroughputAndFacilitySlots() {
+    void tiersIncreaseOnlyPhysicalCapacityAndThroughput() {
         assertTrue(WarehouseTier.BASIC.capacity() < WarehouseTier.REINFORCED.capacity());
         assertTrue(WarehouseTier.REINFORCED.capacity() < WarehouseTier.INDUSTRIAL.capacity());
         assertTrue(WarehouseTier.BASIC.transferLimit() < WarehouseTier.REINFORCED.transferLimit());
-        assertEquals(1, WarehouseTier.BASIC.facilitySlots());
-        assertEquals(8, WarehouseTier.INDUSTRIAL.facilitySlots());
         assertEquals(4, FinanceConfig.factoryThroughput(3));
     }
 

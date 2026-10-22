@@ -95,9 +95,7 @@ public final class EconomyCycleService {
         // 中央银行：旧存档国库余额并入央行（一次性）→ 公开市场操作、商品平准、物价稳定判定
         finance.centralbank.LegacyTreasuryMigration.run();
         finance.centralbank.CentralBankService.processDay(mcDay);
-        // 厂房：扫描设备并判定当天的生产方式，岗位和产量都取决于它，所以在招工之前
-        finance.gameplay.company.factory.FactoryService.processDay(server, mcDay);
-        // 招工和发工资必须在设施生产之前
+        // 招工、发工资：在岗人数决定接下来一天的机器速度
         finance.macro.MacroLaborService.processDay(mcDay);
         CompanyManager.tickAll(mcDay);
         CompanyManager.settleDailyProfits(mcDay);
@@ -114,7 +112,6 @@ public final class EconomyCycleService {
         finance.rival.RivalService.processDay(mcDay);
         // 敌对要约与股东激进主义（默认关闭）；提案在明天的日结开始表决，要约在 FinancialCycleService 结算
         finance.rival.RivalHostileService.processDay(mcDay);
-        finance.gameplay.company.CompanyFacilityWorldFeedbackService.refresh(server, mcDay);
         finance.feedback.WorldTerminalStateService.auditDay(server, mcDay);
         finance.policy.PolicyMeetingService.onDayTick(server, mcDay);
         finance.caravan.CaravanService.processDay(server, mcDay);

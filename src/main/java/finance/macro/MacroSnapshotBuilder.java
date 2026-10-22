@@ -82,7 +82,7 @@ public final class MacroSnapshotBuilder {
                 s == null ? 0 : s.wages(),
                 centralBankRow(),
                 rows,
-                finance.gameplay.company.factory.FactoryService.tierCounts(),
+                finance.gameplay.company.CompanyFacilityManager.tierCounts(),
                 finance.rival.RivalService.snapshotRows(MacroResponsePacket.MAX_RIVALS));
     }
 }

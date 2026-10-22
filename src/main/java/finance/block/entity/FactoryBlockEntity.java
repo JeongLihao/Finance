@@ -2,6 +2,8 @@ package finance.block.entity;
 
 import finance.company.Company;
 import finance.factory.FactoryRecipe;
+import finance.gameplay.company.CompanyFacilityStatus;
+import finance.gameplay.company.CompanyFacilityType;
 import finance.factory.MachineCore;
 import finance.gui.FactoryMenu;
 import finance.registry.ModBlockEntities;
@@ -66,6 +68,8 @@ public final class FactoryBlockEntity extends CompanyMachineBlockEntity {
 
     private @Nullable String selectedRecipe;
     private long produced;
+    /** 客户端界面显示的档次（服务端从机器记录读）。 */
+    private int clientTier = 1;
 
     private final ContainerData data = new ContainerData() {
         @Override
@@ -78,6 +82,7 @@ public final class FactoryBlockEntity extends CompanyMachineBlockEntity {
                 case 4 -> core.status();
                 case 5 -> link;
                 case 6 -> selectedIndex();
+                case 7 -> tier();
                 default -> 0;
             };
         }
@@ -90,13 +95,14 @@ public final class FactoryBlockEntity extends CompanyMachineBlockEntity {
                 case 6 -> selectedRecipe = value >= 0 && value < FactoryRecipe.ALL.size()
                         ? FactoryRecipe.ALL.get(value).id()
                         : null;
+                case 7 -> clientTier = value;
                 default -> {}
             }
         }
 
         @Override
         public int getCount() {
-            return 7;
+            return 8;
         }
     };
 
@@ -105,13 +111,26 @@ public final class FactoryBlockEntity extends CompanyMachineBlockEntity {
     }
 
     public static void serverTick(Level level, BlockPos pos, BlockState state, FactoryBlockEntity factory) {
-        if (level.getGameTime() % 20 == 0 && level instanceof ServerLevel server) factory.logistics(server);
-        if (factory.core.tick()) factory.setChanged();
+        if (!(level instanceof ServerLevel server)) return;
+        if (level.getGameTime() % 20 == 0) factory.logistics(server);
+        for (int i = factory.steps(); i > 0; i--) if (factory.core.tick()) factory.setChanged();
     }
 
-    /** 每秒一次：连着公司仓库时存成品、补原料和燃料。 */
+    @Override
+    protected CompanyFacilityType facilityType() {
+        return CompanyFacilityType.PROCESSOR;
+    }
+
+    /** 每秒一次：报状态；连着公司仓库时存成品、补原料和燃料。 */
     private void logistics(ServerLevel level) {
-        Company company = linkedCompany(level);
+        Company company = refresh(level);
+        report(
+                level,
+                switch (core.status()) {
+                    case MachineCore.WORKING -> CompanyFacilityStatus.ACTIVE;
+                    case MachineCore.OUTPUT_FULL -> CompanyFacilityStatus.OUTPUT_FULL;
+                    default -> CompanyFacilityStatus.MISSING_INPUT;
+                });
         if (company == null) return;
         var items = core.items();
         produced += store(company, items, MachineCore.SLOT_OUTPUT);
@@ -139,6 +158,11 @@ public final class FactoryBlockEntity extends CompanyMachineBlockEntity {
 
     public int status() {
         return core.status();
+    }
+
+    @Override
+    public int tier() {
+        return level != null && level.isClientSide ? clientTier : super.tier();
     }
 
     public long produced() {

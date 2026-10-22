@@ -3,7 +3,7 @@ package finance.gameplay.company;
 import finance.account.AccountManager;
 import finance.account.TransactionRecord;
 import finance.account.TransactionType;
-import finance.block.entity.CompanyFactoryControllerBlockEntity;
+import finance.block.entity.CompanyMachineBlockEntity;
 import finance.company.Company;
 import finance.company.CompanyManager;
 import finance.data.EconomySavedData;
@@ -76,8 +76,6 @@ public final class CompanyUpgradeService {
                 || facility.hasOperation(operationKey)
                 || !facility.upgrade()) return false;
         facility.recordOperation(operationKey);
-        finance.block.CompanyFactoryControllerBlock.updateIndicator(
-                player.serverLevel(), facility.blockPos(), facility.facilityId());
         EconomySavedData.markDirty();
         return true;
     }
@@ -110,8 +108,7 @@ public final class CompanyUpgradeService {
                         facility.blockPos().getY() + 0.5D,
                         facility.blockPos().getZ() + 0.5D)
                 > range * range) return false;
-        return player.serverLevel().getBlockEntity(facility.blockPos())
-                        instanceof CompanyFactoryControllerBlockEntity block
-                && block.facilityId().equals(facility.facilityId());
+        return player.serverLevel().getBlockEntity(facility.blockPos()) instanceof CompanyMachineBlockEntity machine
+                && facility.facilityId().equals(machine.facilityId());
     }
 }

@@ -28,12 +28,10 @@ public record CompanyGameplayActionPacket(
         LEAVE,
         ROLE_NEXT,
         REMOVE_MEMBER,
-        UPGRADE_FACILITY,
         PUBLISH_CONTRACT,
         ACCEPT_SUPPLY_CONTRACT,
         DELIVER_SUPPLY_CONTRACT,
-        OPEN_ADVANCED,
-        SET_PRODUCTION_METHOD
+        OPEN_ADVANCED
     }
 
     private static final UUID NIL = new UUID(0, 0);
@@ -69,14 +67,7 @@ public record CompanyGameplayActionPacket(
                 || a == Action.ACCEPT_SUPPLY_CONTRACT && target == null
                 || a == Action.DELIVER_SUPPLY_CONTRACT
                         && (target == null || quantity <= 0 || quantity > MAX_CONTRACT_QUANTITY)
-                || (a == Action.INVITE
-                                || a == Action.ROLE_NEXT
-                                || a == Action.REMOVE_MEMBER
-                                || a == Action.UPGRADE_FACILITY)
-                        && target == null
-                || a == Action.SET_PRODUCTION_METHOD
-                        && (target == null
-                                || quantity >= finance.gameplay.company.factory.ProductionTier.values().length))
+                || (a == Action.INVITE || a == Action.ROLE_NEXT || a == Action.REMOVE_MEMBER) && target == null)
             throw new DecoderException("Invalid company gameplay action intent");
         return new CompanyGameplayActionPacket(a, c, target, text, quantity, amount, operationKey);
     }
@@ -131,7 +122,6 @@ public record CompanyGameplayActionPacket(
                 }
                 case REMOVE_MEMBER -> result = CompanyMembershipService.removeMember(
                         player.getUUID(), p.companyId, p.targetId, p.operationKey);
-                case UPGRADE_FACILITY -> result = CompanyUpgradeService.upgrade(player, p.targetId, p.operationKey);
                 case PUBLISH_CONTRACT -> {
                     FinanceContract contract = CompanyContractService.publishProcurement(
                             player.getUUID(), p.companyId, p.text, p.quantity, p.amount, day, 3, p.operationKey);
@@ -143,8 +133,6 @@ public record CompanyGameplayActionPacket(
                         player.getUUID(), p.companyId, p.targetId, day, p.operationKey);
                 case DELIVER_SUPPLY_CONTRACT -> result = CompanySupplyContractService.deliver(
                         player.getUUID(), p.companyId, p.targetId, p.quantity, day, p.operationKey);
-                case SET_PRODUCTION_METHOD -> result = finance.gameplay.company.factory.FactoryMethodService.select(
-                        player, p.companyId, p.targetId, p.quantity);
                 case OPEN_ADVANCED -> {
                     FinanceGuiOpener.open(
                             player, FinanceScreenMode.COMPANY, FinanceTerminalType.COMPANY_DESK, menu.pos());

@@ -20,7 +20,6 @@ import finance.gameplay.company.CompanyFacilityType;
 import finance.gameplay.company.CompanyGameplayManager;
 import finance.gameplay.company.CompanyGameplayProfile;
 import finance.gameplay.company.CompanyInventoryFacade;
-import finance.gameplay.company.CompanyProductionService;
 import finance.macro.GoodBook;
 import finance.macro.MacroEconomyManager;
 import finance.macro.MacroEconomyService;
@@ -59,10 +58,12 @@ import net.minecraft.nbt.CompoundTag;
  * <p>每天的顺序：公司按需从国际市场买原料（代表玩家运货进仓库）→
  * {@code MacroEconomyService.beforeVillages} → {@code VillageService.processDay} →
  * {@code MacroEconomyService.afterVillages} → {@code NpcMarketMaker.naturalConsumeAll} →
- * {@code MacroLaborService.processDay} → {@code CompanyProductionService} → 国际市场 20 次动能衰减（一个 MC 日的分钟 tick）。
+ * {@code MacroLaborService.processDay} → 机器生产 → 国际市场 20 次动能衰减（一个 MC 日的分钟 tick）。
+ * 没有世界可放机器，每家公司按“{@link #MACHINES} 台 1 档机器开满一天”生产：行业标准日产量 ×（50% + 50% × 在岗比例），
+ * 和机器的速度公式一致。
  * 第 {@link #SHOCK_START}～{@link #SHOCK_END} 天铁厂停工，检验失业 → 迁出 → 复工回流的反应。</p>
  *
- * <p>货币守恒：模拟里凭空消失的钱只有设施维护费（{@code FACILITY_PRODUCTION} 流水），凭空出现的钱只有
+ * <p>货币守恒：模拟里凭空消失的钱只有设施维护费（{@code FACILITY_PRODUCTION} 流水，机器没有维护费后恒为 0），凭空出现的钱只有
  * 旧版国库借款时的增发（{@code MACRO_DEBT_ISSUANCE}；国家财政移除后恒为 0，保留以兼容报告格式），
  * 所以每天都应满足 {@code 账户余额合计 + 公司现金合计 + 累计维护费 − 累计增发 = 初始值}。</p>
  */
@@ -223,19 +224,12 @@ public final class MacroLongRunSimulationService {
         }
     }
 
-    /** 本次模拟各工厂采用的生产方式（设施等级取该档的最低要求）。 */
-    private static finance.gameplay.company.factory.ProductionTier tier =
-            finance.gameplay.company.factory.ProductionTier.MANUAL;
+    /** 每家公司的 1 档机器台数（每台 3 个岗位）。 */
+    static final int MACHINES = 3;
 
     /** 跑两遍同样的模拟并比较指纹（确定性），返回第一遍的结果；结束后恢复调用前的全部运行时状态。 */
     public static synchronized Result run(int days) {
-        return run(days, finance.gameplay.company.factory.ProductionTier.MANUAL);
-    }
-
-    /** 同上，但全部工厂按指定档位搭好厂房（工业化场景）。 */
-    public static synchronized Result run(int days, finance.gameplay.company.factory.ProductionTier productionTier) {
         if (days < 1 || days > MAX_DAYS) throw new IllegalArgumentException("days");
-        tier = productionTier == null ? finance.gameplay.company.factory.ProductionTier.MANUAL : productionTier;
         CompoundTag original = new EconomySavedData().save(new CompoundTag());
         // 商品库存单独存档，不在 EconomySavedData 里，要另外备份
         Map<UUID, Map<String, Integer>> inventories = new LinkedHashMap<>();
@@ -300,19 +294,12 @@ public final class MacroLongRunSimulationService {
                         shocked.company().getOwnerId(),
                         shocked.company().getCompanyId(),
                         finance.config.FinanceConfig.macroDefaultWage());
-            // 玩家已按本次档位的清单搭好厂房；没有世界可扫描，每天刷新一次设备快照
-            for (Firm f : firms) {
-                for (CompanyFacilityRecord facility :
-                        CompanyFacilityManager.forCompany(f.company().getCompanyId())) {
-                    finance.gameplay.company.factory.FactoryService.recordBuiltEquipment(facility, tier, day);
-                }
-            }
             for (Firm f : firms) buyInputs(f.company());
             VillageService.processDay(null, day);
             MacroEconomyService.afterVillages(day);
             NpcMarketMaker.naturalConsumeAll();
             MacroLaborService.processDay(day);
-            for (Firm f : firms) CompanyProductionService.processCompanyDay(f.company(), day);
+            for (Firm f : firms) produce(f.company());
             // 日利润结算
             for (Firm f : firms) f.company().settleDailyProfits(day);
             // 一个 MC 日里国际市场有 20 次动能衰减（每 1200 tick），不调用随机噪音以保持确定性
@@ -378,16 +365,16 @@ public final class MacroLongRunSimulationService {
                 WarehousePermissionMode.OWNER_ONLY);
         WarehouseManager.restore(warehouse);
         profile.bindWarehouse(warehouse.warehouseId());
-        CompanyFacilityManager.restore(new CompanyFacilityRecord(
-                stable("facility-" + name),
-                company.getCompanyId(),
-                "minecraft:overworld",
-                new BlockPos(x, 64, 30),
-                CompanyFacilityType.FACTORY_CONTROLLER,
-                tier.requiredLevel(),
-                CompanyFacilityStatus.ACTIVE,
-                -1,
-                warehouse.warehouseId()));
+        for (int i = 0; i < MACHINES; i++)
+            CompanyFacilityManager.restore(new CompanyFacilityRecord(
+                    stable("machine-" + name + "-" + i),
+                    company.getCompanyId(),
+                    "minecraft:overworld",
+                    new BlockPos(x + i, 64, 30),
+                    CompanyFacilityType.PROCESSOR,
+                    1,
+                    CompanyFacilityStatus.ACTIVE,
+                    -1));
         return new Firm(name, company);
     }
 
@@ -398,28 +385,46 @@ public final class MacroLongRunSimulationService {
         UUID custody = CompanyInventoryFacade.custodyId(company.getCompanyId());
         Account npc = AccountManager.getAccounts().get(NpcMarketMaker.NPC_UUID);
         if (npc == null) return;
-        // 按当前档位的投入采购（铁矿手工档要烧木头，工业档要烧煤），数量乘设施等级的吞吐倍率
-        int throughput = finance.config.FinanceConfig.factoryThroughput(tier.requiredLevel());
-        for (Map.Entry<String, Integer> e : finance.gameplay.company.factory.ProductionMethods.get(
-                        company.getType(), tier)
-                .inputs()
-                .entrySet()) {
-            int missing = e.getValue() * throughput - CommodityInventoryManager.getCommodityAmount(custody, e.getKey());
+        // 按行业的标准日耗量采购
+        for (Map.Entry<String, Integer> e : company.getType().getDailyConsumption().entrySet()) {
+            int missing = e.getValue() - CommodityInventoryManager.getCommodityAmount(custody, e.getKey());
             MarketPrice mp = NpcMarketMaker.getMarketPrice(e.getKey());
             if (missing <= 0 || mp == null || mp.getAskPrice() <= 0) continue;
             if (CommodityInventoryManager.getCommodityAmount(NpcMarketMaker.NPC_UUID, e.getKey()) < missing) continue;
             long cost = mp.getAskPrice() * missing;
             // 留出一天工资，避免买了原料却发不出工资
-            long reserve = MacroLaborService.wageOf(company.getCompanyId())
-                    * MacroLaborService.jobs(CompanyFacilityManager.forCompany(company.getCompanyId())
-                            .iterator()
-                            .next());
+            long reserve = MacroLaborService.wageOf(company.getCompanyId()) * MACHINES * MacroLaborService.JOBS_PER_TIER;
             if (company.getCash() - cost < reserve || !company.withdraw(cost)) continue;
             npc.deposit(cost);
             CommodityInventoryManager.removeCommodity(NpcMarketMaker.NPC_UUID, e.getKey(), missing);
             CommodityInventoryManager.addCommodity(custody, e.getKey(), missing);
             company.recordGameplayCost(cost);
         }
+    }
+
+    /**
+     * 机器开满一天的替身：行业标准日产量和日耗量 ×（50% + 50% × 平均在岗比例），原料不够就停工；
+     * 产出进公司库存，之后按自动出售比例卖掉。
+     */
+    private static void produce(Company company) {
+        List<CompanyFacilityRecord> machines = CompanyFacilityManager.forCompany(company.getCompanyId());
+        if (machines.isEmpty()) return;
+        long staffing = 0;
+        for (CompanyFacilityRecord m : machines) staffing += MacroLaborService.staffingBps(m);
+        long speed = 5_000 + staffing / machines.size() / 2;
+        UUID custody = CompanyInventoryFacade.custodyId(company.getCompanyId());
+        Map<String, Integer> inputs = new LinkedHashMap<>(), outputs = new LinkedHashMap<>();
+        company.getType().getDailyConsumption().forEach((id, q) -> inputs.put(id, (int) (q * speed / 10_000)));
+        company.getType().getDailyProduction().forEach((id, q) -> outputs.put(id, (int) (q * speed / 10_000)));
+        for (var e : inputs.entrySet())
+            if (CommodityInventoryManager.getCommodityAmount(custody, e.getKey()) < e.getValue()) {
+                for (CompanyFacilityRecord m : machines) m.setStatus(CompanyFacilityStatus.MISSING_INPUT);
+                return;
+            }
+        inputs.forEach((id, q) -> CommodityInventoryManager.removeCommodity(custody, id, q));
+        outputs.forEach((id, q) -> CommodityInventoryManager.addCommodity(custody, id, q));
+        for (CompanyFacilityRecord m : machines) m.setStatus(CompanyFacilityStatus.ACTIVE);
+        finance.gameplay.company.CompanyGameplayMarketService.autoSell(company);
     }
 
     // ================================================================ 指标

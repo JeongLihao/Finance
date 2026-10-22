@@ -1,7 +1,6 @@
 package finance.gui;
 
 import finance.block.entity.CompanyDeskBlockEntity;
-import finance.block.entity.CompanyFactoryControllerBlockEntity;
 import finance.company.Company;
 import finance.company.CompanyManager;
 import finance.contract.ContractManager;
@@ -26,9 +25,7 @@ public final class CompanyGameplayGuiOpener {
 
     public static boolean open(ServerPlayer player, BlockPos pos, String statusKey) {
         BlockEntity be = player.serverLevel().getBlockEntity(pos);
-        UUID companyId = be instanceof CompanyDeskBlockEntity desk
-                ? desk.companyId()
-                : be instanceof CompanyFactoryControllerBlockEntity factory ? factory.companyId() : null;
+        UUID companyId = be instanceof CompanyDeskBlockEntity desk ? desk.companyId() : null;
         Company company = CompanyManager.getCompany(companyId);
         CompanyGameplayProfile profile = CompanyGameplayManager.get(companyId);
         if (company == null || profile == null) return false;
@@ -65,9 +62,12 @@ public final class CompanyGameplayGuiOpener {
                 : CompanyFacilityManager.forCompany(companyId).stream()
                         .map(facility -> new CompanyGameplayMenu.FacilityRow(
                                 facility.facilityId(),
+                                facility.type().name(),
+                                facility.blockPos(),
                                 facility.productionLevel(),
                                 facility.status().name(),
-                                facility.lastProcessedDay()))
+                                finance.macro.MacroEconomyManager.employment(facility.facilityId()),
+                                finance.macro.MacroLaborService.jobs(facility)))
                         .toList();
         List<CompanyGameplayMenu.ContractRow> contracts = invited
                 ? List.of()
@@ -119,14 +119,6 @@ public final class CompanyGameplayGuiOpener {
         long dueSoon = showOperating ? snapshot.amountDueWithinSevenDays() : 0;
         long cash = privateView ? company.getCash() : 0;
         String dimension = player.serverLevel().dimension().location().toString();
-        // 从工厂控制器打开时附带厂房页；邀请中的玩家看不到
-        CompanyGameplayMenu.FactoryView factoryView =
-                !invited && be instanceof CompanyFactoryControllerBlockEntity controller
-                        ? finance.gameplay.company.factory.FactoryMethodService.view(
-                                player.serverLevel(),
-                                CompanyFacilityManager.get(controller.facilityId()),
-                                finance.cycle.EconomyCycleService.currentMcDay(player.server))
-                        : null;
         MenuProvider provider = new MenuProvider() {
             public Component getDisplayName() {
                 return Component.translatable("screen.finance.company_gameplay");
@@ -160,8 +152,7 @@ public final class CompanyGameplayGuiOpener {
                         warehouseCapacity,
                         activeShipments,
                         debtPrincipal,
-                        dueSoon,
-                        factoryView);
+                        dueSoon);
             }
         };
         NetworkHooks.openScreen(
@@ -191,8 +182,7 @@ public final class CompanyGameplayGuiOpener {
                         warehouseCapacity,
                         activeShipments,
                         debtPrincipal,
-                        dueSoon,
-                        factoryView));
+                        dueSoon));
         return true;
     }
 }

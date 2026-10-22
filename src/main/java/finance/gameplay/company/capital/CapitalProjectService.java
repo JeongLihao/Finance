@@ -477,11 +477,6 @@ public final class CapitalProjectService {
             if (record != null && player != null)
                 finance.block.WarehouseControllerBlock.updateIndicator(
                         player.serverLevel(), record.blockPos(), record.warehouseId());
-        } else {
-            CompanyFacilityRecord facility = CompanyFacilityManager.get(project.targetId());
-            if (facility != null && player != null)
-                finance.block.CompanyFactoryControllerBlock.updateIndicator(
-                        player.serverLevel(), facility.blockPos(), facility.facilityId());
         }
     }
 

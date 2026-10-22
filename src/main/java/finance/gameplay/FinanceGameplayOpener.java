@@ -2,7 +2,6 @@ package finance.gameplay;
 
 import finance.block.BoardroomTableBlock;
 import finance.block.CompanyDeskBlock;
-import finance.block.CompanyFactoryControllerBlock;
 import finance.block.FinanceTerminalBlock;
 import finance.block.WarehouseControllerBlock;
 import finance.config.FinanceConfig;
@@ -132,8 +131,7 @@ public final class FinanceGameplayOpener {
         Block block = player.serverLevel().getBlockState(pos).getBlock();
         if (block instanceof FinanceTerminalBlock terminal) return terminal.terminalType();
         if (block instanceof WarehouseControllerBlock) return FinanceTerminalType.WAREHOUSE_CONTROLLER;
-        if (block instanceof CompanyDeskBlock || block instanceof CompanyFactoryControllerBlock)
-            return FinanceTerminalType.COMPANY_DESK;
+        if (block instanceof CompanyDeskBlock) return FinanceTerminalType.COMPANY_DESK;
         if (block instanceof BoardroomTableBlock) return FinanceTerminalType.BOARDROOM_TABLE;
         return null;
     }

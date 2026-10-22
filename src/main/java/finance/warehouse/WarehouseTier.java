@@ -4,24 +4,18 @@ import finance.config.FinanceConfig;
 
 /** Three bounded, world-visible warehouse tiers. */
 public enum WarehouseTier {
-    BASIC(1, 1),
-    REINFORCED(2, 4),
-    INDUSTRIAL(3, 8);
+    BASIC(1),
+    REINFORCED(2),
+    INDUSTRIAL(3);
 
     private final int level;
-    private final int facilitySlots;
 
-    WarehouseTier(int level, int facilitySlots) {
+    WarehouseTier(int level) {
         this.level = level;
-        this.facilitySlots = facilitySlots;
     }
 
     public int level() {
         return level;
-    }
-
-    public int facilitySlots() {
-        return facilitySlots;
     }
 
     public int capacity() {

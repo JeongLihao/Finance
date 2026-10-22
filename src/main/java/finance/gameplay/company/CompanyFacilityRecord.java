@@ -5,6 +5,10 @@ import java.util.Set;
 import java.util.UUID;
 import net.minecraft.core.BlockPos;
 
+/**
+ * 公司名下的一台机器（加工机、采集机）：位置、种类、档次（1～3）和当前状态。
+ * 机器放下时登记、拆掉时注销；状态由机器实时更新，雇工、停业险、资本项目都读这里。
+ */
 public final class CompanyFacilityRecord {
     public static final int MAX_LEVEL = 3;
     public static final int MAX_OPERATION_KEYS = 128;
@@ -17,11 +21,7 @@ public final class CompanyFacilityRecord {
     private CompanyFacilityStatus status;
     private long lastProcessedDay;
     private long statusSinceDay;
-    private UUID boundWarehouseId;
     private final LinkedHashSet<String> operationKeys = new LinkedHashSet<>();
-    /** 厂房：生产方式、设备快照、改造期、临时作坊（见 docs/COMPANY_FACILITIES.md）。 */
-    private final finance.gameplay.company.factory.FactoryState factory =
-            new finance.gameplay.company.factory.FactoryState();
 
     public CompanyFacilityRecord(
             UUID facilityId,
@@ -31,8 +31,7 @@ public final class CompanyFacilityRecord {
             CompanyFacilityType type,
             int productionLevel,
             CompanyFacilityStatus status,
-            long lastProcessedDay,
-            UUID boundWarehouseId) {
+            long lastProcessedDay) {
         if (facilityId == null
                 || companyId == null
                 || dimensionId == null
@@ -51,7 +50,6 @@ public final class CompanyFacilityRecord {
         this.productionLevel = productionLevel;
         this.status = status;
         this.lastProcessedDay = lastProcessedDay;
-        this.boundWarehouseId = boundWarehouseId;
         this.statusSinceDay = Math.max(-1, lastProcessedDay);
     }
 
@@ -91,16 +89,9 @@ public final class CompanyFacilityRecord {
         return statusSinceDay;
     }
 
-    public UUID boundWarehouseId() {
-        return boundWarehouseId;
-    }
 
     public Set<String> operationKeys() {
         return Set.copyOf(operationKeys);
-    }
-
-    public finance.gameplay.company.factory.FactoryState factory() {
-        return factory;
     }
 
     public void setStatus(CompanyFacilityStatus value) {
@@ -119,10 +110,6 @@ public final class CompanyFacilityRecord {
 
     public void setLastProcessedDay(long value) {
         if (value >= -1) lastProcessedDay = value;
-    }
-
-    public void bindWarehouse(UUID value) {
-        boundWarehouseId = value;
     }
 
     public boolean upgrade() {

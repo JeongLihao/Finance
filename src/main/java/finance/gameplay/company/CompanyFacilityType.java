@@ -1,5 +1,10 @@
 package finance.gameplay.company;
 
+/** 公司机器的种类。 */
 public enum CompanyFacilityType {
-    FACTORY_CONTROLLER
+    PROCESSOR,
+    FARM,
+    LUMBER,
+    MINE,
+    SHEAR
 }

@@ -193,7 +193,7 @@ public final class EconomyAchievements {
 
     static final int ARTISAN_FACTORIES = 3;
 
-    /** 厂房成就：工业革命（工厂进入工业档）、手艺人（三座以上工厂都在手工档且公司盈利）。 */
+    /** 机器成就：工业革命（有机器升到 3 档）、手艺人（三台以上机器都还是 1 档且公司盈利）。 */
     private static void checkFactories() {
         Map<UUID, int[]> byCompany = new HashMap<>(); // [工厂数, 手工档数]
         for (CompanyFacilityRecord facility : CompanyFacilityManager.all()) {
@@ -201,12 +201,11 @@ public final class EconomyAchievements {
                     || facility.status() == finance.gameplay.company.CompanyFacilityStatus.ORPHANED) continue;
             Company company = CompanyManager.getCompany(facility.companyId());
             if (company == null || company.getOwnerId() == null) continue;
-            var tier = facility.factory().activeTier();
-            if (tier == finance.gameplay.company.factory.ProductionTier.INDUSTRIAL)
-                award(company.getOwnerId(), INDUSTRIAL_REVOLUTION);
+            int tier = facility.productionLevel();
+            if (tier >= CompanyFacilityRecord.MAX_LEVEL) award(company.getOwnerId(), INDUSTRIAL_REVOLUTION);
             int[] c = byCompany.computeIfAbsent(company.getCompanyId(), k -> new int[2]);
             c[0]++;
-            if (tier == finance.gameplay.company.factory.ProductionTier.MANUAL) c[1]++;
+            if (tier == 1) c[1]++;
         }
         byCompany.forEach((companyId, c) -> {
             Company company = CompanyManager.getCompany(companyId);

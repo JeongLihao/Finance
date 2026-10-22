@@ -289,14 +289,12 @@ public final class FinanceFormat {
     public static String facilityStatusLabel(String status) {
         if (status == null) return "";
         return switch (status) {
-            case "ACTIVE" -> "生产中";
+            case "ACTIVE" -> "运转中";
             case "MISSING_INPUT" -> "缺原料";
-            case "OUTPUT_FULL" -> "仓库满";
-            case "DISABLED" -> "已停用";
+            case "OUTPUT_FULL" -> "仓满了";
+            case "DISABLED" -> "停了";
             case "BANKRUPTCY_HOLD" -> "破产冻结";
             case "ORPHANED" -> "失联";
-            case "UNDERSTAFFED" -> "缺工人";
-            case "EQUIPMENT_MISSING" -> "缺设备";
             default -> status;
         };
     }

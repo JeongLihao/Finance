@@ -7,9 +7,10 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
 
+/** 公司机器登记表：每台公司机器一条记录（见 {@link CompanyFacilityRecord}）。 */
 public final class CompanyFacilityManager {
-    public static final int MAX_FACILITIES = 2_048;
-    public static final int MAX_PER_COMPANY = 8;
+    public static final int MAX_FACILITIES = 4_096;
+    public static final int MAX_PER_COMPANY = 64;
     private static final Map<UUID, CompanyFacilityRecord> FACILITIES = new LinkedHashMap<>();
 
     private CompanyFacilityManager() {}
@@ -34,7 +35,7 @@ public final class CompanyFacilityManager {
                 || FACILITIES.containsKey(record.facilityId())
                 || CompanyManager.getCompany(record.companyId()) == null
                         && record.status() != CompanyFacilityStatus.ORPHANED
-                || incomingCount(record.companyId()) >= facilityLimit(record.companyId())) return false;
+                || incomingCount(record.companyId()) >= MAX_PER_COMPANY) return false;
         boolean incomingActive =
                 record.status() != CompanyFacilityStatus.DISABLED && record.status() != CompanyFacilityStatus.ORPHANED;
         CompanyFacilityRecord conflict = FACILITIES.values().stream()
@@ -62,31 +63,24 @@ public final class CompanyFacilityManager {
                 .forEach(f -> f.setStatus(CompanyFacilityStatus.ORPHANED));
     }
 
-    public static void disable(UUID facilityId) {
-        CompanyFacilityRecord f = get(facilityId);
-        if (f != null) {
-            f.setStatus(CompanyFacilityStatus.DISABLED);
-            EconomySavedData.markDirty();
+    /** 全服公司机器按档次计数：[1 档, 2 档, 3 档, 停工]（停工 = 缺料、仓满、挖到底）。 */
+    public static synchronized java.util.List<Integer> tierCounts() {
+        int[] counts = new int[4];
+        for (CompanyFacilityRecord f : FACILITIES.values()) {
+            if (f.status() == CompanyFacilityStatus.ORPHANED) continue;
+            boolean working = f.status() == CompanyFacilityStatus.ACTIVE;
+            counts[working ? Math.max(1, Math.min(3, f.productionLevel())) - 1 : 3]++;
         }
+        return java.util.List.of(counts[0], counts[1], counts[2], counts[3]);
+    }
+
+    /** 机器被拆掉时注销。 */
+    public static synchronized void remove(UUID facilityId) {
+        if (facilityId != null && FACILITIES.remove(facilityId) != null) EconomySavedData.markDirty();
     }
 
     public static void clearDirect() {
         FACILITIES.clear();
-    }
-
-    public static int facilityLimit(UUID companyId) {
-        CompanyGameplayProfile profile = CompanyGameplayManager.get(companyId);
-        if (profile == null) return 1;
-        return Math.max(
-                1,
-                Math.min(
-                        MAX_PER_COMPANY,
-                        profile.warehouseIds().stream()
-                                .map(finance.warehouse.WarehouseManager::get)
-                                .filter(java.util.Objects::nonNull)
-                                .mapToInt(record -> record.tier().facilitySlots())
-                                .max()
-                                .orElse(1)));
     }
 
     private static long incomingCount(UUID companyId) {

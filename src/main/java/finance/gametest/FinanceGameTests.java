@@ -49,7 +49,7 @@ public final class FinanceGameTests {
             "market_terminal",
             "warehouse_controller",
             "company_desk",
-            "company_factory_controller",
+            "company_intake",
             "bank_counter",
             "securities_terminal",
             "boardroom_table",
@@ -335,58 +335,6 @@ public final class FinanceGameTests {
     }
 
     @GameTest(template = TEMPLATE)
-    public static void companyFactoryBlockProducesOnceOnNaturalDay(GameTestHelper helper) {
-        resetRuntimeState();
-        BlockPos warehouseRelative = new BlockPos(1, 1, 1);
-        BlockPos warehouseAbsolute = helper.absolutePos(warehouseRelative);
-        helper.setBlock(warehouseRelative, ModBlocks.WAREHOUSE_CONTROLLER.get());
-        ServerPlayer owner = nearbyPlayer(helper, warehouseAbsolute);
-        Company company =
-                new Company(UUID.randomUUID(), "Phase 6 Factory", CompanyType.RAW_MATERIALS, 100_000, owner.getUUID());
-        CompanyManager.registerDirect(company);
-        CompanyGameplayProfile profile = CompanyGameplayManager.createForNewCompany(company);
-        WarehouseControllerBlockEntity warehouseEntity =
-                (WarehouseControllerBlockEntity) helper.getLevel().getBlockEntity(warehouseAbsolute);
-        helper.assertTrue(warehouseEntity != null, "company warehouse block entity missing");
-        warehouseEntity.claimIfNeeded(owner.getUUID());
-        WarehouseRecord warehouse = WarehouseManager.registerOrRecover(owner, warehouseEntity);
-        helper.assertTrue(warehouse != null, "company warehouse registration failed");
-        CompanyGameplayActionResult binding = CompanyWarehouseBindingService.bind(
-                owner.getUUID(), company.getCompanyId(), warehouse.warehouseId(), "phase6-bind");
-        helper.assertTrue(binding.success(), "company warehouse binding failed: " + binding.messageKey());
-
-        BlockPos factoryRelative = new BlockPos(3, 1, 1);
-        BlockPos factoryAbsolute = helper.absolutePos(factoryRelative);
-        helper.setBlock(factoryRelative, ModBlocks.COMPANY_FACTORY_CONTROLLER.get());
-        finance.block.entity.CompanyFactoryControllerBlockEntity factoryEntity =
-                (finance.block.entity.CompanyFactoryControllerBlockEntity)
-                        helper.getLevel().getBlockEntity(factoryAbsolute);
-        helper.assertTrue(
-                factoryEntity != null && factoryEntity.registerOrValidate(owner),
-                "physical factory controller did not register for the owner company");
-        CompanyFacilityRecord facility = CompanyFacilityManager.get(factoryEntity.facilityId());
-        helper.assertTrue(facility != null, "factory registration did not create a facility record");
-
-        long day = Math.max(1L, helper.getLevel().getGameTime() / 24_000L + 1L);
-        long cashBefore = company.getCash();
-        CompanyProductionService.DayResult first = CompanyProductionService.processCompanyDay(company, day);
-        int produced = CommodityInventoryManager.getCommodityAmount(
-                CompanyInventoryFacade.custodyId(company.getCompanyId()), "iron");
-        helper.assertTrue(
-                first.producedFacilities() == 1 && produced == 100,
-                "physical facility did not produce its exact daily output");
-        helper.assertTrue(company.getCash() < cashBefore, "facility production did not charge maintenance");
-        CompanyProductionService.DayResult duplicate = CompanyProductionService.processCompanyDay(company, day);
-        helper.assertTrue(duplicate.producedFacilities() == 0, "same natural day processed the facility twice");
-        helper.assertTrue(
-                CommodityInventoryManager.getCommodityAmount(
-                                CompanyInventoryFacade.custodyId(company.getCompanyId()), "iron")
-                        == produced,
-                "same-day retry duplicated company output");
-        helper.succeed();
-    }
-
-    @GameTest(template = TEMPLATE)
     public static void warehousePhysicalUpgradeIsAtomicAndIdempotent(GameTestHelper helper) {
         resetRuntimeState();
         BlockPos relative = new BlockPos(1, 1, 1);
@@ -481,11 +429,11 @@ public final class FinanceGameTests {
                 "could not bind tier-test warehouse");
         BlockPos factoryPos = new BlockPos(3, 1, 1);
         BlockPos factoryAbsolute = helper.absolutePos(factoryPos);
-        helper.setBlock(factoryPos, ModBlocks.COMPANY_FACTORY_CONTROLLER.get());
-        finance.block.entity.CompanyFactoryControllerBlockEntity factory =
-                (finance.block.entity.CompanyFactoryControllerBlockEntity)
-                        helper.getLevel().getBlockEntity(factoryAbsolute);
-        helper.assertTrue(factory != null && factory.registerOrValidate(owner), "could not register physical factory");
+        helper.setBlock(factoryPos, ModBlocks.FACTORY.get());
+        finance.block.entity.FactoryBlockEntity factory =
+                (finance.block.entity.FactoryBlockEntity) helper.getLevel().getBlockEntity(factoryAbsolute);
+        helper.assertTrue(
+                factory != null && factory.bindCompany(company) != null, "could not register company machine");
         CompanyFacilityRecord facility = CompanyFacilityManager.get(factory.facilityId());
         owner.getInventory().add(new ItemStack(Items.IRON_INGOT, 12));
         owner.getInventory().add(new ItemStack(Items.COPPER_INGOT, 8));
@@ -848,47 +796,6 @@ public final class FinanceGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = TEMPLATE)
-    public static void bankruptcyRiskPausesWorldFacilityProduction(GameTestHelper helper) {
-        resetRuntimeState();
-        UUID owner = UUID.randomUUID();
-        Company company = new Company(UUID.randomUUID(), "GameTest Company", CompanyType.RAW_MATERIALS, 10_000, owner);
-        CompanyManager.registerDirect(company);
-        CompanyGameplayProfile profile = CompanyGameplayManager.createForNewCompany(company);
-        WarehouseRecord warehouse = new WarehouseRecord(
-                UUID.randomUUID(),
-                helper.getLevel().dimension().location().toString(),
-                helper.absolutePos(new BlockPos(1, 1, 1)),
-                owner,
-                company.getCompanyId(),
-                4_096,
-                WarehouseStatus.ACTIVE,
-                0,
-                0,
-                WarehousePermissionMode.OWNER_ONLY);
-        helper.assertTrue(WarehouseManager.restore(warehouse), "company warehouse fixture failed");
-        profile.bindWarehouse(warehouse.warehouseId());
-        CompanyFacilityRecord facility = new CompanyFacilityRecord(
-                UUID.randomUUID(),
-                company.getCompanyId(),
-                warehouse.dimensionId(),
-                helper.absolutePos(new BlockPos(2, 1, 1)),
-                CompanyFacilityType.FACTORY_CONTROLLER,
-                1,
-                CompanyFacilityStatus.ACTIVE,
-                -1,
-                warehouse.warehouseId());
-        helper.assertTrue(CompanyFacilityManager.restore(facility), "company facility fixture failed");
-        long cashBefore = company.getCash();
-        company.setBankruptcyRisk(true, 0);
-        helper.assertFalse(
-                CompanyProductionService.processFacility(company, facility, 1), "risk-state facility produced goods");
-        helper.assertTrue(
-                facility.status() == CompanyFacilityStatus.BANKRUPTCY_HOLD,
-                "risk-state facility did not expose its paused status");
-        helper.assertTrue(company.getCash() == cashBefore, "paused facility charged maintenance");
-        helper.succeed();
-    }
 
     private static ServerPlayer nearbyPlayer(GameTestHelper helper, BlockPos absolute) {
         ServerPlayer player = new ServerPlayer(

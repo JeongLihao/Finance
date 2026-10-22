@@ -107,7 +107,7 @@ public final class FinancePonderScenes {
         begin(scene, util, "company_production", "Daily Production");
         show(scene, util, LEFT, ModBlocks.COMPANY_DESK.get());
         show(scene, util, CENTER, ModBlocks.WAREHOUSE_CONTROLLER.get());
-        show(scene, util, RIGHT, ModBlocks.COMPANY_FACTORY_CONTROLLER.get());
+        show(scene, util, RIGHT, ModBlocks.FACTORY.get());
         connect(scene, util, LEFT, CENTER, PonderPalette.BLUE);
         flow(scene, util, CENTER, RIGHT, new ItemStack(Items.IRON_INGOT, 8), PonderPalette.INPUT, 28);
         label(scene, util, RIGHT, "One MC day", PonderPalette.MEDIUM, 30);
@@ -229,7 +229,7 @@ public final class FinancePonderScenes {
 
     public static void companyHedge(SceneBuilder scene, SceneBuildingUtil util) {
         begin(scene, util, "company_hedge", "Company Price Hedge");
-        show(scene, util, LEFT, ModBlocks.COMPANY_FACTORY_CONTROLLER.get());
+        show(scene, util, LEFT, ModBlocks.FACTORY.get());
         show(scene, util, RIGHT, ModBlocks.SECURITIES_TERMINAL.get());
         flow(scene, util, FRONT, LEFT, new ItemStack(Items.IRON_INGOT, 12), PonderPalette.INPUT, 24);
         connect(scene, util, LEFT, RIGHT, PonderPalette.BLUE);
@@ -250,7 +250,7 @@ public final class FinancePonderScenes {
     public static void insuranceEvidence(SceneBuilder scene, SceneBuildingUtil util) {
         begin(scene, util, "insurance_evidence", "Verified Insurance");
         show(scene, util, LEFT, ModBlocks.WAREHOUSE_CONTROLLER.get());
-        show(scene, util, RIGHT, ModBlocks.COMPANY_FACTORY_CONTROLLER.get());
+        show(scene, util, RIGHT, ModBlocks.FACTORY.get());
         show(scene, util, CENTER, ModBlocks.BANK_COUNTER.get());
         flow(scene, util, CENTER, LEFT, new ItemStack(Items.PAPER), PonderPalette.BLUE, 24);
         outline(scene, util, LEFT, PonderPalette.BLUE, 30);

@@ -214,21 +214,9 @@ public final class MacroWorldFeedback {
     }
 
     private static void ambientFacility(MinecraftServer server, CompanyFacilityRecord facility) {
-        // 缺工人和缺设备都是所有者可控的停产，沿用同一种冒烟表现
-        boolean understaffed = facility.status() == CompanyFacilityStatus.UNDERSTAFFED
-                || facility.status() == CompanyFacilityStatus.EQUIPMENT_MISSING;
-        if (!understaffed) {
-            // 运转表现：生产中的工厂，厂区里被计入的设备偶尔冒工作粒子
-            if (facility.status() == CompanyFacilityStatus.ACTIVE) {
-                ServerLevel level = level(server, facility.dimensionId());
-                if (level != null
-                        && level.isLoaded(facility.blockPos())
-                        && anyPlayerNear(level, facility.blockPos(), NEAR)) {
-                    finance.gameplay.company.factory.FactoryService.workParticles(level, facility);
-                }
-            }
-            return;
-        }
+        // 停工（缺料、仓满）的机器冒烟提醒；在干活的机器本身有动静，不另加表现
+        if (facility.status() != CompanyFacilityStatus.MISSING_INPUT
+                && facility.status() != CompanyFacilityStatus.OUTPUT_FULL) return;
         ServerLevel level = level(server, facility.dimensionId());
         BlockPos pos = facility.blockPos();
         if (level == null || !level.isLoaded(pos) || !anyPlayerNear(level, pos, NEAR)) return;

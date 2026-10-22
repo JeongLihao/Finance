@@ -3,7 +3,6 @@ package finance.registry;
 import finance.FinanceMod;
 import finance.block.entity.BoardroomTableBlockEntity;
 import finance.block.entity.CompanyDeskBlockEntity;
-import finance.block.entity.CompanyFactoryControllerBlockEntity;
 import finance.block.entity.FactoryBlockEntity;
 import finance.block.entity.SettlementTradeStationBlockEntity;
 import finance.block.entity.WarehouseControllerBlockEntity;
@@ -24,12 +23,6 @@ public final class ModBlockEntities {
     public static final RegistryObject<BlockEntityType<CompanyDeskBlockEntity>> COMPANY_DESK = BLOCK_ENTITIES.register(
             "company_desk", () -> BlockEntityType.Builder.of(CompanyDeskBlockEntity::new, ModBlocks.COMPANY_DESK.get())
                     .build(null));
-    public static final RegistryObject<BlockEntityType<CompanyFactoryControllerBlockEntity>>
-            COMPANY_FACTORY_CONTROLLER =
-                    BLOCK_ENTITIES.register("company_factory_controller", () -> BlockEntityType.Builder.of(
-                                    CompanyFactoryControllerBlockEntity::new,
-                                    ModBlocks.COMPANY_FACTORY_CONTROLLER.get())
-                            .build(null));
     public static final RegistryObject<BlockEntityType<BoardroomTableBlockEntity>> BOARDROOM_TABLE =
             BLOCK_ENTITIES.register("boardroom_table", () -> BlockEntityType.Builder.of(
                             BoardroomTableBlockEntity::new, ModBlocks.BOARDROOM_TABLE.get())

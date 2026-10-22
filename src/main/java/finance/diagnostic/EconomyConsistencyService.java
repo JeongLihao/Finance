@@ -490,18 +490,6 @@ public final class EconomyConsistencyService {
                         "FACILITY_DAY_IN_FUTURE",
                         facility.facilityId().toString(),
                         "设施上次结算日期晚于当前世界日期");
-            if (facility.boundWarehouseId() != null) {
-                finance.warehouse.WarehouseRecord warehouse =
-                        finance.warehouse.WarehouseManager.get(facility.boundWarehouseId());
-                if (warehouse == null || !facility.companyId().equals(warehouse.companyId()))
-                    add(
-                            out,
-                            DiagnosticSeverity.ERROR,
-                            "COMPANY_GAMEPLAY",
-                            "FACILITY_WAREHOUSE_MISMATCH",
-                            facility.facilityId().toString(),
-                            "设施的仓库不存在或属于其他公司");
-            }
         }
     }
 

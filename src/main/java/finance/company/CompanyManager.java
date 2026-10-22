@@ -91,22 +91,17 @@ public class CompanyManager {
         tickAll(-1);
     }
 
+    /**
+     * 每日公司经营。玩家公司的产量来自机器和收货箱（实物），这里只把仓库里的货按比例卖掉；
+     * NPC 公司和系统公司在世界里没有厂房，按行业每天抽象生产再自动交易。
+     */
     public static void tickAll(long day) {
         for (Company c : COMPANIES.values()) {
-            if (c.isPlayerOwned() && day >= 0) {
-                // 玩家公司的产量来自加工机和收货箱（实物），这里只把仓库里的货按比例卖掉
+            if (c.isPlayerOwned()) {
                 finance.gameplay.company.CompanyGameplayMarketService.autoSell(c);
-                continue;
-            }
-            finance.gameplay.company.CompanyGameplayProfile profile =
-                    finance.gameplay.company.CompanyGameplayManager.profileFor(c);
-            if (day < 0
-                    || profile.operatingMode() == finance.gameplay.company.CompanyOperatingMode.LEGACY_AUTOMATIC
-                            && finance.config.FinanceConfig.allowLegacyAutomaticCompanyProduction()) {
+            } else {
                 c.produce();
                 c.autoTrade();
-            } else if (profile.operatingMode() != finance.gameplay.company.CompanyOperatingMode.LEGACY_AUTOMATIC) {
-                finance.gameplay.company.CompanyProductionService.processCompanyDay(c, day);
             }
         }
         EconomySavedData.markDirty();

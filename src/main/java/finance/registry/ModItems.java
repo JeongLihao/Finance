@@ -33,8 +33,6 @@ public final class ModItems {
             blockItem("bank_counter", ModBlocks.BANK_COUNTER, FinanceTerminalType.BANK_COUNTER);
     public static final RegistryObject<Item> COMPANY_DESK =
             blockItem("company_desk", ModBlocks.COMPANY_DESK, FinanceTerminalType.COMPANY_DESK);
-    public static final RegistryObject<Item> COMPANY_FACTORY_CONTROLLER = blockItem(
-            "company_factory_controller", ModBlocks.COMPANY_FACTORY_CONTROLLER, FinanceTerminalType.COMPANY_DESK);
     public static final RegistryObject<Item> SECURITIES_TERMINAL =
             blockItem("securities_terminal", ModBlocks.SECURITIES_TERMINAL, FinanceTerminalType.SECURITIES_TERMINAL);
     public static final RegistryObject<Item> CENTRAL_BANK_CONSOLE =
@@ -95,7 +93,6 @@ public final class ModItems {
             event.accept(WAREHOUSE_CONTROLLER);
             event.accept(BANK_COUNTER);
             event.accept(COMPANY_DESK);
-            event.accept(COMPANY_FACTORY_CONTROLLER);
             event.accept(SECURITIES_TERMINAL);
             event.accept(CENTRAL_BANK_CONSOLE);
             event.accept(BOARDROOM_TABLE);

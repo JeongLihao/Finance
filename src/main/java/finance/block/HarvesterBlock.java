@@ -57,8 +57,7 @@ public final class HarvesterBlock extends BaseEntityBlock {
             Level level, BlockPos pos, BlockState state, @Nullable LivingEntity placer, ItemStack stack) {
         super.setPlacedBy(level, pos, state, placer, stack);
         if (level.isClientSide || !(level.getBlockEntity(pos) instanceof HarvesterBlockEntity machine)) return;
-        Company company = MachineOwnership.companyForPlacer(placer);
-        machine.bindCompany(company);
+        Company company = machine.bindCompany(MachineOwnership.companyForPlacer(placer));
         MachineOwnership.announce(placer, company, "block.finance." + mode.blockId());
     }
 
@@ -67,6 +66,7 @@ public final class HarvesterBlock extends BaseEntityBlock {
         if (!state.is(newState.getBlock()) && level.getBlockEntity(pos) instanceof HarvesterBlockEntity machine) {
             Containers.dropContents(level, pos, machine.inventorySnapshot());
             machine.clearInventory();
+            machine.unregister();
             level.updateNeighbourForOutputSignal(pos, this);
         }
         super.onRemove(state, level, pos, newState, moved);
