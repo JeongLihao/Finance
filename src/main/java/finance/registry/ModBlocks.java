@@ -78,6 +78,12 @@ public final class ModBlocks {
                     .strength(3.5F)
                     .sound(SoundType.METAL)
                     .requiresCorrectToolForDrops()));
+    public static final RegistryObject<Block> COMPANY_INTAKE = BLOCKS.register(
+            "company_intake",
+            () -> new finance.block.CompanyIntakeBlock(BlockBehaviour.Properties.of()
+                    .mapColor(MapColor.WOOD)
+                    .strength(2.5F)
+                    .sound(SoundType.WOOD)));
 
     private ModBlocks() {}
 

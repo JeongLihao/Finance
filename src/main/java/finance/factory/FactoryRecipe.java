@@ -1,91 +1,78 @@
 package finance.factory;
 
 import finance.config.FinanceConfig;
-import java.util.Collections;
-import java.util.LinkedHashMap;
-import java.util.Map;
+import java.util.List;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * 工厂方块配方注册表 —— 第一期 3 条写死配方。
+ * 加工机配方：一到两种原料 → 一种成品。冶炼类（矿石、圆石、沙子）要烧燃料，和熔炉一样。
+ * 输入输出数量写死，生产时严格按配方扣减和产出；耗时可在配置里调。
  *
- * <p>反 dup 铁律：输入/输出物品与数量全部写死，生产时严格按配方执行，
- * 不做任何倍率换算。耗时走 {@link FinanceConfig} 可调。</p>
+ * @param second 第二种原料，没有为 null（只有书用到：纸 + 皮革）
  */
-public final class FactoryRecipe {
-    private final String id;
-    private final Item input;
-    private final int inputCount;
-    private final Item output;
-    private final int outputCount;
-    private final int defaultCookTime;
+public record FactoryRecipe(
+        String id,
+        Item input,
+        int inputCount,
+        @Nullable Item second,
+        int secondCount,
+        Item output,
+        int outputCount,
+        int defaultCookTime,
+        boolean needsFuel) {
 
-    private FactoryRecipe(String id, Item input, int inputCount, Item output, int outputCount, int defaultCookTime) {
-        this.id = id;
-        this.input = input;
-        this.inputCount = Math.max(1, inputCount);
-        this.output = output;
-        this.outputCount = Math.max(1, outputCount);
-        this.defaultCookTime = Math.max(1, defaultCookTime);
+    public static final List<FactoryRecipe> ALL = List.of(
+            simple("bread", Items.WHEAT, 3, Items.BREAD, 1, 200, false),
+            simple("iron", Items.RAW_IRON, 1, Items.IRON_INGOT, 1, 200, true),
+            simple("copper", Items.RAW_COPPER, 1, Items.COPPER_INGOT, 1, 200, true),
+            simple("gold", Items.RAW_GOLD, 1, Items.GOLD_INGOT, 1, 200, true),
+            simple("stone", Items.COBBLESTONE, 1, Items.STONE, 1, 200, true),
+            simple("glass", Items.SAND, 1, Items.GLASS, 1, 200, true),
+            simple("wool", Items.STRING, 4, Items.WHITE_WOOL, 1, 100, false),
+            simple("paper", Items.SUGAR_CANE, 3, Items.PAPER, 3, 100, false),
+            new FactoryRecipe("book", Items.PAPER, 3, Items.LEATHER, 1, Items.BOOK, 1, 200, false));
+
+    private static FactoryRecipe simple(
+            String id, Item input, int count, Item output, int outputCount, int cookTime, boolean fuel) {
+        return new FactoryRecipe(id, input, count, null, 0, output, outputCount, cookTime, fuel);
     }
 
-    public String id() {
-        return id;
-    }
-
-    public Item input() {
-        return input;
-    }
-
-    public int inputCount() {
-        return inputCount;
-    }
-
-    public Item output() {
-        return output;
-    }
-
-    public int outputCount() {
-        return outputCount;
-    }
-
-    /** 实际耗时（tick），读配置，钳制 [1, 72000]。 */
+    /** 实际耗时（tick），按配置的速度百分比缩放。 */
     public int cookTime() {
-        return Math.max(1, Math.min(72_000, FinanceConfig.factoryCookTime(id, defaultCookTime)));
+        return Math.max(1, defaultCookTime * 100 / Math.max(1, FinanceConfig.factorySpeedPercent()));
     }
 
     public ItemStack resultStack() {
         return new ItemStack(output, outputCount);
     }
 
-    /** 输入栈是否满足本配方（物品相同且数量足够）。 */
-    public boolean matches(ItemStack stack) {
-        return !stack.isEmpty() && stack.is(input) && stack.getCount() >= inputCount;
+    /** 两个原料槽里的东西够不够做一次。 */
+    public boolean matches(ItemStack first, ItemStack secondStack) {
+        if (first.isEmpty() || !first.is(input) || first.getCount() < inputCount) return false;
+        return second == null || (secondStack.is(second) && secondStack.getCount() >= secondCount);
     }
 
-    private static final Map<Item, FactoryRecipe> BY_INPUT;
-
-    static {
-        Map<Item, FactoryRecipe> map = new LinkedHashMap<>();
-        register(map, new FactoryRecipe("wheat_to_bread", Items.WHEAT, 3, Items.BREAD, 1, 200));
-        register(map, new FactoryRecipe("iron_ore_to_ingot", Items.IRON_ORE, 1, Items.IRON_INGOT, 1, 200));
-        register(map, new FactoryRecipe("oak_log_to_planks", Items.OAK_LOG, 1, Items.OAK_PLANKS, 4, 100));
-        BY_INPUT = Collections.unmodifiableMap(map);
+    /** 按两个原料槽找能做的配方，没有返回 null。 */
+    public static @Nullable FactoryRecipe find(ItemStack first, ItemStack secondStack) {
+        for (FactoryRecipe recipe : ALL) if (recipe.matches(first, secondStack)) return recipe;
+        return null;
     }
 
-    private static void register(Map<Item, FactoryRecipe> map, FactoryRecipe recipe) {
-        map.put(recipe.input, recipe);
+    public static @Nullable FactoryRecipe byId(String id) {
+        for (FactoryRecipe recipe : ALL) if (recipe.id.equals(id)) return recipe;
+        return null;
     }
 
-    /** 按输入物品查找配方，无匹配返回 null。 */
-    public static FactoryRecipe find(ItemStack input) {
-        if (input == null || input.isEmpty()) return null;
-        return BY_INPUT.get(input.getItem());
+    /** 能放进第一原料槽的物品。 */
+    public static boolean isFirstInput(ItemStack stack) {
+        return ALL.stream().anyMatch(r -> stack.is(r.input));
     }
 
-    public static Map<Item, FactoryRecipe> all() {
-        return BY_INPUT;
+    /** 能放进第二原料槽的物品。 */
+    public static boolean isSecondInput(ItemStack stack) {
+        return ALL.stream().anyMatch(r -> r.second != null && stack.is(r.second));
     }
 }

@@ -13,7 +13,6 @@ import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
-import net.minecraftforge.registries.ForgeRegistries;
 
 /**
  * /sell hand —— 把手上这组东西按市场价卖掉；/sell hand all —— 背包里同样的东西全卖。
@@ -33,7 +32,7 @@ public final class SellCommand {
     private static int sell(CommandContext<CommandSourceStack> c, boolean all) throws CommandSyntaxException {
         ServerPlayer player = c.getSource().getPlayerOrException();
         ItemStack hand = player.getMainHandItem();
-        Commodity commodity = commodityOf(hand);
+        Commodity commodity = CommodityRegistry.forItem(hand);
         if (commodity == null) {
             c.getSource().sendFailure(Component.literal(hand.isEmpty() ? "手上没有东西。" : "市场不收这种东西。"));
             return 0;
@@ -50,14 +49,4 @@ public final class SellCommand {
     }
 
     /** 物品对应的商品；不是市场商品返回 null。 */
-    public static Commodity commodityOf(ItemStack stack) {
-        if (stack == null || stack.isEmpty()) return null;
-        var key = ForgeRegistries.ITEMS.getKey(stack.getItem());
-        if (key == null) return null;
-        String id = key.toString();
-        for (Commodity c : CommodityRegistry.getAllCommodities()) {
-            if (id.equals(c.getItemId())) return c;
-        }
-        return null;
-    }
 }

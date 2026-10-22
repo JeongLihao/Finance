@@ -93,6 +93,11 @@ public class CompanyManager {
 
     public static void tickAll(long day) {
         for (Company c : COMPANIES.values()) {
+            if (c.isPlayerOwned() && day >= 0) {
+                // 玩家公司的产量来自加工机和收货箱（实物），这里只把仓库里的货按比例卖掉
+                finance.gameplay.company.CompanyGameplayMarketService.autoSell(c);
+                continue;
+            }
             finance.gameplay.company.CompanyGameplayProfile profile =
                     finance.gameplay.company.CompanyGameplayManager.profileFor(c);
             if (day < 0

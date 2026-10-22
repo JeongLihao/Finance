@@ -43,7 +43,7 @@ public class FinanceKeyMappings {
             }
             while (OPEN_FINANCE.consumeClick()) {
                 // 手上拿着市场商品时，打开后直接显示这件东西的买卖详情
-                var commodity = finance.command.SellCommand.commodityOf(minecraft.player.getMainHandItem());
+                var commodity = finance.commodity.CommodityRegistry.forItem(minecraft.player.getMainHandItem());
                 finance.client.simple.SimpleClientState.setPendingCommodity(
                         commodity == null ? null : commodity.getId());
                 FinancePacketHandler.CHANNEL.sendToServer(new OpenFinanceGuiPacket());

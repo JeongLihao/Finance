@@ -1,15 +1,20 @@
 package finance.block;
 
 import finance.block.entity.FactoryBlockEntity;
+import finance.company.Company;
+import finance.factory.MachineOwnership;
 import finance.gui.FactoryGuiOpener;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Containers;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.BaseEntityBlock;
@@ -25,11 +30,7 @@ import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.phys.BlockHitResult;
 import org.jetbrains.annotations.Nullable;
 
-/**
- * 工厂方块 —— 产业链工厂的简化第一版。
- *
- * <p>右键打开仿熔炉 GUI；服务端每 tick 推进生产；破坏时掉落机内物品（不 dup）。</p>
- */
+/** 加工机：放下时归属放置者的公司；右键打开界面；破坏时掉落机内物品。 */
 public final class FactoryBlock extends BaseEntityBlock {
     public FactoryBlock(Properties properties) {
         super(properties);
@@ -57,9 +58,20 @@ public final class FactoryBlock extends BaseEntityBlock {
         if (!level.isClientSide
                 && player instanceof ServerPlayer server
                 && level.getBlockEntity(pos) instanceof FactoryBlockEntity factory) {
-            FactoryGuiOpener.open(server, factory);
+            if (MachineOwnership.mayUse(server, factory.companyId())) FactoryGuiOpener.open(server, factory);
+            else server.displayClientMessage(Component.translatable("block.finance.factory.not_member"), true);
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
+    }
+
+    @Override
+    public void setPlacedBy(
+            Level level, BlockPos pos, BlockState state, @Nullable LivingEntity placer, ItemStack stack) {
+        super.setPlacedBy(level, pos, state, placer, stack);
+        if (level.isClientSide || !(level.getBlockEntity(pos) instanceof FactoryBlockEntity factory)) return;
+        Company company = MachineOwnership.companyForPlacer(placer);
+        factory.bindCompany(company);
+        MachineOwnership.announce(placer, company, "block.finance.factory");
     }
 
     @Override

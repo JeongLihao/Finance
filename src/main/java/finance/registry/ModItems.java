@@ -49,6 +49,8 @@ public final class ModItems {
             ITEMS.register("survey_board", () -> new BlockItem(ModBlocks.SURVEY_BOARD.get(), new Item.Properties()));
     public static final RegistryObject<Item> FACTORY =
             ITEMS.register("factory", () -> new BlockItem(ModBlocks.FACTORY.get(), new Item.Properties()));
+    public static final RegistryObject<Item> COMPANY_INTAKE = ITEMS.register(
+            "company_intake", () -> new BlockItem(ModBlocks.COMPANY_INTAKE.get(), new Item.Properties()));
     public static final RegistryObject<Item> NEWSPAPER =
             ITEMS.register("newspaper", () -> new finance.item.NewspaperItem(new Item.Properties().stacksTo(16)));
     public static final RegistryObject<Item> PENNY = cash(finance.cash.Denomination.PENNY);
@@ -93,6 +95,7 @@ public final class ModItems {
             event.accept(SURVEY_BOARD);
             event.accept(SURVEY_NOTE);
             event.accept(FACTORY);
+            event.accept(COMPANY_INTAKE);
             event.accept(PENNY);
             event.accept(TEN_PENCE);
             event.accept(POUND_NOTE);

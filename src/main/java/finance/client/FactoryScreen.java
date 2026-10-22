@@ -1,78 +1,129 @@
 package finance.client;
 
+import finance.block.entity.FactoryBlockEntity;
+import finance.factory.FactoryRecipe;
+import finance.factory.MachineCore;
 import finance.gui.FactoryMenu;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.inventory.Slot;
 
-/**
- * 工厂方块 Screen —— 仿熔炉布局：输入槽 → 进度箭头 → 输出槽。
- */
+/** 加工机界面：原料 → 进度箭头 → 成品，燃料火焰；顶上写归属，右边选“要做什么”。 */
 public final class FactoryScreen extends AbstractContainerScreen<FactoryMenu> {
-    private static final int ARROW_X = 79;
-    private static final int ARROW_Y = 35;
-    private static final int ARROW_W = 24;
-    private static final int ARROW_H = 17;
+    private static final int ARROW_X = 70, ARROW_Y = 40, ARROW_W = 24, ARROW_H = 17;
+    private static final int RIGHT_X = 128;
+
+    private Button recipeButton;
 
     public FactoryScreen(FactoryMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
-        this.imageWidth = 176;
-        this.imageHeight = 166;
-        this.inventoryLabelY = this.imageHeight - 94;
+        imageWidth = 176;
+        imageHeight = FactoryMenu.INVENTORY_Y + 82;
+        inventoryLabelY = FactoryMenu.INVENTORY_Y - 11;
     }
 
     @Override
-    protected void renderBg(GuiGraphics graphics, float partialTick, int mouseX, int mouseY) {
-        // 面板：深色外框＋浅色内底（沿用模组风格）。
-        graphics.fill(leftPos, topPos, leftPos + imageWidth, topPos + imageHeight, 0xFF373737);
-        graphics.fill(leftPos + 1, topPos + 1, leftPos + imageWidth - 1, topPos + imageHeight - 1, 0xFFE7E2D3);
+    protected void init() {
+        super.init();
+        recipeButton = addRenderableWidget(Button.builder(recipeLabel(), b -> cycleRecipe())
+                .bounds(leftPos + RIGHT_X, topPos + 30, 42, 16)
+                .build());
+    }
 
-        // 进度箭头：底色深灰，填充按进度。
-        int ax = leftPos + ARROW_X;
-        int ay = topPos + ARROW_Y;
-        graphics.fill(ax, ay, ax + ARROW_W, ay + ARROW_H, 0xFF6B6B6B);
-        int fillW = Math.round(menu.progressFraction() * ARROW_W);
-        if (fillW > 0) {
-            graphics.fill(ax, ay, ax + fillW, ay + ARROW_H, 0xFFFF8C1A);
+    /** 下一个配方；最后一个之后回到“不指定”。 */
+    private void cycleRecipe() {
+        int next = menu.selectedRecipe() + 1;
+        int id = next >= FactoryRecipe.ALL.size() ? FactoryMenu.NO_RECIPE : next;
+        if (minecraft != null && minecraft.gameMode != null)
+            minecraft.gameMode.handleInventoryButtonClick(menu.containerId, id);
+    }
+
+    private Component recipeLabel() {
+        int selected = menu.selectedRecipe();
+        return selected < 0
+                ? Component.translatable("screen.finance.factory.recipe.any")
+                : new net.minecraft.world.item.ItemStack(
+                                FactoryRecipe.ALL.get(selected).output())
+                        .getHoverName();
+    }
+
+    @Override
+    protected void containerTick() {
+        super.containerTick();
+        if (recipeButton != null) recipeButton.setMessage(recipeLabel());
+    }
+
+    @Override
+    protected void renderBg(GuiGraphics g, float partialTick, int mouseX, int mouseY) {
+        g.fill(leftPos, topPos, leftPos + imageWidth, topPos + imageHeight, 0xFF373737);
+        g.fill(leftPos + 1, topPos + 1, leftPos + imageWidth - 1, topPos + imageHeight - 1, 0xFFE7E2D3);
+        int ax = leftPos + ARROW_X, ay = topPos + ARROW_Y;
+        g.fill(ax, ay, ax + ARROW_W, ay + ARROW_H, 0xFF6B6B6B);
+        int fill = Math.round(menu.progressFraction() * ARROW_W);
+        if (fill > 0) g.fill(ax, ay, ax + fill, ay + ARROW_H, 0xFFFF8C1A);
+        // 燃料火焰：燃料槽上方一小条，剩余燃烧时间越多越高
+        int fx = leftPos + 54, fy = topPos + 56;
+        g.fill(fx, fy, fx + 6, fy + 16, 0xFF6B6B6B);
+        int flame = Math.round(menu.fuelFraction() * 16);
+        if (flame > 0) g.fill(fx, fy + 16 - flame, fx + 6, fy + 16, 0xFFFFC400);
+        for (Slot slot : menu.slots) {
+            int sx = leftPos + slot.x - 1, sy = topPos + slot.y - 1;
+            g.fill(sx, sy, sx + 18, sy + 18, 0xFF8B8B8B);
+            g.fill(sx, sy, sx + 17, sy + 1, 0xFF373737);
+            g.fill(sx, sy, sx + 1, sy + 17, 0xFF373737);
+            g.fill(sx + 1, sy + 17, sx + 18, sy + 18, 0xFFFFFFFF);
+            g.fill(sx + 17, sy + 1, sx + 18, sy + 18, 0xFFFFFFFF);
         }
-        // 槽位底框：纯色背景上不画框，空槽完全看不见。
-        for (net.minecraft.world.inventory.Slot slot : menu.slots) {
-            int sx = leftPos + slot.x - 1;
-            int sy = topPos + slot.y - 1;
-            graphics.fill(sx, sy, sx + 18, sy + 18, 0xFF8B8B8B);
-            graphics.fill(sx, sy, sx + 17, sy + 1, 0xFF373737);
-            graphics.fill(sx, sy, sx + 1, sy + 17, 0xFF373737);
-            graphics.fill(sx + 1, sy + 17, sx + 18, sy + 18, 0xFFFFFFFF);
-            graphics.fill(sx + 17, sy + 1, sx + 18, sy + 18, 0xFFFFFFFF);
-        }
-        // 箭头框线。
-        graphics.fill(ax - 1, ay - 1, ax + ARROW_W + 1, ay, 0xFF373737);
-        graphics.fill(ax - 1, ay + ARROW_H, ax + ARROW_W + 1, ay + ARROW_H + 1, 0xFF373737);
     }
 
     @Override
-    protected void renderLabels(GuiGraphics graphics, int mouseX, int mouseY) {
-        graphics.drawString(
-                font, Component.translatable("screen.finance.factory.input").getString(), 56, 24, 0xFF555555, false);
-        graphics.drawString(
-                font, Component.translatable("screen.finance.factory.output").getString(), 116, 24, 0xFF555555, false);
-        String statusKey =
-                switch (menu.status()) {
-                    case 0 -> "screen.finance.factory.working";
-                    case 2 -> "screen.finance.factory.output_full";
-                    default -> "screen.finance.factory.idle";
-                };
-        String status = Component.translatable(statusKey).getString();
-        int progressPct = Math.round(menu.progressFraction() * 100);
-        if (menu.status() == 0) status += " " + progressPct + "%";
-        graphics.drawString(font, status, 8, 60, 0xFF555555, false);
-        super.renderLabels(graphics, mouseX, mouseY);
+    protected void renderLabels(GuiGraphics g, int mouseX, int mouseY) {
+        g.drawString(font, title, 8, 6, 0xFF404040, false);
+        g.drawString(font, clip(ownerLine(), 160), 8, 17, 0xFF555555, false);
+        g.drawString(font, Component.translatable("screen.finance.factory.make"), RIGHT_X, 21, 0xFF555555, false);
+        String status = Component.translatable(statusKey()).getString();
+        if (menu.status() == MachineCore.WORKING) status += " " + Math.round(menu.progressFraction() * 100) + "%";
+        g.drawString(font, clip(status, 160), 8, 77, statusColor(), false);
+        g.drawString(font, playerInventoryTitle, 8, inventoryLabelY, 0xFF404040, false);
+    }
+
+    private Component ownerLine() {
+        String company = menu.blockEntity().companyName();
+        return switch (menu.link()) {
+            case FactoryBlockEntity.LINKED -> Component.translatable("screen.finance.factory.owner.linked", company);
+            case FactoryBlockEntity.COMPANY -> Component.translatable("screen.finance.factory.owner.company", company);
+            default -> Component.translatable("screen.finance.factory.owner.personal");
+        };
+    }
+
+    private String statusKey() {
+        return switch (menu.status()) {
+            case MachineCore.WORKING -> "screen.finance.factory.working";
+            case MachineCore.OUTPUT_FULL -> "screen.finance.factory.output_full";
+            case MachineCore.NO_FUEL -> "screen.finance.factory.no_fuel";
+            default -> "screen.finance.factory.idle";
+        };
+    }
+
+    private int statusColor() {
+        return menu.status() == MachineCore.WORKING ? 0xFF2E7D32 : 0xFFB0581A;
+    }
+
+    private String clip(Component text, int width) {
+        return clip(text.getString(), width);
+    }
+
+    private String clip(String s, int width) {
+        while (font.width(s) > width && s.length() > 1) s = s.substring(0, s.length() - 2) + "…";
+        return s;
     }
 
     @Override
-    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        super.render(graphics, mouseX, mouseY, partialTick);
-        renderTooltip(graphics, mouseX, mouseY);
+    public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+        super.render(g, mouseX, mouseY, partialTick);
+        renderTooltip(g, mouseX, mouseY);
     }
 }

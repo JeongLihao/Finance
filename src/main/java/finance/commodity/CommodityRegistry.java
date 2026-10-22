@@ -14,6 +14,16 @@ public class CommodityRegistry {
 
     private static final Map<String, Commodity> DEFAULT_COMMODITIES = new HashMap<>();
 
+    /** 物品对应的商品（按物品注册名），不是商品返回 null。不看数量和 NBT。 */
+    public static Commodity forItem(net.minecraft.world.item.ItemStack stack) {
+        if (stack == null || stack.isEmpty()) return null;
+        var key = net.minecraftforge.registries.ForgeRegistries.ITEMS.getKey(stack.getItem());
+        if (key == null) return null;
+        String id = key.toString();
+        for (Commodity c : COMMODITIES.values()) if (id.equals(c.getItemId())) return c;
+        return null;
+    }
+
     /** 注册商品（模组初始化时调用） */
     public static void register(Commodity commodity) {
 

@@ -41,6 +41,10 @@ public final class ModBlockEntities {
     public static final RegistryObject<BlockEntityType<FactoryBlockEntity>> FACTORY = BLOCK_ENTITIES.register(
             "factory", () -> BlockEntityType.Builder.of(FactoryBlockEntity::new, ModBlocks.FACTORY.get())
                     .build(null));
+    public static final RegistryObject<BlockEntityType<finance.block.entity.CompanyIntakeBlockEntity>> COMPANY_INTAKE =
+            BLOCK_ENTITIES.register("company_intake", () -> BlockEntityType.Builder.of(
+                            finance.block.entity.CompanyIntakeBlockEntity::new, ModBlocks.COMPANY_INTAKE.get())
+                    .build(null));
 
     private ModBlockEntities() {}
 

@@ -50,9 +50,7 @@ public final class FinanceConfig {
     private static final boolean CB_MM_HEALTH_CHECK_ENABLED_VALUE = true;
     private static final long CB_MM_EMERGENCY_LOAN_CAP_VALUE = 5_000_000L;
     private static final int CB_MM_LOAN_REPAYMENT_BPS_VALUE = 2_000;
-    private static final int FACTORY_COOK_TIME_BREAD_VALUE = 200;
-    private static final int FACTORY_COOK_TIME_IRON_VALUE = 200;
-    private static final int FACTORY_COOK_TIME_PLANKS_VALUE = 100;
+    private static final int FACTORY_SPEED_PERCENT_VALUE = 100;
     private static final long IPO_FEE_VALUE = 5_000L;
     private static final long CAPITAL_PROJECT_GOVERNANCE_THRESHOLD_VALUE = 50_000L;
     private static final int CAPITAL_PROJECT_MAX_DURATION_DAYS_VALUE = 60;
@@ -318,9 +316,7 @@ public final class FinanceConfig {
     private static final ForgeConfigSpec.BooleanValue CB_MM_HEALTH_CHECK_ENABLED;
     private static final ForgeConfigSpec.LongValue CB_MM_EMERGENCY_LOAN_CAP;
     private static final ForgeConfigSpec.IntValue CB_MM_LOAN_REPAYMENT_BPS;
-    private static final ForgeConfigSpec.IntValue FACTORY_COOK_TIME_BREAD;
-    private static final ForgeConfigSpec.IntValue FACTORY_COOK_TIME_IRON;
-    private static final ForgeConfigSpec.IntValue FACTORY_COOK_TIME_PLANKS;
+    private static final ForgeConfigSpec.IntValue FACTORY_SPEED_PERCENT;
     private static final ForgeConfigSpec.BooleanValue NPC_INVESTORS_ENABLED;
     private static final ForgeConfigSpec.LongValue NPC_INITIAL_CAPITAL_EACH;
     private static final ForgeConfigSpec.LongValue NPC_DAILY_BUDGET;
@@ -1039,12 +1035,8 @@ public final class FinanceConfig {
         builder.pop();
 
         builder.push("factory");
-        FACTORY_COOK_TIME_BREAD = builder.comment("工厂方块：小麦→面包耗时（tick）。")
-                .defineInRange("breadCookTime", FACTORY_COOK_TIME_BREAD_VALUE, 1, 72_000);
-        FACTORY_COOK_TIME_IRON = builder.comment("工厂方块：铁矿石→铁锭耗时（tick）。")
-                .defineInRange("ironCookTime", FACTORY_COOK_TIME_IRON_VALUE, 1, 72_000);
-        FACTORY_COOK_TIME_PLANKS = builder.comment("工厂方块：原木→木板耗时（tick）。")
-                .defineInRange("planksCookTime", FACTORY_COOK_TIME_PLANKS_VALUE, 1, 72_000);
+        FACTORY_SPEED_PERCENT = builder.comment("加工机速度，百分比。200 = 每件耗时减半。")
+                .defineInRange("speedPercent", FACTORY_SPEED_PERCENT_VALUE, 10, 1000);
         builder.pop();
 
         builder.push("caravan");
@@ -1616,18 +1608,9 @@ public final class FinanceConfig {
     public static int villageTrustFavor() {
         return getInt(VILLAGE_TRUST_FAVOR, VILLAGE_TRUST_FAVOR_VALUE);
     }
-    /**
-     * 工厂方块配方耗时（tick）。未知配方 id 返回 fallback。
-     */
-    public static int factoryCookTime(String recipeId, int fallback) {
-        int safeFallback = Math.max(1, Math.min(72_000, fallback));
-        if (recipeId == null) return safeFallback;
-        return switch (recipeId) {
-            case "wheat_to_bread" -> getInt(FACTORY_COOK_TIME_BREAD, safeFallback);
-            case "iron_ore_to_ingot" -> getInt(FACTORY_COOK_TIME_IRON, safeFallback);
-            case "oak_log_to_planks" -> getInt(FACTORY_COOK_TIME_PLANKS, safeFallback);
-            default -> safeFallback;
-        };
+
+    public static int factorySpeedPercent() {
+        return getInt(FACTORY_SPEED_PERCENT, FACTORY_SPEED_PERCENT_VALUE);
     }
     // ---- 单人经济：NPC 投资者 ----
     public static boolean npcInvestorsEnabled() {

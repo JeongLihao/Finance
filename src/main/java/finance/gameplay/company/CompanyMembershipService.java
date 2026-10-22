@@ -10,6 +10,23 @@ public final class CompanyMembershipService {
 
     private CompanyMembershipService() {}
 
+    /** 玩家当老板的公司；没有就找他担任成员的公司（有生产管理权限的优先）。都没有返回 null。 */
+    public static Company companyOf(UUID playerId) {
+        if (playerId == null) return null;
+        Company owned = CompanyManager.getCompanyByOwner(playerId);
+        if (owned != null) return owned;
+        Company member = null;
+        for (CompanyGameplayProfile profile : CompanyGameplayManager.profiles().values()) {
+            CompanyMemberRecord record = profile.members().get(playerId);
+            if (record == null) continue;
+            Company company = CompanyManager.getCompany(profile.companyId());
+            if (company == null) continue;
+            if (record.role().allows(CompanyPermission.MANAGE_PRODUCTION)) return company;
+            if (member == null) member = company;
+        }
+        return member;
+    }
+
     public static boolean hasPermission(UUID companyId, UUID playerId, CompanyPermission permission) {
         Company company = CompanyManager.getCompany(companyId);
         if (company == null || playerId == null || permission == null) return false;
