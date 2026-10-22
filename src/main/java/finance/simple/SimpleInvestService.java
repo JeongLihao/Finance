@@ -42,8 +42,14 @@ public final class SimpleInvestService {
 
     private SimpleInvestService() {}
 
-    /** 一种理财产品。key：bank / time:天数 / cbond:天数 / fund:基金ID。rateBps 为 -1 表示收益浮动。 */
+    /**
+     * 一种理财产品。玩家看到的是三档：tier:safe（稳健）/ tier:balanced（均衡）/ tier:growth（进取），
+     * 买入时换成背后的 bank / time:天数 / cbond:天数 / fund:基金ID。rateBps 为 -1 表示收益浮动。
+     */
     public record Product(String key, String name, String term, int rateBps, String risk, long minAmount) {}
+
+    /** 均衡一档挑期限最接近这个天数的定期或债券。 */
+    static final int BALANCED_TERM = 30;
 
     /** 玩家持有的一笔理财。key：bank / time:定期ID / cbond:债券ID / fund:基金ID。 */
     public record Holding(String key, String name, long amount, String status, String redeemLabel) {}
@@ -58,26 +64,84 @@ public final class SimpleInvestService {
 
     // ------------------------------------------------------------ 产品列表
 
-    public static List<Product> products() {
+    /** 三档理财；allowed 判断 bonds / fund 这两个进阶单项对这个玩家开没开。 */
+    public static List<Product> products(java.util.function.Predicate<String> allowed) {
+        List<Product> out = new ArrayList<>();
+        for (Product p : underlyingProducts(allowed)) {
+            String tier = tierOf(p.key());
+            String label = switch (tier) {
+                case "safe" -> "稳健 · ";
+                case "balanced" -> "均衡 · ";
+                default -> "进取 · ";
+            };
+            out.add(new Product("tier:" + tier, label + p.name(), p.term(), p.rateBps(), p.risk(), p.minAmount()));
+        }
+        return out;
+    }
+
+    /** 每档背后实际买的产品：稳健 = 活期；均衡 = 期限最接近 30 天的定期和债券里利率高的；进取 = 一只股票基金。 */
+    static List<Product> underlyingProducts(java.util.function.Predicate<String> allowed) {
         List<Product> out = new ArrayList<>();
         CommercialBank bank = SimpleCenterService.mainBank();
+        Product balanced = null;
         if (bank != null) {
             out.add(new Product("bank", "活期存款", "随时取", finance.bank.PublicBankViewService.crop(bank, false).demandRateBps(), "低", 1));
             int benchmark = MonetaryPolicyService.benchmarkRateBasisPoints();
-            for (int term : FinanceConfig.timeDepositTerms()) {
+            int term = nearest(FinanceConfig.timeDepositTerms());
+            if (term > 0) {
                 int rate = Math.max(0, Math.min(20_000, benchmark - bank.policy().timeSpreadBps() + Math.min(500, term * 3)));
-                out.add(new Product("time:" + term, "定期存款", term + " 天", rate, "低", FinanceConfig.timeDepositMinAmount()));
+                balanced = new Product("time:" + term, "定期存款", term + " 天", rate, "低", FinanceConfig.timeDepositMinAmount());
             }
         }
-        for (int term : SimpleCenterService.extra("bonds") ? TreasuryBondManager.TERM_DAYS : List.<Integer>of()) {
-            out.add(new Product("cbond:" + term, "央行债券", term + " 天", YieldCurveService.treasuryYieldBasisPoints(term), "低",
-                    FinanceConfig.treasuryBondMinAmount()));
+        if (allowed.test("bonds")) {
+            int term = nearest(TreasuryBondManager.TERM_DAYS);
+            int rate = term > 0 ? YieldCurveService.treasuryYieldBasisPoints(term) : -1;
+            if (term > 0 && (balanced == null || rate > balanced.rateBps())) {
+                balanced = new Product("cbond:" + term, "央行债券", term + " 天", rate, "低", FinanceConfig.treasuryBondMinAmount());
+            }
         }
-        for (FundDefinition d : SimpleCenterService.extra("fund") ? FundManager.definitions().values() : List.<FundDefinition>of()) {
-            String risk = d.type() == FundType.MONEY_MARKET ? "低" : d.type() == FundType.BROAD_STOCK_INDEX ? "中" : "高";
-            out.add(new Product("fund:" + d.id(), d.displayName(), "随时赎回", -1, risk, d.minimumSubscription()));
+        if (balanced != null) out.add(balanced);
+        if (allowed.test("fund")) {
+            FundDefinition fund = growthFund();
+            if (fund != null) {
+                out.add(new Product("fund:" + fund.id(), fund.displayName(), "随时赎回", -1,
+                        fund.type() == FundType.MONEY_MARKET ? "低" : "高", fund.minimumSubscription()));
+            }
         }
         return out;
+    }
+
+    /** 进取一档的基金：优先宽基股票指数，其次别的股票基金，最后才是货币基金。 */
+    static FundDefinition growthFund() {
+        FundDefinition best = null;
+        for (FundDefinition d : FundManager.definitions().values()) {
+            if (best == null || rank(d.type()) > rank(best.type())) best = d;
+        }
+        return best;
+    }
+
+    private static int rank(FundType type) {
+        return type == FundType.BROAD_STOCK_INDEX ? 2 : type == FundType.MONEY_MARKET ? 0 : 1;
+    }
+
+    private static int nearest(List<Integer> terms) {
+        int best = -1;
+        for (int t : terms) if (t > 0 && (best < 0 || Math.abs(t - BALANCED_TERM) < Math.abs(best - BALANCED_TERM))) best = t;
+        return best;
+    }
+
+    static String tierOf(String underlyingKey) {
+        if ("bank".equals(underlyingKey)) return "safe";
+        if (underlyingKey.startsWith("fund:")) return "growth";
+        return "balanced";
+    }
+
+    /** tier:xxx → 背后的产品 key；不是档位 key 的原样返回（旧界面、命令直接买具体产品）。 */
+    static String resolve(String key, java.util.function.Predicate<String> allowed) {
+        if (key == null || !key.startsWith("tier:")) return key;
+        String tier = key.substring(5);
+        for (Product p : underlyingProducts(allowed)) if (tierOf(p.key()).equals(tier)) return p.key();
+        return null;
     }
 
     public static List<Holding> holdings(ServerPlayer player) {
@@ -120,6 +184,11 @@ public final class SimpleInvestService {
         UUID id = player.getUUID();
         long day = EconomyCycleService.currentMcDay(player.server);
         if (amount <= 0) return fail("金额要大于 0。");
+        if (key != null && key.startsWith("tier:")) {
+            key = resolve(key, name -> SimpleUnlocks.allowed(player, name));
+            if (key == null) return fail("这一档还没解锁或暂时买不了。");
+        }
+        if (key == null) return fail("没有这种产品。");
         if (AccountManager.getBalance(id) < amount) return fail("钱包里没有这么多钱。");
         if ("bank".equals(key)) {
             SimpleCenterService.Result r = SimpleCenterService.bankDeposit(player, amount);
@@ -218,7 +287,8 @@ public final class SimpleInvestService {
         UUID id = player.getUUID();
         Stock stock = StockMarketManager.getStock(symbol);
         if (stock == null) return fail("没有这只股票。");
-        long total = Math.multiplyExact(Math.max(0, qty), Math.max(0, stock.getFairValue()));
+        // 融资按市价成交，首付也按市价算；按每股价值算的话市价偏高时首付不够
+        long total = Math.multiplyExact(Math.max(0, qty), Math.max(0, stock.getAnchorPrice()));
         long down = (total + 1) / 2;
         long topUp = down - MarginPoolManager.getAccount(id).getCashCollateral();
         long before = AccountManager.getBalance(id);
@@ -248,7 +318,7 @@ public final class SimpleInvestService {
         UUID id = player.getUUID();
         Stock stock = StockMarketManager.getStock(symbol);
         if (stock == null) return fail("没有这只股票。");
-        long notional = Math.multiplyExact(Math.max(0, qty), Math.max(0, stock.getFairValue()));
+        long notional = Math.multiplyExact(Math.max(0, qty), Math.max(0, stock.getAnchorPrice()));
         long need = (notional + 1) / 2;
         long topUp = need - MarginPoolManager.getAccount(id).getCashCollateral();
         long before = AccountManager.getBalance(id);

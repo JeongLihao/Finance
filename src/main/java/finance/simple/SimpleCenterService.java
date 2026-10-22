@@ -23,10 +23,6 @@ import finance.config.FinanceConfig;
 import finance.cycle.EconomyCycleService;
 import finance.market.MarketPrice;
 import finance.market.NpcMarketMaker;
-import finance.settlement.DemandStatus;
-import finance.settlement.LocalDemand;
-import finance.settlement.SettlementManager;
-import finance.settlement.SettlementRecord;
 import finance.util.InventoryUtil;
 import finance.util.MoneyFormat;
 import net.minecraft.nbt.CompoundTag;
@@ -357,20 +353,20 @@ public final class SimpleCenterService {
         return amount;
     }
 
-    /** 进阶玩法是否对普通玩家打开（配置 simpleCenter.extras）。 */
-    public static boolean extra(String name) {
-        var extras = FinanceConfig.simpleExtras();
-        return extras.contains("all") || extras.contains(name);
-    }
-
     // ------------------------------------------------------------ 首页数据
 
-    /** 首页和其他三页需要、但金融中心快照里没有的数据。 */
+    /**
+     * 首页和其他三页需要、但金融中心快照里没有的数据。
+     * extras：这个玩家现在能用的进阶玩法（组名和单项名）；locked：还没解锁、做到进度就能解锁的组；
+     * unlockedNow：刚解锁、要弹出介绍的组；cards：机会卡；bets：押注；futuresMarginBps：商品押注每份要交的保证金比例。
+     */
     public record Status(long bankBalance, int bankRateBps, int factoryLevel, long nextUpgradeCost,
                          long companyValuation, long ipoMinValuation, long stockUnlockBalance,
-                         String advancedMode, List<String> extras, List<String> opportunities, List<String> weather,
+                         String advancedMode, List<String> extras, List<String> locked, List<String> unlockedNow,
+                         List<SimpleOpportunityService.Card> cards, List<String> weather,
                          List<String> summary, List<SimpleInvestService.Product> products,
                          List<SimpleInvestService.Holding> holdings, SimpleInvestService.MarginInfo margin,
+                         List<SimpleBetService.Bet> bets, int futuresMarginBps,
                          SimpleBossService.BossInfo boss, finance.network.PlayerServicesResponsePacket.Cash cash,
                          List<Valuation> valuations) {}
 
@@ -397,21 +393,35 @@ public final class SimpleCenterService {
     public static Status status(ServerPlayer player, List<String> summary) {
         UUID id = player.getUUID();
         long day = EconomyCycleService.currentMcDay(player.server);
-        if (extra("futures")) ensureFuturesListed(day);
+        if (!SimpleUnlocks.disabled("futures")) ensureFuturesListed(day);
+        // 押注都结束了还留着的押金自动退回钱包
+        SimpleBetService.sweepIdle(id);
         CommercialBank bank = mainBank();
         BankCustomerAccount account = demandAccount(id, bank, day, false);
         long bankBalance = account != null && account.status() == BankAccountStatus.ACTIVE
                 && account.type() == BankAccountType.DEMAND_DEPOSIT ? account.available() : 0;
         int rate = bank == null ? 0 : PublicBankViewService.crop(bank, false).demandRateBps();
         Company company = CompanyManager.getCompanyByOwner(id);
+
+        java.util.EnumSet<SimpleUnlocks.Group> unlocked = SimpleUnlocks.unlocked(player);
+        java.util.Set<String> instant = FinanceConfig.simpleExtras(), disabled = FinanceConfig.simpleDisabled();
+        java.util.function.Predicate<String> allowed = name -> SimpleUnlocks.allowed(unlocked, instant, disabled, name);
+        List<String> unlockedNow = SimpleUnlocks.takeNew(player, unlocked).stream().map(g -> g.id).toList();
+        List<SimpleInvestService.Holding> holdings = SimpleInvestService.holdings(player);
+        SimpleInvestService.MarginInfo margin = SimpleInvestService.marginInfo(id);
+        SimpleBossService.BossInfo boss = SimpleBossService.info(player);
         return new Status(bankBalance, rate,
                 company == null ? 0 : factoryLevel(company),
                 company == null ? 0 : nextUpgradeCost(company),
                 company == null ? 0 : finance.stock.StockValuation.companyValue(company),
                 FinanceConfig.simpleIpoMinValuation(), FinanceConfig.simpleStockUnlockBalance(),
-                FinanceConfig.simpleAdvancedMode(), List.copyOf(FinanceConfig.simpleExtras()), opportunities(player), weather(player), summary,
-                SimpleInvestService.products(), SimpleInvestService.holdings(player), SimpleInvestService.marginInfo(id),
-                SimpleBossService.info(player),
+                FinanceConfig.simpleAdvancedMode(),
+                SimpleUnlocks.allowedNames(unlocked, instant, disabled), SimpleUnlocks.lockedIds(unlocked, instant, disabled), unlockedNow,
+                SimpleOpportunityService.cards(player, allowed, boss, margin, !holdings.isEmpty(), AccountManager.getBalance(id)),
+                weather(player), summary,
+                SimpleInvestService.products(allowed), holdings, margin,
+                SimpleBetService.bets(player), FinanceConfig.futuresInitialMarginBps(),
+                boss,
                 finance.playerservice.PlayerServicesService.cash(id, new finance.cash.PlayerCashPurse(player), day),
                 valuations());
     }
@@ -511,35 +521,5 @@ public final class SimpleCenterService {
         if (dividends > 0) lines.add("分红 +" + MoneyFormat.pounds(dividends));
         if (otherIn > 0) lines.add("其他收入 +" + MoneyFormat.pounds(otherIn));
         return lines;
-    }
-
-    /** 今日机会：最值钱的村庄需求一条 + 背包里最值钱的两种东西。 */
-    static List<String> opportunities(ServerPlayer player) {
-        List<String> out = new ArrayList<>();
-        SettlementManager.demands().values().stream()
-                .filter(d -> d.status() == DemandStatus.OPEN)
-                .max(Comparator.comparingLong(LocalDemand::reward))
-                .ifPresent(d -> {
-                    SettlementRecord village = SettlementManager.get(d.settlementId());
-                    Commodity c = CommodityRegistry.getCommodity(d.commodityId());
-                    out.add((village == null ? "有个村庄" : village.displayName()) + "需要 " + d.quantity() + " 个"
-                            + (c == null ? d.commodityId() : c.getDisplayName()) + "，送去能拿 "
-                            + MoneyFormat.pounds(d.reward()) + "（去村里的贸易站交货）");
-                });
-        record Held(String name, int count, long value) {}
-        List<Held> held = new ArrayList<>();
-        for (Commodity c : CommodityRegistry.getAllCommodities()) {
-            if (c.getItemId() == null || c.getItemId().isEmpty()) continue;
-            int count = InventoryUtil.countItemInInventory(player, c.getItemId());
-            MarketPrice price = NpcMarketMaker.getMarketPrice(c.getId());
-            if (count <= 0 || price == null || price.getBidPrice() <= 0) continue;
-            held.add(new Held(c.getDisplayName(), count, price.getBidPrice() * count));
-        }
-        held.sort(Comparator.comparingLong(Held::value).reversed());
-        for (Held h : held.subList(0, Math.min(2, held.size()))) {
-            out.add("背包里的 " + h.count() + " 个" + h.name() + "现在能卖 " + MoneyFormat.pounds(h.value()));
-        }
-        if (out.isEmpty()) out.add("去挖矿、种地或砍树，拿到东西后在“买卖”页卖掉。");
-        return out;
     }
 }

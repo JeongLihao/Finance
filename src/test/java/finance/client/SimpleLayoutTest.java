@@ -67,14 +67,16 @@ class SimpleLayoutTest {
         }
         List<FinanceMenu.TransactionRow> tx = new ArrayList<>();
         for (int i = 0; i < 5; i++) tx.add(new FinanceMenu.TransactionRow(0, UUID.randomUUID(), "COMMODITY_SELL", HUGE, HUGE, LONG_NAME));
+        // 没有任何进阶玩法时，三组都显示“怎么解锁”
+        List<String> locked = extras.isEmpty() ? List.of("growth", "bet", "boss") : List.of();
         SimpleCenterService.Status st = status ? new SimpleCenterService.Status(HUGE, 12_345, 7, HUGE, HUGE, 20_000, 3_000, "player", extras,
-                List.of(LONG_NAME + "需要 9999 个面包，送去能拿 " + HUGE + " 便士（去村里的贸易站交货）",
-                        "背包里的 2304 个" + LONG_NAME + "现在能卖很多钱", "第三条机会" + LONG_NAME),
+                locked, List.of(), cards(manyRows),
                 List.of("利率 99.99%：" + LONG_NAME + LONG_NAME, "物价一年涨 99.99%：" + LONG_NAME + LONG_NAME + LONG_NAME,
                         "央行下次开会：" + LONG_NAME, "上次开会：" + LONG_NAME, "央行储备：" + LONG_NAME + LONG_NAME + LONG_NAME,
                         "流通中的钱 " + HUGE + LONG_NAME + LONG_NAME + LONG_NAME), List.of(), products(manyRows), investHoldings(manyRows),
                 new finance.simple.SimpleInvestService.MarginInfo(HUGE, HUGE, 101, 130,
                         Map.of("S0", HUGE, "S1", HUGE), Map.of("S0", HUGE)),
+                bets(manyRows), 1_000,
                 boss(manyRows), new finance.network.PlayerServicesResponsePacket.Cash(true, HUGE, HUGE, HUGE, HUGE, HUGE, HUGE, HUGE, HUGE, HUGE),
                 List.of(new SimpleCenterService.Valuation("S0", HUGE, -HUGE, 120, HUGE), new SimpleCenterService.Valuation("S1", HUGE, HUGE, 40, 1))) : null;
         List<String> summary = balance == HUGE ? List.of("收入 +" + HUGE + LONG_NAME, "卖东西 " + LONG_NAME, "分红 " + LONG_NAME,
@@ -86,6 +88,30 @@ class SimpleLayoutTest {
         Map<String, Integer> stored = manyRows ? Map.of("a_very_long_commodity_id_one", 99_999, "a_very_long_commodity_id_two", 99_999) : Map.of();
         return new SimplePages.View(balance, -HUGE, HUGE, backpack, market, tx, company, stocks, holdings, st, true, true, summary,
                 orders, stored, futures(manyRows), autos(manyRows), proposals(manyRows));
+    }
+
+    static List<finance.simple.SimpleOpportunityService.Card> cards(boolean many) {
+        List<finance.simple.SimpleOpportunityService.Card> out = new ArrayList<>();
+        out.add(new finance.simple.SimpleOpportunityService.Card(LONG_NAME + "股价只有每股价值的 5 成：发起收购" + LONG_NAME, "出价收购",
+                "TAKEOVER", UUID.randomUUID().toString(), 0, "", true));
+        out.add(new finance.simple.SimpleOpportunityService.Card("钱包里闲着 " + HUGE + "：放进理财" + LONG_NAME, "去理财", "", "", 0, "INVEST:1", false));
+        out.add(new finance.simple.SimpleOpportunityService.Card(LONG_NAME + "需要 9999 个面包" + LONG_NAME, "", "", "", 0, "", false));
+        if (many) {
+            for (int i = 0; i < 5; i++) {
+                out.add(new finance.simple.SimpleOpportunityService.Card("库存险：最多赔 " + HUGE + LONG_NAME, "投保 " + HUGE, "INSURE",
+                        "INVENTORY_DISASTER", HUGE, "", i % 2 == 0));
+            }
+        }
+        return out;
+    }
+
+    static List<finance.simple.SimpleBetService.Bet> bets(boolean many) {
+        List<finance.simple.SimpleBetService.Bet> out = new ArrayList<>();
+        for (int i = 0; i < (many ? 12 : 1); i++) {
+            out.add(new finance.simple.SimpleBetService.Bet(i % 2 == 0 ? "s:S" + i + ":up" : "f:" + UUID.randomUUID(), LONG_NAME, i % 2 == 0,
+                    HUGE, i % 3 == 0 ? 0 : HUGE, "999999 份 × 64 个，第 99999 天自动结算" + LONG_NAME, i % 4 != 3));
+        }
+        return out;
     }
 
     static List<FinanceMenu.CompanyProposalRow> proposals(boolean many) {
@@ -111,10 +137,12 @@ class SimpleLayoutTest {
         List<finance.network.FuturesResponsePacket.MmQuoteRow> quotes = new ArrayList<>();
         for (int i = 0; i < (many ? 9 : 2); i++) {
             UUID id = UUID.randomUUID();
-            contracts.add(new finance.network.FuturesResponsePacket.ContractRow(id, "LONGCODE" + i, LONG_NAME, finance.futures.FuturesContractStatus.TRADING,
+            // 第一份合约对应第一种商品，商品详情里的押注一行和说明也要排一遍
+            String commodity = i == 0 ? "commodity_with_a_long_id_0" : LONG_NAME;
+            contracts.add(new finance.network.FuturesResponsePacket.ContractRow(id, "LONGCODE" + i, commodity, finance.futures.FuturesContractStatus.TRADING,
                     64, 99_999, 99_999, HUGE, HUGE, HUGE, HUGE, HUGE));
             positions.add(new finance.network.FuturesResponsePacket.PositionRow(id, -9_999, HUGE, HUGE, -HUGE, HUGE));
-            if (i % 2 == 0) quotes.add(new finance.network.FuturesResponsePacket.MmQuoteRow(id, HUGE, HUGE, 0));
+            if (i % 2 == 0) quotes.add(new finance.network.FuturesResponsePacket.MmQuoteRow(id, many ? 1 : HUGE, many ? 2 : HUGE, 0));
         }
         return new finance.network.FuturesResponsePacket(1, HUGE, HUGE, HUGE, HUGE, HUGE, HUGE, finance.futures.MarginRiskStatus.NORMAL,
                 0, 0, contracts, positions, List.of(), List.of(), quotes, false);
@@ -226,8 +254,39 @@ class SimpleLayoutTest {
         assertTrue(problems.isEmpty(), () -> problems.size() + " 处排版问题，例如：\n" + String.join("\n", problems.subList(0, Math.min(15, problems.size()))));
     }
 
+    @Test void unlockPopupFitsThePanel() {
+        SimplePages.View base = view(HUGE, company(true, true, false), true, true);
+        List<String> lines = new ArrayList<>();
+        for (finance.simple.SimpleUnlocks.Group g : finance.simple.SimpleUnlocks.Group.values()) {
+            lines.add(SimplePages.UNLOCK_PREFIX + g.label + "」：" + g.intro + LONG_NAME);
+        }
+        lines.add("收入 +" + HUGE + LONG_NAME);
+        lines.add("卖东西 " + LONG_NAME + LONG_NAME);
+        lines.add("分红 " + LONG_NAME + LONG_NAME);
+        SimplePages.View v = new SimplePages.View(base.balance(), base.todayProfit(), base.stockValue(), base.backpack(), base.market(),
+                base.transactions(), base.company(), base.stocks(), base.holdings(), base.status(), true, true, lines,
+                base.orders(), base.storedGoods(), base.futures(), base.autoOrders(), base.proposals());
+        List<UiElement> home = layout(v, SimplePages.Page.HOME, 0);
+        assertTrue(UiLayoutCheck.problems(home, FinanceGui.PANEL_WIDTH, FinanceGui.PANEL_HEIGHT).isEmpty(),
+                () -> UiLayoutCheck.problems(home, FinanceGui.PANEL_WIDTH, FinanceGui.PANEL_HEIGHT).toString());
+        assertTrue(home.stream().anyMatch(e -> "解锁了新玩法".equals(e.text())), "解锁时小结卡换成“解锁了新玩法”");
+    }
+
+    @Test void opportunityCardsJumpToTheirPage() {
+        SimplePages.State s = new SimplePages.State();
+        UiBuilder ui = new UiBuilder(TextMeasure.ESTIMATE, m -> {});
+        SimplePages.layout(ui, view(999, company(true, true, false), false, true), s, NO_OP);
+        UiElement go = ui.elements().stream().filter(e -> e.kind() == UiElement.Kind.BUTTON && "去理财".equals(e.text())).findFirst().orElseThrow();
+        go.action().run();
+        assertEquals(1, s.investTab, "“去理财”跳到投资页的理财小标签");
+        SimplePages.goTo(s, NO_OP, "STOCK:S1");
+        assertEquals("S1", s.selectedStock);
+        assertEquals(0, s.investTab);
+        assertNull(SimplePages.actionOf("NOT_AN_ACTION"), "不认识的操作不发包");
+    }
+
     @Test void clippedTextKeepsTheFullTextForTheTooltip() {
-        List<UiElement> home = layout(view(HUGE, company(true, false, false), true, true), SimplePages.Page.HOME, 0);
+        List<UiElement> home = layout(view(999, company(true, false, false), true, true), SimplePages.Page.HOME, 0);
         assertTrue(home.stream().anyMatch(e -> e.kind() == UiElement.Kind.TEXT && e.tooltip() != null && e.text().endsWith("...")),
                 "被截断的长文字要留着全文给悬停提示");
     }

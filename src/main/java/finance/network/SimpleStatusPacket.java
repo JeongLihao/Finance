@@ -1,8 +1,10 @@
 package finance.network;
 
+import finance.simple.SimpleBetService;
 import finance.simple.SimpleCenterService;
 import finance.simple.SimpleInvestService;
 import finance.simple.SimpleBossService;
+import finance.simple.SimpleOpportunityService;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.api.distmarker.Dist;
@@ -28,15 +30,26 @@ public record SimpleStatusPacket(SimpleCenterService.Status status) {
                 new SimpleStatusPacket(SimpleCenterService.status(player, summary)));
     }
 
+    /** 可用玩法名单：三个组名加九个单项名。 */
+    static final int MAX_NAMES = 16;
+
     private static void writeLines(FriendlyByteBuf buf, List<String> lines) {
-        List<String> safe = lines.subList(0, Math.min(MAX_LINES, lines.size()));
+        writeLines(buf, lines, MAX_LINES);
+    }
+
+    private static void writeLines(FriendlyByteBuf buf, List<String> lines, int max) {
+        List<String> safe = lines.subList(0, Math.min(max, lines.size()));
         buf.writeVarInt(safe.size());
         for (String line : safe) buf.writeUtf(line.length() > MAX_TEXT ? line.substring(0, MAX_TEXT) : line, MAX_TEXT);
     }
 
     private static List<String> readLines(FriendlyByteBuf buf) {
+        return readLines(buf, MAX_LINES);
+    }
+
+    private static List<String> readLines(FriendlyByteBuf buf, int max) {
         int n = buf.readVarInt();
-        if (n < 0 || n > MAX_LINES) throw new IllegalArgumentException("lines");
+        if (n < 0 || n > max) throw new IllegalArgumentException("lines");
         List<String> lines = new ArrayList<>(n);
         for (int i = 0; i < n; i++) lines.add(buf.readUtf(MAX_TEXT));
         return lines;
@@ -52,8 +65,16 @@ public record SimpleStatusPacket(SimpleCenterService.Status status) {
         buf.writeVarLong(Math.max(0, s.ipoMinValuation()));
         buf.writeVarLong(Math.max(0, s.stockUnlockBalance()));
         buf.writeUtf(s.advancedMode(), 16);
-        writeLines(buf, s.extras().subList(0, Math.min(MAX_LINES, s.extras().size())));
-        writeLines(buf, s.opportunities());
+        writeLines(buf, s.extras(), MAX_NAMES);
+        writeLines(buf, s.locked());
+        writeLines(buf, s.unlockedNow());
+        List<SimpleOpportunityService.Card> cards = s.cards().subList(0, Math.min(SimpleOpportunityService.MAX_CARDS, s.cards().size()));
+        buf.writeVarInt(cards.size());
+        for (SimpleOpportunityService.Card c : cards) {
+            buf.writeUtf(cut(c.text()), MAX_TEXT); buf.writeUtf(cut(c.button()), MAX_TEXT); buf.writeUtf(cut(c.action()), MAX_TEXT);
+            buf.writeUtf(cut(c.target()), MAX_TEXT); buf.writeVarLong(Math.max(0, c.amount())); buf.writeUtf(cut(c.goTo()), MAX_TEXT);
+            buf.writeBoolean(c.boss());
+        }
         writeLines(buf, s.weather());
         writeLines(buf, s.summary());
         List<SimpleInvestService.Product> products = s.products().subList(0, Math.min(MAX_ROWS, s.products().size()));
@@ -75,6 +96,14 @@ public record SimpleStatusPacket(SimpleCenterService.Status status) {
         buf.writeVarInt(Math.max(0, m.liquidationPct()));
         writeMap(buf, m.levered());
         writeMap(buf, m.shorts());
+        List<SimpleBetService.Bet> bets = s.bets().subList(0, Math.min(MAX_ROWS, s.bets().size()));
+        buf.writeVarInt(bets.size());
+        for (SimpleBetService.Bet bet : bets) {
+            buf.writeUtf(cut(bet.key()), MAX_TEXT); buf.writeUtf(cut(bet.name()), MAX_TEXT); buf.writeBoolean(bet.up());
+            buf.writeVarLong(Math.max(0, bet.stake())); buf.writeVarLong(Math.max(0, bet.value())); buf.writeUtf(cut(bet.note()), MAX_TEXT);
+            buf.writeBoolean(bet.tracked());
+        }
+        buf.writeVarInt(Math.max(0, s.futuresMarginBps()));
         SimpleBossService.BossInfo b = s.boss();
         buf.writeBoolean(b.publicCompany());
         buf.writeVarInt(Math.max(0, b.dividendPct()));
@@ -143,9 +172,17 @@ public record SimpleStatusPacket(SimpleCenterService.Status status) {
         int rate = buf.readVarInt(), level = buf.readVarInt();
         long cost = buf.readVarLong(), valuation = buf.readVarLong(), ipoMin = buf.readVarLong(), stockUnlock = buf.readVarLong();
         String mode = buf.readUtf(16);
-        List<String> extras = readLines(buf);
-        List<String> opportunities = readLines(buf), weather = readLines(buf), summary = readLines(buf);
-        int n = count(buf);
+        List<String> extras = readLines(buf, MAX_NAMES);
+        List<String> locked = readLines(buf), unlockedNow = readLines(buf);
+        int n = buf.readVarInt();
+        if (n < 0 || n > SimpleOpportunityService.MAX_CARDS) throw new IllegalArgumentException("cards");
+        List<SimpleOpportunityService.Card> cards = new ArrayList<>(n);
+        for (int i = 0; i < n; i++) {
+            cards.add(new SimpleOpportunityService.Card(buf.readUtf(MAX_TEXT), buf.readUtf(MAX_TEXT), buf.readUtf(MAX_TEXT),
+                    buf.readUtf(MAX_TEXT), buf.readVarLong(), buf.readUtf(MAX_TEXT), buf.readBoolean()));
+        }
+        List<String> weather = readLines(buf), summary = readLines(buf);
+        n = count(buf);
         List<SimpleInvestService.Product> products = new ArrayList<>(n);
         for (int i = 0; i < n; i++) {
             products.add(new SimpleInvestService.Product(buf.readUtf(MAX_TEXT), buf.readUtf(MAX_TEXT), buf.readUtf(MAX_TEXT),
@@ -159,6 +196,13 @@ public record SimpleStatusPacket(SimpleCenterService.Status status) {
         }
         SimpleInvestService.MarginInfo margin = new SimpleInvestService.MarginInfo(buf.readVarLong(), buf.readVarLong(),
                 buf.readVarInt(), buf.readVarInt(), readMap(buf), readMap(buf));
+        n = count(buf);
+        List<SimpleBetService.Bet> bets = new ArrayList<>(n);
+        for (int i = 0; i < n; i++) {
+            bets.add(new SimpleBetService.Bet(buf.readUtf(MAX_TEXT), buf.readUtf(MAX_TEXT), buf.readBoolean(), buf.readVarLong(),
+                    buf.readVarLong(), buf.readUtf(MAX_TEXT), buf.readBoolean()));
+        }
+        int futuresMarginBps = buf.readVarInt();
         boolean isPublic = buf.readBoolean();
         int dividend = buf.readVarInt();
         boolean wageActive = buf.readBoolean();
@@ -188,7 +232,8 @@ public record SimpleStatusPacket(SimpleCenterService.Status status) {
             vals.add(new SimpleCenterService.Valuation(buf.readUtf(MAX_TEXT), buf.readVarLong(), buf.readLong(), buf.readVarInt(), buf.readVarLong()));
         }
         return new SimpleStatusPacket(new SimpleCenterService.Status(bank, rate, level, cost, valuation, ipoMin,
-                stockUnlock, mode, extras, opportunities, weather, summary, products, holdings, margin, boss, cash, vals));
+                stockUnlock, mode, extras, locked, unlockedNow, cards, weather, summary, products, holdings, margin,
+                bets, futuresMarginBps, boss, cash, vals));
     }
 
     public static void handle(SimpleStatusPacket p, Supplier<NetworkEvent.Context> ctx) {

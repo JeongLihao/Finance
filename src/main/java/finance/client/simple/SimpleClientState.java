@@ -1,6 +1,7 @@
 package finance.client.simple;
 
 import finance.simple.SimpleCenterService;
+import finance.simple.SimpleUnlocks;
 import net.minecraft.client.Minecraft;
 
 import java.io.IOException;
@@ -30,7 +31,16 @@ public final class SimpleClientState {
 
     public static void accept(SimpleCenterService.Status s) {
         status = s;
-        if (s != null && !s.summary().isEmpty()) pendingSummary = List.copyOf(s.summary());
+        if (s == null) return;
+        // 刚解锁的玩法排在最前面，用“解锁了「”开头，首页小结卡据此换标题
+        List<String> lines = new ArrayList<>();
+        for (String id : s.unlockedNow()) {
+            SimpleUnlocks.Group g = SimpleUnlocks.Group.of(id);
+            if (g != null) lines.add("解锁了「" + g.label + "」：" + g.intro);
+        }
+        if (lines.isEmpty() && s.summary().isEmpty()) return;
+        lines.addAll(s.summary());
+        pendingSummary = List.copyOf(lines.subList(0, Math.min(6, lines.size())));
     }
 
     public static List<String> pendingSummary() { return pendingSummary; }

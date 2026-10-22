@@ -1,6 +1,7 @@
 package finance.network;
 
 import finance.simple.SimpleCenterService;
+import finance.simple.SimpleUnlocks;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.network.NetworkEvent;
@@ -31,7 +32,9 @@ public record SimpleActionPacket(Action action, String target, long amount, long
         /** 分红比例：amount = 百分比。 */
         SET_DIVIDEND,
         /** 实体现金：amount = 便士或绿宝石颗数。 */
-        CASH_DEPOSIT, CASH_WITHDRAW, EMERALD_SELL, EMERALD_BUY
+        CASH_DEPOSIT, CASH_WITHDRAW, EMERALD_SELL, EMERALD_BUY,
+        /** 押注：target = s:股票代码 或 f:商品ID，amount = 投入；结束：target = 押注 key。新动作只往后加，编码按序号。 */
+        BET_UP, BET_DOWN, BET_END
     }
 
     public SimpleActionPacket(Action action, String target, long amount) {
@@ -66,8 +69,10 @@ public record SimpleActionPacket(Action action, String target, long amount, long
             return;
         }
         String gate = gate(p.action, safe(p.target));
-        if (gate != null && !SimpleCenterService.extra(gate)) {
-            GuiFeedbackPacket.send(player, "这个玩法服务器没有开启。");
+        if (gate != null && !SimpleUnlocks.allowed(player, gate)) {
+            SimpleUnlocks.Group group = SimpleUnlocks.Group.of(gate);
+            GuiFeedbackPacket.send(player, SimpleUnlocks.disabled(gate) || group == null ? "这个玩法服务器没有开启。"
+                    : "还没解锁「" + group.label + "」：" + group.howTo + "。");
             return;
         }
         String commodity = NetworkValidation.normalizeCommodityId(p.target);
@@ -109,16 +114,34 @@ public record SimpleActionPacket(Action action, String target, long amount, long
             case SET_WAGE -> invest(finance.simple.SimpleBossService.setWage(player, Math.max(0, p.amount)));
             case SET_DIVIDEND -> invest(finance.simple.SimpleBossService.setDividend(player, p.amount));
             case CASH_DEPOSIT, CASH_WITHDRAW, EMERALD_SELL, EMERALD_BUY -> cash(player, p.action, Math.max(0, p.amount));
+            case BET_UP, BET_DOWN -> betTarget(safe(p.target)) == null ? invalid()
+                    : invest(finance.simple.SimpleBetService.open(player, betTarget(safe(p.target)), p.action == Action.BET_UP,
+                            Math.max(0, Math.min(MAX_STAKE, p.amount))));
+            case BET_END -> invest(finance.simple.SimpleBetService.close(player, safe(p.target)));
         };
         GuiFeedbackPacket.send(player, result.message(), result.moneyDelta());
     }
 
-    /** 新开仓位的进阶玩法要服务器打开对应开关；平仓、取回、还款永远可以做。 */
+    /** 一次押注最多投入 1000 万磅。 */
+    static final long MAX_STAKE = 1_000_000_000L;
+
+    /** 押注目标：s:股票代码 或 f:合法商品ID；不合法返回 null。 */
+    static String betTarget(String target) {
+        if (target.startsWith("s:") && target.length() > 2) return target;
+        if (target.startsWith("f:")) {
+            String commodity = NetworkValidation.normalizeCommodityId(target.substring(2));
+            return NetworkValidation.isValidCommodityId(commodity) ? "f:" + commodity : null;
+        }
+        return null;
+    }
+
+    /** 新开仓位的进阶玩法要解锁（或服务器直接打开）；平仓、取回、还款、结束押注永远可以做。 */
     static String gate(Action action, String target) {
         return switch (action) {
             case LOCK_SELL, LOCK_BUY -> "futures";
             case LEVER_BUY, SHORT_SELL -> "margin";
-            case BUY_PRODUCT -> target.startsWith("cbond:") ? "bonds" : target.startsWith("fund:") ? "fund" : null;
+            case BET_UP, BET_DOWN -> target.startsWith("f:") ? "futures" : "margin";
+            case BUY_PRODUCT -> target.startsWith("cbond:") ? "bonds" : target.startsWith("fund:") || "tier:growth".equals(target) ? "fund" : null;
             case PROPOSE, VOTE_YES, VOTE_NO -> "shareholder";
             case TAKEOVER, SQUEEZE -> "takeover";
             case CHARTER_BANK -> "bank";

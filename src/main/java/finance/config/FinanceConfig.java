@@ -138,7 +138,8 @@ public final class FinanceConfig {
     private static final long SIMPLE_STOCK_UNLOCK_VALUE = 3_000L;
     private static final long SIMPLE_IPO_MIN_VALUATION_VALUE = 20_000L;
     private static final String SIMPLE_ADVANCED_MODE_VALUE = "player";
-    private static final String SIMPLE_EXTRAS_VALUE = "margin";
+    private static final String SIMPLE_EXTRAS_VALUE = "";
+    private static final String SIMPLE_DISABLED_VALUE = "";
     private static final long CASH_EMERALD_TO_CASH_VALUE = 50L;
     private static final long CASH_CASH_TO_EMERALD_VALUE = 60L;
     private static final int CASH_DAILY_EMERALD_SELL_LIMIT_VALUE = 64;
@@ -315,7 +316,7 @@ public final class FinanceConfig {
     private static final ForgeConfigSpec.BooleanValue CASH_ENABLED;
     private static final ForgeConfigSpec.LongValue SIMPLE_STARTER_GRANT, SIMPLE_STOCK_UNLOCK, SIMPLE_IPO_MIN_VALUATION;
     private static final ForgeConfigSpec.ConfigValue<String> SIMPLE_ADVANCED_MODE;
-    private static final ForgeConfigSpec.ConfigValue<String> SIMPLE_EXTRAS;
+    private static final ForgeConfigSpec.ConfigValue<String> SIMPLE_EXTRAS, SIMPLE_DISABLED;
     private static final ForgeConfigSpec.ConfigValue<String> RESERVE_TARGETS;
     private static final ForgeConfigSpec.IntValue RESERVE_RESTOCK_BPS, RESERVE_FLOOR_BPS, RESERVE_FLOOR_DAILY_CAP, RESERVE_SURPLUS_DEMAND_BPS;
     private static final ForgeConfigSpec.LongValue RESERVE_TIER2_VALUE, RESERVE_TIER3_VALUE, RESERVE_PLAYER_GOODS_REFERENCE;
@@ -1180,11 +1181,13 @@ public final class FinanceConfig {
                 .defineInRange("ipoMinValuation", SIMPLE_IPO_MIN_VALUATION_VALUE, 0L, 1_000_000_000L);
         SIMPLE_ADVANCED_MODE = builder.comment("原有的全部页签（旧界面）：always = 所有人右上角都有“高级”入口；其他值 = 只有 OP 能从“管理”进入。新的四页已经包含全部玩家功能。")
                 .define("advancedMode", SIMPLE_ADVANCED_MODE_VALUE);
-        SIMPLE_EXTRAS = builder.comment("给普通玩家额外打开的进阶玩法，逗号分隔；默认只开 margin（加倍买和借股卖出，玩家能自己吹起泡沫、引发股灾）。"
-                        + "可选：futures（锁价合同）、margin（加倍买、借股卖出）、bonds（央行债券）、fund（基金）、"
-                        + "shareholder（股东提案和投票）、takeover（收购）、bank（开银行）、insurance（保险）、wage（工人工资）；all = 全部打开。"
-                        + "关掉后已有的仓位仍可以平仓和取回。")
+        SIMPLE_EXTRAS = builder.comment("进阶玩法默认按进度解锁：存过理财解锁 growth（进取理财：基金、央行债券），买过股票解锁 bet（押注：看涨看跌股票和商品），"
+                        + "公司上市解锁 boss（大老板：股东大会、收购、开银行、保险、工资）。"
+                        + "这里列出的玩法不用解锁、直接对所有人打开，逗号分隔；可以写 growth / bet / boss，也可以写单项："
+                        + "futures（商品押注）、margin（股票押注）、bonds、fund、shareholder、takeover、bank、insurance、wage；all = 全部直接打开。")
                 .define("extras", SIMPLE_EXTRAS_VALUE);
+        SIMPLE_DISABLED = builder.comment("整个服务器关掉的进阶玩法，写法同 extras；关掉的玩法解锁了也不能新开，已有的仓位仍可以结束和取回。")
+                .define("disabled", SIMPLE_DISABLED_VALUE);
         builder.pop();
 
         builder.push("reserve");
@@ -1534,10 +1537,19 @@ public final class FinanceConfig {
     public static long reservePlayerGoodsReference() { return getLong(RESERVE_PLAYER_GOODS_REFERENCE, 512L); }
     public static double reservePriceElasticity() { return getDouble(RESERVE_ELASTICITY, 0.6D); }
 
-    /** 打开的进阶玩法名（小写）；含 all 表示全部打开。 */
+    /** 不用解锁、直接打开的进阶玩法名（小写）；含 all 表示全部直接打开。 */
     public static java.util.Set<String> simpleExtras() {
+        return nameSet(getString(SIMPLE_EXTRAS, SIMPLE_EXTRAS_VALUE));
+    }
+
+    /** 整个服务器关掉的进阶玩法名（小写）；含 all 表示全部关掉。 */
+    public static java.util.Set<String> simpleDisabled() {
+        return nameSet(getString(SIMPLE_DISABLED, SIMPLE_DISABLED_VALUE));
+    }
+
+    private static java.util.Set<String> nameSet(String csv) {
         java.util.Set<String> out = new java.util.TreeSet<>();
-        for (String part : getString(SIMPLE_EXTRAS, SIMPLE_EXTRAS_VALUE).split(",")) {
+        for (String part : csv.split(",")) {
             String name = part.trim().toLowerCase(java.util.Locale.ROOT);
             if (!name.isEmpty() && name.length() <= 16) out.add(name);
         }

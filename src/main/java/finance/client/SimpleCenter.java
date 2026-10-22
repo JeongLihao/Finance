@@ -12,6 +12,7 @@ import finance.network.CreateCompanyPacket;
 import finance.network.FinancePacketHandler;
 import finance.network.SimpleActionPacket;
 import finance.network.StockTradePacket;
+import finance.simple.SimpleCenterService;
 import finance.util.MoneyFormat;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
@@ -31,7 +32,9 @@ final class SimpleCenter {
         @Override public void simple(SimpleActionPacket.Action action, String target, long amount, long price) {
             screen.setStatus("处理中……");
             FinancePacketHandler.CHANNEL.sendToServer(new SimpleActionPacket(action, target, amount, price));
-            if (action.name().contains("LOCK") || action == SimpleActionPacket.Action.WITHDRAW_MARGIN) lastFuturesRequest = 0;
+            if (action.name().contains("LOCK") || action.name().startsWith("BET_") || action == SimpleActionPacket.Action.WITHDRAW_MARGIN) {
+                lastFuturesRequest = 0;
+            }
         }
         @Override public void company(CompanyManagementAction action, long amount) {
             screen.setStatus("处理中……");
@@ -81,11 +84,13 @@ final class SimpleCenter {
                 FuturesClientCache.get().data(), menu.getConditionalStockOrders(), menu.getCompanyProposalRows());
     }
 
-    /** 锁价合同页的数据走期货查询包；在那一页时每 3 秒（或操作后马上）重新拉一次。 */
+    /** 商品押注要用合约报价，走期货查询包；看商品详情时每 3 秒（或操作后马上）重新拉一次。 */
     private long lastFuturesRequest;
 
     private void maybeRequestFutures() {
-        if (state.page != SimplePages.Page.TRADE || state.tradeTab != 2) return;
+        if (state.page != SimplePages.Page.TRADE || state.tradeTab != 0 || state.selectedCommodity == null) return;
+        SimpleCenterService.Status status = SimpleClientState.status();
+        if (status == null || !status.extras().contains("futures")) return;
         long now = System.currentTimeMillis();
         if (now - lastFuturesRequest < 3_000) return;
         lastFuturesRequest = now;
@@ -129,7 +134,7 @@ final class SimpleCenter {
         }
         if (state.page == SimplePages.Page.INVEST) {
             if (state.investTab == 1) state.productScroll += step;
-            else state.investScroll += step;
+            else if (state.investTab == 0) state.investScroll += step;
             return true;
         }
         return false;
