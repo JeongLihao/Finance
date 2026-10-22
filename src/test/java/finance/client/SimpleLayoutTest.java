@@ -78,7 +78,10 @@ class SimpleLayoutTest {
                         Map.of("S0", HUGE, "S1", HUGE), Map.of("S0", HUGE)),
                 bets(manyRows), 1_000,
                 boss(manyRows), new finance.network.PlayerServicesResponsePacket.Cash(true, HUGE, HUGE, HUGE, HUGE, HUGE, HUGE, HUGE, HUGE, HUGE),
-                List.of(new SimpleCenterService.Valuation("S0", HUGE, -HUGE, 120, HUGE), new SimpleCenterService.Valuation("S1", HUGE, HUGE, 40, 1))) : null;
+                List.of(new SimpleCenterService.Valuation("S0", HUGE, -HUGE, 120, HUGE), new SimpleCenterService.Valuation("S1", HUGE, HUGE, 40, 1)),
+                manyRows ? List.of(HUGE, 0L, HUGE / 2, HUGE, 1L, HUGE, 0L, HUGE) : List.of(),
+                manyRows ? List.of("1. " + LONG_NAME + "  " + HUGE, "2. " + LONG_NAME + "  " + HUGE + "（你）", "3. x", "4. y", "5. z") : List.of(),
+                manyRows ? "战绩：99999 笔，赚了 99999 笔，累计 +" + HUGE + "，最赚一笔 +" + HUGE + "，最亏一笔 -" + HUGE : "") : null;
         List<String> summary = balance == HUGE ? List.of("收入 +" + HUGE + LONG_NAME, "卖东西 " + LONG_NAME, "分红 " + LONG_NAME,
                 "其他收入 " + LONG_NAME) : List.of();
         List<FinanceMenu.OrderRow> orders = new ArrayList<>();
@@ -196,7 +199,13 @@ class SimpleLayoutTest {
     }
 
     static List<UiElement> layout(SimplePages.View v, SimplePages.Page page, int scroll, int subTab) {
+        return layout(v, page, scroll, subTab, false);
+    }
+
+    static List<UiElement> layout(SimplePages.View v, SimplePages.Page page, int scroll, int subTab, boolean shift) {
         SimplePages.State s = new SimplePages.State();
+        s.shift = shift;
+        s.favorites = java.util.Set.of("commodity_with_a_long_id_3");
         s.page = page;
         s.homeTab = subTab;
         s.tradeTab = subTab;
@@ -217,8 +226,10 @@ class SimpleLayoutTest {
             for (SimplePages.Page page : SimplePages.Page.values()) {
                 for (int scroll : new int[]{0, 5, 999}) {
                     for (int sub = 0; sub < 4; sub++) {
-                        for (String p : UiLayoutCheck.problems(layout(v, page, scroll, sub), FinanceGui.PANEL_WIDTH, FinanceGui.PANEL_HEIGHT)) {
-                            problems.add(page + "/" + sub + ": " + p);
+                        for (boolean shift : new boolean[]{false, true}) {
+                            for (String p : UiLayoutCheck.problems(layout(v, page, scroll, sub, shift), FinanceGui.PANEL_WIDTH, FinanceGui.PANEL_HEIGHT)) {
+                                problems.add(page + "/" + sub + (shift ? "/shift" : "") + ": " + p);
+                            }
                         }
                     }
                 }
@@ -283,6 +294,62 @@ class SimpleLayoutTest {
         assertEquals("S1", s.selectedStock);
         assertEquals(0, s.investTab);
         assertNull(SimplePages.actionOf("NOT_AN_ACTION"), "不认识的操作不发包");
+    }
+
+    @Test void searchFiltersAndFavoritesComeFirst() {
+        SimplePages.View v = view(999, null, true, true);
+        SimplePages.State s = new SimplePages.State();
+        s.favorites = java.util.Set.of("commodity_with_a_long_id_7");
+        assertEquals("commodity_with_a_long_id_7", SimplePages.tradeRows(v, s).get(0).commodityId(), "收藏的排最前面");
+        s.search = "ID_12";
+        List<FinanceMenu.MarketRow> found = SimplePages.tradeRows(v, s);
+        assertEquals(1, found.size(), "搜索不分大小写");
+        assertEquals("commodity_with_a_long_id_12", found.get(0).commodityId());
+        s.search = "nothing-like-this";
+        assertTrue(SimplePages.tradeRows(v, s).isEmpty());
+        UiBuilder ui = new UiBuilder(TextMeasure.ESTIMATE, m -> {});
+        s.page = SimplePages.Page.TRADE;
+        SimplePages.layout(ui, v, s, NO_OP);
+        assertTrue(ui.elements().stream().anyMatch(e -> e.kind() == UiElement.Kind.INPUT && "search".equals(e.key())), "列表下面有搜索框");
+    }
+
+    @Test void bigActionsNeedASecondClick() {
+        SimplePages.State s = new SimplePages.State();
+        int[] runs = {0};
+        String[] status = {null};
+        SimplePages.Actions a = new SimplePages.Actions() {
+            @Override public void simple(SimpleActionPacket.Action action, String target, long amount, long price) {}
+            @Override public void company(CompanyManagementAction action, long amount) {}
+            @Override public void createCompany(CompanyType type) {}
+            @Override public void stock(boolean buy, String symbol, int quantity) {}
+            @Override public void status(String message) { status[0] = message; }
+            @Override public void show(SimplePages.Page page) {}
+            @Override public void setWantsAdvanced(boolean on) {}
+            @Override public void dismissSummary() {}
+        };
+        UiBuilder.Btn small = SimplePages.confirm(s, a, "k", "全卖", () -> runs[0]++, null, false);
+        small.action().run();
+        assertEquals(1, runs[0], "小额直接执行");
+        UiBuilder.Btn first = SimplePages.confirm(s, a, "k", "全卖", () -> runs[0]++, null, true);
+        assertEquals("全卖", first.label());
+        first.action().run();
+        assertEquals(1, runs[0], "大额第一次只是待确认");
+        assertNotNull(status[0]);
+        UiBuilder.Btn second = SimplePages.confirm(s, a, "k", "全卖", () -> runs[0]++, null, true);
+        assertEquals("确认", second.label());
+        second.action().run();
+        assertEquals(2, runs[0], "再点一次才执行");
+        assertEquals("全卖", SimplePages.confirm(s, a, "k", "全卖", () -> runs[0]++, null, true).label(), "执行后恢复原样");
+        assertEquals("背包里没有", SimplePages.confirm(s, a, "k", "全卖", () -> runs[0]++, "背包里没有", true).blocked());
+    }
+
+    @Test void shiftMultipliesQuantitiesByTen() {
+        SimplePages.View v = view(HUGE / 1000, null, false, true);
+        List<UiElement> normal = layout(v, SimplePages.Page.TRADE, 0, 0, false);
+        List<UiElement> shifted = layout(v, SimplePages.Page.TRADE, 0, 0, true);
+        assertTrue(normal.stream().anyMatch(e -> "买1组".equals(e.text())));
+        assertTrue(shifted.stream().anyMatch(e -> "买10组".equals(e.text())), "按住 Shift 变成 ×10");
+        assertTrue(shifted.stream().anyMatch(e -> "卖10组".equals(e.text())));
     }
 
     @Test void clippedTextKeepsTheFullTextForTheTooltip() {

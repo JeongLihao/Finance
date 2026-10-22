@@ -54,6 +54,13 @@ final class SimplePages {
         int homeTab, tradeTab, investTab, companyTab, productScroll;
         /** 押注投入多少钱（便士）。 */
         long betStake = 1_000;
+        /** 买卖列表的搜索词；收藏的商品（排最前面）；是否按住 Shift（数量 ×10）。由 SimpleCenter 每帧填。 */
+        String search = "";
+        java.util.Set<String> favorites = java.util.Set.of();
+        boolean shift;
+        /** 大额操作的二次确认：第一次点击记下按钮和时间，3 秒内再点才执行。 */
+        String armed;
+        long armedAt;
         /** 投资页：正在看详情的股票（null 表示看列表）；理财买入金额。 */
         String selectedStock;
         /** 买卖页：正在看详情的商品（null 表示看列表）；详情图显示 K 线还是走势线。 */
@@ -81,6 +88,9 @@ final class SimplePages {
         void show(Page page);
         void setWantsAdvanced(boolean on);
         void dismissSummary();
+
+        /** 收藏或取消收藏一种商品（存在本机）。 */
+        default void toggleFavorite(String commodityId) { }
 
         default void leverRepay() { simple(SimpleActionPacket.Action.LEVER_REPAY, "", 0, 0); }
 
@@ -149,12 +159,29 @@ final class SimplePages {
             summary(ui, v, a);
             return;
         }
-        int y = subTabs(ui, TOP, List.of("今天", "经济天气", "全部记录"), s.homeTab, i -> s.homeTab = i);
+        int y = subTabs(ui, TOP, List.of("今天", "经济天气", "全部记录", "排行榜"), s.homeTab, i -> s.homeTab = i);
         switch (s.homeTab) {
             case 1 -> weather(ui, v, y);
             case 2 -> records(ui, v, s, y);
+            case 3 -> ranks(ui, v, y);
             default -> today(ui, v, s, a, y);
         }
+    }
+
+    /** 全服身家排行前 5 名。 */
+    static void ranks(UiBuilder ui, View v, int y) {
+        List<String> lines = v.status() == null ? List.of() : v.status().ranks();
+        y += 2;
+        ui.text(LEFT + PAD, y, WIDTH - 2 * PAD, "身家 = 钱包 + 存款 + 理财 + 股票 + 押注现值", DIM);
+        y += 16;
+        if (lines.isEmpty()) ui.text(LEFT + PAD, y, WIDTH, v.status() == null ? "正在读取……" : "还没有人上榜。", DIM);
+        for (int i = 0; i < lines.size(); i++) {
+            String line = lines.get(i);
+            boolean me = line.endsWith("（你）");
+            ui.text(LEFT + PAD, y, WIDTH - 2 * PAD, line, i == 0 ? FinanceGui.COL_WARN : me ? FinanceGui.COL_GOOD : TEXT);
+            y += ROW;
+        }
+        ui.wrapped(LEFT + PAD, Math.max(y + 4, BOTTOM - 22), WIDTH - 2 * PAD, "每分钟更新一次；每 7 个游戏日在聊天栏播报一次周榜和本周涨得最多的人。", DIM, 2);
     }
 
     /** 解锁新玩法时弹出的介绍以这个开头（见 SimpleClientState.accept）。 */
@@ -223,10 +250,19 @@ final class SimplePages {
         ui.text(LEFT + PAD, y + 4, 60, "钱包", DIM);
         ui.bigText(LEFT + PAD, y + 16, rightX - LEFT - PAD - 8, MoneyFormat.pounds(v.balance()), TEXT, 2.0F);
         int colW = RIGHT - PAD - rightX;
-        ui.text(rightX, y + 5, colW, "今天 " + MoneyFormat.signed(v.todayProfit()), FinanceGui.changeColor(v.todayProfit()));
-        ui.text(rightX, y + 17, colW, "银行 " + MoneyFormat.compact(st == null ? 0 : st.bankBalance())
-                + "  股票 " + MoneyFormat.compact(v.stockValue()), DIM);
-        if (ownsCompany(v)) ui.text(rightX, y + 29, colW, "公司估值 " + MoneyFormat.compact(valuation(v)), DIM);
+        List<Long> worth = st == null ? List.of() : st.worth();
+        if (worth.size() >= 2) {
+            // 身家走势：最近几天每天一个点，最后一个是现在
+            long change = worth.get(worth.size() - 1) - worth.get(0);
+            int tw = ui.text(rightX, y + 4, colW / 2, "今天 " + MoneyFormat.signed(v.todayProfit()), FinanceGui.changeColor(v.todayProfit()));
+            ui.textRight(RIGHT - PAD, y + 4, colW - tw - 6, (worth.size() - 1) + " 天 " + MoneyFormat.signed(change), FinanceGui.changeColor(change));
+            ui.chart(rightX, y + 15, colW, 23, worth, FinanceGui.changeColor(change));
+        } else {
+            ui.text(rightX, y + 5, colW, "今天 " + MoneyFormat.signed(v.todayProfit()), FinanceGui.changeColor(v.todayProfit()));
+            ui.text(rightX, y + 17, colW, "银行 " + MoneyFormat.compact(st == null ? 0 : st.bankBalance())
+                    + "  股票 " + MoneyFormat.compact(v.stockValue()), DIM);
+            if (ownsCompany(v)) ui.text(rightX, y + 29, colW, "公司估值 " + MoneyFormat.compact(valuation(v)), DIM);
+        }
 
         y += 46;
         ui.card(LEFT, y, WIDTH, 38, CARD, CARD_BORDER);
@@ -258,7 +294,10 @@ final class SimplePages {
                 SimpleActionPacket.Action action = actionOf(card.action());
                 if (action != null) a.simple(action, card.target(), card.amount(), 0);
             };
-            textRight = ui.buttonRight(RIGHT - 2, y, card.button(), run, null) - 6;
+            // 收购、买下剩余股份、开银行一下子花很多钱，要点两次
+            boolean big = List.of("TAKEOVER", "SQUEEZE", "CHARTER_BANK").contains(card.action());
+            Btn b = confirm(s, a, "card:" + card.action() + ":" + card.target(), card.button(), run, null, big);
+            textRight = ui.buttonRight(RIGHT - 2, y, b.label(), b.action(), b.blocked()) - 6;
         }
         ui.text(LEFT + PAD, y + 3, textRight - LEFT - PAD, "· " + card.text(), TEXT);
     }
@@ -364,6 +403,18 @@ final class SimplePages {
         return rows;
     }
 
+    /** 买卖列表：按搜索词过滤（名字或 ID 包含就算），收藏的排最前面。 */
+    static List<FinanceMenu.MarketRow> tradeRows(View v, State s) {
+        String q = s.search == null ? "" : s.search.trim().toLowerCase(java.util.Locale.ROOT);
+        List<FinanceMenu.MarketRow> out = new ArrayList<>();
+        for (FinanceMenu.MarketRow row : tradeRows(v)) {
+            if (q.isEmpty() || row.commodityId().toLowerCase(java.util.Locale.ROOT).contains(q)
+                    || FinanceFormat.commodityDisplayName(row.commodityId()).toLowerCase(java.util.Locale.ROOT).contains(q)) out.add(row);
+        }
+        out.sort(Comparator.comparing(r -> !s.favorites.contains(r.commodityId())));
+        return out;
+    }
+
     static void tradePage(UiBuilder ui, View v, State s, Actions a) {
         List<String> labels = List.of("马上买卖", "挂单");
         if (s.tradeTab >= labels.size()) s.tradeTab = 0;
@@ -467,7 +518,31 @@ final class SimplePages {
         }
     }
 
-    // ---------------------------------------------------------------- 锁价合同
+    // ---------------------------------------------------------------- 大额确认、Shift ×10
+
+    /** 超过 50 磅的操作要点两次。 */
+    static final long BIG = 5_000;
+    static final long CONFIRM_MS = 3_000;
+
+    /**
+     * 大额操作的按钮：第一次点只把按钮变成“确认”并在状态栏说明，3 秒内再点才执行；
+     * 不大的、被挡住的按钮原样返回。“确认”和原来的字一样宽或更窄，列表里不会挤乱。
+     */
+    static Btn confirm(State s, Actions a, String key, String label, Runnable action, String blocked, boolean big) {
+        if (blocked != null || !big) return new Btn(label, action, blocked);
+        boolean armed = key.equals(s.armed) && System.currentTimeMillis() - s.armedAt < CONFIRM_MS;
+        if (armed) return new Btn("确认", () -> { s.armed = null; action.run(); }, null);
+        return new Btn(label, () -> {
+            s.armed = key;
+            s.armedAt = System.currentTimeMillis();
+            a.status("「" + label + "」金额较大，3 秒内再点一次“确认”才会执行。");
+        }, null);
+    }
+
+    /** 按住 Shift 时数量 ×10。 */
+    static int mult(State s) {
+        return s.shift ? 10 : 1;
+    }
 
     // ---------------------------------------------------------------- 押注（股票详情、商品详情共用）
 
@@ -476,10 +551,12 @@ final class SimplePages {
     /** 押注一行：投入金额 + 三个金额小按钮 + 看涨 / 看跌。返回占用高度。 */
     static int betRow(UiBuilder ui, View v, State s, Actions a, int y, String target, String blocked) {
         String poor = v.balance() < s.betStake ? "钱包不到 " + MoneyFormat.pounds(s.betStake) : null;
-        String upBlock = blocked != null ? blocked : poor, downBlock = blocked != null ? blocked : poor;
+        String block = blocked != null ? blocked : poor;
+        long stake = s.betStake;
+        boolean big = stake >= BIG;
         int rx = ui.buttonsRight(RIGHT - 2, y, 2, List.of(
-                new Btn("看涨", () -> a.simple(SimpleActionPacket.Action.BET_UP, target, s.betStake, 0), upBlock),
-                new Btn("看跌", () -> a.simple(SimpleActionPacket.Action.BET_DOWN, target, s.betStake, 0), downBlock)));
+                confirm(s, a, "bet-up:" + target, "看涨", () -> a.simple(SimpleActionPacket.Action.BET_UP, target, stake, 0), block, big),
+                confirm(s, a, "bet-down:" + target, "看跌", () -> a.simple(SimpleActionPacket.Action.BET_DOWN, target, stake, 0), block, big)));
         int lx = LEFT + 2 + ui.text(LEFT + 2, y + 3, 30, "押注", DIM) + 6;
         lx += ui.text(lx, y + 3, 70, "投入 " + MoneyFormat.compact(s.betStake), TEXT) + 6;
         List<Btn> chips = new ArrayList<>();
@@ -518,33 +595,40 @@ final class SimplePages {
     }
 
     static void trade(UiBuilder ui, View v, State s, Actions a, int top) {
-        // 列从右往左按按钮实际宽度排，左边剩下的给商品名
+        // 列从右往左按按钮实际宽度排，左边剩下的给商品名；按住 Shift 时数量 ×10
+        int m = mult(s);
+        String sellLabel = m == 1 ? "卖1组" : "卖10组", buyOne = m == 1 ? "买1" : "买10", buyStack = m == 1 ? "买1组" : "买10组";
         int gap = 2;
-        int buyStart = ui.buttonsRightStart(RIGHT, gap, List.of("买1", "买1组"));
+        int buyStart = ui.buttonsRightStart(RIGHT, gap, List.of(buyOne, buyStack));
         int askX = buyStart - 6 - 50;
-        int sellStart = ui.buttonsRightStart(askX - 6, gap, List.of("卖1组", "全卖"));
+        int sellStart = ui.buttonsRightStart(askX - 6, gap, List.of(sellLabel, "全卖"));
         int bidX = sellStart - 6 - 50;
         int haveX = bidX - 4 - 34;
-        int nameX = LEFT + 16;
+        int nameX = LEFT + 26;
 
         int y = top;
-        ui.text(nameX, y, haveX - nameX - 4, "东西（点名字看走势）", DIM);
+        ui.text(nameX, y, haveX - nameX - 4, "东西（点名字看走势，☆ 收藏）", DIM);
         ui.text(haveX, y, 34, "背包", DIM);
         ui.text(bidX, y, 50, "你卖得", DIM);
         ui.text(askX, y, 50, "你买付", DIM);
         ui.fill(LEFT, y + 11, WIDTH, 1, FinanceGui.COL_PANEL_BORDER);
 
-        List<FinanceMenu.MarketRow> rows = tradeRows(v);
+        List<FinanceMenu.MarketRow> rows = tradeRows(v, s);
         s.tradeScroll = clamp(s.tradeScroll, 0, Math.max(0, rows.size() - TRADE_ROWS));
         y += 15;
-        if (rows.isEmpty()) ui.text(nameX, y + 2, WIDTH - nameX, "市场里还没有货。去挖点东西卖给市场吧。", DIM);
+        if (rows.isEmpty()) {
+            ui.text(nameX, y + 2, WIDTH - nameX, s.search.isBlank() ? "市场里还没有货。去挖点东西卖给市场吧。" : "没有找到“" + s.search.trim() + "”。", DIM);
+        }
         for (int i = s.tradeScroll; i < Math.min(rows.size(), s.tradeScroll + TRADE_ROWS); i++) {
             FinanceMenu.MarketRow row = rows.get(i);
             String id = row.commodityId();
             String name = FinanceFormat.commodityDisplayName(id);
             int have = v.backpack().getOrDefault(id, 0);
             if ((i - s.tradeScroll) % 2 == 0) ui.fill(LEFT, y - 1, WIDTH, ROW - 1, CARD);
-            ui.icon(LEFT + 2, y + 1, id);
+            boolean fav = s.favorites.contains(id);
+            int sw = ui.text(LEFT + 2, y + 2, 10, fav ? "★" : "☆", fav ? FinanceGui.COL_WARN : DIM);
+            ui.hotspot(LEFT, y - 1, Math.max(sw, 8) + 3, ROW - 1, () -> a.toggleFavorite(id));
+            ui.icon(LEFT + 12, y + 1, id);
             int nw = ui.text(nameX, y + 2, haveX - nameX - 4, name, FinanceGui.COL_ACCENT);
             ui.hotspot(nameX, y - 1, Math.max(nw, 20), ROW - 1, () -> s.selectedCommodity = id);
             ui.text(haveX, y + 2, 34, have > 0 ? Integer.toString(have) : "-", have > 0 ? TEXT : DIM);
@@ -552,23 +636,29 @@ final class SimplePages {
             int color = FinanceGui.changeColor(row.dayChange());
             ui.text(bidX, y + 2, 50, MoneyFormat.compact(row.bidPrice()) + arrow, color);
             String noItem = have > 0 ? null : "背包里没有" + name;
+            int sellQty = Math.min(64 * m, have);
             ui.buttonsRight(askX - 6, y, gap, List.of(
-                    new Btn("卖1组", () -> a.simple(SimpleActionPacket.Action.QUICK_SELL, id, Math.min(64, have)), noItem),
-                    new Btn("全卖", () -> a.simple(SimpleActionPacket.Action.QUICK_SELL, id, have), noItem)));
+                    new Btn(sellLabel, () -> a.simple(SimpleActionPacket.Action.QUICK_SELL, id, sellQty), noItem),
+                    confirm(s, a, "sellall:" + id, "全卖", () -> a.simple(SimpleActionPacket.Action.QUICK_SELL, id, have), noItem,
+                            (long) have * row.bidPrice() >= BIG)));
             ui.text(askX, y + 2, 50, MoneyFormat.compact(row.askPrice()) + arrow, color);
             String poor = v.balance() < row.askPrice() ? "钱不够，一个要 " + MoneyFormat.pounds(row.askPrice()) : null;
             ui.buttonsRight(RIGHT, y, gap, List.of(
-                    new Btn("买1", () -> a.simple(SimpleActionPacket.Action.QUICK_BUY, id, 1), poor),
-                    new Btn("买1组", () -> a.simple(SimpleActionPacket.Action.QUICK_BUY, id, 64), poor)));
+                    new Btn(buyOne, () -> a.simple(SimpleActionPacket.Action.QUICK_BUY, id, m), poor),
+                    confirm(s, a, "buystack:" + id, buyStack, () -> a.simple(SimpleActionPacket.Action.QUICK_BUY, id, 64 * m), poor,
+                            64L * m * row.askPrice() >= BIG)));
             y += ROW;
         }
-        int footY = BOTTOM - 10;
+        // 最下面一行：搜索框、翻页、Shift 提示
+        int footY = BOTTOM - 14;
+        int lx = LEFT + 2 + ui.text(LEFT + 2, footY + 4, 30, "搜索", DIM) + 4;
+        ui.input("search", lx, footY, 100);
         int pagerX = RIGHT;
         if (rows.size() > TRADE_ROWS) {
-            pagerX = ui.textRight(RIGHT, footY, 120, "滚轮翻页 " + (s.tradeScroll + 1) + "-"
+            pagerX = ui.textRight(RIGHT, footY + 4, 120, "滚轮翻页 " + (s.tradeScroll + 1) + "-"
                     + Math.min(rows.size(), s.tradeScroll + TRADE_ROWS) + " / " + rows.size(), DIM) - 8;
         }
-        ui.text(LEFT + 2, footY, pagerX - LEFT - 2, "直接卖背包里的东西，买的东西直接进背包。", DIM);
+        ui.text(lx + 108, footY + 4, pagerX - lx - 108, m == 1 ? "按住 Shift：数量 ×10" : "Shift：数量 ×10", DIM);
     }
 
     // ================================================================ 我的公司
@@ -861,7 +951,9 @@ final class SimplePages {
     static void stockList(UiBuilder ui, View v, State s, Actions a, int y) {
         boolean locked = stocksLocked(v);
         int gap = 2;
-        int buttonsX = ui.buttonsRightStart(RIGHT, gap, List.of("买10股", "全卖"));
+        int lot = 10 * mult(s);
+        String buyLabel = "买" + lot + "股";
+        int buttonsX = ui.buttonsRightStart(RIGHT, gap, List.of(buyLabel, "全卖"));
         int holdX = buttonsX - 6 - 56;
         int divX = holdX - 6 - 60;
         int priceX = divX - 6 - 48;
@@ -887,12 +979,13 @@ final class SimplePages {
             ui.text(priceX, y + 2, 48, MoneyFormat.compact(row.lastPrice()) + arrow, row.mmHalted() ? FinanceGui.COL_BAD : FinanceGui.changeColor(row.dayChange()));
             ui.text(divX, y + 2, 60, MoneyFormat.compact(row.expectedDividendPerShare() * 100), TEXT);
             ui.text(holdX, y + 2, 56, have > 0 ? have + " 股" : "-", have > 0 ? TEXT : DIM);
+            long cost = row.lastPrice() * lot;
             String buyBlock = row.mmHalted() ? HALTED : locked ? "钱包满 " + MoneyFormat.pounds(unlock(v)) + " 后解锁"
-                    : v.balance() < row.lastPrice() * 10 ? "钱不够，10 股约 " + MoneyFormat.pounds(row.lastPrice() * 10) : null;
+                    : v.balance() < cost ? "钱不够，" + lot + " 股约 " + MoneyFormat.pounds(cost) : null;
             ui.buttonsRight(RIGHT, y, gap, List.of(
-                    new Btn("买10股", () -> a.stock(true, symbol, 10), buyBlock),
-                    new Btn("全卖", () -> a.stock(false, symbol, (int) Math.min(Integer.MAX_VALUE, have)),
-                            have > 0 ? null : "你没有这只股票")));
+                    confirm(s, a, "stockbuy:" + symbol, buyLabel, () -> a.stock(true, symbol, lot), buyBlock, cost >= BIG),
+                    confirm(s, a, "stocksell:" + symbol, "全卖", () -> a.stock(false, symbol, (int) Math.min(Integer.MAX_VALUE, have)),
+                            have > 0 ? null : "你没有这只股票", have * row.lastPrice() >= BIG)));
             y += ROW;
         }
         if (s.investScroll + INVEST_ROWS < stocks.size()) ui.textRight(RIGHT, BOTTOM - 40, 100, "滚轮看更多", DIM);
@@ -930,13 +1023,17 @@ final class SimplePages {
         // 买卖
         boolean locked = stocksLocked(v);
         String lockReason = row.mmHalted() ? HALTED : locked ? "钱包满 " + MoneyFormat.pounds(unlock(v)) + " 后解锁" : null;
+        // 按钮上写明大约花多少钱；按住 Shift 股数 ×10
+        int small = 10 * mult(s), large = 100 * mult(s);
+        long smallCost = price * small, largeCost = price * large;
         int lx = LEFT + 2 + ui.text(LEFT + 2, y + 3, 40, "买卖", DIM) + 8;
-        ui.buttonFlow(lx, y, RIGHT - lx, 3, List.of(
-                new Btn("买10股", () -> a.stock(true, symbol, 10), lockReason != null ? lockReason : v.balance() < price * 10 ? "钱不够" : null),
-                new Btn("买100股", () -> a.stock(true, symbol, 100), lockReason != null ? lockReason : v.balance() < price * 100 ? "钱不够" : null),
-                new Btn("全卖", () -> a.stock(false, symbol, (int) Math.min(Integer.MAX_VALUE, have)),
-                        row.mmHalted() ? HALTED : have > 0 ? null : "你没有这只股票")));
-        y += 17;
+        y += ui.buttonFlow(lx, y, RIGHT - lx, 3, List.of(
+                confirm(s, a, "stockbuy:" + symbol, "买" + small + "股≈" + MoneyFormat.compact(smallCost), () -> a.stock(true, symbol, small),
+                        lockReason != null ? lockReason : v.balance() < smallCost ? "钱不够" : null, smallCost >= BIG),
+                confirm(s, a, "stockbuy100:" + symbol, "买" + large + "股≈" + MoneyFormat.compact(largeCost), () -> a.stock(true, symbol, large),
+                        lockReason != null ? lockReason : v.balance() < largeCost ? "钱不够" : null, largeCost >= BIG),
+                confirm(s, a, "stocksell:" + symbol, "全卖", () -> a.stock(false, symbol, (int) Math.min(Integer.MAX_VALUE, have)),
+                        row.mmHalted() ? HALTED : have > 0 ? null : "你没有这只股票", have * price >= BIG))) + 4;
 
         // 自动卖出
         long up = price + Math.max(1, price / 10), down = Math.max(1, price - Math.max(1, price / 10));
@@ -1011,19 +1108,27 @@ final class SimplePages {
                 + "  成交 " + row.dayVolume() + " 个", DIM);
         y += 14;
 
+        // 按住 Shift 数量 ×10；左边的价格后面写一组多少钱
+        int m = mult(s);
         String noItem = have > 0 ? null : "背包里没有" + name;
-        int lx = LEFT + 2 + ui.text(LEFT + 2, y + 3, 150, "你卖得 " + MoneyFormat.compact(row.bidPrice()) + "/个", TEXT) + 8;
+        int sellQty = Math.min(64 * m, have);
+        int lx = LEFT + 2 + ui.text(LEFT + 2, y + 3, 160, "你卖得 " + MoneyFormat.compact(row.bidPrice()) + "/个，一组 "
+                + MoneyFormat.compact(row.bidPrice() * 64), TEXT) + 8;
         ui.buttonFlow(lx, y, RIGHT - lx, 3, List.of(
-                new Btn("卖1组", () -> a.simple(SimpleActionPacket.Action.QUICK_SELL, id, Math.min(64, have)), noItem),
-                new Btn("全卖（" + have + "）", () -> a.simple(SimpleActionPacket.Action.QUICK_SELL, id, have), noItem)));
+                new Btn(m == 1 ? "卖1组" : "卖10组", () -> a.simple(SimpleActionPacket.Action.QUICK_SELL, id, sellQty), noItem),
+                confirm(s, a, "sellall:" + id, "全卖（" + have + "）", () -> a.simple(SimpleActionPacket.Action.QUICK_SELL, id, have), noItem,
+                        (long) have * row.bidPrice() >= BIG)));
         y += 17;
         String poor = v.balance() < row.askPrice() ? "钱不够，一个要 " + MoneyFormat.pounds(row.askPrice()) : null;
         String empty = row.marketStock() <= 0 ? "市场上没货了，等别人卖或央行补货" : null;
-        lx = LEFT + 2 + ui.text(LEFT + 2, y + 3, 150, "你买付 " + MoneyFormat.compact(row.askPrice()) + "/个", TEXT) + 8;
+        String block = empty != null ? empty : poor;
+        lx = LEFT + 2 + ui.text(LEFT + 2, y + 3, 160, "你买付 " + MoneyFormat.compact(row.askPrice()) + "/个，一组 "
+                + MoneyFormat.compact(row.askPrice() * 64), TEXT) + 8;
         ui.buttonFlow(lx, y, RIGHT - lx, 3, List.of(
-                new Btn("买1", () -> a.simple(SimpleActionPacket.Action.QUICK_BUY, id, 1), empty != null ? empty : poor),
-                new Btn("买16", () -> a.simple(SimpleActionPacket.Action.QUICK_BUY, id, 16), empty != null ? empty : poor),
-                new Btn("买1组", () -> a.simple(SimpleActionPacket.Action.QUICK_BUY, id, 64), empty != null ? empty : poor)));
+                new Btn("买" + m, () -> a.simple(SimpleActionPacket.Action.QUICK_BUY, id, m), block),
+                new Btn("买" + 16 * m, () -> a.simple(SimpleActionPacket.Action.QUICK_BUY, id, 16 * m), block),
+                confirm(s, a, "buystack:" + id, m == 1 ? "买1组" : "买10组", () -> a.simple(SimpleActionPacket.Action.QUICK_BUY, id, 64 * m),
+                        block, 64L * m * row.askPrice() >= BIG)));
         y += 19;
         if (bet) {
             var contract = betContract(v, id);
@@ -1141,6 +1246,8 @@ final class SimplePages {
         if (bets.isEmpty()) {
             ui.wrapped(LEFT + PAD, y + 2, WIDTH - 2 * PAD, "还没有押注。在股票详情（投资 → 点公司名字）或商品详情（买卖 → 点东西名字）里选好投入，"
                     + "点「看涨」或「看跌」就开始。押对了赚翻倍，押错会亏，亏太多会被强制结束。", DIM, 4);
+            String stats = v.status() == null ? "" : v.status().betStats();
+            if (!stats.isEmpty()) ui.text(LEFT + PAD, BOTTOM - 11, WIDTH - 2 * PAD, stats, TEXT);
             return;
         }
         int rowH = 26;
@@ -1160,13 +1267,15 @@ final class SimplePages {
             y += rowH;
         }
         if (shown < bets.size()) ui.text(LEFT + PAD, y + 4, WIDTH - PAD, "还有 " + (bets.size() - shown) + " 笔，先结束几笔再看。", DIM);
-        int fy = BOTTOM - footer + 4;
+        int fy = BOTTOM - footer + 2;
         boolean stockBets = bets.stream().anyMatch(b -> b.key().startsWith("s:"));
         String line = stockBets && m.safetyPct() >= 0
                 ? "股票押注安全度 " + m.safetyPct() + "%：低于 " + m.liquidationPct() + "% 会被强制结束。结束后押金自动退回钱包。"
                 : "结束后押金自动退回钱包；商品押注到期自动结算。";
-        ui.wrapped(LEFT + 2, fy, WIDTH - 4, line,
-                stockBets && m.safetyPct() >= 0 && m.safetyPct() < m.liquidationPct() + 20 ? FinanceGui.COL_BAD : DIM, 2);
+        ui.text(LEFT + 2, fy, WIDTH - 4, line,
+                stockBets && m.safetyPct() >= 0 && m.safetyPct() < m.liquidationPct() + 20 ? FinanceGui.COL_BAD : DIM);
+        String stats = v.status() == null ? "" : v.status().betStats();
+        ui.text(LEFT + 2, fy + UiBuilder.LINE, WIDTH - 4, stats.isEmpty() ? "被强制结束、到期结算时会在聊天栏提醒你，离线时上线补发。" : stats, DIM);
     }
 
     // ================================================================ 小工具

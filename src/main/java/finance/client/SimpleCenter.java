@@ -54,6 +54,10 @@ final class SimpleCenter {
                     buy ? StockTradePacket.ActionType.BUY : StockTradePacket.ActionType.SELL, symbol, quantity));
         }
         @Override public void status(String message) { screen.setStatus(message); }
+        @Override public void toggleFavorite(String commodityId) {
+            SimpleClientState.toggleFavorite(commodityId);
+            screen.setStatus(SimpleClientState.favorites().contains(commodityId) ? "已收藏，排在列表最前面。" : "已取消收藏。");
+        }
         @Override public void show(SimplePages.Page page) { SimpleCenter.this.show(page); }
         @Override public void dismissSummary() { SimpleClientState.dismissSummary(); }
         @Override public void setWantsAdvanced(boolean on) {
@@ -64,9 +68,25 @@ final class SimpleCenter {
 
     SimpleCenter(FinanceScreen screen) {
         this.screen = screen;
+        String held = SimpleClientState.takePendingCommodity();
+        if (held != null) {
+            state.page = SimplePages.Page.TRADE;
+            state.tradeTab = 0;
+            state.selectedCommodity = held;
+            heldJump = true;
+        }
     }
 
-    void setPage(SimplePages.Page page) { state.page = page; }
+    /** 手持物品按 K 打开时已经跳到了商品详情，入口页设置（configureEntryTabs）这一次不要覆盖它。 */
+    private boolean heldJump;
+
+    void setPage(SimplePages.Page page) {
+        if (heldJump) {
+            heldJump = false;
+            return;
+        }
+        state.page = page;
+    }
 
     void show(SimplePages.Page page) {
         state.page = page;
@@ -101,6 +121,8 @@ final class SimpleCenter {
     /** 按当前数据重新排版。 */
     void relayout() {
         maybeRequestFutures();
+        state.shift = net.minecraft.client.gui.screens.Screen.hasShiftDown();
+        state.favorites = SimpleClientState.favorites();
         UiBuilder ui = new UiBuilder(screen.font()::width, screen::setStatus);
         SimplePages.layout(ui, view(), state, actions);
         elements = ui.elements();
@@ -140,20 +162,27 @@ final class SimpleCenter {
         return false;
     }
 
-    /** 简单模式只用公司名输入框：放到这一页排版里留出的位置；没有就隐藏。 */
-    void updateInputs(EditBox nameBox) {
+    /** 简单模式用公司名和搜索两个输入框：放到这一页排版里留出的位置；没有就隐藏。 */
+    void updateInputs(EditBox nameBox, EditBox searchBox) {
         relayout();
-        UiElement slot = inputSlot("companyName");
-        nameBox.setVisible(slot != null);
+        place(nameBox, inputSlot("companyName"));
+        place(searchBox, inputSlot("search"));
+    }
+
+    private void place(EditBox box, UiElement slot) {
+        box.setVisible(slot != null);
         if (slot != null) {
-            nameBox.setX(screen.leftPos() + slot.x());
-            nameBox.setY(screen.topPos() + slot.y());
-            nameBox.setWidth(slot.w());
+            box.setX(screen.leftPos() + slot.x());
+            box.setY(screen.topPos() + slot.y());
+            box.setWidth(slot.w());
         }
     }
 
-    List<EditBox> visibleBoxes(EditBox nameBox) {
-        return inputSlot("companyName") != null ? List.of(nameBox) : List.of();
+    List<EditBox> visibleBoxes(EditBox nameBox, EditBox searchBox) {
+        List<EditBox> out = new java.util.ArrayList<>();
+        if (inputSlot("companyName") != null) out.add(nameBox);
+        if (inputSlot("search") != null) out.add(searchBox);
+        return out;
     }
 
     private UiElement inputSlot(String key) {

@@ -12,12 +12,23 @@ public final class GuiFeedbackClientHandler {
         handle(message, 0);
     }
 
-    /** moneyDelta 非 0：钱包有变化，飘字并播放音效（卖出、领钱是经验球声，花钱是物品拾取声）。 */
     public static void handle(String message, long moneyDelta) {
+        handle(message, moneyDelta, finance.network.GuiFeedbackPacket.TONE_NORMAL);
+    }
+
+    /**
+     * moneyDelta 非 0：钱包有变化，飘字并播放音效（卖出、领钱是经验球声，花钱是物品拾取声）。
+     * 押注结束时按赚亏换提示音：赚了是升级声，亏了是铁砧声。
+     */
+    public static void handle(String message, long moneyDelta, int tone) {
         Minecraft minecraft = Minecraft.getInstance();
-        if (moneyDelta != 0) {
-            finance.client.simple.SimpleClientState.pushMoney(moneyDelta);
-            if (minecraft.player != null) {
+        if (moneyDelta != 0) finance.client.simple.SimpleClientState.pushMoney(moneyDelta);
+        if (minecraft.player != null) {
+            if (tone == finance.network.GuiFeedbackPacket.TONE_WIN) {
+                minecraft.player.playSound(net.minecraft.sounds.SoundEvents.PLAYER_LEVELUP, 0.6F, 1.2F);
+            } else if (tone == finance.network.GuiFeedbackPacket.TONE_LOSS) {
+                minecraft.player.playSound(net.minecraft.sounds.SoundEvents.ANVIL_LAND, 0.4F, 0.8F);
+            } else if (moneyDelta != 0) {
                 minecraft.player.playSound(moneyDelta > 0 ? net.minecraft.sounds.SoundEvents.EXPERIENCE_ORB_PICKUP
                         : net.minecraft.sounds.SoundEvents.ITEM_PICKUP, 0.6F, moneyDelta > 0 ? 1.2F : 1.0F);
             }

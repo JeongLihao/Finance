@@ -80,6 +80,8 @@ public class FinanceMod {
         ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, FinanceConfig.COMMON_SPEC);
         MinecraftForge.EVENT_BUS.register(this);
         FinancePacketHandler.register();
+        // 商品押注到期结算时通知玩家、退回押金
+        finance.futures.FuturesClearingService.onFinalSettle = finance.simple.BetNotices::futuresSettled;
 
         // ---- 注册默认商品 ----
         CommodityRegistry.registerDefault(
@@ -170,6 +172,7 @@ public class FinanceMod {
         finance.macro.MacroCommand.register(event.getDispatcher());
         finance.command.EarningsCommand.register(event.getDispatcher());
         PlayerBankCommand.register(event.getDispatcher());
+        finance.command.SellCommand.register(event.getDispatcher());
     }
 
     /** 服务器启动时加载持久化数据 */
@@ -232,6 +235,9 @@ public class FinanceMod {
         EconomyCycleService.tick(server);
         finance.macro.MacroWorldFeedback.tick(server);
         StartupSelfCheckService.tick();
+        if (server.getTickCount() % finance.network.PriceTablePacket.INTERVAL_TICKS == 0) {
+            finance.network.PriceTablePacket.broadcast(server);
+        }
     }
 
     /** Delivers bounded, persisted economy/price notifications exactly once after login. */
@@ -239,6 +245,8 @@ public class FinanceMod {
     public void onPlayerLogin(PlayerEvent.PlayerLoggedInEvent event) {
         if (event.getEntity() instanceof net.minecraft.server.level.ServerPlayer player) {
             finance.feedback.WorldEconomyFeedbackService.deliverPending(player);
+            finance.simple.SimpleBetService.applyPending(player);
+            finance.network.PriceTablePacket.send(player);
             finance.macro.EconomyAchievements.deliverPending(player);
             finance.macro.NewsService.notifyOnLogin(player);
             finance.account.AccountManager.getAccount(player.getUUID());

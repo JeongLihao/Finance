@@ -79,6 +79,8 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
 
     // ---- 公司标签控件 ----
     EditBox companyNameBox;
+    /** 简单模式买卖列表上方的搜索框。 */
+    EditBox searchBox;
     CompanyType selectedType = CompanyType.RAW_MATERIALS;
 
     // ---- 股票标签控件 ----
@@ -214,6 +216,13 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         companyNameBox.setMaxLength(101);
         companyNameBox.setVisible(false);
         addWidget(companyNameBox);
+
+        searchBox = new EditBox(font, leftPos + 10, contentTop() + 48, 120, 12, Component.literal("搜索"));
+        searchBox.setMaxLength(24);
+        searchBox.setVisible(false);
+        searchBox.setValue(simple.state.search);
+        searchBox.setResponder(text -> { simple.state.search = text; simple.state.tradeScroll = 0; });
+        addWidget(searchBox);
 
         stockPriceBox = new EditBox(font, leftPos + 54, contentTop() + FinanceGui.STOCK_TRADE_Y + 18, 64, 16, Component.literal("价格"));
         stockPriceBox.setMaxLength(12);
@@ -771,12 +780,14 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
                     adminCommodityIdBox, adminItemIdBox, adminDisplayNameBox)) {
                 box.setVisible(false);
             }
-            simple.updateInputs(companyNameBox);
+            simple.updateInputs(companyNameBox, searchBox);
+        } else {
+            searchBox.setVisible(false);
         }
     }
 
     private List<EditBox> getVisibleEditBoxes() {
-        if (!advancedView) return simple.visibleBoxes(companyNameBox);
+        if (!advancedView) return simple.visibleBoxes(companyNameBox, searchBox);
         List<EditBox> list = new ArrayList<>();
         if (currentTab == 0 && !commodityChartVisible) list.add(intlQuantityBox);
         if (currentTab == 1) { list.add(priceBox); list.add(quantityBox); }

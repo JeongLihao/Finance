@@ -135,7 +135,15 @@ public record SimpleStatusPacket(SimpleCenterService.Status status) {
             buf.writeUtf(cut(v.symbol()), MAX_TEXT); buf.writeVarLong(Math.max(0, v.netAssets())); buf.writeLong(v.dailyProfit());
             buf.writeVarInt(Math.max(0, v.multipleX10())); buf.writeVarLong(Math.max(0, v.shares()));
         }
+        List<Long> worth = s.worth().subList(Math.max(0, s.worth().size() - MAX_WORTH), s.worth().size());
+        buf.writeVarInt(worth.size());
+        for (long w : worth) buf.writeVarLong(Math.max(0, w));
+        writeLines(buf, s.ranks());
+        buf.writeUtf(cut(s.betStats()), MAX_TEXT);
     }
+
+    /** 首页身家走势最多 8 个点（7 天前到今天）。 */
+    static final int MAX_WORTH = 8;
 
     static final int MAX_ROWS = 32;
 
@@ -231,9 +239,15 @@ public record SimpleStatusPacket(SimpleCenterService.Status status) {
         for (int i = 0; i < n; i++) {
             vals.add(new SimpleCenterService.Valuation(buf.readUtf(MAX_TEXT), buf.readVarLong(), buf.readLong(), buf.readVarInt(), buf.readVarLong()));
         }
+        n = buf.readVarInt();
+        if (n < 0 || n > MAX_WORTH) throw new IllegalArgumentException("worth");
+        List<Long> worth = new ArrayList<>(n);
+        for (int i = 0; i < n; i++) worth.add(buf.readVarLong());
+        List<String> ranks = readLines(buf);
+        String betStats = buf.readUtf(MAX_TEXT);
         return new SimpleStatusPacket(new SimpleCenterService.Status(bank, rate, level, cost, valuation, ipoMin,
                 stockUnlock, mode, extras, locked, unlockedNow, cards, weather, summary, products, holdings, margin,
-                bets, futuresMarginBps, boss, cash, vals));
+                bets, futuresMarginBps, boss, cash, vals, worth, ranks, betStats));
     }
 
     public static void handle(SimpleStatusPacket p, Supplier<NetworkEvent.Context> ctx) {

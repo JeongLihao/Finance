@@ -307,6 +307,7 @@ Minecraft-first 模式默认通过世界中的金融终端分流功能：市场�
 | `/balance` | 查询余额 |
 | `/pay <玩家> <金额>` | 给其他玩家转账 |
 | `/inventory` | 查看自己的商品库存 |
+| `/sell hand` | 按市场价卖掉手上这组东西；`/sell hand all` 把背包里同样的东西全卖 |
 | `/market gui` | 打开市场 GUI |
 | `/finance gui` | 打开金融中心 GUI |
 | `/market orders` | 查看所有未成交商品订单 |

@@ -122,12 +122,15 @@ public final class EconomyCycleService {
         finance.macro.EconomyAchievements.processDay(server, mcDay);
         // 《金融周报》：到期出周刊，有大事出号外
         finance.macro.NewsService.processDay(server, mcDay);
+        // 每 7 天播报身家排行
+        finance.simple.SimpleWealthService.weekly(server, mcDay);
     }
 
-    /** 每分钟：NPC 短线派追涨杀跌，然后按市价检查融资仓、跌破维持线的卖进市场。 */
-    static void stockMinute() {
+    /** 每分钟：NPC 短线派追涨杀跌，然后按市价检查融资仓、跌破维持线的卖进市场，并通知被强卖和快被强卖的玩家。 */
+    static void stockMinute(MinecraftServer server) {
         finance.npcinvestor.SpeculatorService.tickMinute();
-        finance.margin.MarginService.checkLiquidations();
+        finance.margin.MarginService.checkLiquidations(finance.simple.BetNotices::liquidated);
+        finance.simple.BetNotices.warnDanger(server, currentMcDay(server));
     }
 
     private static void tickNoiseAndMomentum(MinecraftServer server) {
@@ -137,7 +140,7 @@ public final class EconomyCycleService {
         StockMarketManager.tickMomentum();
         StockMarketManager.tickNoise();
         StockMarketManager.recalculateAllPrices();
-        stockMinute();
+        stockMinute(server);
         ConditionalStockOrderManager.checkOrders(server);
         PriceAlertManager.checkAlerts(server);
     }
@@ -147,7 +150,7 @@ public final class EconomyCycleService {
         NpcMarketMaker.recalculateAll();
         StockMarketManager.tickMomentum();
         StockMarketManager.recalculateAllPrices();
-        stockMinute();
+        stockMinute(server);
         ConditionalStockOrderManager.checkOrders(server);
         PriceAlertManager.checkAlerts(server);
     }

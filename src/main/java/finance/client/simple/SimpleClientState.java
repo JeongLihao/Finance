@@ -64,6 +64,37 @@ public final class SimpleClientState {
         return FLOATERS;
     }
 
+    // ---- 手持物品按 K：打开后直接显示这件东西的详情
+
+    private static String pendingCommodity;
+
+    public static void setPendingCommodity(String commodityId) { pendingCommodity = commodityId; }
+
+    /** 取出后清空；没有返回 null。 */
+    public static String takePendingCommodity() {
+        String id = pendingCommodity;
+        pendingCommodity = null;
+        return id;
+    }
+
+    // ---- 收藏的商品：买卖列表里排最前面，存在本机 config/finance-client.properties
+
+    private static java.util.Set<String> favorites;
+
+    public static java.util.Set<String> favorites() {
+        if (favorites == null) {
+            favorites = new java.util.LinkedHashSet<>();
+            for (String id : load().getProperty("favorites", "").split(",")) if (!id.isBlank()) favorites.add(id.trim());
+        }
+        return java.util.Collections.unmodifiableSet(favorites);
+    }
+
+    public static void toggleFavorite(String commodityId) {
+        favorites();
+        if (!favorites.remove(commodityId) && favorites.size() < 64) favorites.add(commodityId);
+        save("favorites", String.join(",", favorites));
+    }
+
     // ---- 高级功能入口：服务器 advancedMode = player 时由玩家自己决定，存在本机 config/finance-client.properties
 
     private static Boolean showAdvanced;
@@ -85,8 +116,12 @@ public final class SimpleClientState {
 
     public static void setPlayerWantsAdvanced(boolean value) {
         showAdvanced = value;
+        save("showAdvanced", Boolean.toString(value));
+    }
+
+    private static void save(String key, String value) {
         Properties props = load();
-        props.setProperty("showAdvanced", Boolean.toString(value));
+        props.setProperty(key, value);
         try (Writer w = Files.newBufferedWriter(file(), StandardCharsets.UTF_8)) {
             props.store(w, "Finance client preferences");
         } catch (IOException | RuntimeException ignored) {

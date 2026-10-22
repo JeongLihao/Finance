@@ -35,12 +35,19 @@ public final class FuturesClearingService {
         FuturesRiskService.evaluateAll(completedDay);if(changed)EconomySavedData.markDirty();return changed;
     }
 
+    /** 合约到期结算后的回调：合约、结算价、结算前的持仓。由模组初始化时设置。 */
+    public interface SettleListener { void accept(FuturesContract contract,long price,java.util.List<FuturesPosition> positions); }
+    public static volatile SettleListener onFinalSettle=(c,p,list)->{};
+
     static synchronized boolean finalSettle(FuturesContract c,long day){
         if(c==null||c.status()!=FuturesContractStatus.SETTLING||day<c.maturityDay())return false;
         long price=finalPrice(c);if(price<=0)return false;
         if(!FuturesMarketManager.cancelForContract(c.id()))return false;
         if(!settle(c,price,day,true))return false;
+        // 清仓前把持仓交给监听者（通知玩家到期结算、退回押金）
+        java.util.List<FuturesPosition> settled=MarginManager.positions().values().stream().filter(p->p.contractId().equals(c.id())&&p.signedQuantity()!=0).toList();
         MarginManager.closeContractPositions(c.id());FuturesMarketMaker.onContractSettled(c.id());c.setFinalSettlementPrice(price);c.setStatus(FuturesContractStatus.SETTLED);
+        try{onFinalSettle.accept(c,price,settled);}catch(RuntimeException e){com.mojang.logging.LogUtils.getLogger().warn("Futures settlement listener failed for {}",c.code(),e);}
         AccountManager.addTransactionRecord(new TransactionRecord(CLEARING_MEMBER_ID,CLEARING_MEMBER_ID,0,TransactionType.FUTURES_EXPIRY,CLEARING_MEMBER_ID,c.code(),FuturesMarketManager.openInterest(c.id())));
         EconomySavedData.markDirty();return true;
     }

@@ -140,6 +140,7 @@ public final class FinanceConfig {
     private static final String SIMPLE_ADVANCED_MODE_VALUE = "player";
     private static final String SIMPLE_EXTRAS_VALUE = "";
     private static final String SIMPLE_DISABLED_VALUE = "";
+    private static final boolean SIMPLE_WEEKLY_LEADERBOARD_VALUE = true;
     private static final long CASH_EMERALD_TO_CASH_VALUE = 50L;
     private static final long CASH_CASH_TO_EMERALD_VALUE = 60L;
     private static final int CASH_DAILY_EMERALD_SELL_LIMIT_VALUE = 64;
@@ -317,6 +318,7 @@ public final class FinanceConfig {
     private static final ForgeConfigSpec.LongValue SIMPLE_STARTER_GRANT, SIMPLE_STOCK_UNLOCK, SIMPLE_IPO_MIN_VALUATION;
     private static final ForgeConfigSpec.ConfigValue<String> SIMPLE_ADVANCED_MODE;
     private static final ForgeConfigSpec.ConfigValue<String> SIMPLE_EXTRAS, SIMPLE_DISABLED;
+    private static final ForgeConfigSpec.BooleanValue SIMPLE_WEEKLY_LEADERBOARD;
     private static final ForgeConfigSpec.ConfigValue<String> RESERVE_TARGETS;
     private static final ForgeConfigSpec.IntValue RESERVE_RESTOCK_BPS, RESERVE_FLOOR_BPS, RESERVE_FLOOR_DAILY_CAP, RESERVE_SURPLUS_DEMAND_BPS;
     private static final ForgeConfigSpec.LongValue RESERVE_TIER2_VALUE, RESERVE_TIER3_VALUE, RESERVE_PLAYER_GOODS_REFERENCE;
@@ -1188,6 +1190,8 @@ public final class FinanceConfig {
                 .define("extras", SIMPLE_EXTRAS_VALUE);
         SIMPLE_DISABLED = builder.comment("整个服务器关掉的进阶玩法，写法同 extras；关掉的玩法解锁了也不能新开，已有的仓位仍可以结束和取回。")
                 .define("disabled", SIMPLE_DISABLED_VALUE);
+        SIMPLE_WEEKLY_LEADERBOARD = builder.comment("每 7 个 MC 日在聊天栏播报一次身家排行和本周涨得最多的人。金融中心首页的排行榜不受影响。")
+                .define("weeklyLeaderboard", SIMPLE_WEEKLY_LEADERBOARD_VALUE);
         builder.pop();
 
         builder.push("reserve");
@@ -1541,6 +1545,8 @@ public final class FinanceConfig {
     public static java.util.Set<String> simpleExtras() {
         return nameSet(getString(SIMPLE_EXTRAS, SIMPLE_EXTRAS_VALUE));
     }
+
+    public static boolean simpleWeeklyLeaderboard() { return getBoolean(SIMPLE_WEEKLY_LEADERBOARD, SIMPLE_WEEKLY_LEADERBOARD_VALUE); }
 
     /** 整个服务器关掉的进阶玩法名（小写）；含 all 表示全部关掉。 */
     public static java.util.Set<String> simpleDisabled() {

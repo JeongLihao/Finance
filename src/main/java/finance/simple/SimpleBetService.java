@@ -291,12 +291,89 @@ public final class SimpleBetService {
             return fail("请求无效。");
         }
         if (failure != null) return fail(failure);
-        book(player).remove(key);
         sweepIdle(id);
         long got = AccountManager.getBalance(id) - before;
-        String result = !bet.tracked() ? "" : got >= bet.stake() ? "，赚了 " + MoneyFormat.pounds(got - bet.stake())
-                : "，亏了 " + MoneyFormat.pounds(bet.stake() - got);
+        Long pnl = settleReturned(player, key, got);
+        String result = pnl == null ? "" : pnl >= 0 ? WIN_MARK + MoneyFormat.pounds(pnl) : LOSS_MARK + MoneyFormat.pounds(-pnl);
         return new SimpleInvestService.Result(true, "结束押注「" + bet.name() + "」：拿回 " + MoneyFormat.pounds(Math.max(0, got)) + result + "。", got);
+    }
+
+    // ------------------------------------------------------------ 结算与战绩
+
+    /** 结束押注的提示里用这两个词说明赚亏，客户端据此换提示音。 */
+    public static final String WIN_MARK = "，赚了 ", LOSS_MARK = "，亏了 ";
+
+    /** 押注战绩：结束了几笔、赚了几笔、累计赚亏、最赚和最亏的一笔。 */
+    public record Stats(int count, int wins, long total, long best, long worst) {
+        public static final Stats EMPTY = new Stats(0, 0, 0, 0, 0);
+
+        Stats plus(long pnl) {
+            return new Stats(count + 1, wins + (pnl > 0 ? 1 : 0), total + pnl,
+                    count == 0 ? pnl : Math.max(best, pnl), count == 0 ? pnl : Math.min(worst, pnl));
+        }
+
+        /** “战绩：12 笔，赚了 7 笔，累计 +3 磅，最赚一笔 +5 磅”；一笔都没有返回空串。 */
+        public String line() {
+            if (count == 0) return "";
+            return "战绩：" + count + " 笔，赚了 " + wins + " 笔，累计 " + MoneyFormat.signed(total)
+                    + "，最赚一笔 " + MoneyFormat.signed(best) + "，最亏一笔 " + MoneyFormat.signed(worst);
+        }
+    }
+
+    static final String STATS_TAG = "finance_bet_stats";
+
+    public static Stats stats(ServerPlayer player) {
+        CompoundTag t = player.getPersistentData().getCompound(STATS_TAG);
+        return new Stats(t.getInt("count"), t.getInt("wins"), t.getLong("total"), t.getLong("best"), t.getLong("worst"));
+    }
+
+    private static void record(ServerPlayer player, long pnl) {
+        Stats s = stats(player).plus(pnl);
+        CompoundTag t = new CompoundTag();
+        t.putInt("count", s.count());
+        t.putInt("wins", s.wins());
+        t.putLong("total", s.total());
+        t.putLong("best", s.best());
+        t.putLong("worst", s.worst());
+        player.getPersistentData().put(STATS_TAG, t);
+    }
+
+    /** 押注结束、退回 returned：按投入记录算赚亏、记战绩、删记录；没有投入记录（旧仓位）返回 null。 */
+    public static Long settleReturned(ServerPlayer player, String key, long returned) {
+        CompoundTag book = book(player);
+        if (!book.contains(key)) return null;
+        long pnl = returned - book.getCompound(key).getLong("stake");
+        book.remove(key);
+        record(player, pnl);
+        return pnl;
+    }
+
+    /** 押注结束、赚亏已知（期货按结算价算）：记战绩、删记录；没有投入记录返回 null。 */
+    public static Long settlePnl(ServerPlayer player, String key, long pnl) {
+        CompoundTag book = book(player);
+        if (!book.contains(key)) return null;
+        book.remove(key);
+        record(player, pnl);
+        return pnl;
+    }
+
+    /** 玩家离线时结束的押注：先记下来，上线或打开金融中心时补记战绩。服务器重启会丢，丢了只是少记一笔战绩。 */
+    record Pending(String key, long amount, boolean isPnl) {}
+
+    private static final Map<UUID, List<Pending>> PENDING = new java.util.HashMap<>();
+
+    public static synchronized void defer(UUID player, String key, long amount, boolean isPnl) {
+        List<Pending> list = PENDING.computeIfAbsent(player, k -> new ArrayList<>());
+        if (list.size() < 64) list.add(new Pending(key, amount, isPnl));
+    }
+
+    public static synchronized void applyPending(ServerPlayer player) {
+        List<Pending> list = PENDING.remove(player.getUUID());
+        if (list == null) return;
+        for (Pending p : list) {
+            if (p.isPnl()) settlePnl(player, p.key(), p.amount());
+            else settleReturned(player, p.key(), p.amount());
+        }
     }
 
     /** 没有押注在身上时，把闲着的押金退回钱包；返回退回多少。 */

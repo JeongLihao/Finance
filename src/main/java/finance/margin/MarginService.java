@@ -425,6 +425,14 @@ public final class MarginService {
      * 所以最弱的先卖、卖完重新检查，直到没人跌破或熔断为止——这就是连环踩踏。
      */
     public static synchronized List<String> checkLiquidations() {
+        return checkLiquidations(l -> { });
+    }
+
+    /** 一笔强制平仓：谁的、哪只股票、看跌（融券）还是看涨（融资）、多少股、成交价、退回自由账户多少。 */
+    public record Liquidation(UUID player, String symbol, boolean shortSide, long quantity, long price, long returned) {}
+
+    /** 同 {@link #checkLiquidations()}，每笔强平再交给 sink（通知玩家、记战绩）。 */
+    public static synchronized List<String> checkLiquidations(java.util.function.Consumer<Liquidation> sink) {
         List<String> liquidated = new ArrayList<>();
         for (int pass = 0; pass < 20; pass++) {
             MarginAccount weakest = null;
@@ -439,7 +447,7 @@ public final class MarginService {
             }
             if (weakest == null) break;
             int before = liquidated.size();
-            liquidate(weakest, liquidated);
+            liquidate(weakest, liquidated, sink);
             if (liquidated.size() == before) break;
         }
         if (!liquidated.isEmpty()) EconomySavedData.markDirty();
@@ -517,6 +525,10 @@ public final class MarginService {
      * @return 强平记录（供日志/通知）
      */
     public static synchronized List<String> processDay(long day) {
+        return processDay(day, l -> { });
+    }
+
+    public static synchronized List<String> processDay(long day, java.util.function.Consumer<Liquidation> sink) {
         List<String> liquidated = new ArrayList<>();
         for (MarginAccount acct : new ArrayList<>(MarginPoolManager.accounts().values())) {
             if (acct.getLastInterestDay() < day) {
@@ -526,7 +538,7 @@ public final class MarginService {
             if (!acct.hasOpenPositions()) continue;
             double ratio = marginRatioOf(acct);
             if (ratio < maintenanceRatio()) {
-                liquidate(acct, liquidated);
+                liquidate(acct, liquidated, sink);
             }
         }
         if (!liquidated.isEmpty()) {
@@ -556,7 +568,7 @@ public final class MarginService {
      * 用现金保证金补、再不够记不良债务；融券仓按推动之后的价格买回（冻结资金 → 保证金 → 不良债务）。
      * 停牌股跳过（无公允执行价），退市（股票不存在）按 0 结算。
      */
-    private static void liquidate(MarginAccount acct, List<String> log) {
+    private static void liquidate(MarginAccount acct, List<String> log, java.util.function.Consumer<Liquidation> sink) {
         UUID playerId = acct.getPlayerId();
         // ---- 强平融资仓 ----
         for (String symbol : new ArrayList<>(acct.getFinancedShares().keySet())) {
@@ -580,6 +592,7 @@ public final class MarginService {
             acct.removeFinancedShares(symbol, qty);
             if (stock != null && qty > 0) stock.recordTrade(price, qty, false); // 卖进市场，继续压低股价
             log.add(String.format("强平融资 %s %d股@%d", symbol, qty, price));
+            sink.accept(new Liquidation(playerId, symbol, false, qty, price, Math.max(0, proceeds)));
         }
         settleResidualFinancedDebt(acct);
         // ---- 强平融券仓 ----
@@ -616,6 +629,7 @@ public final class MarginService {
             }
             acct.getShortInterestOwed().remove(symbol);
             log.add(String.format("强平融券 %s %d股@%d", symbol, qty, price));
+            sink.accept(new Liquidation(playerId, symbol, true, qty, price, Math.max(0, leftover)));
         }
     }
 

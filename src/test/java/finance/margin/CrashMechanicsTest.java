@@ -89,6 +89,24 @@ class CrashMechanicsTest {
         assertFalse(MarginService.marginBuy(id, SYMBOL, 1).success(), "有不良债务时不能新开仓");
     }
 
+    @Test void everyForcedSaleIsReportedWithItsOwnerAndRefund() {
+        UUID early = trader(16_000);
+        UUID late = trader(16_000);
+        assertTrue(MarginService.marginBuy(early, SYMBOL, 300).success());
+        assertTrue(MarginService.marginBuy(late, SYMBOL, 300).success());
+        stock.recordTrade(1, 3_000, false);
+        java.util.List<MarginService.Liquidation> seen = new java.util.ArrayList<>();
+        java.util.List<String> log = MarginService.checkLiquidations(seen::add);
+        assertEquals(log.size(), seen.size(), "日志里的每笔强平都交给了通知");
+        assertEquals(java.util.Set.of(early, late), seen.stream().map(MarginService.Liquidation::player).collect(java.util.stream.Collectors.toSet()));
+        for (MarginService.Liquidation l : seen) {
+            assertEquals(SYMBOL, l.symbol());
+            assertFalse(l.shortSide());
+            assertEquals(300, l.quantity());
+            assertTrue(l.returned() >= 0);
+        }
+    }
+
     @Test void breakerStopsForcedSalesForAMinute() {
         UUID id = trader(20_000);
         assertTrue(MarginService.marginBuy(id, SYMBOL, 300).success());

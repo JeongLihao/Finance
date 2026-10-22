@@ -182,9 +182,12 @@ public final class SimpleCenterService {
 
     // ------------------------------------------------------------ 锁价合同（期货）
 
-    /** 每种市场商品都保持一份 7 天后到期的合约，玩家才有东西可锁（以前要管理员手动开）。 */
-    public static void ensureFuturesListed(long day) {
-        if (!FinanceConfig.futuresEnabled() || day < 0) return;
+    private static long listedDay = Long.MIN_VALUE;
+
+    /** 每种市场商品都保持一份 7 天后到期的合约，玩家才有东西可押（以前要管理员手动开）。每个 MC 日只检查一次。 */
+    public static synchronized void ensureFuturesListed(long day) {
+        if (!FinanceConfig.futuresEnabled() || day < 0 || day == listedDay) return;
+        listedDay = day;
         for (String commodityId : NpcMarketMaker.getAllMarketPrices().keySet()) {
             if (finance.futures.FuturesMarketManager.contracts().size() >= finance.futures.FuturesMarketManager.MAX_CONTRACTS - 8) return;
             if (!finance.futures.FuturesMarketManager.hasLiveContractForCommodity(commodityId)) {
@@ -368,10 +371,21 @@ public final class SimpleCenterService {
                          List<SimpleInvestService.Holding> holdings, SimpleInvestService.MarginInfo margin,
                          List<SimpleBetService.Bet> bets, int futuresMarginBps,
                          SimpleBossService.BossInfo boss, finance.network.PlayerServicesResponsePacket.Cash cash,
-                         List<Valuation> valuations) {}
+                         List<Valuation> valuations, List<Long> worth, List<String> ranks, String betStats) {}
 
     /** 一只股票“股价怎么来的”：家底、日利润、倍数（× 10）、总股数。 */
     public record Valuation(String symbol, long netAssets, long dailyProfit, int multipleX10, long shares) {}
+
+    private static List<Valuation> cachedValuations = List.of();
+    private static long valuationsTick = Long.MIN_VALUE;
+
+    /** 估值对所有玩家都一样，开着金融中心时每秒会刷新好几次：一秒（20 tick）内复用上次算的。 */
+    static synchronized List<Valuation> valuations(long tick) {
+        if (tick >= valuationsTick && tick - valuationsTick < 20) return cachedValuations;
+        valuationsTick = tick;
+        cachedValuations = valuations();
+        return cachedValuations;
+    }
 
     static List<Valuation> valuations() {
         List<Valuation> out = new ArrayList<>();
@@ -394,7 +408,8 @@ public final class SimpleCenterService {
         UUID id = player.getUUID();
         long day = EconomyCycleService.currentMcDay(player.server);
         if (!SimpleUnlocks.disabled("futures")) ensureFuturesListed(day);
-        // 押注都结束了还留着的押金自动退回钱包
+        // 离线时被强制结束、到期结算的押注先补记战绩，再把闲着的押金退回钱包
+        SimpleBetService.applyPending(player);
         SimpleBetService.sweepIdle(id);
         CommercialBank bank = mainBank();
         BankCustomerAccount account = demandAccount(id, bank, day, false);
@@ -423,7 +438,10 @@ public final class SimpleCenterService {
                 SimpleBetService.bets(player), FinanceConfig.futuresInitialMarginBps(),
                 boss,
                 finance.playerservice.PlayerServicesService.cash(id, new finance.cash.PlayerCashPurse(player), day),
-                valuations());
+                valuations(player.server.getTickCount()),
+                SimpleWealthService.history(player, day, SimpleWealthService.netWorth(id)),
+                SimpleWealthService.rankLines(player.server, id),
+                SimpleBetService.stats(player).line());
     }
 
     // ------------------------------------------------------------ 经济天气

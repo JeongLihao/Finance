@@ -119,7 +119,11 @@ public record SimpleActionPacket(Action action, String target, long amount, long
                             Math.max(0, Math.min(MAX_STAKE, p.amount))));
             case BET_END -> invest(finance.simple.SimpleBetService.close(player, safe(p.target)));
         };
-        GuiFeedbackPacket.send(player, result.message(), result.moneyDelta());
+        int tone = p.action != Action.BET_END || !result.success() ? GuiFeedbackPacket.TONE_NORMAL
+                : result.message().contains(finance.simple.SimpleBetService.WIN_MARK) ? GuiFeedbackPacket.TONE_WIN
+                : result.message().contains(finance.simple.SimpleBetService.LOSS_MARK) ? GuiFeedbackPacket.TONE_LOSS
+                : GuiFeedbackPacket.TONE_NORMAL;
+        GuiFeedbackPacket.send(player, result.message(), result.moneyDelta(), tone);
     }
 
     /** 一次押注最多投入 1000 万磅。 */
