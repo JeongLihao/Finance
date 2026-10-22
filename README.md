@@ -82,7 +82,7 @@ Finance 给 Minecraft Forge 加入一套能自己运转的经济：商品市场�
 
 - 配置文件是 `config/finance-common.toml`，服务器说了算，客户端改不了结算。说明和四份建议配置见 [配置说明](docs/CONFIG_ZH.md)。
 - 迁移、回退、故障恢复和存档兼容规则见 [服务器运维](docs/SERVER_ADMIN.md)。
-- 数据存在世界存档里（`finance_data`、`finance_inventory`），当前 DataVersion 42，网络协议 25。
+- 数据存在世界存档里（`finance_data`、`finance_inventory`），当前 DataVersion 42，网络协议 28。
 
 ## 其他文档
 
