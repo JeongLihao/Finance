@@ -92,6 +92,12 @@ public final class FinanceFormat {
         return switch (type) {
             case "TRANSFER" -> "转账";
             case "STARTER_GRANT" -> "启动资金";
+            case "CASH_DEPOSIT" -> "现金存入";
+            case "CASH_WITHDRAW" -> "取出现金";
+            case "EMERALD_SELL" -> "卖出绿宝石";
+            case "EMERALD_BUY" -> "买入绿宝石";
+            case "EXCHANGE_NOTE_ISSUE" -> "签发兑换钞";
+            case "EXCHANGE_NOTE_REDEEM" -> "兑现兑换钞";
             case "MARKET_TRADE" -> "商品成交";
             case "NPC_BUY", "COMMODITY_SELL" -> "卖出商品";
             case "NPC_SELL", "COMMODITY_BUY" -> "买入商品";

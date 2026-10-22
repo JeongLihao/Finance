@@ -716,5 +716,17 @@
   "finance.village.stocked": "货摆好了，村民明天赶集时会来买。",
   "finance.village.price_set": "价格改好了。",
   "finance.village.withdrawn": "货取回背包了。",
-  "finance.village.closed": "摊位收了。"
+  "finance.village.closed": "摊位收了。",
+  "item.finance.blank_exchange_note": "空白兑换钞",
+  "item.finance.blank_exchange_note.hint": "右键填写金额：从你的账户扣款，变成等值兑换钞",
+  "item.finance.exchange_note": "等值兑换钞",
+  "item.finance.exchange_note.valued": "等值兑换钞 %s",
+  "item.finance.exchange_note.issuer": "%s 于第 %s 天签发",
+  "item.finance.exchange_note.hint": "不记名：右键存入自己的账户",
+  "item.finance.exchange_note.invalid": "金额无效的兑换钞",
+  "screen.finance.exchange_note.title": "签发等值兑换钞",
+  "screen.finance.exchange_note.label": "金额（便士，100 便士 = 1 磅）",
+  "screen.finance.exchange_note.sign": "签发",
+  "screen.finance.exchange_note.need_amount": "请填写金额",
+  "screen.finance.exchange_note.too_much": "最多 %s 便士"
 }

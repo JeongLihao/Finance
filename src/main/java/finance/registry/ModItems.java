@@ -54,6 +54,10 @@ public final class ModItems {
     public static final RegistryObject<Item> PENNY = cash(finance.cash.Denomination.PENNY);
     public static final RegistryObject<Item> TEN_PENCE = cash(finance.cash.Denomination.TEN_PENCE);
     public static final RegistryObject<Item> POUND_NOTE = cash(finance.cash.Denomination.POUND);
+    public static final RegistryObject<Item> BLANK_EXCHANGE_NOTE =
+            ITEMS.register("blank_exchange_note", () -> new finance.item.BlankExchangeNoteItem(new Item.Properties()));
+    public static final RegistryObject<Item> EXCHANGE_NOTE =
+            ITEMS.register("exchange_note", () -> new finance.item.ExchangeNoteItem(new Item.Properties().stacksTo(1)));
     public static final RegistryObject<Item> SURVEY_NOTE =
             ITEMS.register("survey_note", () -> new finance.item.SurveyNoteItem(new Item.Properties().stacksTo(1)));
 
@@ -92,6 +96,7 @@ public final class ModItems {
             event.accept(PENNY);
             event.accept(TEN_PENCE);
             event.accept(POUND_NOTE);
+            event.accept(BLANK_EXCHANGE_NOTE);
         }
     }
 }

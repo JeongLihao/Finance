@@ -716,5 +716,17 @@
   "finance.village.stocked": "Stocked. Villagers will shop at the next market day.",
   "finance.village.price_set": "Price updated.",
   "finance.village.withdrawn": "Stock returned to your inventory.",
-  "finance.village.closed": "Stall closed."
+  "finance.village.closed": "Stall closed.",
+  "item.finance.blank_exchange_note": "Blank Exchange Note",
+  "item.finance.blank_exchange_note.hint": "Right-click to write an amount; it is taken from your account",
+  "item.finance.exchange_note": "Exchange Note",
+  "item.finance.exchange_note.valued": "Exchange Note %s",
+  "item.finance.exchange_note.issuer": "Signed by %s on day %s",
+  "item.finance.exchange_note.hint": "Bearer note: right-click to deposit into your own account",
+  "item.finance.exchange_note.invalid": "Exchange note with no valid amount",
+  "screen.finance.exchange_note.title": "Sign an Exchange Note",
+  "screen.finance.exchange_note.label": "Amount in pence (100 pence = £1)",
+  "screen.finance.exchange_note.sign": "Sign",
+  "screen.finance.exchange_note.need_amount": "Enter an amount",
+  "screen.finance.exchange_note.too_much": "At most %s pence"
 }

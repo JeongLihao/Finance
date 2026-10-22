@@ -219,6 +219,51 @@ public final class CashService {
                 + "。今天还能买 " + (q.buyLeft() - count) + " 颗。");
     }
 
+    // ---------------------------------------------------------------- 等值兑换钞
+
+    /** 一张兑换钞最多能写的金额：1 万磅。 */
+    public static final long MAX_EXCHANGE_NOTE = 1_000_000;
+
+    /**
+     * 签发兑换钞：从账户扣 amount 便士，由调用方把一张空白兑换钞换成写好金额的兑换钞。
+     * 兑换钞和现金一样不记名，计入流通中的钞票。
+     */
+    public static Result issueExchangeNote(UUID player, long amount) {
+        Result blocked = blocked(player);
+        if (blocked != null) return blocked;
+        if (amount <= 0 || amount > MAX_EXCHANGE_NOTE) {
+            return Result.fail("金额要在 1～" + MAX_EXCHANGE_NOTE + " 便士之间（最多 " + pounds(MAX_EXCHANGE_NOTE) + "）。");
+        }
+        long balance = AccountManager.getBalance(player);
+        if (balance < amount) return Result.fail("账户可用余额只有 " + balance + " 便士。");
+        if (!AccountManager.withdraw(player, amount)) return Result.fail("扣款失败，请稍后重试。");
+        notesIssued(amount);
+        AccountManager.addTransactionRecord(
+                new TransactionRecord(player, ISSUER, amount, TransactionType.EXCHANGE_NOTE_ISSUE, player, "兑换钞", 1));
+        return Result.ok(
+                "已签发 " + amount + " 便士（" + pounds(amount) + "）的兑换钞，账户余额 " + AccountManager.getBalance(player) + "。");
+    }
+
+    /** 兑现兑换钞：把 amount 便士存进持有人的账户，由调用方收走这张兑换钞。 */
+    public static Result redeemExchangeNote(UUID player, long amount) {
+        Result blocked = blocked(player);
+        if (blocked != null) return blocked;
+        if (amount <= 0 || amount > MAX_EXCHANGE_NOTE) return Result.fail("这张兑换钞的金额无效。");
+        if (!AccountManager.canDeposit(player, amount)) return Result.fail("账户余额已达上限，无法兑现。");
+        if (!AccountManager.deposit(player, amount)) return Result.fail("入账失败，请稍后重试。");
+        notesRetired(amount);
+        AccountManager.addTransactionRecord(
+                new TransactionRecord(ISSUER, player, amount, TransactionType.EXCHANGE_NOTE_REDEEM, player, "兑换钞", 1));
+        return Result.ok(
+                "兑换钞已兑现，存入 " + amount + " 便士（" + pounds(amount) + "），账户余额 " + AccountManager.getBalance(player) + "。");
+    }
+
+    /** 便士写成英镑：1234 → £12.34。 */
+    public static String pounds(long pence) {
+        long abs = Math.abs(pence);
+        return (pence < 0 ? "-" : "") + "£" + abs / 100 + "." + String.format(java.util.Locale.ROOT, "%02d", abs % 100);
+    }
+
     // ---------------------------------------------------------------- 面额计算
 
     /** 按大面额优先拆分金额。 */
@@ -261,7 +306,12 @@ public final class CashService {
     }
 
     private static Result blocked(UUID player, CashPurse purse) {
-        if (player == null || purse == null) return Result.fail("只有玩家可以使用现金。");
+        if (purse == null) return Result.fail("只有玩家可以使用现金。");
+        return blocked(player);
+    }
+
+    private static Result blocked(UUID player) {
+        if (player == null) return Result.fail("只有玩家可以使用现金。");
         if (!FinanceConfig.cashEnabled()) return Result.fail("实体现金未启用（配置 cash.enabled）。");
         if (!ModuleHealthRegistry.mayWrite(ModuleHealthRegistry.Module.ACCOUNT)) return Result.fail("账户模块已因一致性问题暂停。");
         return null;

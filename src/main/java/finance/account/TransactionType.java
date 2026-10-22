@@ -168,5 +168,9 @@ public enum TransactionType {
     /** 实体现金：玩家用现金买绿宝石（回收货币，数量为绿宝石颗数）。 */
     EMERALD_BUY,
     /** 新玩家第一次打开金融中心时领到的启动资金（现金发行处 → 玩家，每人一次）。 */
-    STARTER_GRANT
+    STARTER_GRANT,
+    /** 等值兑换钞：玩家在空白兑换钞上写金额，从账户扣款（玩家 → 现金发行处）。 */
+    EXCHANGE_NOTE_ISSUE,
+    /** 等值兑换钞：持有人兑现，存入自己的账户（现金发行处 → 持有人）。 */
+    EXCHANGE_NOTE_REDEEM
 }
