@@ -2,7 +2,6 @@ package finance.policy;
 
 import finance.config.FinanceConfig;
 import finance.data.EconomySavedData;
-
 import java.util.ArrayList;
 import java.util.List;
 
@@ -12,14 +11,19 @@ public final class MonetaryPolicyService {
     private static int benchmarkRateBasisPoints = FinanceConfig.defaultBenchmarkRateBasisPoints();
     private static final List<PolicyRateRecord> HISTORY = new ArrayList<>();
 
-    private MonetaryPolicyService() {
+    private MonetaryPolicyService() {}
+
+    public static int benchmarkRateBasisPoints() {
+        return benchmarkRateBasisPoints;
     }
 
-    public static int benchmarkRateBasisPoints() { return benchmarkRateBasisPoints; }
-    public static List<PolicyRateRecord> history() { return List.copyOf(HISTORY); }
+    public static List<PolicyRateRecord> history() {
+        return List.copyOf(HISTORY);
+    }
 
     public static boolean setBenchmarkRate(long mcDay, int basisPoints, String reason) {
-        if (mcDay < 0 || basisPoints < FinanceConfig.minBenchmarkRateBasisPoints()
+        if (mcDay < 0
+                || basisPoints < FinanceConfig.minBenchmarkRateBasisPoints()
                 || basisPoints > FinanceConfig.maxBenchmarkRateBasisPoints()) return false;
         if (!HISTORY.isEmpty() && HISTORY.get(HISTORY.size() - 1).mcDay() == mcDay) return false;
         if (basisPoints == benchmarkRateBasisPoints) return false;
@@ -31,15 +35,21 @@ public final class MonetaryPolicyService {
     }
 
     public static void restore(int basisPoints, List<PolicyRateRecord> history) {
-        benchmarkRateBasisPoints = Math.max(FinanceConfig.minBenchmarkRateBasisPoints(),
+        benchmarkRateBasisPoints = Math.max(
+                FinanceConfig.minBenchmarkRateBasisPoints(),
                 Math.min(FinanceConfig.maxBenchmarkRateBasisPoints(), basisPoints));
         HISTORY.clear();
-        if (history != null) history.stream()
-                .filter(r -> r != null && r.mcDay() >= 0
-                        && r.basisPoints() >= FinanceConfig.minBenchmarkRateBasisPoints()
-                        && r.basisPoints() <= FinanceConfig.maxBenchmarkRateBasisPoints())
-                .sorted(java.util.Comparator.comparingLong(PolicyRateRecord::mcDay))
-                .forEach(r -> { if (HISTORY.isEmpty() || r.mcDay() > HISTORY.get(HISTORY.size() - 1).mcDay()) HISTORY.add(r); });
+        if (history != null)
+            history.stream()
+                    .filter(r -> r != null
+                            && r.mcDay() >= 0
+                            && r.basisPoints() >= FinanceConfig.minBenchmarkRateBasisPoints()
+                            && r.basisPoints() <= FinanceConfig.maxBenchmarkRateBasisPoints())
+                    .sorted(java.util.Comparator.comparingLong(PolicyRateRecord::mcDay))
+                    .forEach(r -> {
+                        if (HISTORY.isEmpty()
+                                || r.mcDay() > HISTORY.get(HISTORY.size() - 1).mcDay()) HISTORY.add(r);
+                    });
         trim();
     }
 
@@ -49,6 +59,7 @@ public final class MonetaryPolicyService {
     }
 
     private static void trim() {
-        if (HISTORY.size() > MAX_HISTORY) HISTORY.subList(0, HISTORY.size() - MAX_HISTORY).clear();
+        if (HISTORY.size() > MAX_HISTORY)
+            HISTORY.subList(0, HISTORY.size() - MAX_HISTORY).clear();
     }
 }

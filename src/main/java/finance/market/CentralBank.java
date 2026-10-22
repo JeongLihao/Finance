@@ -16,9 +16,8 @@ import finance.futures.MarginRiskStatus;
 import finance.stock.Stock;
 import finance.stock.StockMarketManager;
 import finance.util.MathUtil;
-import org.slf4j.Logger;
-
 import java.util.UUID;
+import org.slf4j.Logger;
 
 /**
  * 中央银行 —— 最后贷款人与最后库存缓冲池。
@@ -46,6 +45,7 @@ public final class CentralBank {
 
     /** 库存进入危机区间才干预，软波动留给市场自己消化。 */
     private static final double STOCK_CRISIS_LOW = 0.35;
+
     private static final double STOCK_CRISIS_HIGH = 2.50;
 
     /** 单日最多修复偏离量的一部分，避免央行把价格一键打回基准。 */
@@ -129,9 +129,13 @@ public final class CentralBank {
         if (AccountManager.moveFunds(MarketMakerLedger.MASTER_UUID, UUID, repay)) {
             CentralBankLoanLedger.repay(MarketMakerLedger.SubMarket.FUTURES, repay);
             AccountManager.addTransactionRecord(new TransactionRecord(
-                    MarketMakerLedger.MASTER_UUID, UUID, repay,
+                    MarketMakerLedger.MASTER_UUID,
+                    UUID,
+                    repay,
                     TransactionType.CENTRAL_BANK_MM_LOAN_REPAY,
-                    MarketMakerLedger.MASTER_UUID, "做市商紧急贷款还款", 1));
+                    MarketMakerLedger.MASTER_UUID,
+                    "做市商紧急贷款还款",
+                    1));
             lastCashDelta += repay;
         }
     }
@@ -175,8 +179,7 @@ public final class CentralBank {
         long initialRequirement = MarginManager.initialRequirement(mm);
         long loan = computeEmergencyLoanAmount(equity, initialRequirement, FinanceConfig.cbMmEmergencyLoanCap());
         if (loan <= 0) {
-            LOGGER.warn("[央行联动] 期货做市商保证金风险 {} 但无需注资（权益={}，初始保证金要求={}）",
-                    status, equity, initialRequirement);
+            LOGGER.warn("[央行联动] 期货做市商保证金风险 {} 但无需注资（权益={}，初始保证金要求={}）", status, equity, initialRequirement);
             return;
         }
         // 资金路径：央行账户 → f002 现金账户 → f002 保证金账户，全程走真实账户划转，不印钱。
@@ -191,16 +194,17 @@ public final class CentralBank {
             LOGGER.warn("[央行联动] 期货做市商紧急贷款 {} 转入保证金失败，已退回央行", loan);
             return;
         }
-        CentralBankLoanLedger.recordLoan(MarketMakerLedger.SubMarket.FUTURES, loan,
-                CandlestickService.currentMcDay());
-        AccountManager.addTransactionRecord(new TransactionRecord(
-                UUID, mm, loan, TransactionType.CENTRAL_BANK_MM_LOAN, mm, "做市商紧急贷款", 1));
+        CentralBankLoanLedger.recordLoan(MarketMakerLedger.SubMarket.FUTURES, loan, CandlestickService.currentMcDay());
+        AccountManager.addTransactionRecord(
+                new TransactionRecord(UUID, mm, loan, TransactionType.CENTRAL_BANK_MM_LOAN, mm, "做市商紧急贷款", 1));
         lastCashDelta -= loan;
         // 强制降仓：Phase 3 未提供可调用的静态减仓入口（约定访问器只有 getQuote/getNetPosition/isPaused），
         // 本期只做贷款＋告警，不碰 Phase 3 的成交路径。
-        LOGGER.warn("[央行联动] 期货做市商保证金跌破维持线（{}），已发放紧急贷款 {}（未偿 {}）；"
-                        + "强制降仓待 Phase 3 减仓入口就绪后接管。",
-                status, loan, CentralBankLoanLedger.outstanding(MarketMakerLedger.SubMarket.FUTURES));
+        LOGGER.warn(
+                "[央行联动] 期货做市商保证金跌破维持线（{}），已发放紧急贷款 {}（未偿 {}）；" + "强制降仓待 Phase 3 减仓入口就绪后接管。",
+                status,
+                loan,
+                CentralBankLoanLedger.outstanding(MarketMakerLedger.SubMarket.FUTURES));
     }
 
     /**
@@ -236,8 +240,7 @@ public final class CentralBank {
             }
             long inventory = MarketMakerLedger.getStockInventory(symbol);
             if (inventory >= max) {
-                LOGGER.warn("[央行联动] 股票做市商库存触及上限：{} 库存 {}/{} 股（只卖不买），央行不干预",
-                        symbol, inventory, max);
+                LOGGER.warn("[央行联动] 股票做市商库存触及上限：{} 库存 {}/{} 股（只卖不买），央行不干预", symbol, inventory, max);
             }
         }
     }
@@ -282,8 +285,8 @@ public final class CentralBank {
             } else {
                 if (!transferCommodity(UUID, NpcMarketMaker.NPC_UUID, commodityId, qty)) return;
             }
-            if (reserve <= 0 && !CommodityInventoryManager.addCommodity(
-                    NpcMarketMaker.NPC_UUID, commodityId, qty)) return; // explicit emergency commodity issuance
+            if (reserve <= 0 && !CommodityInventoryManager.addCommodity(NpcMarketMaker.NPC_UUID, commodityId, qty))
+                return; // explicit emergency commodity issuance
             long price = Math.max(1, mp.getAskPrice());
             long receipt = MathUtil.multiplyExactOrNegative1(price, qty);
             if (receipt > 0) {
@@ -339,9 +342,9 @@ public final class CentralBank {
         return value > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) value;
     }
 
-    private static boolean transferCommodity(java.util.UUID from, java.util.UUID to,
-                                               String commodityId, int quantity) {
-        if (quantity <= 0 || CommodityInventoryManager.getCommodityAmount(from, commodityId) < quantity
+    private static boolean transferCommodity(java.util.UUID from, java.util.UUID to, String commodityId, int quantity) {
+        if (quantity <= 0
+                || CommodityInventoryManager.getCommodityAmount(from, commodityId) < quantity
                 || !CommodityInventoryManager.canAddCommodity(to, commodityId, quantity)) return false;
         if (!CommodityInventoryManager.removeCommodity(from, commodityId, quantity)) return false;
         if (CommodityInventoryManager.addCommodity(to, commodityId, quantity)) return true;

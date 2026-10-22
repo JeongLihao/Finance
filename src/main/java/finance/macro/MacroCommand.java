@@ -12,21 +12,20 @@ import finance.settlement.SettlementManager;
 import finance.settlement.SettlementRecord;
 import finance.village.VillageManager;
 import finance.village.VillageRecord;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-
 /**
  * /macro 命令：宏观经济的查看与操作入口。查看对所有玩家开放；设定工资仅限公司所有者。
  */
 public final class MacroCommand {
-    private MacroCommand() { }
+    private MacroCommand() {}
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(Commands.literal("macro")
@@ -35,7 +34,8 @@ public final class MacroCommand {
                 .then(Commands.literal("pops").executes(ctx -> pops(ctx.getSource())))
                 .then(Commands.literal("market")
                         .then(Commands.argument("settlement", StringArgumentType.greedyString())
-                                .executes(ctx -> market(ctx.getSource(), StringArgumentType.getString(ctx, "settlement")))))
+                                .executes(ctx ->
+                                        market(ctx.getSource(), StringArgumentType.getString(ctx, "settlement")))))
                 .then(Commands.literal("wage")
                         .then(Commands.argument("wage", LongArgumentType.longArg(0, 1_000_000))
                                 .executes(ctx -> wage(ctx.getSource(), LongArgumentType.getLong(ctx, "wage")))))
@@ -57,11 +57,20 @@ public final class MacroCommand {
         MacroEconomyManager.Snapshot s = MacroEconomyManager.latestSnapshot();
         double cpi = MacroIndicators.cpiOrNegative();
         lines.add("====== 宏观经济 ======");
-        lines.add(String.format(Locale.ROOT, "CPI %s  年化通胀 %.1f%%", cpi < 0 ? "—" : String.format(Locale.ROOT, "%.1f", cpi),
+        lines.add(String.format(
+                Locale.ROOT,
+                "CPI %s  年化通胀 %.1f%%",
+                cpi < 0 ? "—" : String.format(Locale.ROOT, "%.1f", cpi),
                 MacroIndicators.annualizedInflationPct()));
         if (s != null) {
-            lines.add(String.format(Locale.ROOT, "人口 %,d  平均生活水平 %s  就业 %,d  工资 %,d/天  消费 %,d/天",
-                    s.population(), pct(s.avgSol()), s.employed(), s.wages(), s.consumptionValue()));
+            lines.add(String.format(
+                    Locale.ROOT,
+                    "人口 %,d  平均生活水平 %s  就业 %,d  工资 %,d/天  消费 %,d/天",
+                    s.population(),
+                    pct(s.avgSol()),
+                    s.employed(),
+                    s.wages(),
+                    s.consumptionValue()));
         }
         lines.addAll(centralBankLines());
         send(source, lines);
@@ -77,9 +86,14 @@ public final class MacroCommand {
             if (village == null) continue;
             int pop = village.population();
             long income = econ == null ? 0 : econ.lastIncome;
-            lines.add(String.format(Locale.ROOT, "%s：人口 %d  生活水平 %s  就业 %d  人均收入 %.1f",
-                    settlement.displayName(), pop, econ == null ? "—" : pct(econ.solBps),
-                    econ == null ? 0 : econ.employed, pop <= 0 ? 0.0 : (double) income / pop));
+            lines.add(String.format(
+                    Locale.ROOT,
+                    "%s：人口 %d  生活水平 %s  就业 %d  人均收入 %.1f",
+                    settlement.displayName(),
+                    pop,
+                    econ == null ? "—" : pct(econ.solBps),
+                    econ == null ? 0 : econ.employed,
+                    pop <= 0 ? 0.0 : (double) income / pop));
         }
         if (lines.size() == 1) lines.add("还没有登记的聚落（放置聚落贸易站并使用后才会出现）。");
         send(source, lines);
@@ -103,14 +117,25 @@ public final class MacroCommand {
         lines.add("商品  需求/供给  消费  进口/出口  价格系数  本地价");
         for (Map.Entry<String, GoodBook> e : econ.goods.entrySet()) {
             GoodBook b = e.getValue();
-            lines.add(String.format(Locale.ROOT, "%s  %d/%d  %d  %d/%d  %s  %d", e.getKey(), b.lastDemand, b.lastSupply,
-                    b.lastConsumed, b.lastImports, b.lastExports, pct(b.factorBps),
+            lines.add(String.format(
+                    Locale.ROOT,
+                    "%s  %d/%d  %d  %d/%d  %s  %d",
+                    e.getKey(),
+                    b.lastDemand,
+                    b.lastSupply,
+                    b.lastConsumed,
+                    b.lastImports,
+                    b.lastExports,
+                    pct(b.factorBps),
                     MacroEconomyService.localPrice(econ, e.getKey())));
         }
         StringBuilder f = new StringBuilder("满足率：");
         for (NeedCategory c : NeedCategory.values()) {
             Double v = econ.lastFulfilment.get(c);
-            f.append(c.displayName()).append(' ').append(v == null ? "—" : Math.round(v * 100) + "%").append("  ");
+            f.append(c.displayName())
+                    .append(' ')
+                    .append(v == null ? "—" : Math.round(v * 100) + "%")
+                    .append("  ");
         }
         lines.add(f.toString().trim());
         lines.add("生活水平 " + pct(econ.solBps) + "  就业 " + econ.employed + "  昨日收入 " + econ.lastIncome);
@@ -127,10 +152,16 @@ public final class MacroCommand {
                 + MacroLaborService.reservationWage() + "）" + (MacroLaborService.active() ? "" : "  §e雇工未启用，设施按满员生产"));
         for (CompanyFacilityRecord f : CompanyFacilityManager.forCompany(company.getCompanyId())) {
             var src = SettlementManager.get(MacroEconomyManager.laborSource(f.facilityId()));
-            lines.add(String.format(Locale.ROOT, "设施 %s  等级 %d  在岗 %d/%d  产量 %s  劳动力来源 %s  状态 %s",
-                    f.facilityId().toString().substring(0, 8), f.productionLevel(),
-                    MacroEconomyManager.employment(f.facilityId()), MacroLaborService.jobs(f),
-                    pct(MacroLaborService.staffingBps(f)), src == null ? "无（附近没有聚落）" : src.displayName(), f.status()));
+            lines.add(String.format(
+                    Locale.ROOT,
+                    "设施 %s  等级 %d  在岗 %d/%d  产量 %s  劳动力来源 %s  状态 %s",
+                    f.facilityId().toString().substring(0, 8),
+                    f.productionLevel(),
+                    MacroEconomyManager.employment(f.facilityId()),
+                    MacroLaborService.jobs(f),
+                    pct(MacroLaborService.staffingBps(f)),
+                    src == null ? "无（附近没有聚落）" : src.displayName(),
+                    f.status()));
         }
         send(source, lines);
         return 1;
@@ -152,8 +183,12 @@ public final class MacroCommand {
             return 1;
         }
         List<NewsService.Issue> archive = NewsService.archive();
-        String next = "下一期周报约在第 " + (NewsService.lastWeeklyDay() == Long.MIN_VALUE ? "?"
-                : String.valueOf(NewsService.lastWeeklyDay() + finance.config.FinanceConfig.macroNewsIntervalDays())) + " 天出版。";
+        String next = "下一期周报约在第 "
+                + (NewsService.lastWeeklyDay() == Long.MIN_VALUE
+                        ? "?"
+                        : String.valueOf(
+                                NewsService.lastWeeklyDay() + finance.config.FinanceConfig.macroNewsIntervalDays()))
+                + " 天出版。";
         source.sendSuccess(() -> Component.literal((archive.isEmpty() ? "还没有出过报纸。" : "最近的报纸你都领过了。") + next), false);
         return 1;
     }
@@ -164,7 +199,8 @@ public final class MacroCommand {
             source.sendFailure(Component.literal("只有玩家可以做商情调查。"));
             return 0;
         }
-        MacroRadar.Purchase r = MacroRadar.purchase(player.getUUID(), EconomyCycleService.currentMcDay(source.getServer()));
+        MacroRadar.Purchase r =
+                MacroRadar.purchase(player.getUUID(), EconomyCycleService.currentMcDay(source.getServer()));
         if (!r.success()) {
             source.sendFailure(Component.literal(r.message()));
             return 0;
@@ -188,7 +224,9 @@ public final class MacroCommand {
             source.sendFailure(Component.literal("设定失败：只有公司所有者可以设定工资。"));
             return 0;
         }
-        String hint = wage < MacroLaborService.reservationWage() ? "（低于保留工资 " + MacroLaborService.reservationWage() + "，将招不到人）" : "";
+        String hint = wage < MacroLaborService.reservationWage()
+                ? "（低于保留工资 " + MacroLaborService.reservationWage() + "，将招不到人）"
+                : "";
         source.sendSuccess(() -> Component.literal(company.getName() + " 日工资设为 " + wage + hint), false);
         return 1;
     }
@@ -200,9 +238,15 @@ public final class MacroCommand {
         lines.add("====== 中央银行 ======");
         lines.addAll(centralBankLines());
         for (finance.centralbank.CentralBankService.Decision d : finance.centralbank.CentralBankService.decisions()) {
-            lines.add(String.format(Locale.ROOT, "第 %d 天：利率 %.2f%%→%.2f%%  准备金率 %.1f%%→%.1f%%  通胀 %.1f%%",
-                    d.day(), d.rateBefore() / 100.0, d.rateAfter() / 100.0, d.reserveBefore() / 100.0,
-                    d.reserveAfter() / 100.0, d.inflationBps() / 100.0));
+            lines.add(String.format(
+                    Locale.ROOT,
+                    "第 %d 天：利率 %.2f%%→%.2f%%  准备金率 %.1f%%→%.1f%%  通胀 %.1f%%",
+                    d.day(),
+                    d.rateBefore() / 100.0,
+                    d.rateAfter() / 100.0,
+                    d.reserveBefore() / 100.0,
+                    d.reserveAfter() / 100.0,
+                    d.inflationBps() / 100.0));
         }
         send(source, lines);
         return 1;
@@ -212,8 +256,13 @@ public final class MacroCommand {
     static List<String> centralBankLines() {
         var cb = MacroSnapshotBuilder.centralBankRow();
         List<String> lines = new ArrayList<>();
-        lines.add(String.format(Locale.ROOT, "央行基准利率 %.2f%%  通胀 %.1f%%（目标 %.1f%%）  活期准备金率 %.1f%%",
-                cb.rateBps() / 100.0, cb.inflationBps() / 100.0, cb.targetBps() / 100.0, cb.reserveBps() / 100.0));
+        lines.add(String.format(
+                Locale.ROOT,
+                "央行基准利率 %.2f%%  通胀 %.1f%%（目标 %.1f%%）  活期准备金率 %.1f%%",
+                cb.rateBps() / 100.0,
+                cb.inflationBps() / 100.0,
+                cb.targetBps() / 100.0,
+                cb.reserveBps() / 100.0));
         if (cb.nextMeetingDay() >= 0) lines.add("下次议息第 " + cb.nextMeetingDay() + " 天，倾向" + cb.guidance());
         lines.add("公开市场操作：银行持有央行票据 " + cb.absorbed() + "，回购投放 " + cb.injected());
         lines.add(cb.stabilization().isEmpty() ? "商品平准：昨日无操作" : "商品平准：" + String.join("、", cb.stabilization()));

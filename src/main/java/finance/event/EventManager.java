@@ -3,12 +3,10 @@ package finance.event;
 import finance.commodity.CommodityRegistry;
 import finance.data.EconomySavedData;
 import finance.market.NpcMarketMaker;
-import net.minecraft.network.chat.Component;
-import net.minecraft.server.MinecraftServer;
-
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import net.minecraft.server.MinecraftServer;
 
 /**
  * 事件管理器 —— 事件压力系统 + 调度 + 激活/过期管理。
@@ -31,7 +29,6 @@ public class EventManager {
     /** 黑天鹅触发间隔（MC天）：225天 ≈ 75小时 */
     private static final int TIMER_BLACK_SWAN = 225;
 
-
     private static int timerMinor = 0;
     private static int timerMajor = 0;
     private static int timerBlackSwan = 0;
@@ -40,6 +37,7 @@ public class EventManager {
 
     /** 缓存的商品 ID 列表，仅在商品注册变化时刷新 */
     private static List<String> cachedCommodityIds;
+
     private static boolean commodityIdsDirty = true;
 
     // ================================================================
@@ -66,13 +64,23 @@ public class EventManager {
                     NpcMarketMaker.removeEvent(ev.getCommodityId(), ev);
                 }
 
-                long day=finance.cycle.EconomyCycleService.currentMcDay(server);
-                finance.feedback.WorldEconomyFeedbackService.publish(server,new finance.feedback.WorldEconomyEvent(
-                        "event-recovery:"+ev.getName(),finance.feedback.WorldFeedbackType.MARKET_RECOVERY,
-                        finance.feedback.FeedbackSeverity.INFO,ev.affectsAll()?"all":ev.getCommodityId(),day,"",null,
-                        "finance.feedback.event_recovery",java.util.List.of(ev.getName(),ev.affectsAll()?"all":ev.getCommodityId()),
-                        ev.getTier()==EventTier.MINOR?finance.feedback.FeedbackAudience.LOCAL:finance.feedback.FeedbackAudience.GLOBAL,
-                        java.util.Set.of()));
+                long day = finance.cycle.EconomyCycleService.currentMcDay(server);
+                finance.feedback.WorldEconomyFeedbackService.publish(
+                        server,
+                        new finance.feedback.WorldEconomyEvent(
+                                "event-recovery:" + ev.getName(),
+                                finance.feedback.WorldFeedbackType.MARKET_RECOVERY,
+                                finance.feedback.FeedbackSeverity.INFO,
+                                ev.affectsAll() ? "all" : ev.getCommodityId(),
+                                day,
+                                "",
+                                null,
+                                "finance.feedback.event_recovery",
+                                java.util.List.of(ev.getName(), ev.affectsAll() ? "all" : ev.getCommodityId()),
+                                ev.getTier() == EventTier.MINOR
+                                        ? finance.feedback.FeedbackAudience.LOCAL
+                                        : finance.feedback.FeedbackAudience.GLOBAL,
+                                java.util.Set.of()));
 
                 iter.remove();
             }
@@ -80,8 +88,9 @@ public class EventManager {
 
         // ---- 独立计时器触发（互不干扰，可在同一天同时触发） ----
         if (commodityIdsDirty) {
-            cachedCommodityIds = CommodityRegistry.getAllCommodities()
-                    .stream().map(c -> c.getId()).toList();
+            cachedCommodityIds = CommodityRegistry.getAllCommodities().stream()
+                    .map(c -> c.getId())
+                    .toList();
             commodityIdsDirty = false;
         }
         List<String> commodityIds = cachedCommodityIds;
@@ -104,8 +113,7 @@ public class EventManager {
         EconomySavedData.markDirty();
     }
 
-    private static void fireEvent(EventTier tier, List<String> commodityIds,
-                                   MinecraftServer server) {
+    private static void fireEvent(EventTier tier, List<String> commodityIds, MinecraftServer server) {
         MarketEvent newEvent = EventTemplates.roll(tier, commodityIds);
         if (newEvent == null) return;
 
@@ -125,11 +133,12 @@ public class EventManager {
     // ================================================================
 
     private static void broadcastEvent(MinecraftServer server, MarketEvent event) {
-        String tierLabel = switch (event.getTier()) {
-            case MINOR -> "";
-            case MAJOR -> "[重大] ";
-            case BLACK_SWAN -> "[黑天鹅] ";
-        };
+        String tierLabel =
+                switch (event.getTier()) {
+                    case MINOR -> "";
+                    case MAJOR -> "[重大] ";
+                    case BLACK_SWAN -> "[黑天鹅] ";
+                };
 
         String scope;
         if (event.affectsAll()) {
@@ -138,25 +147,51 @@ public class EventManager {
             scope = event.getCommodityId();
         }
 
-        long day=finance.cycle.EconomyCycleService.currentMcDay(server);
-        finance.feedback.FeedbackSeverity severity=event.getTier()==EventTier.BLACK_SWAN
-                ?finance.feedback.FeedbackSeverity.CRITICAL:event.getTier()==EventTier.MAJOR
-                ?finance.feedback.FeedbackSeverity.WARNING:finance.feedback.FeedbackSeverity.NOTICE;
-        finance.feedback.FeedbackAudience audience=event.getTier()==EventTier.MINOR
-                ?finance.feedback.FeedbackAudience.LOCAL:finance.feedback.FeedbackAudience.GLOBAL;
-        finance.feedback.WorldEconomyFeedbackService.publish(server,new finance.feedback.WorldEconomyEvent(
-                "market-event:"+event.getName(),finance.feedback.WorldFeedbackType.MAJOR_MARKET_EVENT,severity,
-                event.affectsAll()?"all":event.getCommodityId(),day,"",null,"finance.feedback.market_event",
-                java.util.List.of(tierLabel,event.getDescription(),scope,event.getChangePct(),event.getDurationDesc()),audience,java.util.Set.of()));
+        long day = finance.cycle.EconomyCycleService.currentMcDay(server);
+        finance.feedback.FeedbackSeverity severity = event.getTier() == EventTier.BLACK_SWAN
+                ? finance.feedback.FeedbackSeverity.CRITICAL
+                : event.getTier() == EventTier.MAJOR
+                        ? finance.feedback.FeedbackSeverity.WARNING
+                        : finance.feedback.FeedbackSeverity.NOTICE;
+        finance.feedback.FeedbackAudience audience = event.getTier() == EventTier.MINOR
+                ? finance.feedback.FeedbackAudience.LOCAL
+                : finance.feedback.FeedbackAudience.GLOBAL;
+        finance.feedback.WorldEconomyFeedbackService.publish(
+                server,
+                new finance.feedback.WorldEconomyEvent(
+                        "market-event:" + event.getName(),
+                        finance.feedback.WorldFeedbackType.MAJOR_MARKET_EVENT,
+                        severity,
+                        event.affectsAll() ? "all" : event.getCommodityId(),
+                        day,
+                        "",
+                        null,
+                        "finance.feedback.market_event",
+                        java.util.List.of(
+                                tierLabel,
+                                event.getDescription(),
+                                scope,
+                                event.getChangePct(),
+                                event.getDurationDesc()),
+                        audience,
+                        java.util.Set.of()));
     }
 
     // ================================================================
     // 查询
     // ================================================================
 
-    public static int getTimerMinor() { return timerMinor; }
-    public static int getTimerMajor() { return timerMajor; }
-    public static int getTimerBlackSwan() { return timerBlackSwan; }
+    public static int getTimerMinor() {
+        return timerMinor;
+    }
+
+    public static int getTimerMajor() {
+        return timerMajor;
+    }
+
+    public static int getTimerBlackSwan() {
+        return timerBlackSwan;
+    }
 
     public static String getTimerSummary() {
         return "minor:" + timerMinor + "/" + TIMER_MINOR
@@ -167,8 +202,9 @@ public class EventManager {
     /** 测试命令：直接触发指定等级的事件 */
     public static void fireTestEvent(EventTier tier, MinecraftServer server) {
         if (commodityIdsDirty) {
-            cachedCommodityIds = CommodityRegistry.getAllCommodities()
-                    .stream().map(c -> c.getId()).toList();
+            cachedCommodityIds = CommodityRegistry.getAllCommodities().stream()
+                    .map(c -> c.getId())
+                    .toList();
             commodityIdsDirty = false;
         }
         List<String> commodityIds = cachedCommodityIds;
@@ -178,7 +214,9 @@ public class EventManager {
         EconomySavedData.markDirty();
     }
 
-    public static List<MarketEvent> getActiveEvents() { return activeEvents; }
+    public static List<MarketEvent> getActiveEvents() {
+        return activeEvents;
+    }
 
     /** 标记商品 ID 缓存失效（商品注册/移除时调用） */
     public static void markCommodityIdsDirty() {

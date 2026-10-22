@@ -1,7 +1,7 @@
 package finance.client;
 
-import finance.tutorial.TutorialStage;
 import finance.tutorial.TutorialOptionalGoal;
+import finance.tutorial.TutorialStage;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.toasts.SystemToast;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
@@ -17,10 +17,21 @@ public final class TutorialClientState {
 
     private TutorialClientState() {}
 
-    public static TutorialStage stage() { return stage; }
-    public static int optionalMask() { return optionalMask; }
-    public static boolean visible() { return visible; }
-    public static boolean highlighted() { return System.currentTimeMillis() < highlightedUntil; }
+    public static TutorialStage stage() {
+        return stage;
+    }
+
+    public static int optionalMask() {
+        return optionalMask;
+    }
+
+    public static boolean visible() {
+        return visible;
+    }
+
+    public static boolean highlighted() {
+        return System.currentTimeMillis() < highlightedUntil;
+    }
 
     public static void update(TutorialStage next, int nextOptionalMask) {
         TutorialStage previous = stage;
@@ -33,21 +44,28 @@ public final class TutorialClientState {
         if (previous == null) return;
 
         if (shouldCelebrate(previous, next)) {
-            Component completed = Component.translatable(
-                    "finance.tutorial.stage." + previous.translationId() + ".title");
-            celebrate(next == TutorialStage.COMPLETE ? "screen.finance.tutorial.route_complete"
-                    : "screen.finance.tutorial.objective_complete", completed);
+            Component completed =
+                    Component.translatable("finance.tutorial.stage." + previous.translationId() + ".title");
+            celebrate(
+                    next == TutorialStage.COMPLETE
+                            ? "screen.finance.tutorial.route_complete"
+                            : "screen.finance.tutorial.objective_complete",
+                    completed);
         }
         int newlyCompleted = optionalMask & ~previousOptionalMask;
         for (TutorialOptionalGoal goal : TutorialOptionalGoal.values()) {
             if ((newlyCompleted & goal.bit()) != 0) {
-                celebrate("screen.finance.tutorial.optional_complete", Component.translatable(
-                        "finance.tutorial.optional." + goal.translationId() + ".title"));
+                celebrate(
+                        "screen.finance.tutorial.optional_complete",
+                        Component.translatable("finance.tutorial.optional." + goal.translationId() + ".title"));
             }
         }
     }
 
-    public static void toggleVisible() { visible = !visible; }
+    public static void toggleVisible() {
+        visible = !visible;
+    }
+
     public static boolean optionalComplete(TutorialOptionalGoal goal) {
         return (optionalMask & goal.bit()) != 0;
     }
@@ -74,7 +92,8 @@ public final class TutorialClientState {
         if (stage == null) return null;
         if (stage != TutorialStage.COMPLETE) return "finance.tutorial.stage." + stage.translationId();
         TutorialOptionalGoal optional = nextOptionalGoal();
-        return optional == null ? "finance.tutorial.stage.complete"
+        return optional == null
+                ? "finance.tutorial.stage.complete"
                 : "finance.tutorial.optional." + optional.translationId();
     }
 
@@ -93,8 +112,11 @@ public final class TutorialClientState {
     private static void celebrate(String titleKey, Component completed) {
         highlightedUntil = System.currentTimeMillis() + 4_000L;
         Minecraft minecraft = Minecraft.getInstance();
-        SystemToast.add(minecraft.getToasts(), SystemToast.SystemToastIds.TUTORIAL_HINT,
-                Component.translatable(titleKey), completed);
+        SystemToast.add(
+                minecraft.getToasts(),
+                SystemToast.SystemToastIds.TUTORIAL_HINT,
+                Component.translatable(titleKey),
+                completed);
         minecraft.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.PLAYER_LEVELUP, 1.25F, 0.65F));
     }
 }

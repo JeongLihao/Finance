@@ -1,12 +1,11 @@
 package finance.block.entity;
 
 import finance.registry.ModBlockEntities;
+import java.util.UUID;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
-
-import java.util.UUID;
 
 public final class WarehouseControllerBlockEntity extends BlockEntity {
     private UUID warehouseId = UUID.randomUUID();
@@ -33,9 +32,17 @@ public final class WarehouseControllerBlockEntity extends BlockEntity {
         setChanged();
     }
 
-    public UUID warehouseId() { return warehouseId; }
-    public UUID ownerId() { return ownerId; }
-    public boolean created() { return created; }
+    public UUID warehouseId() {
+        return warehouseId;
+    }
+
+    public UUID ownerId() {
+        return ownerId;
+    }
+
+    public boolean created() {
+        return created;
+    }
 
     @Override
     protected void saveAdditional(CompoundTag tag) {

@@ -34,5 +34,4 @@ public record QuarterlyEarningsReport(
         long expectedProfit,
         /** 预期差 bps（发布时计算） */
         long surpriseBps,
-        LocalDateTime createdAt) {
-}
+        LocalDateTime createdAt) {}

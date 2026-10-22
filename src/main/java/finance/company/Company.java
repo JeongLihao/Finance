@@ -1,20 +1,16 @@
 package finance.company;
 
 import finance.account.AccountManager;
-import finance.account.TransactionRecord;
-import finance.account.TransactionType;
-import finance.commodity.CommodityInventoryManager;
 import finance.earnings.QuarterlyEarningsReport;
 import finance.market.MarketPrice;
 import finance.market.NpcMarketMaker;
 import finance.util.MathUtil;
-
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.time.LocalDateTime;
 
 /**
  * 公司实体 —— 拥有现金、库存和实时市场估值。
@@ -31,6 +27,7 @@ public class Company {
 
     /** 库存保留比例 —— 每天卖出 50%，保留 50% */
     private static final double SELL_RATIO = 0.5;
+
     private static final int MAX_UPGRADE_LEVEL = 5;
 
     /** 原料安全库存天数，避免公司把生产原料卖掉后又立刻买回 */
@@ -114,19 +111,44 @@ public class Company {
         this.isPublic = false; // 默认未上市
     }
 
-    public UUID getCompanyId() { return companyId; }
-    public String getName() { return name; }
-    public CompanyType getType() { return type; }
-    public UUID getOwnerId() { return ownerId; }
-    public boolean isPlayerOwned() { return ownerId != null; }
-    public long getCash() { return cash; }
+    public UUID getCompanyId() {
+        return companyId;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public CompanyType getType() {
+        return type;
+    }
+
+    public UUID getOwnerId() {
+        return ownerId;
+    }
+
+    public boolean isPlayerOwned() {
+        return ownerId != null;
+    }
+
+    public long getCash() {
+        return cash;
+    }
+
     public void setName(String name) {
         if (name != null && !name.isBlank()) {
             this.name = name.trim();
         }
     }
-    public boolean isBankruptcyRisk() { return bankruptcyRisk; }
-    public long getBankruptcyRiskStartDay() { return bankruptcyRiskStartDay; }
+
+    public boolean isBankruptcyRisk() {
+        return bankruptcyRisk;
+    }
+
+    public long getBankruptcyRiskStartDay() {
+        return bankruptcyRiskStartDay;
+    }
+
     public void setBankruptcyRisk(boolean risk, long startDay) {
         this.bankruptcyRisk = risk;
         this.bankruptcyRiskStartDay = risk ? startDay : -1;
@@ -134,7 +156,9 @@ public class Company {
 
     // ---- 库存 ----
 
-    public Map<String, Integer> getInventory() { return inventory; }
+    public Map<String, Integer> getInventory() {
+        return inventory;
+    }
 
     public int getInventoryAmount(String commodityId) {
         return inventory.getOrDefault(commodityId, 0);
@@ -225,7 +249,7 @@ public class Company {
 
             // 卖出库存的自动比例，受经营策略调整。
             double effectiveSellRatio = clamp(autoSellRatio * strategy.getSellRatioMultiplier(), 0.05, 0.95);
-            int sellQty = Math.max(1, (int)(amount * effectiveSellRatio));
+            int sellQty = Math.max(1, (int) (amount * effectiveSellRatio));
             int reserve = getReserveAmount(commodityId);
             if (amount <= reserve) {
                 continue;
@@ -316,8 +340,7 @@ public class Company {
     }
 
     private int getReserveAmount(String commodityId) {
-        return type.getDailyConsumption()
-                .getOrDefault(commodityId, 0) * RAW_MATERIAL_RESERVE_DAYS;
+        return type.getDailyConsumption().getOrDefault(commodityId, 0) * RAW_MATERIAL_RESERVE_DAYS;
     }
 
     // ---- P3：盈利与分红 ----
@@ -395,44 +418,79 @@ public class Company {
         }
     }
 
-    public long getDailyRevenue() { return dailyRevenue; }
-    public long getDailyCost() { return dailyCost; }
-    public long getRetainedEarnings() { return retainedEarnings; }
-    public long getDistributableProfit() { return distributableProfit; }
-    public long getLastDividendDay() { return lastDividendDay; }
+    public long getDailyRevenue() {
+        return dailyRevenue;
+    }
 
-    public long getLastOwnerWithdrawTime() { return lastOwnerWithdrawTime; }
+    public long getDailyCost() {
+        return dailyCost;
+    }
+
+    public long getRetainedEarnings() {
+        return retainedEarnings;
+    }
+
+    public long getDistributableProfit() {
+        return distributableProfit;
+    }
+
+    public long getLastDividendDay() {
+        return lastDividendDay;
+    }
+
+    public long getLastOwnerWithdrawTime() {
+        return lastOwnerWithdrawTime;
+    }
 
     public void setLastOwnerWithdrawTime(long timeMillis) {
         this.lastOwnerWithdrawTime = Math.max(0, timeMillis);
     }
-    public double getDividendRatio() { return dividendRatio; }
-    public int getDividendCycleDays() { return dividendCycleDays; }
+
+    public double getDividendRatio() {
+        return dividendRatio;
+    }
+
+    public int getDividendCycleDays() {
+        return dividendCycleDays;
+    }
+
     public double effectiveDividendRatio(double globalDefault) {
         return dividendRatio >= 0 ? clamp(dividendRatio, 0.0, 1.0) : clamp(globalDefault, 0.0, 1.0);
     }
+
     public int effectiveDividendCycleDays(int globalDefault) {
         return dividendCycleDays > 0 ? Math.min(365, dividendCycleDays) : Math.max(1, globalDefault);
     }
+
     public void setDividendPolicy(double ratio, int cycleDays) {
         this.dividendRatio = clamp(ratio, 0.0, 1.0);
         this.dividendCycleDays = Math.max(1, Math.min(365, cycleDays));
     }
+
     public void restoreDividendPolicy(double ratio, int cycleDays) {
         this.dividendRatio = ratio >= 0 ? clamp(ratio, 0.0, 1.0) : -1.0;
         this.dividendCycleDays = cycleDays > 0 ? Math.min(365, cycleDays) : -1;
     }
-    public List<Long> getRecentProfits() { return new ArrayList<>(recentProfits); }
-    public List<DividendRecord> getDividendHistory() { return new ArrayList<>(dividendHistory); }
-    public List<CompanyFinancialReport> getFinancialReports() { return new ArrayList<>(financialReports); }
+
+    public List<Long> getRecentProfits() {
+        return new ArrayList<>(recentProfits);
+    }
+
+    public List<DividendRecord> getDividendHistory() {
+        return new ArrayList<>(dividendHistory);
+    }
+
+    public List<CompanyFinancialReport> getFinancialReports() {
+        return new ArrayList<>(financialReports);
+    }
+
     public CompanyFinancialReport getLatestFinancialReport() {
         return financialReports.isEmpty() ? null : financialReports.get(financialReports.size() - 1);
     }
 
     // ---- 财报季 ----
     /** 季度累加器快照（返回后清零，由 EarningsSeasonService 在财报日调用）。 */
-    public record QuarterAccumulator(long revenue, long expenses, int days) {
-    }
+    public record QuarterAccumulator(long revenue, long expenses, int days) {}
 
     public QuarterAccumulator drainQuarter() {
         QuarterAccumulator acc = new QuarterAccumulator(quarterRevenue, quarterExpenses, quarterDays);
@@ -462,8 +520,8 @@ public class Company {
         }
     }
 
-    public void restoreQuarterly(long quarterRevenue, long quarterExpenses, int quarterDays,
-                                  List<QuarterlyEarningsReport> history) {
+    public void restoreQuarterly(
+            long quarterRevenue, long quarterExpenses, int quarterDays, List<QuarterlyEarningsReport> history) {
         this.quarterRevenue = Math.max(0, quarterRevenue);
         this.quarterExpenses = Math.max(0, quarterExpenses);
         this.quarterDays = Math.max(0, quarterDays);
@@ -472,6 +530,7 @@ public class Company {
             this.earningsHistory.addAll(history);
         }
     }
+
     public long getSmoothedDailyProfit() {
         if (!financialReports.isEmpty()) {
             int start = Math.max(0, financialReports.size() - PROFIT_HISTORY_DAYS);
@@ -506,15 +565,20 @@ public class Company {
         return count == 0 ? 1.0 : clamp(total / count, 0.35, 2.0);
     }
 
-    public void restoreFinancials(long dailyRevenue, long dailyCost, long retainedEarnings,
-                                  long lastDividendDay, List<Long> recentProfits) {
-        restoreFinancials(dailyRevenue, dailyCost, retainedEarnings, retainedEarnings,
-                lastDividendDay, recentProfits, List.of());
+    public void restoreFinancials(
+            long dailyRevenue, long dailyCost, long retainedEarnings, long lastDividendDay, List<Long> recentProfits) {
+        restoreFinancials(
+                dailyRevenue, dailyCost, retainedEarnings, retainedEarnings, lastDividendDay, recentProfits, List.of());
     }
 
-    public void restoreFinancials(long dailyRevenue, long dailyCost, long retainedEarnings,
-                                  long distributableProfit, long lastDividendDay,
-                                  List<Long> recentProfits, List<DividendRecord> dividendHistory) {
+    public void restoreFinancials(
+            long dailyRevenue,
+            long dailyCost,
+            long retainedEarnings,
+            long distributableProfit,
+            long lastDividendDay,
+            List<Long> recentProfits,
+            List<DividendRecord> dividendHistory) {
         this.dailyRevenue = dailyRevenue;
         this.dailyCost = dailyCost;
         this.retainedEarnings = retainedEarnings;
@@ -558,17 +622,35 @@ public class Company {
         return Math.max(0, Math.round(netAssets * inventoryDiscount));
     }
 
-
     // ---- P4：IPO ----
 
-    public boolean isPublic() { return isPublic; }
-    public void setPublic(boolean pub) { this.isPublic = pub; }
+    public boolean isPublic() {
+        return isPublic;
+    }
 
-    public CompanyStrategy getStrategy() { return strategy; }
-    public int getProductionLevel() { return productionLevel; }
-    public int getStorageLevel() { return storageLevel; }
-    public int getManagementLevel() { return managementLevel; }
-    public double getAutoSellRatio() { return autoSellRatio; }
+    public void setPublic(boolean pub) {
+        this.isPublic = pub;
+    }
+
+    public CompanyStrategy getStrategy() {
+        return strategy;
+    }
+
+    public int getProductionLevel() {
+        return productionLevel;
+    }
+
+    public int getStorageLevel() {
+        return storageLevel;
+    }
+
+    public int getManagementLevel() {
+        return managementLevel;
+    }
+
+    public double getAutoSellRatio() {
+        return autoSellRatio;
+    }
 
     public void setStrategy(CompanyStrategy strategy) {
         this.strategy = strategy != null ? strategy : CompanyStrategy.STABLE;
@@ -597,17 +679,22 @@ public class Company {
     }
 
     public long getUpgradeCost(String upgradeType) {
-        int nextLevel = switch (upgradeType) {
-            case "PRODUCTION" -> productionLevel + 1;
-            case "STORAGE" -> storageLevel + 1;
-            case "MANAGEMENT" -> managementLevel + 1;
-            default -> 1;
-        };
+        int nextLevel =
+                switch (upgradeType) {
+                    case "PRODUCTION" -> productionLevel + 1;
+                    case "STORAGE" -> storageLevel + 1;
+                    case "MANAGEMENT" -> managementLevel + 1;
+                    default -> 1;
+                };
         return 2_500L * nextLevel * nextLevel;
     }
 
-    public void restoreManagement(CompanyStrategy strategy, int productionLevel, int storageLevel,
-                                  int managementLevel, double autoSellRatio) {
+    public void restoreManagement(
+            CompanyStrategy strategy,
+            int productionLevel,
+            int storageLevel,
+            int managementLevel,
+            double autoSellRatio) {
         setStrategy(strategy);
         this.productionLevel = Math.max(0, Math.min(MAX_UPGRADE_LEVEL, productionLevel));
         this.storageLevel = Math.max(0, Math.min(MAX_UPGRADE_LEVEL, storageLevel));
@@ -622,10 +709,12 @@ public class Company {
             long price = mp != null ? mp.getMidPrice() : 1;
             theoreticalProductionValue += Math.max(0, price * (long) entry.getValue());
         }
-        long productionCost = Math.round(theoreticalProductionValue * OPERATING_COST_RATIO
-                * strategy.getOperatingCostMultiplier() * (1.0 - managementLevel * 0.06));
-        long inventoryCarryCost = Math.round(inventoryValue() * INVENTORY_CARRY_COST_RATIO
-                * (1.0 - storageLevel * 0.08));
+        long productionCost = Math.round(theoreticalProductionValue
+                * OPERATING_COST_RATIO
+                * strategy.getOperatingCostMultiplier()
+                * (1.0 - managementLevel * 0.06));
+        long inventoryCarryCost =
+                Math.round(inventoryValue() * INVENTORY_CARRY_COST_RATIO * (1.0 - storageLevel * 0.08));
         return Math.max(1, productionCost + inventoryCarryCost);
     }
 
@@ -674,6 +763,5 @@ public class Company {
         return Math.max(min, Math.min(max, value));
     }
 
-    public record DividendRecord(long mcDay, long totalAmount, long perShare) {
-    }
+    public record DividendRecord(long mcDay, long totalAmount, long perShare) {}
 }

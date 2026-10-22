@@ -19,6 +19,7 @@ public class Stock {
 
     /** 公司/系统持有的未流通股 */
     private long ownerShares;
+
     private long treasuryShares;
 
     /**
@@ -50,10 +51,16 @@ public class Stock {
     @Deprecated
     private long availableShares;
 
-
     /** 完整构造（支持新字段） */
-    public Stock(String symbol, String name, UUID companyId, long totalShares,
-                 long floatShares, long ownerShares, long currentPrice, long fairValue) {
+    public Stock(
+            String symbol,
+            String name,
+            UUID companyId,
+            long totalShares,
+            long floatShares,
+            long ownerShares,
+            long currentPrice,
+            long fairValue) {
         this.symbol = symbol;
         this.name = name;
         this.companyId = companyId;
@@ -67,25 +74,71 @@ public class Stock {
 
     // ---- Getter ----
 
-    public String getSymbol() { return symbol; }
-    public String getName() { return name; }
-    public UUID getCompanyId() { return companyId; }
-    public long getTotalShares() { return totalShares; }
-    public long getFloatShares() { return floatShares; }
-    public long getOwnerShares() { return ownerShares; }
-    public long getTreasuryShares(){return treasuryShares;}
-    public long getVotingShares(){return Math.max(0,totalShares-treasuryShares);}
-    public boolean addTreasuryShares(long quantity){if(quantity<=0||treasuryShares>Long.MAX_VALUE-quantity||treasuryShares+quantity>totalShares)return false;treasuryShares+=quantity;return true;}
-    public boolean retireTreasuryShares(long quantity){if(quantity<=0||quantity>treasuryShares||quantity>totalShares)return false;treasuryShares-=quantity;totalShares-=quantity;floatShares=Math.min(floatShares,totalShares);availableShares=floatShares;return true;}
-    public void restoreTreasuryShares(long quantity){if(quantity>=0&&quantity<=totalShares)treasuryShares=quantity;}
+    public String getSymbol() {
+        return symbol;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public UUID getCompanyId() {
+        return companyId;
+    }
+
+    public long getTotalShares() {
+        return totalShares;
+    }
+
+    public long getFloatShares() {
+        return floatShares;
+    }
+
+    public long getOwnerShares() {
+        return ownerShares;
+    }
+
+    public long getTreasuryShares() {
+        return treasuryShares;
+    }
+
+    public long getVotingShares() {
+        return Math.max(0, totalShares - treasuryShares);
+    }
+
+    public boolean addTreasuryShares(long quantity) {
+        if (quantity <= 0 || treasuryShares > Long.MAX_VALUE - quantity || treasuryShares + quantity > totalShares)
+            return false;
+        treasuryShares += quantity;
+        return true;
+    }
+
+    public boolean retireTreasuryShares(long quantity) {
+        if (quantity <= 0 || quantity > treasuryShares || quantity > totalShares) return false;
+        treasuryShares -= quantity;
+        totalShares -= quantity;
+        floatShares = Math.min(floatShares, totalShares);
+        availableShares = floatShares;
+        return true;
+    }
+
+    public void restoreTreasuryShares(long quantity) {
+        if (quantity >= 0 && quantity <= totalShares) treasuryShares = quantity;
+    }
 
     // ---- 创始人锁定与做市商深度 ----
 
-    public UUID getFounderId() { return founderId; }
+    public UUID getFounderId() {
+        return founderId;
+    }
 
-    public int getFounderLockupDaysRemaining() { return founderLockupDaysRemaining; }
+    public int getFounderLockupDaysRemaining() {
+        return founderLockupDaysRemaining;
+    }
 
-    public long getMarketMakerBoughtShares() { return marketMakerBoughtShares; }
+    public long getMarketMakerBoughtShares() {
+        return marketMakerBoughtShares;
+    }
 
     /** IPO 时设置创始人锁定 */
     public void setFounderLockup(UUID founderId, int lockupDays) {
@@ -119,28 +172,55 @@ public class Stock {
     }
 
     /** 是否停牌中（要约收购期间） */
-    public boolean isTradingHalted() { return tradingHalted; }
+    public boolean isTradingHalted() {
+        return tradingHalted;
+    }
 
     /** 设置停牌状态 */
-    public void setTradingHalted(boolean halted) { this.tradingHalted = halted; }
+    public void setTradingHalted(boolean halted) {
+        this.tradingHalted = halted;
+    }
 
     /** 兼容旧 API：availableShares = floatShares */
-    public long getAvailableShares() { return floatShares; }
+    public long getAvailableShares() {
+        return floatShares;
+    }
 
-    public long getLastPrice() { return priceEngine.getCurrentPrice(); }
-    public long getPreviousClose() { return priceEngine.getDayOpen(); }
-    public long getDayVolume() { return priceEngine.getDayVolume(); }
+    public long getLastPrice() {
+        return priceEngine.getCurrentPrice();
+    }
 
-    public long getFairValue() { return priceEngine.getFairValue(); }
-    public double getTradeMomentum() { return priceEngine.getTradeMomentum(); }
+    public long getPreviousClose() {
+        return priceEngine.getDayOpen();
+    }
+
+    public long getDayVolume() {
+        return priceEngine.getDayVolume();
+    }
+
+    public long getFairValue() {
+        return priceEngine.getFairValue();
+    }
+
+    public double getTradeMomentum() {
+        return priceEngine.getTradeMomentum();
+    }
 
     public double getDayChange() {
         return priceEngine.getDayChange();
     }
 
-    public long getDayHigh() { return priceEngine.getDayHigh(); }
-    public long getDayLow() { return priceEngine.getDayLow(); }
-    public List<StockPriceEngine.PriceSnapshot> getSnapshots() { return priceEngine.getSnapshots(); }
+    public long getDayHigh() {
+        return priceEngine.getDayHigh();
+    }
+
+    public long getDayLow() {
+        return priceEngine.getDayLow();
+    }
+
+    public List<StockPriceEngine.PriceSnapshot> getSnapshots() {
+        return priceEngine.getSnapshots();
+    }
 
     /** 财报季：按预期差冲击股价（委托价格引擎，带钳制）。 */
     public void applyEarningsShock(double shockBps, double fvPassThrough) {
@@ -154,12 +234,8 @@ public class Stock {
 
     // ---- 交易相关（旧 API 兼容） ----
 
-
-
     public boolean canIncreaseShares(long quantity) {
-        return quantity > 0
-                && totalShares <= Long.MAX_VALUE - quantity
-                && floatShares <= Long.MAX_VALUE - quantity;
+        return quantity > 0 && totalShares <= Long.MAX_VALUE - quantity && floatShares <= Long.MAX_VALUE - quantity;
     }
 
     public boolean increaseShares(long quantity) {
@@ -249,11 +325,9 @@ public class Stock {
         priceEngine.recalculateFromCurrent();
     }
 
-
     public void recordPriceSnapshotIfChanged() {
         priceEngine.recordSnapshotIfChanged();
     }
-
 
     /**
      * 创始人锁定期按天递减 —— 仅由日结算（{@code StockMarketManager.tickNewDay}）调用，

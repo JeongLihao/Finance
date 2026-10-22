@@ -1,7 +1,6 @@
 package finance.macro;
 
 import finance.village.VillageProfession;
-
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumMap;
@@ -18,11 +17,11 @@ import java.util.function.ToLongFunction;
  * 取暖和衣物是新增需求。</p>
  */
 public final class MacroNeeds {
-    private MacroNeeds() { }
+    private MacroNeeds() {}
 
     /** 受雇工人在职业篮子之外的额外需求：有了收入就多消费。 */
-    private static final Map<NeedCategory, Double> WORKER_EXTRA = Map.of(
-            NeedCategory.FOOD, 0.5, NeedCategory.CLOTHING, 0.3);
+    private static final Map<NeedCategory, Double> WORKER_EXTRA =
+            Map.of(NeedCategory.FOOD, 0.5, NeedCategory.CLOTHING, 0.3);
 
     /** 某职业每人每天各类别的需求份数。 */
     public static Map<NeedCategory, Double> perCapita(VillageProfession profession) {
@@ -37,8 +36,13 @@ public final class MacroNeeds {
         return m;
     }
 
-    private static void put(EnumMap<NeedCategory, Double> m, double food, double housing, double tools,
-                            double heating, double clothing) {
+    private static void put(
+            EnumMap<NeedCategory, Double> m,
+            double food,
+            double housing,
+            double tools,
+            double heating,
+            double clothing) {
         m.put(NeedCategory.FOOD, food);
         m.put(NeedCategory.HOUSING, housing);
         m.put(NeedCategory.TOOLS, tools);
@@ -76,17 +80,24 @@ public final class MacroNeeds {
      * @param unitPrice  商品本地单价（≤ 0 的视为不可用）
      * @return 商品 id → 数量（只含 &gt; 0 的项）
      */
-    public static Map<String, Long> allocate(NeedCategory category, double units, Predicate<String> registered,
-                                             Predicate<String> available, ToLongFunction<String> unitPrice) {
+    public static Map<String, Long> allocate(
+            NeedCategory category,
+            double units,
+            Predicate<String> registered,
+            Predicate<String> available,
+            ToLongFunction<String> unitPrice) {
         Map<String, Long> out = new LinkedHashMap<>();
         if (category == null || !(units > 0)) return out;
         Map<String, Double> candidates = new LinkedHashMap<>();
         for (Map.Entry<String, Double> e : category.unitsPerItem().entrySet()) {
-            if (registered.test(e.getKey()) && unitPrice.applyAsLong(e.getKey()) > 0) candidates.put(e.getKey(), e.getValue());
+            if (registered.test(e.getKey()) && unitPrice.applyAsLong(e.getKey()) > 0)
+                candidates.put(e.getKey(), e.getValue());
         }
         if (candidates.isEmpty()) return out;
         Map<String, Double> pool = new LinkedHashMap<>();
-        candidates.forEach((id, u) -> { if (available.test(id)) pool.put(id, u); });
+        candidates.forEach((id, u) -> {
+            if (available.test(id)) pool.put(id, u);
+        });
         if (pool.isEmpty()) pool.putAll(candidates);
 
         Map<String, Double> weights = new LinkedHashMap<>();
@@ -98,7 +109,10 @@ public final class MacroNeeds {
             double w = 1.0 / (perUnit * perUnit);
             weights.put(e.getKey(), w);
             sum += w;
-            if (perUnit < cheapestPerUnit) { cheapestPerUnit = perUnit; cheapest = e.getKey(); }
+            if (perUnit < cheapestPerUnit) {
+                cheapestPerUnit = perUnit;
+                cheapest = e.getKey();
+            }
         }
         double covered = 0;
         for (Map.Entry<String, Double> e : weights.entrySet()) {

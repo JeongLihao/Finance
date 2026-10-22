@@ -1,2 +1,7 @@
 package finance.bank;
-public enum BankAccountStatus { ACTIVE, FROZEN, CLOSED }
+
+public enum BankAccountStatus {
+    ACTIVE,
+    FROZEN,
+    CLOSED
+}

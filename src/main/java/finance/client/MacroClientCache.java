@@ -1,19 +1,23 @@
 package finance.client;
 
 import finance.network.MacroResponsePacket;
-
 import java.util.concurrent.atomic.AtomicLong;
 
 /** 宏观经济页签的客户端快照缓存（沿用 RegionalRiskClientCache 的请求/超时模式）。 */
 public final class MacroClientCache {
-    public enum State { NOT_REQUESTED, LOADING, READY, SLOW }
+    public enum State {
+        NOT_REQUESTED,
+        LOADING,
+        READY,
+        SLOW
+    }
 
-    public record Entry(State state, long requestId, long at, MacroResponsePacket data) { }
+    public record Entry(State state, long requestId, long at, MacroResponsePacket data) {}
 
     private static final AtomicLong SEQ = new AtomicLong();
     private static Entry entry = new Entry(State.NOT_REQUESTED, 0, 0, null);
 
-    private MacroClientCache() { }
+    private MacroClientCache() {}
 
     public static long begin() {
         long id = SEQ.updateAndGet(v -> v == Long.MAX_VALUE ? 1 : v + 1);

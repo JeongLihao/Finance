@@ -18,7 +18,6 @@ import finance.diagnostic.ModuleHealthRegistry;
 import finance.gameplay.company.CompanyInventoryFacade;
 import finance.market.MarketPrice;
 import finance.market.NpcMarketMaker;
-
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -42,16 +41,27 @@ public final class RivalService {
     static final int CONTRACT_LOW_DAYS = 3, CONTRACT_BUY_DAYS = 5, CONTRACT_DEADLINE_DAYS = 5;
     /** 上市门槛：成立满 30 天、现金至少 80,000、近期盈利。 */
     static final int IPO_MIN_AGE_DAYS = 30;
+
     static final long IPO_MIN_CASH = 80_000L;
 
-    private RivalService() { }
+    private RivalService() {}
 
-    public record Settings(boolean enabled, int maxCompanies, int spawnCooldownDays, long seedCapital,
-                           long poolReserveFloor, boolean ipoEnabled, boolean contractsEnabled) {
+    public record Settings(
+            boolean enabled,
+            int maxCompanies,
+            int spawnCooldownDays,
+            long seedCapital,
+            long poolReserveFloor,
+            boolean ipoEnabled,
+            boolean contractsEnabled) {
         public static Settings fromConfig() {
-            return new Settings(FinanceConfig.rivalsEnabled(), FinanceConfig.rivalsMaxCompanies(),
-                    FinanceConfig.rivalsSpawnCooldownDays(), FinanceConfig.rivalsSeedCapital(),
-                    FinanceConfig.npcPoolReserveFloor(), FinanceConfig.rivalsIpoEnabled(),
+            return new Settings(
+                    FinanceConfig.rivalsEnabled(),
+                    FinanceConfig.rivalsMaxCompanies(),
+                    FinanceConfig.rivalsSpawnCooldownDays(),
+                    FinanceConfig.rivalsSeedCapital(),
+                    FinanceConfig.npcPoolReserveFloor(),
+                    FinanceConfig.rivalsIpoEnabled(),
                     FinanceConfig.rivalsContractsEnabled());
         }
     }
@@ -99,7 +109,8 @@ public final class RivalService {
         if (type == null) return;
         long pool = AccountManager.getBalance(NpcMarketMaker.NPC_UUID);
         if (pool - s.seedCapital() < s.poolReserveFloor()) return;
-        UUID id = UUID.nameUUIDFromBytes(("finance-rival-company-" + day + "-" + type.name()).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        UUID id = UUID.nameUUIDFromBytes(
+                ("finance-rival-company-" + day + "-" + type.name()).getBytes(java.nio.charset.StandardCharsets.UTF_8));
         if (CompanyManager.getCompany(id) != null) return;
         Company company = new Company(id, RivalNames.pick(type, day), type, 0);
         if (!AccountManager.withdraw(NpcMarketMaker.NPC_UUID, s.seedCapital())) return;
@@ -108,16 +119,20 @@ public final class RivalService {
             return;
         }
         CompanyManager.register(company);
-        String commodity = type.getCommodityIds().isEmpty() ? "" : type.getCommodityIds().get(0);
+        String commodity =
+                type.getCommodityIds().isEmpty() ? "" : type.getCommodityIds().get(0);
         RivalProfile profile = new RivalProfile(id, RivalPersonality.forCompany(id), commodity, day);
         if (!RivalManager.put(profile)) return;
         RivalManager.setLastSpawnDay(day);
         profile.record(day, "SPAWN", type.getDisplayName());
-        AccountManager.addTransactionRecord(new TransactionRecord(NpcMarketMaker.NPC_UUID, id, s.seedCapital(),
-                TransactionType.RIVAL_SEED, null, company.getName(), 0));
-        news(40, "新竞争者入场：" + company.getName(),
-                company.getName() + "（" + profile.personality().displayName() + "型）看中了紧缺的"
-                        + commodityName(commodity) + "，开始和你抢生意。", false);
+        AccountManager.addTransactionRecord(new TransactionRecord(
+                NpcMarketMaker.NPC_UUID, id, s.seedCapital(), TransactionType.RIVAL_SEED, null, company.getName(), 0));
+        news(
+                40,
+                "新竞争者入场：" + company.getName(),
+                company.getName() + "（" + profile.personality().displayName() + "型）看中了紧缺的" + commodityName(commodity)
+                        + "，开始和你抢生意。",
+                false);
     }
 
     /** 产品卖价相对基准价溢价最高、且超过门槛的行业；没有则返回 null。 */
@@ -151,15 +166,17 @@ public final class RivalService {
         return switch (personality) {
             case AGGRESSIVE -> smoothedProfit > 0 ? CompanyStrategy.EXPAND : CompanyStrategy.STABLE;
             case CONSERVATIVE -> smoothedProfit < 0 ? CompanyStrategy.COST_CONTROL : CompanyStrategy.STABLE;
-            case OPPORTUNIST -> productPremiumBps >= 11_000 ? CompanyStrategy.FAST_CASH
-                    : productPremiumBps > 0 && productPremiumBps <= 9_000 ? CompanyStrategy.HOLD_INVENTORY
-                    : CompanyStrategy.STABLE;
+            case OPPORTUNIST -> productPremiumBps >= 11_000
+                    ? CompanyStrategy.FAST_CASH
+                    : productPremiumBps > 0 && productPremiumBps <= 9_000
+                            ? CompanyStrategy.HOLD_INVENTORY
+                            : CompanyStrategy.STABLE;
         };
     }
 
     static void decideStrategy(Company company, RivalProfile profile, long day) {
-        CompanyStrategy next = chooseStrategy(profile.personality(), company.getSmoothedDailyProfit(),
-                premiumBps(profile.mainCommodity()));
+        CompanyStrategy next = chooseStrategy(
+                profile.personality(), company.getSmoothedDailyProfit(), premiumBps(profile.mainCommodity()));
         if (next == company.getStrategy()) return;
         company.setStrategy(next);
         profile.record(day, "STRATEGY", next.getDisplayName());
@@ -168,11 +185,14 @@ public final class RivalService {
     /** 现金达到“升级费 × 人格倍数”时升级产线（满级后升级仓储），升级费付给 NPC 资金池。 */
     static void tryUpgrade(Company company, RivalProfile profile, long day) {
         if (profile.lastUpgradeDay() != Long.MIN_VALUE && day - profile.lastUpgradeDay() < UPGRADE_GAP_DAYS) return;
-        String type = company.getProductionLevel() < 5 ? "PRODUCTION" : company.getStorageLevel() < 5 ? "STORAGE" : null;
+        String type =
+                company.getProductionLevel() < 5 ? "PRODUCTION" : company.getStorageLevel() < 5 ? "STORAGE" : null;
         if (type == null) return;
         long cost = company.getUpgradeCost(type);
-        long needed = BigInteger.valueOf(cost).multiply(BigInteger.valueOf(profile.personality().upgradeCashMultiple()))
-                .min(BigInteger.valueOf(Long.MAX_VALUE)).longValue();
+        long needed = BigInteger.valueOf(cost)
+                .multiply(BigInteger.valueOf(profile.personality().upgradeCashMultiple()))
+                .min(BigInteger.valueOf(Long.MAX_VALUE))
+                .longValue();
         if (cost <= 0 || company.getCash() < needed) return;
         if (!AccountManager.canDeposit(NpcMarketMaker.NPC_UUID, cost) || !company.withdraw(cost)) return;
         boolean upgraded = "PRODUCTION".equals(type) ? company.upgradeProduction() : company.upgradeStorage();
@@ -183,31 +203,46 @@ public final class RivalService {
         // 升级是资本开支，不计入当天经营成本（否则当天会显示亏损，影响上市判断）
         AccountManager.deposit(NpcMarketMaker.NPC_UUID, cost);
         profile.setLastUpgradeDay(day);
-        profile.record(day, "UPGRADE", ("PRODUCTION".equals(type) ? "产线 " + company.getProductionLevel()
-                : "仓储 " + company.getStorageLevel()) + " 级");
-        AccountManager.addTransactionRecord(new TransactionRecord(company.getCompanyId(), NpcMarketMaker.NPC_UUID, cost,
-                TransactionType.RIVAL_UPGRADE, null, company.getName(), 1));
+        profile.record(
+                day,
+                "UPGRADE",
+                ("PRODUCTION".equals(type) ? "产线 " + company.getProductionLevel() : "仓储 " + company.getStorageLevel())
+                        + " 级");
+        AccountManager.addTransactionRecord(new TransactionRecord(
+                company.getCompanyId(),
+                NpcMarketMaker.NPC_UUID,
+                cost,
+                TransactionType.RIVAL_UPGRADE,
+                null,
+                company.getName(),
+                1));
     }
 
     /** 加工类公司原料低于 3 天用量时发采购合同（一次 5 天用量），和玩家争供应。 */
     static void tryProcure(Company company, RivalProfile profile, long day) {
-        for (Map.Entry<String, Integer> input : company.getType().getDailyConsumption().entrySet()) {
+        for (Map.Entry<String, Integer> input :
+                company.getType().getDailyConsumption().entrySet()) {
             String commodity = input.getKey();
             int daily = input.getValue();
             if (daily <= 0 || ContractManager.hasLiveForIssuerCommodity(company.getCompanyId(), commodity)) continue;
             long have = company.getInventoryAmount(commodity)
-                    + CommodityInventoryManager.getCommodityAmount(CompanyInventoryFacade.custodyId(company.getCompanyId()), commodity);
+                    + CommodityInventoryManager.getCommodityAmount(
+                            CompanyInventoryFacade.custodyId(company.getCompanyId()), commodity);
             if (have >= (long) daily * CONTRACT_LOW_DAYS) continue;
             MarketPrice mp = NpcMarketMaker.getMarketPrice(commodity);
             if (mp == null || mp.getAskPrice() <= 0) continue;
             int qty = daily * CONTRACT_BUY_DAYS;
-            long reward = BigInteger.valueOf(mp.getAskPrice()).multiply(BigInteger.valueOf(qty))
-                    .multiply(BigInteger.valueOf(profile.personality().contractPremiumBps())).divide(BigInteger.valueOf(10_000))
-                    .min(BigInteger.valueOf(Long.MAX_VALUE)).longValue();
+            long reward = BigInteger.valueOf(mp.getAskPrice())
+                    .multiply(BigInteger.valueOf(qty))
+                    .multiply(BigInteger.valueOf(profile.personality().contractPremiumBps()))
+                    .divide(BigInteger.valueOf(10_000))
+                    .min(BigInteger.valueOf(Long.MAX_VALUE))
+                    .longValue();
             // 保留三倍赏金的现金，避免为了抢原料把自己掏空
             if (reward <= 0 || company.getCash() < reward * 3) continue;
-            if (ContractManager.createCompanyProcurement(company.getCompanyId(), commodity, qty, reward, day,
-                    day + CONTRACT_DEADLINE_DAYS) != null) {
+            if (ContractManager.createCompanyProcurement(
+                            company.getCompanyId(), commodity, qty, reward, day, day + CONTRACT_DEADLINE_DAYS)
+                    != null) {
                 profile.record(day, "CONTRACT", commodityName(commodity) + " ×" + qty + "，赏金 " + reward);
             }
         }
@@ -223,23 +258,30 @@ public final class RivalService {
             int amount = CommodityInventoryManager.getCommodityAmount(custody, commodity);
             if (amount <= 0 || !company.canAddInventory(commodity, amount)) continue;
             if (CommodityInventoryManager.removeCommodity(custody, commodity, amount)) {
-                if (!company.addInventory(commodity, amount)) CommodityInventoryManager.addCommodity(custody, commodity, amount);
+                if (!company.addInventory(commodity, amount))
+                    CommodityInventoryManager.addCommodity(custody, commodity, amount);
             }
         }
     }
 
     /** 成立满 30 天、现金 ≥ 80,000、近期盈利时上市。发行价按估值折算，募资不超过玩家 IPO 上限。 */
     static void tryIpo(Company company, RivalProfile profile, long day) {
-        if (company.isPublic() || day - profile.createdDay() < IPO_MIN_AGE_DAYS || company.getCash() < IPO_MIN_CASH
+        if (company.isPublic()
+                || day - profile.createdDay() < IPO_MIN_AGE_DAYS
+                || company.getCash() < IPO_MIN_CASH
                 || company.getSmoothedDailyProfit() <= 0) return;
         long price = Math.max(1, Math.min(CompanyIPOService.MAX_ISSUE_PRICE, company.getEstimatedValue() / 25_000));
         long quantity = Math.max(1, Math.min(100_000, CompanyIPOService.MAX_TOTAL_RAISE / price));
-        var result = CompanyIPOService.ipoOwnerless(company.getCompanyId(), RivalProfile.investmentAccount(company.getCompanyId()),
-                price, quantity);
+        var result = CompanyIPOService.ipoOwnerless(
+                company.getCompanyId(), RivalProfile.investmentAccount(company.getCompanyId()), price, quantity);
         if (!result.success()) return;
         profile.record(day, "IPO", result.stock().getSymbol() + " @" + price);
-        news(55, company.getName() + "上市", company.getName() + "以每股 " + price + " 发行 " + quantity
-                + " 股，股票代码 " + result.stock().getSymbol() + "。", false);
+        news(
+                55,
+                company.getName() + "上市",
+                company.getName() + "以每股 " + price + " 发行 " + quantity + " 股，股票代码 "
+                        + result.stock().getSymbol() + "。",
+                false);
     }
 
     /** 宏观页签的竞争对手列表（最多 limit 行，按名称排序）。 */
@@ -255,10 +297,17 @@ public final class RivalService {
             Company c = CompanyManager.getCompany(p.companyId());
             if (c == null) continue;
             List<RivalProfile.Decision> history = p.history();
-            String last = history.isEmpty() ? "" : history.get(history.size() - 1).action() + " "
-                    + history.get(history.size() - 1).detail();
-            rows.add(new finance.network.MacroResponsePacket.RivalRow(c.getName(), commodityName(p.mainCommodity()),
-                    p.personality().displayName(), c.getStrategy().getDisplayName(), c.isPublic(), last));
+            String last = history.isEmpty()
+                    ? ""
+                    : history.get(history.size() - 1).action() + " "
+                            + history.get(history.size() - 1).detail();
+            rows.add(new finance.network.MacroResponsePacket.RivalRow(
+                    c.getName(),
+                    commodityName(p.mainCommodity()),
+                    p.personality().displayName(),
+                    c.getStrategy().getDisplayName(),
+                    c.isPublic(),
+                    last));
         }
         return rows;
     }

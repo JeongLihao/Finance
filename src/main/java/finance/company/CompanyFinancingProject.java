@@ -17,15 +17,33 @@ public class CompanyFinancingProject {
     private final LocalDateTime createdAt;
     private final Map<UUID, Long> subscriptions = new LinkedHashMap<>();
 
-    public CompanyFinancingProject(UUID companyId, String symbol, long issueQuantity, long issuePrice,
-                                   long fundingTarget, long deadlineMcDay) {
-        this(UUID.randomUUID(), companyId, symbol, issueQuantity, issuePrice,
-                fundingTarget, deadlineMcDay, LocalDateTime.now());
+    public CompanyFinancingProject(
+            UUID companyId,
+            String symbol,
+            long issueQuantity,
+            long issuePrice,
+            long fundingTarget,
+            long deadlineMcDay) {
+        this(
+                UUID.randomUUID(),
+                companyId,
+                symbol,
+                issueQuantity,
+                issuePrice,
+                fundingTarget,
+                deadlineMcDay,
+                LocalDateTime.now());
     }
 
-    public CompanyFinancingProject(UUID projectId, UUID companyId, String symbol, long issueQuantity,
-                                   long issuePrice, long fundingTarget, long deadlineMcDay,
-                                   LocalDateTime createdAt) {
+    public CompanyFinancingProject(
+            UUID projectId,
+            UUID companyId,
+            String symbol,
+            long issueQuantity,
+            long issuePrice,
+            long fundingTarget,
+            long deadlineMcDay,
+            LocalDateTime createdAt) {
         this.projectId = projectId;
         this.companyId = companyId;
         this.symbol = symbol;
@@ -36,15 +54,41 @@ public class CompanyFinancingProject {
         this.createdAt = createdAt;
     }
 
-    public UUID getProjectId() { return projectId; }
-    public UUID getCompanyId() { return companyId; }
-    public String getSymbol() { return symbol; }
-    public long getIssueQuantity() { return issueQuantity; }
-    public long getIssuePrice() { return issuePrice; }
-    public long getFundingTarget() { return fundingTarget; }
-    public long getDeadlineMcDay() { return deadlineMcDay; }
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public Map<UUID, Long> getSubscriptions() { return subscriptions; }
+    public UUID getProjectId() {
+        return projectId;
+    }
+
+    public UUID getCompanyId() {
+        return companyId;
+    }
+
+    public String getSymbol() {
+        return symbol;
+    }
+
+    public long getIssueQuantity() {
+        return issueQuantity;
+    }
+
+    public long getIssuePrice() {
+        return issuePrice;
+    }
+
+    public long getFundingTarget() {
+        return fundingTarget;
+    }
+
+    public long getDeadlineMcDay() {
+        return deadlineMcDay;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public Map<UUID, Long> getSubscriptions() {
+        return subscriptions;
+    }
 
     public long getSubscribedShares() {
         long total = 0;

@@ -33,13 +33,7 @@ public class Order {
     private final LocalDateTime timestamp;
 
     /** 新建订单，时间戳和 ID 自动设为当前时间/随机 UUID */
-    public Order(
-            UUID playerId,
-            String commodityId,
-            OrderType type,
-            long price,
-            int quantity
-    ) {
+    public Order(UUID playerId, String commodityId, OrderType type, long price, int quantity) {
 
         this.orderId = UUID.randomUUID();
         this.playerId = playerId;
@@ -58,8 +52,7 @@ public class Order {
             OrderType type,
             long price,
             int quantity,
-            LocalDateTime timestamp
-    ) {
+            LocalDateTime timestamp) {
 
         this.orderId = orderId;
         this.playerId = playerId;

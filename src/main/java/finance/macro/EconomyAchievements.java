@@ -10,9 +10,6 @@ import finance.gameplay.company.CompanyFacilityRecord;
 import finance.village.VillageManager;
 import finance.village.VillageRecord;
 import finance.village.VillageStall;
-import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.level.ServerPlayer;
-
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -20,6 +17,8 @@ import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerPlayer;
 
 /**
  * 经济成就：把宏观经济里本来就在发生的事变成原版进度（{@code finance:progress} 触发器）。
@@ -56,9 +55,24 @@ public final class EconomyAchievements {
     public static final String SHAREHOLDER_DEMOCRACY = "solo_shareholder_democracy";
 
     /** 全部成就 id（顺序即展示顺序）。 */
-    public static final java.util.List<String> ALL = java.util.List.of(FIRST_HIRE, GOOD_BOSS, SWEATSHOP, BOOMTOWN,
-            GOLDEN_AGE, FAMINE_RELIEF, MONOPOLY, HOARDER, CARAVAN_TYCOON, RATE_CALL, RESERVE_CUT, PRICE_STABILITY,
-            RUNAWAY_INFLATION, EARLY_EXIT, INDUSTRIAL_REVOLUTION, ARTISAN, SHAREHOLDER_DEMOCRACY);
+    public static final java.util.List<String> ALL = java.util.List.of(
+            FIRST_HIRE,
+            GOOD_BOSS,
+            SWEATSHOP,
+            BOOMTOWN,
+            GOLDEN_AGE,
+            FAMINE_RELIEF,
+            MONOPOLY,
+            HOARDER,
+            CARAVAN_TYCOON,
+            RATE_CALL,
+            RESERVE_CUT,
+            PRICE_STABILITY,
+            RUNAWAY_INFLATION,
+            EARLY_EXIT,
+            INDUSTRIAL_REVOLUTION,
+            ARTISAN,
+            SHAREHOLDER_DEMOCRACY);
 
     // ---- 阈值 ----
     static final int GOOD_BOSS_WORKERS = 20;
@@ -76,17 +90,19 @@ public final class EconomyAchievements {
     private static final Map<UUID, LinkedHashSet<String>> PENDING = new LinkedHashMap<>();
     /** 当天各玩家摊位在各聚落各商品上的成交量：settlement|commodity → 玩家 → 数量。不落盘。 */
     private static final Map<String, Map<UUID, Long>> STALL_SALES = new HashMap<>();
+
     private static MinecraftServer server;
     private static long lastProcessedDay = Long.MIN_VALUE;
 
-    private EconomyAchievements() { }
+    private EconomyAchievements() {}
 
     // ================================================================ 发放
 
     /** 给某玩家发成就；不在线时进待发队列。 */
     public static void award(UUID player, String event) {
         if (player == null || !ALL.contains(event)) return;
-        MinecraftServer current = server != null ? server : net.minecraftforge.server.ServerLifecycleHooks.getCurrentServer();
+        MinecraftServer current =
+                server != null ? server : net.minecraftforge.server.ServerLifecycleHooks.getCurrentServer();
         ServerPlayer online = current == null ? null : current.getPlayerList().getPlayer(player);
         if (online != null) {
             FinanceAdvancementTriggers.trigger(online, event);
@@ -104,7 +120,8 @@ public final class EconomyAchievements {
     /** 发给当前所有在线玩家（全服性的成就，如物价稳定）。拿不到服务器时不发。 */
     public static void awardOnline(String event) {
         if (!ALL.contains(event)) return;
-        MinecraftServer current = server != null ? server : net.minecraftforge.server.ServerLifecycleHooks.getCurrentServer();
+        MinecraftServer current =
+                server != null ? server : net.minecraftforge.server.ServerLifecycleHooks.getCurrentServer();
         if (current == null) return;
         for (ServerPlayer p : current.getPlayerList().getPlayers()) FinanceAdvancementTriggers.trigger(p, event);
     }
@@ -142,7 +159,9 @@ public final class EconomyAchievements {
     /** 村民从玩家摊位买货（VillageService 调用）。 */
     public static void recordStallSale(UUID owner, UUID settlementId, String commodityId, long qty) {
         if (owner == null || settlementId == null || commodityId == null || qty <= 0) return;
-        STALL_SALES.computeIfAbsent(settlementId + "|" + commodityId, k -> new HashMap<>()).merge(owner, qty, Long::sum);
+        STALL_SALES
+                .computeIfAbsent(settlementId + "|" + commodityId, k -> new HashMap<>())
+                .merge(owner, qty, Long::sum);
     }
 
     /** 玩家商队把货送到聚落（CaravanService 调用）：送粮到饥荒中的聚落即“饥荒救援”。 */
@@ -183,7 +202,8 @@ public final class EconomyAchievements {
             Company company = CompanyManager.getCompany(facility.companyId());
             if (company == null || company.getOwnerId() == null) continue;
             var tier = facility.factory().activeTier();
-            if (tier == finance.gameplay.company.factory.ProductionTier.INDUSTRIAL) award(company.getOwnerId(), INDUSTRIAL_REVOLUTION);
+            if (tier == finance.gameplay.company.factory.ProductionTier.INDUSTRIAL)
+                award(company.getOwnerId(), INDUSTRIAL_REVOLUTION);
             int[] c = byCompany.computeIfAbsent(company.getCompanyId(), k -> new int[2]);
             c[0]++;
             if (tier == finance.gameplay.company.factory.ProductionTier.MANUAL) c[1]++;
@@ -207,7 +227,9 @@ public final class EconomyAchievements {
             UUID source = MacroEconomyManager.laborSource(facility.facilityId());
             Company company = CompanyManager.getCompany(facility.companyId());
             if (source != null && company != null && company.getOwnerId() != null) {
-                employerSettlements.computeIfAbsent(company.getOwnerId(), k -> new LinkedHashSet<>()).add(source);
+                employerSettlements
+                        .computeIfAbsent(company.getOwnerId(), k -> new LinkedHashSet<>())
+                        .add(source);
             }
         }
         for (Map.Entry<UUID, Long> e : employedByCompany.entrySet()) {
@@ -233,7 +255,8 @@ public final class EconomyAchievements {
     private static void checkMarkets() {
         for (Map.Entry<String, Map<UUID, Long>> e : STALL_SALES.entrySet()) {
             int sep = e.getKey().indexOf('|');
-            SettlementEconomy econ = MacroEconomyManager.settlement(UUID.fromString(e.getKey().substring(0, sep)));
+            SettlementEconomy econ =
+                    MacroEconomyManager.settlement(UUID.fromString(e.getKey().substring(0, sep)));
             GoodBook book = econ == null ? null : econ.goods.get(e.getKey().substring(sep + 1));
             if (book == null || book.lastConsumed < MONOPOLY_MIN_UNITS) continue;
             for (Map.Entry<UUID, Long> sale : e.getValue().entrySet()) {
@@ -243,7 +266,8 @@ public final class EconomyAchievements {
         for (VillageStall stall : VillageManager.stalls()) {
             if (stall == null || stall.ownerId() == null || stall.stock() <= 0) continue;
             SettlementEconomy econ = MacroEconomyManager.settlement(stall.settlementId());
-            if (econ != null && econ.factorBps(stall.commodityId()) >= HOARDER_FACTOR_BPS) award(stall.ownerId(), HOARDER);
+            if (econ != null && econ.factorBps(stall.commodityId()) >= HOARDER_FACTOR_BPS)
+                award(stall.ownerId(), HOARDER);
         }
     }
 
@@ -252,12 +276,16 @@ public final class EconomyAchievements {
         for (CaravanRoute route : CaravanManager.routes()) {
             if (route.ownerId() != null) profit.merge(route.ownerId(), route.totalProfit(), Long::sum);
         }
-        profit.forEach((owner, p) -> { if (p >= CARAVAN_TYCOON_PROFIT) award(owner, CARAVAN_TYCOON); });
+        profit.forEach((owner, p) -> {
+            if (p >= CARAVAN_TYCOON_PROFIT) award(owner, CARAVAN_TYCOON);
+        });
     }
 
     // ================================================================ 存档与隔离
 
-    public static long lastProcessedDay() { return lastProcessedDay; }
+    public static long lastProcessedDay() {
+        return lastProcessedDay;
+    }
 
     static void restore(long lastDay, Map<UUID, Set<String>> pending) {
         lastProcessedDay = lastDay;

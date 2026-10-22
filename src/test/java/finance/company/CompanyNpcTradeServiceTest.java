@@ -1,12 +1,16 @@
 package finance.company;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import finance.account.AccountManager;
 import finance.chart.CandlestickService;
 import finance.chart.MarketInstrumentType;
-import finance.commodity.CommodityInventoryManager;
-import finance.commodity.CommodityRegistry;
 import finance.commodity.Commodity;
 import finance.commodity.CommodityCategory;
+import finance.commodity.CommodityInventoryManager;
+import finance.commodity.CommodityRegistry;
 import finance.data.EconomySavedData;
 import finance.market.MarketManager;
 import finance.market.MarketPrice;
@@ -14,14 +18,9 @@ import finance.market.NpcMarketMaker;
 import finance.market.Order;
 import finance.market.OrderType;
 import finance.metrics.EconomyMetricsService;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class CompanyNpcTradeServiceTest {
 
@@ -33,8 +32,8 @@ class CompanyNpcTradeServiceTest {
         EconomySavedData.resetRuntimeState();
         CommodityInventoryManager.clearInventoriesDirect();
         CommodityRegistry.resetToDefaults();
-        CommodityRegistry.register(new Commodity("iron", "minecraft:iron_ingot", "Iron",
-                CommodityCategory.RAW_MATERIALS, 10));
+        CommodityRegistry.register(
+                new Commodity("iron", "minecraft:iron_ingot", "Iron", CommodityCategory.RAW_MATERIALS, 10));
         price = new MarketPrice("iron", 10, 0.05);
         NpcMarketMaker.putMarketPrice("iron", price);
         AccountManager.getAccount(NpcMarketMaker.NPC_UUID).setBalance(10_000);
@@ -121,7 +120,8 @@ class CompanyNpcTradeServiceTest {
         long companyTradePrice = price.getBidPrice();
         assertTrue(CompanyNpcTradeService.sellForCompany(company, "iron", 2).success());
 
-        var candle = CandlestickService.getBars(MarketInstrumentType.COMMODITY, "iron", 30).get(0);
+        var candle = CandlestickService.getBars(MarketInstrumentType.COMMODITY, "iron", 30)
+                .get(0);
         assertEquals(5, candle.volume());
         assertEquals(8, candle.open());
         assertEquals(companyTradePrice, candle.close());
@@ -155,7 +155,8 @@ class CompanyNpcTradeServiceTest {
         assertEquals(transactionCount, AccountManager.getTransactions().size());
         assertEquals(0, MarketManager.getTradeHistory().size());
         assertEquals(0, EconomyMetricsService.getCurrentCommodityVolume());
-        assertTrue(CandlestickService.getBars(MarketInstrumentType.COMMODITY, "iron", 30).isEmpty());
+        assertTrue(CandlestickService.getBars(MarketInstrumentType.COMMODITY, "iron", 30)
+                .isEmpty());
         assertEquals(0, price.getDayVolume());
         assertEquals(midPrice, price.getMidPrice());
     }
@@ -164,8 +165,11 @@ class CompanyNpcTradeServiceTest {
         assertEquals(1, AccountManager.getTransactions().size());
         assertEquals(1, MarketManager.getTradeHistory().size());
         assertEquals(quantity, EconomyMetricsService.getCurrentCommodityVolume());
-        assertEquals(quantity, CandlestickService.getBars(
-                MarketInstrumentType.COMMODITY, "iron", 30).get(0).volume());
+        assertEquals(
+                quantity,
+                CandlestickService.getBars(MarketInstrumentType.COMMODITY, "iron", 30)
+                        .get(0)
+                        .volume());
         assertEquals(quantity, price.getDayVolume());
     }
 }

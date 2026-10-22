@@ -15,12 +15,11 @@ import finance.settlement.SettlementRecord;
 import finance.settlement.SettlementStatus;
 import finance.util.MathUtil;
 import finance.warehouse.CommodityItemResolver;
-import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.level.ServerPlayer;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerPlayer;
 
 /**
  * 商队服务：抽象自动商队的建路线、每日发车/到货结算。
@@ -36,36 +35,52 @@ import java.util.UUID;
  */
 public final class CaravanService {
 
-    private CaravanService() { }
+    private CaravanService() {}
 
     // ================================================================
     // 建路线 / 管理
     // ================================================================
 
     public record Result(boolean ok, String message, CaravanRoute route) {
-        public static Result fail(String m) { return new Result(false, m, null); }
-        public static Result ok(CaravanRoute r, String m) { return new Result(true, m, r); }
+        public static Result fail(String m) {
+            return new Result(false, m, null);
+        }
+
+        public static Result ok(CaravanRoute r, String m) {
+            return new Result(true, m, r);
+        }
     }
 
     /**
      * 建路线。聚落按 displayName 精确匹配（歧义/不存在直接失败）。
      */
-    public static Result createRoute(ServerPlayer player, String sourceName, String destName,
-                                     String commodityId, int qty, int guardLevel,
-                                     boolean insured, long day) {
+    public static Result createRoute(
+            ServerPlayer player,
+            String sourceName,
+            String destName,
+            String commodityId,
+            int qty,
+            int guardLevel,
+            boolean insured,
+            long day) {
         if (player == null) {
             return Result.fail("仅玩家可建商队路线。");
         }
-        return createRoute(player.getUUID(), sourceName, destName,
-                commodityId, qty, guardLevel, insured, day);
+        return createRoute(player.getUUID(), sourceName, destName, commodityId, qty, guardLevel, insured, day);
     }
 
     /**
      * 建路线（UUID 版，逻辑与上同；测试可直接调）。
      */
-    public static Result createRoute(UUID ownerId, String sourceName, String destName,
-                                     String commodityId, int qty, int guardLevel,
-                                     boolean insured, long day) {
+    public static Result createRoute(
+            UUID ownerId,
+            String sourceName,
+            String destName,
+            String commodityId,
+            int qty,
+            int guardLevel,
+            boolean insured,
+            long day) {
         if (!ModuleHealthRegistry.mayWrite(ModuleHealthRegistry.Module.CARAVAN)) {
             return Result.fail("商队模块维护中，请稍后再试。");
         }
@@ -108,8 +123,8 @@ public final class CaravanService {
         }
         CaravanRoute route;
         try {
-            route = new CaravanRoute(UUID.randomUUID(), ownerId, source.id(), dest.id(),
-                    commodityId, qty, guardLevel, insured, day);
+            route = new CaravanRoute(
+                    UUID.randomUUID(), ownerId, source.id(), dest.id(), commodityId, qty, guardLevel, insured, day);
         } catch (IllegalArgumentException e) {
             return Result.fail("建路线失败：" + e.getMessage());
         }
@@ -121,8 +136,7 @@ public final class CaravanService {
     }
 
     public static Result pauseRoute(ServerPlayer player, UUID routeId) {
-        return player == null ? Result.fail("仅玩家可用。")
-                : pauseRoute(player.getUUID(), routeId);
+        return player == null ? Result.fail("仅玩家可用。") : pauseRoute(player.getUUID(), routeId);
     }
 
     public static Result pauseRoute(UUID ownerId, UUID routeId) {
@@ -130,8 +144,7 @@ public final class CaravanService {
     }
 
     public static Result resumeRoute(ServerPlayer player, UUID routeId) {
-        return player == null ? Result.fail("仅玩家可用。")
-                : resumeRoute(player.getUUID(), routeId);
+        return player == null ? Result.fail("仅玩家可用。") : resumeRoute(player.getUUID(), routeId);
     }
 
     public static Result resumeRoute(UUID ownerId, UUID routeId) {
@@ -139,16 +152,14 @@ public final class CaravanService {
     }
 
     public static Result closeRoute(ServerPlayer player, UUID routeId) {
-        return player == null ? Result.fail("仅玩家可用。")
-                : closeRoute(player.getUUID(), routeId);
+        return player == null ? Result.fail("仅玩家可用。") : closeRoute(player.getUUID(), routeId);
     }
 
     public static Result closeRoute(UUID ownerId, UUID routeId) {
         return setStatus(ownerId, routeId, CaravanRoute.Status.CLOSED, "已关闭（在途货运继续走完）");
     }
 
-    private static Result setStatus(UUID ownerId, UUID routeId,
-                                    CaravanRoute.Status status, String msg) {
+    private static Result setStatus(UUID ownerId, UUID routeId, CaravanRoute.Status status, String msg) {
         if (ownerId == null || routeId == null) {
             return Result.fail("参数非法。");
         }
@@ -237,10 +248,8 @@ public final class CaravanService {
         }
         long wage = CaravanPricing.guardWage(route.guardLevel());
         int raidBps = CaravanPricing.raidBps(source, dest, distance, route.guardLevel());
-        long premium = route.insured()
-                ? CaravanPricing.insurancePremium(qty, buyPrice, raidBps) : 0L;
-        long total = MathUtil.saturatedAddNonNegative(
-                goodsCost, MathUtil.saturatedAddNonNegative(wage, premium));
+        long premium = route.insured() ? CaravanPricing.insurancePremium(qty, buyPrice, raidBps) : 0L;
+        long total = MathUtil.saturatedAddNonNegative(goodsCost, MathUtil.saturatedAddNonNegative(wage, premium));
         if (total <= 0 || AccountManager.getBalance(ownerId) < total) {
             return; // 余额不足：整趟取消，不负债
         }
@@ -249,26 +258,33 @@ public final class CaravanService {
         if (!AccountManager.moveFunds(ownerId, npc, total)) {
             return;
         }
-        AccountManager.addTransactionRecord(new TransactionRecord(
-                ownerId, npc, goodsCost, TransactionType.CARAVAN_BUY,
-                ownerId, commodityId, qty));
+        AccountManager.addTransactionRecord(
+                new TransactionRecord(ownerId, npc, goodsCost, TransactionType.CARAVAN_BUY, ownerId, commodityId, qty));
         if (wage > 0) {
             AccountManager.addTransactionRecord(new TransactionRecord(
-                    ownerId, npc, wage, TransactionType.CARAVAN_GUARD_WAGE,
-                    ownerId, commodityId, qty));
+                    ownerId, npc, wage, TransactionType.CARAVAN_GUARD_WAGE, ownerId, commodityId, qty));
         }
         if (premium > 0) {
             AccountManager.addTransactionRecord(new TransactionRecord(
-                    ownerId, npc, premium, TransactionType.CARAVAN_INSURANCE_PREMIUM,
-                    ownerId, commodityId, qty));
+                    ownerId, npc, premium, TransactionType.CARAVAN_INSURANCE_PREMIUM, ownerId, commodityId, qty));
         }
         // 负反馈通道 1：买方动量（推高 mid）
         pushBuyMomentum(commodityId, qty);
         // 宏观经济：采购量计入出发地需求（出口）
         finance.macro.MacroEconomyService.recordExport(source.id(), commodityId, qty);
-        CaravanShipment shipment = new CaravanShipment(UUID.randomUUID(), route.id(), ownerId,
-                commodityId, qty, buyPrice, day, day + travelDays,
-                route.guardLevel(), raidBps, route.insured() ? buyPrice : 0L, total);
+        CaravanShipment shipment = new CaravanShipment(
+                UUID.randomUUID(),
+                route.id(),
+                ownerId,
+                commodityId,
+                qty,
+                buyPrice,
+                day,
+                day + travelDays,
+                route.guardLevel(),
+                raidBps,
+                route.insured() ? buyPrice : 0L,
+                total);
         CaravanManager.addShipment(shipment);
     }
 
@@ -280,8 +296,7 @@ public final class CaravanService {
         UUID ownerId = shipment.ownerId();
         String commodityId = shipment.commodityId();
         CaravanRoute route = CaravanManager.route(shipment.routeId());
-        SettlementRecord dest = route == null ? null
-                : SettlementManager.get(route.destSettlementId());
+        SettlementRecord dest = route == null ? null : SettlementManager.get(route.destSettlementId());
         if (route == null || dest == null || !usable(dest)) {
             // 极端边缘：路线/终点没了，货物灭失，不退款（已在发车时支付）
             shipment.markArrived();
@@ -297,39 +312,51 @@ public final class CaravanService {
         int lostQty = 0;
         long insurancePayout = 0L;
         if (raided) {
-            lostQty = (int) Math.min((long) qty,
-                    (long) qty * Math.max(0, FinanceConfig.caravanRaidLossRatioBps()) / 10_000L);
+            lostQty = (int)
+                    Math.min((long) qty, (long) qty * Math.max(0, FinanceConfig.caravanRaidLossRatioBps()) / 10_000L);
             if (shipment.insured() && lostQty > 0) {
-                long payout = MathUtil.multiplyExactOrNegative1(
-                        shipment.insuredValuePerUnit(), lostQty);
+                long payout = MathUtil.multiplyExactOrNegative1(shipment.insuredValuePerUnit(), lostQty);
                 if (payout > 0 && AccountManager.deposit(ownerId, payout)) {
                     insurancePayout = payout;
                     AccountManager.addTransactionRecord(new TransactionRecord(
-                            NpcMarketMaker.NPC_UUID, ownerId, payout,
+                            NpcMarketMaker.NPC_UUID,
+                            ownerId,
+                            payout,
                             TransactionType.CARAVAN_INSURANCE_PAYOUT,
-                            ownerId, commodityId, lostQty));
+                            ownerId,
+                            commodityId,
+                            lostQty));
                 }
             }
             if (lostQty > 0) {
                 long loss = MathUtil.multiplyExactOrNegative1(shipment.buyUnitPrice(), lostQty);
                 if (loss > 0) {
                     AccountManager.addTransactionRecord(new TransactionRecord(
-                            ownerId, NpcMarketMaker.NPC_UUID, loss,
-                            TransactionType.CARAVAN_LOSS, ownerId, commodityId, lostQty));
+                            ownerId,
+                            NpcMarketMaker.NPC_UUID,
+                            loss,
+                            TransactionType.CARAVAN_LOSS,
+                            ownerId,
+                            commodityId,
+                            lostQty));
                 }
             }
         }
         int soldQty = qty - lostQty;
         long revenue = 0L;
         if (soldQty > 0) {
-            long sellPrice = CaravanPricing.destSellPrice(
-                    commodityId, dest, route.saturationBps());
+            long sellPrice = CaravanPricing.destSellPrice(commodityId, dest, route.saturationBps());
             if (sellPrice > 0) {
                 revenue = MathUtil.multiplyExactOrNegative1(sellPrice, soldQty);
                 if (revenue > 0 && AccountManager.deposit(ownerId, revenue)) {
                     AccountManager.addTransactionRecord(new TransactionRecord(
-                            NpcMarketMaker.NPC_UUID, ownerId, revenue,
-                            TransactionType.CARAVAN_SELL, ownerId, commodityId, soldQty));
+                            NpcMarketMaker.NPC_UUID,
+                            ownerId,
+                            revenue,
+                            TransactionType.CARAVAN_SELL,
+                            ownerId,
+                            commodityId,
+                            soldQty));
                 } else {
                     revenue = 0L;
                 }
@@ -354,8 +381,8 @@ public final class CaravanService {
         // 宏观经济：目的地放烟花、敲钟，通知商队主人
         if (soldQty > 0 && revenue > 0) {
             var def = finance.commodity.CommodityRegistry.getCommodity(commodityId);
-            finance.macro.MacroWorldFeedback.onCaravanArrived(server, ownerId, dest,
-                    def == null ? commodityId : def.getDisplayName(), soldQty, profit);
+            finance.macro.MacroWorldFeedback.onCaravanArrived(
+                    server, ownerId, dest, def == null ? commodityId : def.getDisplayName(), soldQty, profit);
         }
         shipment.markArrived();
         CaravanManager.removeShipment(shipment.id());
@@ -370,8 +397,7 @@ public final class CaravanService {
         if (mp == null || qty <= 0) {
             return;
         }
-        int npcStock = Math.max(0, CommodityInventoryManager.getCommodityAmount(
-                NpcMarketMaker.NPC_UUID, commodityId));
+        int npcStock = Math.max(0, CommodityInventoryManager.getCommodityAmount(NpcMarketMaker.NPC_UUID, commodityId));
         mp.onNpcTrade(npcStock, true, Math.min(qty, 1_000_000));
     }
 
@@ -380,8 +406,7 @@ public final class CaravanService {
         if (mp == null || qty <= 0) {
             return;
         }
-        int npcStock = Math.max(0, CommodityInventoryManager.getCommodityAmount(
-                NpcMarketMaker.NPC_UUID, commodityId));
+        int npcStock = Math.max(0, CommodityInventoryManager.getCommodityAmount(NpcMarketMaker.NPC_UUID, commodityId));
         mp.onNpcTrade(npcStock, false, Math.min(qty, 1_000_000));
     }
 }

@@ -13,8 +13,7 @@ public final class VolatilityEstimator {
     /** 波动率上限钳制，防脏数据把价差撑爆。 */
     private static final double MAX_VOLATILITY = 1.0;
 
-    private VolatilityEstimator() {
-    }
+    private VolatilityEstimator() {}
 
     /**
      * @param prices 价格序列（任意顺序，按相邻两项算收益率）

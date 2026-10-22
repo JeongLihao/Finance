@@ -14,15 +14,14 @@ import finance.market.MarketPrice;
 import finance.market.NpcMarketMaker;
 import finance.stock.Stock;
 import finance.stock.StockMarketManager;
-import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraftforge.network.NetworkEvent;
-import net.minecraftforge.network.PacketDistributor;
-
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 import java.util.function.Supplier;
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraftforge.network.NetworkEvent;
+import net.minecraftforge.network.PacketDistributor;
 
 /**
  * 做市商总览快照请求（Phase 4，客户端 → 服务端）。
@@ -59,12 +58,11 @@ public record MarketMakerOverviewRequestPacket(long requestId) {
             return;
         }
         long masterCash = AccountManager.getBalance(MarketMakerLedger.MASTER_UUID);
-        long loanOutstanding =
-                CentralBankLoanLedger.outstanding(MarketMakerLedger.SubMarket.FUTURES);
-        List<MarketMakerOverviewResponsePacket.MarketRow> rows = List.of(
-                commodityRow(masterCash), stockRow(masterCash), futuresRow());
-        MarketMakerOverviewResponsePacket response = new MarketMakerOverviewResponsePacket(
-                packet.requestId, masterCash, loanOutstanding, rows);
+        long loanOutstanding = CentralBankLoanLedger.outstanding(MarketMakerLedger.SubMarket.FUTURES);
+        List<MarketMakerOverviewResponsePacket.MarketRow> rows =
+                List.of(commodityRow(masterCash), stockRow(masterCash), futuresRow());
+        MarketMakerOverviewResponsePacket response =
+                new MarketMakerOverviewResponsePacket(packet.requestId, masterCash, loanOutstanding, rows);
         FinancePacketHandler.CHANNEL.send(PacketDistributor.PLAYER.with(() -> player), response);
     }
 
@@ -79,8 +77,7 @@ public record MarketMakerOverviewRequestPacket(long requestId) {
             String id = mp.getCommodityId();
             long qty = CommodityInventoryManager.getCommodityAmount(NpcMarketMaker.NPC_UUID, id);
             inventoryQty = saturatedAdd(inventoryQty, qty);
-            inventoryValue = saturatedAdd(inventoryValue,
-                    saturatedMul(qty, Math.max(1, mp.getMidPrice())));
+            inventoryValue = saturatedAdd(inventoryValue, saturatedMul(qty, Math.max(1, mp.getMidPrice())));
             todayVolumeQty = saturatedAdd(todayVolumeQty, mp.getDayVolume());
             // Phase 2 约定：market.liquidity.QuoteEngine#isHalted("commodity", id)
             if (finance.market.liquidity.QuoteEngine.isHalted("commodity", id)) {
@@ -89,10 +86,17 @@ public record MarketMakerOverviewRequestPacket(long requestId) {
         }
         long[] flow = commodityFlowToday();
         return new MarketMakerOverviewResponsePacket.MarketRow(
-                "commodity", masterCash, inventoryQty, inventoryValue, 0,
-                todayVolumeQty, saturatedAdd(flow[0], flow[1]), flow[0] - flow[1],
+                "commodity",
+                masterCash,
+                inventoryQty,
+                inventoryValue,
+                0,
+                todayVolumeQty,
+                saturatedAdd(flow[0], flow[1]),
+                flow[0] - flow[1],
                 MarketMakerPauseState.isPaused(MarketMakerLedger.SubMarket.COMMODITY),
-                haltedCount, 0);
+                haltedCount,
+                0);
     }
 
     private static MarketMakerOverviewResponsePacket.MarketRow stockRow(long masterCash) {
@@ -105,8 +109,7 @@ public record MarketMakerOverviewRequestPacket(long requestId) {
             String symbol = stock.getSymbol();
             long inv = MarketMakerLedger.getStockInventory(symbol);
             inventoryQty = saturatedAdd(inventoryQty, inv);
-            inventoryValue = saturatedAdd(inventoryValue,
-                    saturatedMul(inv, Math.max(0, stock.getFairValue())));
+            inventoryValue = saturatedAdd(inventoryValue, saturatedMul(inv, Math.max(0, stock.getFairValue())));
             todayVolumeQty = saturatedAdd(todayVolumeQty, stock.getDayVolume());
             // Phase 2 约定：market.liquidity.QuoteEngine#isHalted("stock", symbol)
             if (finance.market.liquidity.QuoteEngine.isHalted("stock", symbol)) {
@@ -119,10 +122,17 @@ public record MarketMakerOverviewRequestPacket(long requestId) {
         }
         long[] flow = stockFlowToday();
         return new MarketMakerOverviewResponsePacket.MarketRow(
-                "stock", masterCash, inventoryQty, inventoryValue, 0,
-                todayVolumeQty, saturatedAdd(flow[0], flow[1]), flow[0] - flow[1],
+                "stock",
+                masterCash,
+                inventoryQty,
+                inventoryValue,
+                0,
+                todayVolumeQty,
+                saturatedAdd(flow[0], flow[1]),
+                flow[0] - flow[1],
                 MarketMakerPauseState.isPaused(MarketMakerLedger.SubMarket.STOCK),
-                haltedCount, cappedCount);
+                haltedCount,
+                cappedCount);
     }
 
     private static MarketMakerOverviewResponsePacket.MarketRow futuresRow() {
@@ -134,17 +144,22 @@ public record MarketMakerOverviewRequestPacket(long requestId) {
         long day = CandlestickService.currentMcDay();
         // Phase 3 约定：futures.FuturesMarketMaker#getNetPosition(UUID)
         for (UUID contractId : FuturesMarketManager.contracts().keySet()) {
-            netPosition = saturatedAdd(netPosition,
-                    finance.futures.FuturesMarketMaker.getNetPosition(contractId));
-            todayVolumeQty = saturatedAdd(todayVolumeQty,
-                    FuturesMarketManager.dailyVolume(contractId, day));
+            netPosition = saturatedAdd(netPosition, finance.futures.FuturesMarketMaker.getNetPosition(contractId));
+            todayVolumeQty = saturatedAdd(todayVolumeQty, FuturesMarketManager.dailyVolume(contractId, day));
         }
         long[] flow = futuresFlowToday();
         return new MarketMakerOverviewResponsePacket.MarketRow(
-                "futures", funds, 0, 0, netPosition,
-                todayVolumeQty, saturatedAdd(flow[0], flow[1]), flow[0] - flow[1],
+                "futures",
+                funds,
+                0,
+                0,
+                netPosition,
+                todayVolumeQty,
+                saturatedAdd(flow[0], flow[1]),
+                flow[0] - flow[1],
                 MarketMakerPauseState.isPaused(MarketMakerLedger.SubMarket.FUTURES),
-                0, 0);
+                0,
+                0);
     }
 
     // ---- 今日资金流（做市商视角：流入 − 流出） ----
@@ -166,8 +181,7 @@ public record MarketMakerOverviewRequestPacket(long requestId) {
         long outflow = 0;
         LocalDate today = LocalDate.now();
         for (TransactionRecord record : AccountManager.getTransactions()) {
-            if (record.getType() != TransactionType.FUTURES_TRADE
-                    || !isToday(record, today)) {
+            if (record.getType() != TransactionType.FUTURES_TRADE || !isToday(record, today)) {
                 continue;
             }
             if (mm.equals(record.getTo())) {
@@ -176,7 +190,7 @@ public record MarketMakerOverviewRequestPacket(long requestId) {
                 outflow = saturatedAdd(outflow, Math.max(0, record.getAmount()));
             }
         }
-        return new long[]{inflow, outflow};
+        return new long[] {inflow, outflow};
     }
 
     private static long[] flowToday(TransactionType inflowType, TransactionType outflowType) {
@@ -194,11 +208,12 @@ public record MarketMakerOverviewRequestPacket(long requestId) {
                 outflow = saturatedAdd(outflow, amount);
             }
         }
-        return new long[]{inflow, outflow};
+        return new long[] {inflow, outflow};
     }
 
     private static boolean isToday(TransactionRecord record, LocalDate today) {
-        return record.getTimestamp() != null && today.equals(record.getTimestamp().toLocalDate());
+        return record.getTimestamp() != null
+                && today.equals(record.getTimestamp().toLocalDate());
     }
 
     private static long saturatedAdd(long a, long b) {

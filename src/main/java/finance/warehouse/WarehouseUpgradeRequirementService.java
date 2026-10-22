@@ -1,10 +1,9 @@
 package finance.warehouse;
 
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.Items;
-
 import java.util.LinkedHashMap;
 import java.util.Map;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.Items;
 
 public final class WarehouseUpgradeRequirementService {
     public record Requirement(WarehouseTier targetTier, long cash, Map<Item, Integer> materials) {}

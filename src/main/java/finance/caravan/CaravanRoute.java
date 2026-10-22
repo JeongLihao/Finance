@@ -1,7 +1,6 @@
 package finance.caravan;
 
 import finance.util.MathUtil;
-
 import java.util.UUID;
 
 /**
@@ -41,11 +40,22 @@ public final class CaravanRoute {
     /** 累计盈亏（记账用，可为负）。 */
     private long totalProfit;
 
-    public CaravanRoute(UUID id, UUID ownerId, UUID sourceSettlementId, UUID destSettlementId,
-                        String commodityId, int qtyPerTrip, int guardLevel, boolean insured,
-                        long createdDay) {
-        if (id == null || ownerId == null || sourceSettlementId == null
-                || destSettlementId == null || commodityId == null || commodityId.isBlank()) {
+    public CaravanRoute(
+            UUID id,
+            UUID ownerId,
+            UUID sourceSettlementId,
+            UUID destSettlementId,
+            String commodityId,
+            int qtyPerTrip,
+            int guardLevel,
+            boolean insured,
+            long createdDay) {
+        if (id == null
+                || ownerId == null
+                || sourceSettlementId == null
+                || destSettlementId == null
+                || commodityId == null
+                || commodityId.isBlank()) {
             throw new IllegalArgumentException("路线 id/所有者/聚落/商品不能为空");
         }
         if (sourceSettlementId.equals(destSettlementId)) {
@@ -71,23 +81,41 @@ public final class CaravanRoute {
         this.totalProfit = 0;
     }
 
-    public UUID id() { return id; }
+    public UUID id() {
+        return id;
+    }
 
-    public UUID ownerId() { return ownerId; }
+    public UUID ownerId() {
+        return ownerId;
+    }
 
-    public UUID sourceSettlementId() { return sourceSettlementId; }
+    public UUID sourceSettlementId() {
+        return sourceSettlementId;
+    }
 
-    public UUID destSettlementId() { return destSettlementId; }
+    public UUID destSettlementId() {
+        return destSettlementId;
+    }
 
-    public String commodityId() { return commodityId; }
+    public String commodityId() {
+        return commodityId;
+    }
 
-    public int qtyPerTrip() { return qtyPerTrip; }
+    public int qtyPerTrip() {
+        return qtyPerTrip;
+    }
 
-    public int guardLevel() { return guardLevel; }
+    public int guardLevel() {
+        return guardLevel;
+    }
 
-    public boolean insured() { return insured; }
+    public boolean insured() {
+        return insured;
+    }
 
-    public Status status() { return status; }
+    public Status status() {
+        return status;
+    }
 
     public void setStatus(Status s) {
         if (s != null) {
@@ -95,9 +123,13 @@ public final class CaravanRoute {
         }
     }
 
-    public long createdDay() { return createdDay; }
+    public long createdDay() {
+        return createdDay;
+    }
 
-    public long saturationBps() { return saturationBps; }
+    public long saturationBps() {
+        return saturationBps;
+    }
 
     /** 饱和度钳制在 [0, 1_000_000]，防止溢出与过度折扣。 */
     public void addSaturation(long deltaBps) {
@@ -117,7 +149,9 @@ public final class CaravanRoute {
         this.saturationBps = saturationBps * keep / 10_000L;
     }
 
-    public long totalProfit() { return totalProfit; }
+    public long totalProfit() {
+        return totalProfit;
+    }
 
     public void addProfit(long delta) {
         // 饱和加法防 long 回绕；保留符号（盈亏可为负），不能用 NonNegative 变体（会吞掉亏损）

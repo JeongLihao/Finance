@@ -3,13 +3,11 @@ package finance.network;
 import finance.commodity.Commodity;
 import finance.commodity.CommodityInventoryManager;
 import finance.commodity.CommodityRegistry;
-import finance.data.CommodityInventorySavedData;
 import finance.util.InventoryUtil;
+import java.util.function.Supplier;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.network.NetworkEvent;
-
-import java.util.function.Supplier;
 
 /**
  * 商品存取数据包 —— MC 物品栏 ↔ 虚拟商品库存。
@@ -17,8 +15,8 @@ import java.util.function.Supplier;
 public class InventoryActionPacket {
 
     public enum ActionType {
-        DEPOSIT,    // 从 MC 物品栏存入虚拟商品库存
-        WITHDRAW    // 从虚拟商品库存取到 MC 物品栏
+        DEPOSIT, // 从 MC 物品栏存入虚拟商品库存
+        WITHDRAW // 从虚拟商品库存取到 MC 物品栏
     }
 
     private final ActionType actionType;
@@ -41,16 +39,23 @@ public class InventoryActionPacket {
         return new InventoryActionPacket(
                 buffer.readEnum(ActionType.class),
                 buffer.readUtf(NetworkValidation.MAX_COMMODITY_ID_LENGTH),
-                buffer.readVarInt()
-        );
+                buffer.readVarInt());
     }
 
     public static void handle(InventoryActionPacket packet, Supplier<NetworkEvent.Context> ctx) {
         ctx.get().enqueueWork(() -> {
             ServerPlayer player = ctx.get().getSender();
             if (player == null) return;
-            if (!finance.diagnostic.ModuleHealthRegistry.mayWrite(finance.diagnostic.ModuleHealthRegistry.Module.MARKET)) { GuiFeedbackPacket.send(player,"商品库存已因一致性问题暂停。"); return; }
-            if (!MarketDataRequestLimiter.allow(player.getUUID(),player.server.getTickCount(),"inventory-action:"+packet.actionType)) { GuiFeedbackPacket.send(player,"操作过于频繁。"); return; }
+            if (!finance.diagnostic.ModuleHealthRegistry.mayWrite(
+                    finance.diagnostic.ModuleHealthRegistry.Module.MARKET)) {
+                GuiFeedbackPacket.send(player, "商品库存已因一致性问题暂停。");
+                return;
+            }
+            if (!MarketDataRequestLimiter.allow(
+                    player.getUUID(), player.server.getTickCount(), "inventory-action:" + packet.actionType)) {
+                GuiFeedbackPacket.send(player, "操作过于频繁。");
+                return;
+            }
             if (packet.actionType == null
                     || !NetworkValidation.isValidCommodityId(packet.commodityId)
                     || !NetworkValidation.isPositive(packet.amount)) {
@@ -105,7 +110,6 @@ public class InventoryActionPacket {
             }
             GuiFeedbackPacket.send(player, "§a已存入 " + removed + " 个「" + commodity.getDisplayName() + "」到商品库存。");
         }
-
     }
 
     /** 从虚拟商品库存取到 MC 物品栏 */
@@ -136,6 +140,5 @@ public class InventoryActionPacket {
         CommodityInventoryManager.removeCommodity(player.getUUID(), commodityId, amount);
         InventoryUtil.addToInventory(player, itemId, amount);
         GuiFeedbackPacket.send(player, "§a已从商品库存取出 " + amount + " 个「" + commodity.getDisplayName() + "」到物品栏。");
-
     }
 }

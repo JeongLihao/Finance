@@ -1,5 +1,9 @@
 package finance.network;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
 import finance.commodity.Commodity;
 import finance.commodity.CommodityCategory;
 import finance.commodity.CommodityRegistry;
@@ -8,16 +12,11 @@ import finance.market.Order;
 import finance.market.OrderType;
 import finance.stock.StockMarketManager;
 import io.netty.buffer.Unpooled;
+import java.util.UUID;
 import net.minecraft.network.FriendlyByteBuf;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class NetworkValidationTest {
 

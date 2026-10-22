@@ -1,21 +1,31 @@
 package finance.tutorial;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import org.junit.jupiter.api.Test;
-
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-
-import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.Test;
 
 class TutorialResourceTest {
-    private static final String[] SCENES = {"getting_started", "warehouse_basics", "market_trading",
-            "contract_delivery", "company_production", "logistics_delivery", "settlement_help",
-            "field_survey", "advanced_finance", "regional_trade_flow", "inventory_collateral",
-            "company_hedge", "insurance_evidence"};
+    private static final String[] SCENES = {
+        "getting_started",
+        "warehouse_basics",
+        "market_trading",
+        "contract_delivery",
+        "company_production",
+        "logistics_delivery",
+        "settlement_help",
+        "field_survey",
+        "advanced_finance",
+        "regional_trade_flow",
+        "inventory_collateral",
+        "company_hedge",
+        "insurance_evidence"
+    };
 
     @Test
     void allPonderScenesHaveEnglishAndChineseHeaders() throws Exception {
@@ -59,7 +69,8 @@ class TutorialResourceTest {
     private JsonObject language(String code) throws Exception {
         try (var input = getClass().getClassLoader().getResourceAsStream("assets/finance/lang/" + code + ".json")) {
             assertNotNull(input);
-            return JsonParser.parseReader(new InputStreamReader(input, StandardCharsets.UTF_8)).getAsJsonObject();
+            return JsonParser.parseReader(new InputStreamReader(input, StandardCharsets.UTF_8))
+                    .getAsJsonObject();
         }
     }
 

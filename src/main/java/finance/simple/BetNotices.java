@@ -13,6 +13,10 @@ import finance.margin.MarginService;
 import finance.stock.Stock;
 import finance.stock.StockMarketManager;
 import finance.util.MoneyFormat;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
@@ -20,11 +24,6 @@ import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraftforge.server.ServerLifecycleHooks;
-
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
 
 /**
  * 押注的主动提醒：被强制结束、到期结算、快被强制结束。
@@ -49,12 +48,24 @@ public final class BetNotices {
         String pnlText = "";
         if (player != null) {
             Long pnl = SimpleBetService.settleReturned(player, key, l.returned());
-            if (pnl != null) pnlText = pnl >= 0 ? "，这笔赚了 " + MoneyFormat.pounds(pnl) : "，这笔亏了 " + MoneyFormat.pounds(-pnl);
+            if (pnl != null)
+                pnlText = pnl >= 0 ? "，这笔赚了 " + MoneyFormat.pounds(pnl) : "，这笔亏了 " + MoneyFormat.pounds(-pnl);
         } else {
             SimpleBetService.defer(l.player(), key, l.returned(), false);
         }
-        tell(server, l.player(), player, FeedbackSeverity.CRITICAL, SoundEvents.ANVIL_LAND, "finance.bet.liquidated",
-                name, side, Long.toString(l.quantity()), MoneyFormat.pounds(l.price()), MoneyFormat.pounds(l.returned()), pnlText);
+        tell(
+                server,
+                l.player(),
+                player,
+                FeedbackSeverity.CRITICAL,
+                SoundEvents.ANVIL_LAND,
+                "finance.bet.liquidated",
+                name,
+                side,
+                Long.toString(l.quantity()),
+                MoneyFormat.pounds(l.price()),
+                MoneyFormat.pounds(l.returned()),
+                pnlText);
     }
 
     /** 商品押注到期结算：按结算价算赚亏、把押金退回钱包。 */
@@ -70,8 +81,17 @@ public final class BetNotices {
             else SimpleBetService.defer(p.ownerId(), key, pnl, true);
             long back = SimpleBetService.sweepIdle(p.ownerId());
             String result = pnl >= 0 ? "，赚了 " + MoneyFormat.pounds(pnl) : "，亏了 " + MoneyFormat.pounds(-pnl);
-            tell(server, p.ownerId(), player, FeedbackSeverity.NOTICE, pnl >= 0 ? SoundEvents.PLAYER_LEVELUP : SoundEvents.ANVIL_LAND,
-                    "finance.bet.settled", name, p.signedQuantity() > 0 ? "看涨" : "看跌", result, MoneyFormat.pounds(back));
+            tell(
+                    server,
+                    p.ownerId(),
+                    player,
+                    FeedbackSeverity.NOTICE,
+                    pnl >= 0 ? SoundEvents.PLAYER_LEVELUP : SoundEvents.ANVIL_LAND,
+                    "finance.bet.settled",
+                    name,
+                    p.signedQuantity() > 0 ? "看涨" : "看跌",
+                    result,
+                    MoneyFormat.pounds(back));
         }
     }
 
@@ -86,15 +106,28 @@ public final class BetNotices {
             ServerPlayer player = server.getPlayerList().getPlayer(e.getKey());
             if (player == null) continue;
             WARNED.put(e.getKey(), day);
-            tell(server, e.getKey(), player, FeedbackSeverity.WARNING, SoundEvents.NOTE_BLOCK_BELL.value(), "finance.bet.warning",
-                    Long.toString(Math.round(ratio)), Long.toString(Math.round(m)));
+            tell(
+                    server,
+                    e.getKey(),
+                    player,
+                    FeedbackSeverity.WARNING,
+                    SoundEvents.NOTE_BLOCK_BELL.value(),
+                    "finance.bet.warning",
+                    Long.toString(Math.round(ratio)),
+                    Long.toString(Math.round(m)));
         }
         if (WARNED.size() > 4_096) WARNED.clear();
     }
 
     /** 在线：聊天栏 + 提示音；离线：存进反馈队列，上线补发。 */
-    private static void tell(MinecraftServer server, UUID id, ServerPlayer player, FeedbackSeverity severity, SoundEvent sound,
-                             String key, String... args) {
+    private static void tell(
+            MinecraftServer server,
+            UUID id,
+            ServerPlayer player,
+            FeedbackSeverity severity,
+            SoundEvent sound,
+            String key,
+            String... args) {
         if (player != null) {
             player.sendSystemMessage(Component.translatable(key, (Object[]) args));
             player.playNotifySound(sound, SoundSource.PLAYERS, 0.8F, 1.0F);

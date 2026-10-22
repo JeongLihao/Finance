@@ -1,13 +1,12 @@
 package finance.network;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Supplier;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.fml.DistExecutor;
 import net.minecraftforge.network.NetworkEvent;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.function.Supplier;
 
 /**
  * 做市商总览快照（Phase 4，管理后台"做市商总览"子页数据）。
@@ -17,10 +16,7 @@ import java.util.function.Supplier;
  * P&L 为今日资金流口径（做市商卖出所得 − 买入支出，不含库存重估）。</p>
  */
 public record MarketMakerOverviewResponsePacket(
-        long requestId,
-        long masterCash,
-        long futuresLoanOutstanding,
-        List<MarketRow> markets) {
+        long requestId, long masterCash, long futuresLoanOutstanding, List<MarketRow> markets) {
 
     public static final int MAX_ROWS = 8;
 
@@ -39,10 +35,18 @@ public record MarketMakerOverviewResponsePacket(
      * @param haltedCount 熔断暂停中的标的数量（Phase 2 熔断）
      * @param cappedCount 库存触顶的标的数量（股票）
      */
-    public record MarketRow(String market, long funds, long inventoryQty, long inventoryValue,
-                            long netPosition, long todayVolumeQty, long todayAmount, long todayPnl,
-                            boolean manualPaused, int haltedCount, int cappedCount) {
-    }
+    public record MarketRow(
+            String market,
+            long funds,
+            long inventoryQty,
+            long inventoryValue,
+            long netPosition,
+            long todayVolumeQty,
+            long todayAmount,
+            long todayPnl,
+            boolean manualPaused,
+            int haltedCount,
+            int cappedCount) {}
 
     public MarketMakerOverviewResponsePacket {
         if (requestId <= 0) {
@@ -89,17 +93,25 @@ public record MarketMakerOverviewResponsePacket(
         List<MarketRow> rows = new ArrayList<>(n);
         for (int i = 0; i < n; i++) {
             rows.add(new MarketRow(
-                    b.readUtf(16), b.readLong(), b.readLong(), b.readLong(), b.readLong(),
-                    b.readLong(), b.readLong(), b.readLong(), b.readBoolean(),
-                    b.readVarInt(), b.readVarInt()));
+                    b.readUtf(16),
+                    b.readLong(),
+                    b.readLong(),
+                    b.readLong(),
+                    b.readLong(),
+                    b.readLong(),
+                    b.readLong(),
+                    b.readLong(),
+                    b.readBoolean(),
+                    b.readVarInt(),
+                    b.readVarInt()));
         }
         return new MarketMakerOverviewResponsePacket(id, masterCash, loanOutstanding, rows);
     }
 
     public static void handle(MarketMakerOverviewResponsePacket p, Supplier<NetworkEvent.Context> s) {
         var c = s.get();
-        c.enqueueWork(() -> DistExecutor.unsafeRunWhenOn(Dist.CLIENT,
-                () -> () -> finance.client.MarketMakerOverviewClientCache.accept(p)));
+        c.enqueueWork(() -> DistExecutor.unsafeRunWhenOn(
+                Dist.CLIENT, () -> () -> finance.client.MarketMakerOverviewClientCache.accept(p)));
         c.setPacketHandled(true);
     }
 }

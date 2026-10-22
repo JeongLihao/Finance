@@ -12,19 +12,32 @@ import finance.gui.WarehouseGuiOpener;
 import finance.gui.WarehouseMenu;
 import finance.warehouse.WarehouseManager;
 import io.netty.handler.codec.DecoderException;
+import java.util.UUID;
+import java.util.function.Supplier;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.network.NetworkEvent;
 
-import java.util.UUID;
-import java.util.function.Supplier;
-
 /** Server-authoritative intent packet; it never accepts budgets or material quantities. */
-public record CapitalProjectActionPacket(Action action, UUID projectId, UUID targetId, UUID proposalId,
-                                         UUID bankId, WorldCapitalProjectType projectType,
-                                         CapitalFundingSource fundingSource, String operationKey) {
-    public enum Action { CREATE, PROPOSE, AUTHORIZE, START_FUNDING, EXECUTE, RECOVER, CANCEL }
+public record CapitalProjectActionPacket(
+        Action action,
+        UUID projectId,
+        UUID targetId,
+        UUID proposalId,
+        UUID bankId,
+        WorldCapitalProjectType projectType,
+        CapitalFundingSource fundingSource,
+        String operationKey) {
+    public enum Action {
+        CREATE,
+        PROPOSE,
+        AUTHORIZE,
+        START_FUNDING,
+        EXECUTE,
+        RECOVER,
+        CANCEL
+    }
 
     public static void encode(CapitalProjectActionPacket packet, FriendlyByteBuf buffer) {
         buffer.writeEnum(packet.action);
@@ -45,8 +58,10 @@ public record CapitalProjectActionPacket(Action action, UUID projectId, UUID tar
         WorldCapitalProjectType type = buffer.readBoolean() ? buffer.readEnum(WorldCapitalProjectType.class) : null;
         CapitalFundingSource source = buffer.readBoolean() ? buffer.readEnum(CapitalFundingSource.class) : null;
         String key = buffer.readUtf(48);
-        if (key.isBlank() || action == Action.CREATE && (target == null || type == null || source == null)
-                || action != Action.CREATE && project == null || action == Action.AUTHORIZE && proposal == null)
+        if (key.isBlank()
+                || action == Action.CREATE && (target == null || type == null || source == null)
+                || action != Action.CREATE && project == null
+                || action == Action.AUTHORIZE && proposal == null)
             throw new DecoderException("Invalid capital project intent");
         return new CapitalProjectActionPacket(action, project, target, proposal, bank, type, source, key);
     }
@@ -58,29 +73,39 @@ public record CapitalProjectActionPacket(Action action, UUID projectId, UUID tar
     }
 
     private static void run(CapitalProjectActionPacket packet, ServerPlayer player) {
-        if (player == null || packet == null || packet.action == null
-                || !MarketDataRequestLimiter.allow(player.getUUID(), player.server.getTickCount(),
-                "capital:" + packet.action)) return;
+        if (player == null
+                || packet == null
+                || packet.action == null
+                || !MarketDataRequestLimiter.allow(
+                        player.getUUID(), player.server.getTickCount(), "capital:" + packet.action)) return;
         Session session = session(player);
         if (session == null) return;
         WorldCapitalProject existing = CapitalProjectManager.get(packet.projectId);
-        if (packet.action != Action.CREATE && (existing == null || !session.companyId.equals(existing.companyId()))) return;
+        if (packet.action != Action.CREATE && (existing == null || !session.companyId.equals(existing.companyId())))
+            return;
         if (packet.action == Action.CREATE && !session.acceptsTarget(packet.targetId)) return;
         long day = finance.cycle.EconomyCycleService.currentMcDay(player.server);
-        CapitalProjectActionResult result = switch (packet.action) {
-            case CREATE -> CapitalProjectService.create(player, session.companyId, packet.projectType,
-                    packet.targetId, packet.fundingSource, day, packet.operationKey);
-            case PROPOSE -> CapitalProjectService.propose(player.getUUID(), packet.projectId,
-                    day, packet.operationKey);
-            case AUTHORIZE -> CapitalProjectService.authorize(player.getUUID(), packet.projectId,
-                    packet.proposalId, day, packet.operationKey);
-            case START_FUNDING -> CapitalProjectService.startFunding(player.getUUID(), packet.projectId,
-                    packet.bankId, day, packet.operationKey);
-            case EXECUTE -> CapitalProjectService.execute(player, packet.projectId, day, packet.operationKey);
-            case RECOVER -> CapitalProjectService.recover(player.getUUID(), packet.projectId,
-                    day, packet.operationKey);
-            case CANCEL -> CapitalProjectService.cancel(player, packet.projectId, day, packet.operationKey);
-        };
+        CapitalProjectActionResult result =
+                switch (packet.action) {
+                    case CREATE -> CapitalProjectService.create(
+                            player,
+                            session.companyId,
+                            packet.projectType,
+                            packet.targetId,
+                            packet.fundingSource,
+                            day,
+                            packet.operationKey);
+                    case PROPOSE -> CapitalProjectService.propose(
+                            player.getUUID(), packet.projectId, day, packet.operationKey);
+                    case AUTHORIZE -> CapitalProjectService.authorize(
+                            player.getUUID(), packet.projectId, packet.proposalId, day, packet.operationKey);
+                    case START_FUNDING -> CapitalProjectService.startFunding(
+                            player.getUUID(), packet.projectId, packet.bankId, day, packet.operationKey);
+                    case EXECUTE -> CapitalProjectService.execute(player, packet.projectId, day, packet.operationKey);
+                    case RECOVER -> CapitalProjectService.recover(
+                            player.getUUID(), packet.projectId, day, packet.operationKey);
+                    case CANCEL -> CapitalProjectService.cancel(player, packet.projectId, day, packet.operationKey);
+                };
         if (session.warehouse) WarehouseGuiOpener.open(player, session.pos, result.messageKey(), 0);
         else CompanyGameplayGuiOpener.open(player, session.pos, result.messageKey());
     }

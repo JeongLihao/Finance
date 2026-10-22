@@ -14,19 +14,14 @@ public class BalanceCommand {
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
 
-        dispatcher.register(
-                Commands.literal("balance")
-                        .executes(context -> {
+        dispatcher.register(Commands.literal("balance").executes(context -> {
+            ServerPlayer player = context.getSource().getPlayerOrException();
 
-                            ServerPlayer player = context.getSource().getPlayerOrException();
+            long balance = AccountManager.getBalance(player.getUUID());
 
-                            long balance = AccountManager.getBalance(player.getUUID());
+            player.sendSystemMessage(Component.literal("余额: " + balance));
 
-                            player.sendSystemMessage(
-                                    Component.literal("余额: " + balance)
-                            );
-
-                            return 1;})
-        );
+            return 1;
+        }));
     }
 }

@@ -1,47 +1,21 @@
 package finance.client;
 
-import com.mojang.blaze3d.systems.RenderSystem;
 import finance.commodity.Commodity;
-import finance.commodity.CommodityCategory;
 import finance.commodity.CommodityRegistry;
-import finance.company.CompanyManagementAction;
 import finance.company.CompanyType;
-import finance.company.CompanyStrategy;
-import finance.alert.PriceAlertDirection;
-import finance.alert.PriceAlertType;
-import finance.company.CompanyProposalType;
-import finance.stock.ConditionalStockOrderType;
 import finance.gui.FinanceMenu;
-import finance.gameplay.FinanceScreenMode;
-import finance.market.NpcMarketMaker;
 import finance.network.*;
-import finance.util.FormatUtil;
-import finance.chart.MarketInstrumentType;
-import finance.chart.MarketSummary;
-import finance.client.chart.CandlestickChart;
-import finance.client.chart.CandlestickClientCache;
-import finance.client.chart.TechnicalIndicatorChart;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.EditBox;
-import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.entity.player.Inventory;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-
 import java.util.*;
 
 /** 展示 / 解析辅助：从 FinanceScreen 抽取的无状态格式化工具类。
  * 需要界面状态的方法显式接收 FinanceScreen 参数，其余为纯函数。 */
-
 public final class FinanceFormat {
     private FinanceFormat() {}
 
-    public static String companyName(FinanceScreen screen, UUID companyId){
-        for(FinanceMenu.CompanyInfo company:screen.menu().getAllCompanies())if(company.companyId().equals(companyId))return company.name();
-        return companyId==null?"未知公司":companyId.toString().substring(0,8);
+    public static String companyName(FinanceScreen screen, UUID companyId) {
+        for (FinanceMenu.CompanyInfo company : screen.menu().getAllCompanies())
+            if (company.companyId().equals(companyId)) return company.name();
+        return companyId == null ? "未知公司" : companyId.toString().substring(0, 8);
     }
 
     public static String displayProposalType(String type) {
@@ -88,7 +62,6 @@ public final class FinanceFormat {
         return FinanceFormat.displaySymbol(row.symbol());
     }
 
-
     public static String displaySymbol(String symbol) {
         return switch (symbol) {
             case "IRONM", "MININ", "铁锭" -> "铁锭";
@@ -103,8 +76,7 @@ public final class FinanceFormat {
     }
 
     public static String formatRecordTime(long epochSeconds) {
-        java.time.LocalDateTime time = java.time.LocalDateTime.ofEpochSecond(
-                epochSeconds, 0, java.time.ZoneOffset.UTC);
+        java.time.LocalDateTime time = java.time.LocalDateTime.ofEpochSecond(epochSeconds, 0, java.time.ZoneOffset.UTC);
         return String.format("%02d:%02d", time.getHour(), time.getMinute());
     }
 
@@ -174,9 +146,12 @@ public final class FinanceFormat {
             case "ORDER_CANCEL", "STOCK_ORDER_CANCEL", "CONDITIONAL_STOCK_CANCEL" -> FinanceGui.COL_WARN;
             case "COMPANY_BANKRUPTCY" -> FinanceGui.COL_BAD;
             case "COMPANY_LIQUIDATION" -> FinanceGui.COL_WARN;
-            case "CONDITIONAL_STOCK_TRIGGER", "COMPANY_FINANCING_START",
-                    "COMPANY_FINANCING_SUBSCRIBE", "COMPANY_FINANCING_SUCCESS",
-                    "COMPANY_PROPOSAL_CREATE", "COMPANY_PROPOSAL_VOTE",
+            case "CONDITIONAL_STOCK_TRIGGER",
+                    "COMPANY_FINANCING_START",
+                    "COMPANY_FINANCING_SUBSCRIBE",
+                    "COMPANY_FINANCING_SUCCESS",
+                    "COMPANY_PROPOSAL_CREATE",
+                    "COMPANY_PROPOSAL_VOTE",
                     "COMPANY_PROPOSAL_RESULT" -> FinanceGui.COL_ACCENT;
             case "COMPANY_FINANCING_REFUND" -> FinanceGui.COL_WARN;
             default -> FinanceGui.COL_TEXT_DIM;
@@ -186,11 +161,15 @@ public final class FinanceFormat {
     public static List<FinanceMenu.AssetRow> sortedAssetRows(FinanceScreen screen) {
         List<FinanceMenu.AssetRow> rows = new ArrayList<>(screen.menu().getAssetRows());
         if (screen.assetSortMode == 1) {
-            rows.sort(Comparator.comparingLong(FinanceMenu.AssetRow::floatingProfit).reversed()
-                    .thenComparing(Comparator.comparingLong(FinanceMenu.AssetRow::value).reversed()));
+            rows.sort(Comparator.comparingLong(FinanceMenu.AssetRow::floatingProfit)
+                    .reversed()
+                    .thenComparing(Comparator.comparingLong(FinanceMenu.AssetRow::value)
+                            .reversed()));
         } else {
-            rows.sort(Comparator.comparingLong(FinanceMenu.AssetRow::value).reversed()
-                    .thenComparing(Comparator.comparingLong(FinanceMenu.AssetRow::floatingProfit).reversed()));
+            rows.sort(Comparator.comparingLong(FinanceMenu.AssetRow::value)
+                    .reversed()
+                    .thenComparing(Comparator.comparingLong(FinanceMenu.AssetRow::floatingProfit)
+                            .reversed()));
         }
         return rows;
     }
@@ -331,12 +310,20 @@ public final class FinanceFormat {
     /** 只用于预览和加减按钮：解析失败按 1 处理；真正发包前统一走 FinanceScreen.requireAmount 校验。 */
     public static long parseLong(String s) {
         if (s == null) return 1;
-        try { return Long.parseLong(ScreenInput.stripGrouping(s)); } catch (NumberFormatException e) { return 1; }
+        try {
+            return Long.parseLong(ScreenInput.stripGrouping(s));
+        } catch (NumberFormatException e) {
+            return 1;
+        }
     }
 
     public static int parseInt(String s) {
         if (s == null) return 1;
-        try { return Integer.parseInt(ScreenInput.stripGrouping(s)); } catch (NumberFormatException e) { return 1; }
+        try {
+            return Integer.parseInt(ScreenInput.stripGrouping(s));
+        } catch (NumberFormatException e) {
+            return 1;
+        }
     }
 
     public static String commodityDisplayName(String commodityId) {

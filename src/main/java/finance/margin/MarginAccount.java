@@ -52,16 +52,37 @@ public class MarginAccount {
         this.playerId = playerId;
     }
 
-    public UUID getPlayerId() { return playerId; }
-    public long getCashCollateral() { return cashCollateral; }
-    public long getFinancedDebt() { return financedDebt; }
-    public long getFinancedInterestOwed() { return financedInterestOwed; }
-    public long getBadDebt() { return badDebt; }
-    public long getLastInterestDay() { return lastInterestDay; }
+    public UUID getPlayerId() {
+        return playerId;
+    }
 
-    public void setLastInterestDay(long day) { this.lastInterestDay = day; }
+    public long getCashCollateral() {
+        return cashCollateral;
+    }
 
-    public void addCashCollateral(long amount) { cashCollateral += amount; }
+    public long getFinancedDebt() {
+        return financedDebt;
+    }
+
+    public long getFinancedInterestOwed() {
+        return financedInterestOwed;
+    }
+
+    public long getBadDebt() {
+        return badDebt;
+    }
+
+    public long getLastInterestDay() {
+        return lastInterestDay;
+    }
+
+    public void setLastInterestDay(long day) {
+        this.lastInterestDay = day;
+    }
+
+    public void addCashCollateral(long amount) {
+        cashCollateral += amount;
+    }
 
     /** @return 是否成功扣减（余额不足返回 false） */
     public boolean reduceCashCollateral(long amount) {
@@ -70,19 +91,25 @@ public class MarginAccount {
         return true;
     }
 
-    public void addFinancedDebt(long amount) { financedDebt += amount; }
+    public void addFinancedDebt(long amount) {
+        financedDebt += amount;
+    }
 
     public void reduceFinancedDebt(long amount) {
         financedDebt = Math.max(0, financedDebt - amount);
     }
 
-    public void addFinancedInterest(long amount) { financedInterestOwed += amount; }
+    public void addFinancedInterest(long amount) {
+        financedInterestOwed += amount;
+    }
 
     public void reduceFinancedInterest(long amount) {
         financedInterestOwed = Math.max(0, financedInterestOwed - amount);
     }
 
-    public Map<String, Long> getFinancedShares() { return financedShares; }
+    public Map<String, Long> getFinancedShares() {
+        return financedShares;
+    }
 
     public long financedSharesOf(String symbol) {
         return financedShares.getOrDefault(symbol, 0L);
@@ -96,7 +123,9 @@ public class MarginAccount {
         financedShares.computeIfPresent(symbol, (k, v) -> v - qty <= 0 ? null : v - qty);
     }
 
-    public Map<String, Long> getShortPositions() { return shortPositions; }
+    public Map<String, Long> getShortPositions() {
+        return shortPositions;
+    }
 
     public long shortPositionOf(String symbol) {
         return shortPositions.getOrDefault(symbol, 0L);
@@ -110,7 +139,9 @@ public class MarginAccount {
         shortPositions.computeIfPresent(symbol, (k, v) -> v - qty <= 0 ? null : v - qty);
     }
 
-    public Map<String, Long> getShortProceeds() { return shortProceeds; }
+    public Map<String, Long> getShortProceeds() {
+        return shortProceeds;
+    }
 
     public long shortProceedsOf(String symbol) {
         return shortProceeds.getOrDefault(symbol, 0L);
@@ -124,7 +155,9 @@ public class MarginAccount {
         shortProceeds.computeIfPresent(symbol, (k, v) -> v - amount <= 0 ? null : v - amount);
     }
 
-    public Map<String, Long> getShortSellPrices() { return shortSellPrices; }
+    public Map<String, Long> getShortSellPrices() {
+        return shortSellPrices;
+    }
 
     public long shortSellPriceOf(String symbol) {
         return shortSellPrices.getOrDefault(symbol, 0L);
@@ -138,7 +171,9 @@ public class MarginAccount {
         shortSellPrices.remove(symbol);
     }
 
-    public Map<String, Long> getShortInterestOwed() { return shortInterestOwed; }
+    public Map<String, Long> getShortInterestOwed() {
+        return shortInterestOwed;
+    }
 
     public void addShortInterest(String symbol, long amount) {
         shortInterestOwed.merge(symbol, amount, Long::sum);
@@ -158,7 +193,6 @@ public class MarginAccount {
 
     /** 是否有未结清的两融业务 */
     public boolean hasOpenPositions() {
-        return financedDebt > 0 || financedInterestOwed > 0
-                || !shortPositions.isEmpty() || badDebt > 0;
+        return financedDebt > 0 || financedInterestOwed > 0 || !shortPositions.isEmpty() || badDebt > 0;
     }
 }

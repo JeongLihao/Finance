@@ -1,3 +1,6 @@
 package finance.contract;
 
-public enum ContractType { DELIVERY, PROCUREMENT }
+public enum ContractType {
+    DELIVERY,
+    PROCUREMENT
+}

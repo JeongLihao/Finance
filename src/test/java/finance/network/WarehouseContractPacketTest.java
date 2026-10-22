@@ -1,24 +1,25 @@
 package finance.network;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import io.netty.buffer.Unpooled;
+import java.util.UUID;
 import net.minecraft.network.FriendlyByteBuf;
 import org.junit.jupiter.api.Test;
 
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.*;
-
 class WarehouseContractPacketTest {
-    @Test void warehouseActionRoundTripsBoundedIntent() {
+    @Test
+    void warehouseActionRoundTripsBoundedIntent() {
         UUID warehouse = UUID.randomUUID();
-        WarehouseActionPacket packet = new WarehouseActionPacket(WarehouseActionPacket.Action.DEPOSIT,
-                warehouse, "iron", 12, "operation-1");
+        WarehouseActionPacket packet =
+                new WarehouseActionPacket(WarehouseActionPacket.Action.DEPOSIT, warehouse, "iron", 12, "operation-1");
         FriendlyByteBuf buffer = new FriendlyByteBuf(Unpooled.buffer());
         WarehouseActionPacket.encode(packet, buffer);
         assertEquals(packet, WarehouseActionPacket.decode(buffer));
     }
 
-    @Test void overlongWarehouseCommodityIsRejectedDuringDecode() {
+    @Test
+    void overlongWarehouseCommodityIsRejectedDuringDecode() {
         FriendlyByteBuf buffer = new FriendlyByteBuf(Unpooled.buffer());
         buffer.writeEnum(WarehouseActionPacket.Action.DEPOSIT);
         buffer.writeUUID(UUID.randomUUID());
@@ -28,10 +29,11 @@ class WarehouseContractPacketTest {
         assertThrows(RuntimeException.class, () -> WarehouseActionPacket.decode(buffer));
     }
 
-    @Test void warehouseUpgradeRoundTripsOnlyCanonicalIntent() {
+    @Test
+    void warehouseUpgradeRoundTripsOnlyCanonicalIntent() {
         UUID warehouse = UUID.randomUUID();
-        WarehouseActionPacket packet = new WarehouseActionPacket(WarehouseActionPacket.Action.UPGRADE,
-                warehouse, "upgrade", 0, "upgrade-operation");
+        WarehouseActionPacket packet = new WarehouseActionPacket(
+                WarehouseActionPacket.Action.UPGRADE, warehouse, "upgrade", 0, "upgrade-operation");
         FriendlyByteBuf valid = new FriendlyByteBuf(Unpooled.buffer());
         WarehouseActionPacket.encode(packet, valid);
         assertEquals(packet, WarehouseActionPacket.decode(valid));
@@ -47,21 +49,24 @@ class WarehouseContractPacketTest {
         }
     }
 
-    @Test void contractActionRoundTripsWithoutRewardOrPlayerIdentity() {
-        ContractActionPacket packet = new ContractActionPacket(ContractActionPacket.Action.COMPLETE,
-                UUID.randomUUID(), UUID.randomUUID(), "operation-2");
+    @Test
+    void contractActionRoundTripsWithoutRewardOrPlayerIdentity() {
+        ContractActionPacket packet = new ContractActionPacket(
+                ContractActionPacket.Action.COMPLETE, UUID.randomUUID(), UUID.randomUUID(), "operation-2");
         FriendlyByteBuf buffer = new FriendlyByteBuf(Unpooled.buffer());
         ContractActionPacket.encode(packet, buffer);
         assertEquals(packet, ContractActionPacket.decode(buffer));
     }
 
-    @Test void invalidContractActionOrdinalIsRejectedDuringDecode() {
+    @Test
+    void invalidContractActionOrdinalIsRejectedDuringDecode() {
         FriendlyByteBuf buffer = new FriendlyByteBuf(Unpooled.buffer());
         buffer.writeVarInt(999);
         assertThrows(RuntimeException.class, () -> ContractActionPacket.decode(buffer));
     }
 
-    @Test void warehouseDecoderRejectsNegativeZeroAndHugeTransferAmounts() {
+    @Test
+    void warehouseDecoderRejectsNegativeZeroAndHugeTransferAmounts() {
         for (int amount : new int[] {Integer.MIN_VALUE, -1, 0, Integer.MAX_VALUE}) {
             FriendlyByteBuf buffer = new FriendlyByteBuf(Unpooled.buffer());
             buffer.writeEnum(WarehouseActionPacket.Action.WITHDRAW);
@@ -73,26 +78,37 @@ class WarehouseContractPacketTest {
         }
     }
 
-    @Test void blankOperationKeysAreRejectedAtDecodeBoundary() {
+    @Test
+    void blankOperationKeysAreRejectedAtDecodeBoundary() {
         FriendlyByteBuf warehouse = new FriendlyByteBuf(Unpooled.buffer());
         warehouse.writeEnum(WarehouseActionPacket.Action.DEPOSIT);
-        warehouse.writeUUID(UUID.randomUUID()); warehouse.writeUtf("iron", 64);
-        warehouse.writeVarInt(1); warehouse.writeUtf("   ", 64);
+        warehouse.writeUUID(UUID.randomUUID());
+        warehouse.writeUtf("iron", 64);
+        warehouse.writeVarInt(1);
+        warehouse.writeUtf("   ", 64);
         assertThrows(RuntimeException.class, () -> WarehouseActionPacket.decode(warehouse));
 
         FriendlyByteBuf contract = new FriendlyByteBuf(Unpooled.buffer());
         contract.writeEnum(ContractActionPacket.Action.ACCEPT);
-        contract.writeUUID(UUID.randomUUID()); contract.writeUUID(UUID.randomUUID()); contract.writeUtf("", 64);
+        contract.writeUUID(UUID.randomUUID());
+        contract.writeUUID(UUID.randomUUID());
+        contract.writeUtf("", 64);
         assertThrows(RuntimeException.class, () -> ContractActionPacket.decode(contract));
     }
 
-    @Test void companyGameplayDecoderRejectsInvalidTargetsAndExtremeContractValues() {
-        FriendlyByteBuf missingTarget = companyBuffer(CompanyGameplayActionPacket.Action.UPGRADE_FACILITY,
-                new UUID(0, 0), "", 0, 0, "operation");
+    @Test
+    void companyGameplayDecoderRejectsInvalidTargetsAndExtremeContractValues() {
+        FriendlyByteBuf missingTarget = companyBuffer(
+                CompanyGameplayActionPacket.Action.UPGRADE_FACILITY, new UUID(0, 0), "", 0, 0, "operation");
         assertThrows(RuntimeException.class, () -> CompanyGameplayActionPacket.decode(missingTarget));
 
-        FriendlyByteBuf hugeReward = companyBuffer(CompanyGameplayActionPacket.Action.PUBLISH_CONTRACT,
-                UUID.randomUUID(), "iron", 1, Long.MAX_VALUE, "operation");
+        FriendlyByteBuf hugeReward = companyBuffer(
+                CompanyGameplayActionPacket.Action.PUBLISH_CONTRACT,
+                UUID.randomUUID(),
+                "iron",
+                1,
+                Long.MAX_VALUE,
+                "operation");
         assertThrows(RuntimeException.class, () -> CompanyGameplayActionPacket.decode(hugeReward));
 
         FriendlyByteBuf invalidOrdinal = new FriendlyByteBuf(Unpooled.buffer());
@@ -100,11 +116,21 @@ class WarehouseContractPacketTest {
         assertThrows(RuntimeException.class, () -> CompanyGameplayActionPacket.decode(invalidOrdinal));
     }
 
-    private static FriendlyByteBuf companyBuffer(CompanyGameplayActionPacket.Action action, UUID target,
-                                                  String text, int quantity, long amount, String operationKey) {
+    private static FriendlyByteBuf companyBuffer(
+            CompanyGameplayActionPacket.Action action,
+            UUID target,
+            String text,
+            int quantity,
+            long amount,
+            String operationKey) {
         FriendlyByteBuf buffer = new FriendlyByteBuf(Unpooled.buffer());
-        buffer.writeEnum(action); buffer.writeUUID(UUID.randomUUID()); buffer.writeUUID(target);
-        buffer.writeUtf(text, 64); buffer.writeVarInt(quantity); buffer.writeLong(amount);
-        buffer.writeUtf(operationKey, 64); return buffer;
+        buffer.writeEnum(action);
+        buffer.writeUUID(UUID.randomUUID());
+        buffer.writeUUID(target);
+        buffer.writeUtf(text, 64);
+        buffer.writeVarInt(quantity);
+        buffer.writeLong(amount);
+        buffer.writeUtf(operationKey, 64);
+        return buffer;
     }
 }

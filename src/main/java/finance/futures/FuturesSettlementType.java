@@ -1,3 +1,5 @@
 package finance.futures;
 
-public enum FuturesSettlementType { CASH }
+public enum FuturesSettlementType {
+    CASH
+}

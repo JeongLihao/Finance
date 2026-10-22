@@ -1,5 +1,7 @@
 package finance.village;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import finance.account.AccountManager;
 import finance.commodity.Commodity;
 import finance.commodity.CommodityCategory;
@@ -11,17 +13,14 @@ import finance.diagnostic.ModuleHealthRegistry;
 import finance.market.NpcMarketMaker;
 import finance.settlement.SettlementManager;
 import finance.settlement.SettlementRecord;
+import java.util.EnumMap;
+import java.util.Map;
+import java.util.UUID;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
-import java.util.EnumMap;
-import java.util.Map;
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * 村民需求经济测试：需求模型、价格浮动、好感度、反刷钱（含攻击视角）。
@@ -38,8 +37,10 @@ class VillageServiceTest {
         EconomySavedData.resetRuntimeState();
         CommodityRegistry.resetToDefaults();
         CommodityRegistry.register(new Commodity("wheat", "minecraft:wheat", "Wheat", CommodityCategory.FOOD, 8));
-        CommodityRegistry.register(new Commodity("iron", "minecraft:iron_ingot", "Iron", CommodityCategory.RAW_MATERIALS, 20));
-        CommodityRegistry.register(new Commodity("stone", "minecraft:stone", "Stone", CommodityCategory.BUILDING_BLOCKS, 4));
+        CommodityRegistry.register(
+                new Commodity("iron", "minecraft:iron_ingot", "Iron", CommodityCategory.RAW_MATERIALS, 20));
+        CommodityRegistry.register(
+                new Commodity("stone", "minecraft:stone", "Stone", CommodityCategory.BUILDING_BLOCKS, 4));
         ModuleHealthRegistry.clear();
         player = UUID.randomUUID();
         AccountManager.getOrCreateSystemAccount(player);
@@ -63,8 +64,8 @@ class VillageServiceTest {
 
     /** 构造指定人口/职业构成的村庄并注入管理器（绕过默认分配，保证确定性）。 */
     private VillageRecord makeVillage(int population, int farmer, int artisan, int guard, int other) {
-        settlement = SettlementManager.registerOrRecover(UUID.randomUUID(), "minecraft:overworld",
-                new BlockPos(0, 64, 0), "test-village");
+        settlement = SettlementManager.registerOrRecover(
+                UUID.randomUUID(), "minecraft:overworld", new BlockPos(0, 64, 0), "test-village");
         EnumMap<VillageProfession, Integer> mix = new EnumMap<>(VillageProfession.class);
         mix.put(VillageProfession.FARMER, farmer);
         mix.put(VillageProfession.ARTISAN, artisan);
@@ -109,9 +110,9 @@ class VillageServiceTest {
 
     @Test
     void premiumForCoverage_shortageMaxSurplusMin() {
-        assertEquals(14000, VillageService.premiumForCoverage(0.0));   // 缺货 → 上限
-        assertEquals(7500, VillageService.premiumForCoverage(3.0));    // 囤积 → 下限
-        assertEquals(11833, VillageService.premiumForCoverage(1.0));   // 线性插值
+        assertEquals(14000, VillageService.premiumForCoverage(0.0)); // 缺货 → 上限
+        assertEquals(7500, VillageService.premiumForCoverage(3.0)); // 囤积 → 下限
+        assertEquals(11833, VillageService.premiumForCoverage(1.0)); // 线性插值
     }
 
     @Test
@@ -157,10 +158,10 @@ class VillageServiceTest {
         long before = playerBalance();
         VillageService.processDay(null, 1);
 
-        assertEquals(before + 300, playerBalance());          // 30 × 10
-        assertEquals(70, stall.stock());                       // 100 - 30
+        assertEquals(before + 300, playerBalance()); // 30 × 10
+        assertEquals(70, stall.stock()); // 100 - 30
         assertEquals(0, CommodityInventoryManager.getCommodityAmount(settlement.id(), "wheat")); // 买走即消费销毁
-        assertEquals(1, v.favorOf(player));                    // 公允交易 +2，再自然衰减 -1
+        assertEquals(1, v.favorOf(player)); // 公允交易 +2，再自然衰减 -1
     }
 
     // ================================================================
@@ -177,9 +178,9 @@ class VillageServiceTest {
         long before = playerBalance();
         VillageService.processDay(null, 1);
 
-        assertEquals(before, playerBalance());                 // 一分没赚到
-        assertEquals(100, stall.stock());                     // 一根没卖出
-        assertEquals(-9, v.favorOf(player));                  // 宰客 -10，再自然衰减 +1
+        assertEquals(before, playerBalance()); // 一分没赚到
+        assertEquals(100, stall.stock()); // 一根没卖出
+        assertEquals(-9, v.favorOf(player)); // 宰客 -10，再自然衰减 +1
         // 村民转投行商：行商有成交（NPC 收到钱）
         assertTrue(AccountManager.getBalance(NpcMarketMaker.NPC_UUID) > 10_000_000L - 6000L);
     }
@@ -194,9 +195,9 @@ class VillageServiceTest {
         long before = playerBalance();
         VillageService.processDay(null, 1);
 
-        assertEquals(before, playerBalance());                 // 抵制：公允价也卖不出去
+        assertEquals(before, playerBalance()); // 抵制：公允价也卖不出去
         assertEquals(100, stall.stock());
-        assertEquals(-59, v.favorOf(player));                  // 自然衰减 +1（向 0 回归）
+        assertEquals(-59, v.favorOf(player)); // 自然衰减 +1（向 0 回归）
     }
 
     @Test
@@ -214,20 +215,20 @@ class VillageServiceTest {
         VillageService.processDay(null, 1);
 
         assertEquals(before, playerBalance());
-        assertEquals(100, stall.stock());                      // 没卖出
-        assertEquals(0, v.favorOf(player));                    // 没交易就没好感
+        assertEquals(100, stall.stock()); // 没卖出
+        assertEquals(0, v.favorOf(player)); // 没交易就没好感
     }
 
     @Test
     void attack_emptyStallSellsNothing() {
         VillageRecord v = makeVillage(20, 10, 10, 0, 0);
         VillageStall stall = VillageManager.registerStall(settlement.id(), player, "wheat", 10);
-        assertEquals(0, stall.stock());                       // 没上架
+        assertEquals(0, stall.stock()); // 没上架
 
         long before = playerBalance();
         VillageService.processDay(null, 1);
 
-        assertEquals(before, playerBalance());                 // 空库存零成交
+        assertEquals(before, playerBalance()); // 空库存零成交
         assertEquals(0, v.favorOf(player));
     }
 
@@ -256,7 +257,8 @@ class VillageServiceTest {
         makeVillage(20, 10, 10, 0, 0);
         assertNotNull(VillageManager.registerStall(settlement.id(), player, "wheat", 10));
         assertNull(VillageManager.registerStall(settlement.id(), player, "wheat", 12)); // 重复
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(
+                IllegalArgumentException.class,
                 () -> new VillageStall(UUID.randomUUID(), settlement.id(), player, "wheat", 0)); // 单价≥1
     }
 
@@ -295,13 +297,16 @@ class VillageServiceTest {
     @Test
     void stallsForSettlement_usesIndexAndTracksRemoval() {
         makeVillage(20, 10, 10, 0, 0);
-        UUID other = SettlementManager.registerOrRecover(UUID.randomUUID(), "minecraft:overworld",
-                new BlockPos(1000, 64, 1000), "other").id();
+        UUID other = SettlementManager.registerOrRecover(
+                        UUID.randomUUID(), "minecraft:overworld", new BlockPos(1000, 64, 1000), "other")
+                .id();
         UUID p2 = UUID.randomUUID();
         VillageStall a = VillageManager.registerStall(settlement.id(), player, "wheat", 10);
         VillageStall b = VillageManager.registerStall(other, p2, "wheat", 10);
         assertEquals(1, VillageManager.stallsForSettlement(settlement.id()).size());
-        assertEquals(a.id(), VillageManager.stallsForSettlement(settlement.id()).get(0).id());
+        assertEquals(
+                a.id(),
+                VillageManager.stallsForSettlement(settlement.id()).get(0).id());
         assertEquals(1, VillageManager.stallsForSettlement(other).size());
         assertTrue(VillageManager.removeStall(a.id()));
         assertTrue(VillageManager.stallsForSettlement(settlement.id()).isEmpty());

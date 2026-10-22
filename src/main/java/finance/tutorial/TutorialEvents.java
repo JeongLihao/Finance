@@ -27,7 +27,8 @@ public final class TutorialEvents {
 
     @SubscribeEvent
     public static void onPlayerTick(TickEvent.PlayerTickEvent event) {
-        if (event.phase == TickEvent.Phase.END && event.player instanceof ServerPlayer player
+        if (event.phase == TickEvent.Phase.END
+                && event.player instanceof ServerPlayer player
                 && player.tickCount % 20 == 0) {
             TutorialProgressService.observeInventory(player);
         }

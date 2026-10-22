@@ -1,5 +1,7 @@
 package finance.simple;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import finance.account.AccountManager;
 import finance.company.Company;
 import finance.company.CompanyManager;
@@ -11,14 +13,11 @@ import finance.stock.Stock;
 import finance.stock.StockMarketManager;
 import finance.stock.StockPortfolioManager;
 import io.netty.buffer.Unpooled;
+import java.util.List;
+import java.util.UUID;
 import net.minecraft.network.FriendlyByteBuf;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
-import java.util.List;
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 /** 身家怎么算、押注战绩怎么累计、价格表怎么传。 */
 class SimpleWealthServiceTest {
@@ -31,10 +30,12 @@ class SimpleWealthServiceTest {
         Company company = new Company(UUID.randomUUID(), "Rich Co", CompanyType.RAW_MATERIALS, 500_000L);
         company.setPublic(true);
         CompanyManager.registerDirect(company);
-        StockMarketManager.putStockDirect(new Stock(SYMBOL, "Rich Co", company.getCompanyId(), 10_000L, 10_000L, 0L, 100L, 100L));
+        StockMarketManager.putStockDirect(
+                new Stock(SYMBOL, "Rich Co", company.getCompanyId(), 10_000L, 10_000L, 0L, 100L, 100L));
     }
 
-    @Test void netWorthAddsWalletStocksAndBetEquity() {
+    @Test
+    void netWorthAddsWalletStocksAndBetEquity() {
         UUID id = UUID.randomUUID();
         AccountManager.deposit(id, 50_000);
         long wallet = AccountManager.getBalance(id);
@@ -52,7 +53,8 @@ class SimpleWealthServiceTest {
         assertTrue(MarginService.checkLiquidations().isEmpty());
     }
 
-    @Test void betStatsTrackCountWinsTotalBestAndWorst() {
+    @Test
+    void betStatsTrackCountWinsTotalBestAndWorst() {
         SimpleBetService.Stats s = SimpleBetService.Stats.EMPTY;
         assertEquals("", s.line(), "一笔都没有时不显示");
         s = s.plus(500).plus(-200).plus(1_000).plus(0);
@@ -65,8 +67,10 @@ class SimpleWealthServiceTest {
         assertEquals(-50, SimpleBetService.Stats.EMPTY.plus(-50).best(), "第一笔就是最赚也是最亏");
     }
 
-    @Test void priceTableRoundTrips() {
-        List<PriceTablePacket.Row> rows = List.of(new PriceTablePacket.Row("minecraft:iron_ingot", 120, 150),
+    @Test
+    void priceTableRoundTrips() {
+        List<PriceTablePacket.Row> rows = List.of(
+                new PriceTablePacket.Row("minecraft:iron_ingot", 120, 150),
                 new PriceTablePacket.Row("minecraft:wheat", 5, 7));
         FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
         PriceTablePacket.encode(new PriceTablePacket(rows), buf);

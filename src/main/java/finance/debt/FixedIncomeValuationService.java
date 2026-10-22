@@ -6,7 +6,6 @@ import finance.company.Company;
 import finance.company.CompanyManager;
 import finance.config.FinanceConfig;
 import finance.policy.MonetaryPolicyService;
-
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.MathContext;
@@ -17,7 +16,8 @@ import java.util.UUID;
 public final class FixedIncomeValuationService {
     private static final MathContext MC = new MathContext(24, RoundingMode.HALF_EVEN);
     private static final BigInteger LONG_MAX = BigInteger.valueOf(Long.MAX_VALUE);
-    private FixedIncomeValuationService() { }
+
+    private FixedIncomeValuationService() {}
 
     public static BondValuation value(CorporateBond bond, UUID playerId, long currentDay) {
         if (bond == null || playerId == null || currentDay < 0) return zero();
@@ -38,8 +38,17 @@ public final class FixedIncomeValuationService {
         long totalCost = position == null ? 0 : position.totalCost();
         long unrealized = clampSigned(BigInteger.valueOf(marketValue).subtract(BigInteger.valueOf(totalCost)));
         long remainingCashFlows = cap(remainingCashFlows(bond, quantity, currentDay));
-        return new BondValuation(remainingPrincipal, daysToNext, accrued, remainingCashFlows,
-                referenceYield, referenceUnit, marketUnit, marketYield, marketValue, unrealized);
+        return new BondValuation(
+                remainingPrincipal,
+                daysToNext,
+                accrued,
+                remainingCashFlows,
+                referenceYield,
+                referenceUnit,
+                marketUnit,
+                marketYield,
+                marketValue,
+                unrealized);
     }
 
     public static int referenceYieldBasisPoints(CorporateBond bond, long currentDay) {
@@ -48,7 +57,8 @@ public final class FixedIncomeValuationService {
         CreditRating rating = company == null ? CreditRating.D : CompanyCreditService.rate(company);
         long remainingDays = Math.max(0, bond.maturityDay() - currentDay);
         long result = (long) MonetaryPolicyService.benchmarkRateBasisPoints()
-                + rating.spreadBasisPoints() + Math.min(500, remainingDays * 5);
+                + rating.spreadBasisPoints()
+                + Math.min(500, remainingDays * 5);
         return (int) Math.min(FinanceConfig.maxContractRateBasisPoints(), Math.max(0, result));
     }
 
@@ -73,7 +83,9 @@ public final class FixedIncomeValuationService {
 
     /** Simple annualized yield estimate: annual coupon plus annualized pull-to-par, divided by market price. */
     public static int marketYieldBasisPoints(CorporateBond bond, long currentDay, long marketPricePerUnit) {
-        if (bond == null || marketPricePerUnit <= 0 || currentDay >= bond.maturityDay()
+        if (bond == null
+                || marketPricePerUnit <= 0
+                || currentDay >= bond.maturityDay()
                 || bond.status() != BondStatus.ACTIVE) return 0;
         long remainingDays = Math.max(1, bond.maturityDay() - currentDay);
         BigDecimal annualCoupon = BigDecimal.valueOf(bond.faceValue())
@@ -82,26 +94,31 @@ public final class FixedIncomeValuationService {
         BigDecimal pullToPar = BigDecimal.valueOf(bond.faceValue() - marketPricePerUnit)
                 .multiply(BigDecimal.valueOf(FinanceConfig.annualMcDays()), MC)
                 .divide(BigDecimal.valueOf(remainingDays), MC);
-        BigDecimal yieldBps = annualCoupon.add(pullToPar, MC)
+        BigDecimal yieldBps = annualCoupon
+                .add(pullToPar, MC)
                 .multiply(BigDecimal.valueOf(10_000), MC)
                 .divide(BigDecimal.valueOf(marketPricePerUnit), MC);
         return yieldBps.max(BigDecimal.ZERO)
                 .min(BigDecimal.valueOf(FinanceConfig.maxContractRateBasisPoints()))
-                .setScale(0, RoundingMode.HALF_EVEN).intValue();
+                .setScale(0, RoundingMode.HALF_EVEN)
+                .intValue();
     }
 
     private static BigInteger remainingCashFlows(CorporateBond bond, long quantity, long currentDay) {
         if (bond.status() == BondStatus.DEFAULTED) {
-            return BigInteger.valueOf(referencePricePerUnit(bond, currentDay,
-                    referenceYieldBasisPoints(bond, currentDay))).multiply(BigInteger.valueOf(quantity));
+            return BigInteger.valueOf(
+                            referencePricePerUnit(bond, currentDay, referenceYieldBasisPoints(bond, currentDay)))
+                    .multiply(BigInteger.valueOf(quantity));
         }
         BigInteger total = BigInteger.ZERO;
         long cursor = bond.lastCouponDay();
         while (cursor < bond.maturityDay()) {
             long next = Math.min(bond.maturityDay(), safeAdd(cursor, bond.couponIntervalDays()));
-            if (next > currentDay) total = total.add(coupon(
-                    BigInteger.valueOf(bond.faceValue()).multiply(BigInteger.valueOf(quantity)),
-                    bond.couponBasisPoints(), next - cursor));
+            if (next > currentDay)
+                total = total.add(coupon(
+                        BigInteger.valueOf(bond.faceValue()).multiply(BigInteger.valueOf(quantity)),
+                        bond.couponBasisPoints(),
+                        next - cursor));
             cursor = next;
             if (cursor == Long.MAX_VALUE) break;
         }
@@ -110,7 +127,9 @@ public final class FixedIncomeValuationService {
 
     private static BigInteger coupon(BigInteger principal, int couponBps, long days) {
         if (principal.signum() <= 0 || couponBps <= 0 || days <= 0) return BigInteger.ZERO;
-        return principal.multiply(BigInteger.valueOf(couponBps)).multiply(BigInteger.valueOf(days))
+        return principal
+                .multiply(BigInteger.valueOf(couponBps))
+                .multiply(BigInteger.valueOf(days))
                 .divide(BigInteger.valueOf((long) FinanceConfig.annualMcDays() * 10_000L));
     }
 
@@ -122,12 +141,22 @@ public final class FixedIncomeValuationService {
     }
 
     private static long safeAdd(long value, long increment) {
-        try { return Math.addExact(value, increment); }
-        catch (ArithmeticException ignored) { return Long.MAX_VALUE; }
+        try {
+            return Math.addExact(value, increment);
+        } catch (ArithmeticException ignored) {
+            return Long.MAX_VALUE;
+        }
     }
-    private static long cap(BigInteger value) { return value.max(BigInteger.ZERO).min(LONG_MAX).longValue(); }
+
+    private static long cap(BigInteger value) {
+        return value.max(BigInteger.ZERO).min(LONG_MAX).longValue();
+    }
+
     private static long clampSigned(BigInteger value) {
         return value.max(BigInteger.valueOf(Long.MIN_VALUE)).min(LONG_MAX).longValue();
     }
-    private static BondValuation zero() { return new BondValuation(0, 0, 0, 0, 0, 0, 0, 0, 0, 0); }
+
+    private static BondValuation zero() {
+        return new BondValuation(0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+    }
 }

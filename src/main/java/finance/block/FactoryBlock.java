@@ -31,9 +31,10 @@ public final class FactoryBlock extends BaseEntityBlock {
     }
 
     @Override
-    public InteractionResult use(BlockState state, Level level, BlockPos pos, Player player,
-                                InteractionHand hand, BlockHitResult hit) {
-        if (!level.isClientSide && player instanceof ServerPlayer server
+    public InteractionResult use(
+            BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
+        if (!level.isClientSide
+                && player instanceof ServerPlayer server
                 && level.getBlockEntity(pos) instanceof FactoryBlockEntity factory) {
             FactoryGuiOpener.open(server, factory);
         }
@@ -78,11 +79,12 @@ public final class FactoryBlock extends BaseEntityBlock {
 
     @Nullable
     @Override
-    public <T extends BlockEntity> BlockEntityTicker<T> getTicker(Level level, BlockState state,
-                                                                  BlockEntityType<T> type) {
-        return level.isClientSide ? null
-                : createTickerHelper(type, finance.registry.ModBlockEntities.FACTORY.get(),
-                        FactoryBlockEntity::serverTick);
+    public <T extends BlockEntity> BlockEntityTicker<T> getTicker(
+            Level level, BlockState state, BlockEntityType<T> type) {
+        return level.isClientSide
+                ? null
+                : createTickerHelper(
+                        type, finance.registry.ModBlockEntities.FACTORY.get(), FactoryBlockEntity::serverTick);
     }
 
     @Nullable

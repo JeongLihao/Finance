@@ -1,22 +1,19 @@
 package finance.market;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Iterator;
 import finance.account.AccountManager;
 import finance.account.TransactionRecord;
 import finance.account.TransactionType;
+import finance.commodity.CommodityInventoryManager;
 import finance.commodity.CommodityRegistry;
 import finance.data.EconomySavedData;
-import finance.metrics.EconomyMetricsService;
-import java.util.UUID;
 import finance.marketdata.TradeDirection;
-import finance.commodity.CommodityInventoryManager;
 import finance.util.MathUtil;
-import finance.chart.CandlestickService;
-import finance.chart.MarketInstrumentType;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 /**
  * 市场交易管理器 —— 订单簿撮合引擎。
@@ -61,9 +58,13 @@ public class MarketManager {
      */
     public static boolean placeOrder(Order order) {
 
-        if (order == null || order.getPlayerId() == null || order.getType() == null
-                || order.getCommodityId() == null || order.getCommodityId().isBlank()
-                || order.getPrice() <= 0 || order.getQuantity() <= 0) {
+        if (order == null
+                || order.getPlayerId() == null
+                || order.getType() == null
+                || order.getCommodityId() == null
+                || order.getCommodityId().isBlank()
+                || order.getPrice() <= 0
+                || order.getQuantity() <= 0) {
             return false;
         }
 
@@ -80,22 +81,14 @@ public class MarketManager {
                 return false;
             }
 
-            if (!AccountManager.freezeFunds(
-                    order.getPlayerId(),
-                    totalCost
-            )) {
+            if (!AccountManager.freezeFunds(order.getPlayerId(), totalCost)) {
                 return false;
             }
 
         } else {
 
-            boolean removed =
-                    CommodityInventoryManager
-                            .removeCommodity(
-                                    order.getPlayerId(),
-                                    order.getCommodityId(),
-                                    order.getQuantity()
-                            );
+            boolean removed = CommodityInventoryManager.removeCommodity(
+                    order.getPlayerId(), order.getCommodityId(), order.getQuantity());
 
             if (!removed) {
                 return false;
@@ -156,7 +149,7 @@ public class MarketManager {
 
             // ---- 匹配检查 ----
             if (existingOrder.getType() == newOrder.getType()) {
-                continue;  // 同方向，不撮合
+                continue; // 同方向，不撮合
             }
 
             // 价格匹配：买方出价必须 ≥ 卖方要价
@@ -166,11 +159,9 @@ public class MarketManager {
 
             boolean priceMatch;
             if (newOrder.getType() == OrderType.BUY) {
-                priceMatch = newOrder.getPrice()
-                        >= existingOrder.getPrice();
+                priceMatch = newOrder.getPrice() >= existingOrder.getPrice();
             } else {
-                priceMatch = existingOrder.getPrice()
-                        >= newOrder.getPrice();
+                priceMatch = existingOrder.getPrice() >= newOrder.getPrice();
             }
 
             if (!priceMatch) {
@@ -196,10 +187,7 @@ public class MarketManager {
             }
 
             // 成交数量（支持部分成交）
-            int tradeQty = Math.min(
-                    remaining,
-                    existingOrder.getQuantity()
-            );
+            int tradeQty = Math.min(remaining, existingOrder.getQuantity());
 
             // 成交价 = 卖方定价
             long tradePrice = sellOrder.getPrice();
@@ -209,9 +197,7 @@ public class MarketManager {
             }
 
             // 卖方商品已在下单时冻结，此处信任冻结量足够
-            int frozenQty = (newOrder.getType() == OrderType.SELL)
-                    ? remaining
-                    : existingOrder.getQuantity();
+            int frozenQty = (newOrder.getType() == OrderType.SELL) ? remaining : existingOrder.getQuantity();
 
             if (frozenQty < tradeQty) {
                 continue;
@@ -237,41 +223,37 @@ public class MarketManager {
 
             // Step 2: 商品交割（卖方 → 买方）
             // 卖方的商品在下单时已从库存扣除，此处直接给买方
-            if (!CommodityInventoryManager.addCommodity(
-                    buyer,
-                    newOrder.getCommodityId(),
-                    tradeQty
-            )) {
+            if (!CommodityInventoryManager.addCommodity(buyer, newOrder.getCommodityId(), tradeQty)) {
                 AccountManager.rollbackSettledFrozenTransfer(buyer, seller, frozenAmount, paymentAmount);
                 continue;
             }
 
             // Step 3: 记录交易
-            AccountManager.addTransactionRecord(
-                    new TransactionRecord(
-                            buyer,
-                            seller,
-                            paymentAmount,
-                            TransactionType.MARKET_TRADE,
-                            buyer,
-                            newOrder.getCommodityId(),
-                            tradeQty
-                    )
-            );
-            AccountManager.addTransactionRecord(
-                    new TransactionRecord(
-                            buyer,
-                            seller,
-                            paymentAmount,
-                            TransactionType.MARKET_TRADE,
-                            seller,
-                            newOrder.getCommodityId(),
-                            tradeQty
-                    )
-            );
+            AccountManager.addTransactionRecord(new TransactionRecord(
+                    buyer,
+                    seller,
+                    paymentAmount,
+                    TransactionType.MARKET_TRADE,
+                    buyer,
+                    newOrder.getCommodityId(),
+                    tradeQty));
+            AccountManager.addTransactionRecord(new TransactionRecord(
+                    buyer,
+                    seller,
+                    paymentAmount,
+                    TransactionType.MARKET_TRADE,
+                    seller,
+                    newOrder.getCommodityId(),
+                    tradeQty));
 
-            CommodityTradeRecorder.recordCompletedTrade(buyer, seller, newOrder.getCommodityId(),
-                    tradePrice, tradeQty, CommodityTradeSource.PLAYER_P2P, null,
+            CommodityTradeRecorder.recordCompletedTrade(
+                    buyer,
+                    seller,
+                    newOrder.getCommodityId(),
+                    tradePrice,
+                    tradeQty,
+                    CommodityTradeSource.PLAYER_P2P,
+                    null,
                     newOrder.getType() == OrderType.BUY ? TradeDirection.BUY : TradeDirection.SELL);
 
             // Step 4: 更新订单数量
@@ -322,17 +304,14 @@ public class MarketManager {
         }
         removeOrderDirect(order);
 
-        AccountManager.addTransactionRecord(
-                new TransactionRecord(
-                        order.getPlayerId(),
-                        order.getPlayerId(),
-                        Math.max(0, refundAmount),
-                        TransactionType.ORDER_CANCEL,
-                        order.getPlayerId(),
-                        order.getCommodityId(),
-                        order.getQuantity()
-                )
-        );
+        AccountManager.addTransactionRecord(new TransactionRecord(
+                order.getPlayerId(),
+                order.getPlayerId(),
+                Math.max(0, refundAmount),
+                TransactionType.ORDER_CANCEL,
+                order.getPlayerId(),
+                order.getCommodityId(),
+                order.getQuantity()));
         EconomySavedData.markDirty();
         return true;
     }
@@ -407,20 +386,23 @@ public class MarketManager {
         }
 
         removeOrderDirect(target);
-        AccountManager.addTransactionRecord(
-                new TransactionRecord(buyer, seller, total, TransactionType.MARKET_TRADE,
-                        buyer, target.getCommodityId(), qty)
-        );
-        AccountManager.addTransactionRecord(
-                new TransactionRecord(buyer, seller, total, TransactionType.MARKET_TRADE,
-                        seller, target.getCommodityId(), qty)
-        );
-        CommodityTradeRecorder.recordCompletedTrade(buyer, seller, target.getCommodityId(),
-                target.getPrice(), qty, CommodityTradeSource.PLAYER_TAKE_ORDER, null,
+        AccountManager.addTransactionRecord(new TransactionRecord(
+                buyer, seller, total, TransactionType.MARKET_TRADE, buyer, target.getCommodityId(), qty));
+        AccountManager.addTransactionRecord(new TransactionRecord(
+                buyer, seller, total, TransactionType.MARKET_TRADE, seller, target.getCommodityId(), qty));
+        CommodityTradeRecorder.recordCompletedTrade(
+                buyer,
+                seller,
+                target.getCommodityId(),
+                target.getPrice(),
+                qty,
+                CommodityTradeSource.PLAYER_TAKE_ORDER,
+                null,
                 target.getType() == OrderType.SELL ? TradeDirection.BUY : TradeDirection.SELL);
         EconomySavedData.markDirty();
         String action = target.getType() == OrderType.SELL ? "买入" : "卖出";
-        return TakeOrderResult.ok("已" + action + " " + qty + "x " + target.getCommodityId() + "，单价: " + target.getPrice());
+        return TakeOrderResult.ok(
+                "已" + action + " " + qty + "x " + target.getCommodityId() + "，单价: " + target.getPrice());
     }
 
     public static int cancelOrdersForCommodity(String commodityId) {
@@ -467,10 +449,7 @@ public class MarketManager {
             }
         } else if (order.getQuantity() > 0) {
             return CommodityInventoryManager.addCommodity(
-                    order.getPlayerId(),
-                    order.getCommodityId(),
-                    order.getQuantity()
-            );
+                    order.getPlayerId(), order.getCommodityId(), order.getQuantity());
         }
         return false;
     }
@@ -537,8 +516,8 @@ public class MarketManager {
     /** 直接加入订单簿（从磁盘恢复时使用，跳过资产冻结） */
     public static void addOrderDirect(Order order) {
         ORDERS.add(order);
-        List<Order> commodityOrders = ORDERS_BY_COMMODITY
-                .computeIfAbsent(order.getCommodityId(), k -> new ArrayList<>());
+        List<Order> commodityOrders =
+                ORDERS_BY_COMMODITY.computeIfAbsent(order.getCommodityId(), k -> new ArrayList<>());
         commodityOrders.add(order);
         sortOrderBook(commodityOrders);
     }

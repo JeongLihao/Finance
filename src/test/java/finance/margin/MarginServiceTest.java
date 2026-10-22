@@ -1,5 +1,7 @@
 package finance.margin;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import finance.account.AccountManager;
 import finance.company.Company;
 import finance.company.CompanyManager;
@@ -8,13 +10,10 @@ import finance.data.EconomySavedData;
 import finance.stock.Stock;
 import finance.stock.StockMarketManager;
 import finance.stock.StockPortfolioManager;
+import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * 融资融券（MarginService）回归测试 —— 覆盖设计文档 §9 的 12 个用例。
@@ -225,8 +224,7 @@ class MarginServiceTest {
         long owed = acct.getFinancedDebt() + acct.getFinancedInterestOwed();
         assertTrue(MarginService.repayFinancing(TRADER, owed).success());
         assertEquals(0L, acct.financedSharesOf(SYMBOL));
-        assertEquals(200L, StockPortfolioManager.getHolding(TRADER, SYMBOL).getQuantity(),
-                "融资股应转为普通持仓");
+        assertEquals(200L, StockPortfolioManager.getHolding(TRADER, SYMBOL).getQuantity(), "融资股应转为普通持仓");
     }
 
     @Test

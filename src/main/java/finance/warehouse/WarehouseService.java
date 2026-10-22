@@ -7,30 +7,29 @@ import finance.block.entity.WarehouseControllerBlockEntity;
 import finance.commodity.CommodityInventoryManager;
 import finance.config.FinanceConfig;
 import finance.data.EconomySavedData;
+import finance.gameplay.company.CompanyInventoryFacade;
+import java.util.UUID;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.block.entity.BlockEntity;
 
-import java.util.UUID;
-import finance.gameplay.company.CompanyInventoryFacade;
-
 public final class WarehouseService {
     private WarehouseService() {}
 
-    public static synchronized WarehouseActionResult deposit(ServerPlayer player, UUID warehouseId,
-                                                               String commodityId, int amount,
-                                                               String operationKey) {
+    public static synchronized WarehouseActionResult deposit(
+            ServerPlayer player, UUID warehouseId, String commodityId, int amount, String operationKey) {
         WarehouseRecord record = validRecord(player, warehouseId, true);
         if (record == null) return WarehouseActionResult.failure("finance.warehouse.invalid_session");
-        if(!finance.diagnostic.ModuleHealthRegistry.mayWrite(finance.diagnostic.ModuleHealthRegistry.Module.WAREHOUSE))
+        if (!finance.diagnostic.ModuleHealthRegistry.mayWrite(finance.diagnostic.ModuleHealthRegistry.Module.WAREHOUSE))
             return WarehouseActionResult.failure("finance.warehouse.module_paused");
         if (!validOperation(operationKey) || amount <= 0 || commodityId == null || commodityId.isBlank())
             return WarehouseActionResult.failure("finance.warehouse.invalid_request");
-        if (amount > record.transferLimit())
-            return WarehouseActionResult.failure("finance.warehouse.transfer_limit");
+        if (amount > record.transferLimit()) return WarehouseActionResult.failure("finance.warehouse.transfer_limit");
         String scopedKey = player.getUUID() + ":" + operationKey;
-        if (record.hasOperation(scopedKey)) return WarehouseActionResult.failure("finance.warehouse.duplicate_operation");
-        if (!WarehouseManager.canDeposit(player, record)) return WarehouseActionResult.failure("finance.warehouse.no_permission");
+        if (record.hasOperation(scopedKey))
+            return WarehouseActionResult.failure("finance.warehouse.duplicate_operation");
+        if (!WarehouseManager.canDeposit(player, record))
+            return WarehouseActionResult.failure("finance.warehouse.no_permission");
         if (record.status() == WarehouseStatus.DISABLED || record.status() == WarehouseStatus.ORPHANED)
             return WarehouseActionResult.failure("finance.warehouse.disabled");
         UUID custodyOwner = custodyOwner(record);
@@ -40,8 +39,8 @@ public final class WarehouseService {
         if (!resolution.valid()) return WarehouseActionResult.failure(resolution.messageKey());
         if (!CommodityInventoryManager.canAddCommodity(custodyOwner, commodityId, amount))
             return WarehouseActionResult.failure("finance.warehouse.custody_overflow");
-        InventoryTransactionService.RemovalPlan plan = InventoryTransactionService.planRemoval(
-                player.getInventory(), resolution.item(), amount);
+        InventoryTransactionService.RemovalPlan plan =
+                InventoryTransactionService.planRemoval(player.getInventory(), resolution.item(), amount);
         if (plan == null) return WarehouseActionResult.failure("finance.warehouse.insufficient_items");
         if (!InventoryTransactionService.commitRemoval(player.getInventory(), plan))
             return WarehouseActionResult.failure("finance.warehouse.inventory_changed");
@@ -51,32 +50,33 @@ public final class WarehouseService {
         }
         record.recordOperation(scopedKey);
         WarehouseManager.refreshOwnerStatus(custodyOwner);
-        finance.block.WarehouseControllerBlock.updateIndicator(player.serverLevel(),record.blockPos(),record.warehouseId());
+        finance.block.WarehouseControllerBlock.updateIndicator(
+                player.serverLevel(), record.blockPos(), record.warehouseId());
         recordWarehouseTransaction(player, record, commodityId, amount, TransactionType.WAREHOUSE_DEPOSIT);
-        finance.advancement.FinanceAdvancementTriggers.trigger(player,"warehouse_deposit");
+        finance.advancement.FinanceAdvancementTriggers.trigger(player, "warehouse_deposit");
         EconomySavedData.markDirty();
         return WarehouseActionResult.success("finance.warehouse.deposit_success", amount);
     }
 
-    public static synchronized WarehouseActionResult withdraw(ServerPlayer player, UUID warehouseId,
-                                                                String commodityId, int amount,
-                                                                String operationKey) {
+    public static synchronized WarehouseActionResult withdraw(
+            ServerPlayer player, UUID warehouseId, String commodityId, int amount, String operationKey) {
         WarehouseRecord record = validRecord(player, warehouseId, true);
         if (record == null) return WarehouseActionResult.failure("finance.warehouse.invalid_session");
         if (!validOperation(operationKey) || amount <= 0 || commodityId == null || commodityId.isBlank())
             return WarehouseActionResult.failure("finance.warehouse.invalid_request");
-        if (amount > record.transferLimit())
-            return WarehouseActionResult.failure("finance.warehouse.transfer_limit");
+        if (amount > record.transferLimit()) return WarehouseActionResult.failure("finance.warehouse.transfer_limit");
         String scopedKey = player.getUUID() + ":" + operationKey;
-        if (record.hasOperation(scopedKey)) return WarehouseActionResult.failure("finance.warehouse.duplicate_operation");
-        if (!WarehouseManager.canWithdraw(player, record)) return WarehouseActionResult.failure("finance.warehouse.no_permission");
+        if (record.hasOperation(scopedKey))
+            return WarehouseActionResult.failure("finance.warehouse.duplicate_operation");
+        if (!WarehouseManager.canWithdraw(player, record))
+            return WarehouseActionResult.failure("finance.warehouse.no_permission");
         CommodityItemResolver.Resolution resolution = CommodityItemResolver.resolve(commodityId);
         if (!resolution.valid()) return WarehouseActionResult.failure(resolution.messageKey());
         UUID custodyOwner = custodyOwner(record);
         if (CommodityInventoryManager.getCommodityAmount(custodyOwner, commodityId) < amount)
             return WarehouseActionResult.failure("finance.warehouse.insufficient_custody");
-        InventoryTransactionService.InsertionPlan plan = InventoryTransactionService.planInsertion(
-                player.getInventory(), resolution.item(), amount);
+        InventoryTransactionService.InsertionPlan plan =
+                InventoryTransactionService.planInsertion(player.getInventory(), resolution.item(), amount);
         if (plan == null) return WarehouseActionResult.failure("finance.warehouse.inventory_full");
         if (!CommodityInventoryManager.removeCommodity(custodyOwner, commodityId, amount))
             return WarehouseActionResult.failure("finance.warehouse.custody_changed");
@@ -88,7 +88,8 @@ public final class WarehouseService {
         }
         record.recordOperation(scopedKey);
         WarehouseManager.refreshOwnerStatus(custodyOwner);
-        finance.block.WarehouseControllerBlock.updateIndicator(player.serverLevel(),record.blockPos(),record.warehouseId());
+        finance.block.WarehouseControllerBlock.updateIndicator(
+                player.serverLevel(), record.blockPos(), record.warehouseId());
         recordWarehouseTransaction(player, record, commodityId, amount, TransactionType.WAREHOUSE_WITHDRAW);
         EconomySavedData.markDirty();
         return WarehouseActionResult.success("finance.warehouse.withdraw_success", amount);
@@ -115,11 +116,16 @@ public final class WarehouseService {
         return key != null && !key.isBlank() && key.length() <= 64;
     }
 
-    private static void recordWarehouseTransaction(ServerPlayer actor, WarehouseRecord record,
-                                                   String commodityId, int amount, TransactionType type) {
+    private static void recordWarehouseTransaction(
+            ServerPlayer actor, WarehouseRecord record, String commodityId, int amount, TransactionType type) {
         AccountManager.addTransactionRecord(new TransactionRecord(
-                custodyOwner(record), custodyOwner(record), 0, type, actor.getUUID(),
-                commodityId + "@" + record.warehouseId().toString().substring(0, 8), amount));
+                custodyOwner(record),
+                custodyOwner(record),
+                0,
+                type,
+                actor.getUUID(),
+                commodityId + "@" + record.warehouseId().toString().substring(0, 8),
+                amount));
     }
 
     public static UUID custodyOwner(WarehouseRecord record) {

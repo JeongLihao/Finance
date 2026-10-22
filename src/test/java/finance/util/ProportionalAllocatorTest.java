@@ -1,14 +1,13 @@
 package finance.util;
 
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 class ProportionalAllocatorTest {
 
@@ -42,11 +41,14 @@ class ProportionalAllocatorTest {
         weights.put(b, 1L);
         weights.put(c, 1L);
 
-        List<ProportionalAllocator.Allocation> allocations =
-                ProportionalAllocator.allocate(2, weights, 3);
+        List<ProportionalAllocator.Allocation> allocations = ProportionalAllocator.allocate(2, weights, 3);
 
-        long paid = allocations.stream().mapToLong(ProportionalAllocator.Allocation::amount).sum();
-        long receivers = allocations.stream().filter(allocation -> allocation.amount() == 1).count();
+        long paid = allocations.stream()
+                .mapToLong(ProportionalAllocator.Allocation::amount)
+                .sum();
+        long receivers = allocations.stream()
+                .filter(allocation -> allocation.amount() == 1)
+                .count();
 
         assertEquals(2, paid);
         assertEquals(2, receivers);
@@ -60,8 +62,7 @@ class ProportionalAllocatorTest {
         weights.put(a, Long.MAX_VALUE);
         weights.put(b, Long.MAX_VALUE);
 
-        List<ProportionalAllocator.Allocation> allocations =
-                ProportionalAllocator.allocate(Long.MAX_VALUE, weights);
+        List<ProportionalAllocator.Allocation> allocations = ProportionalAllocator.allocate(Long.MAX_VALUE, weights);
 
         long paid = allocations.stream()
                 .map(ProportionalAllocator.Allocation::amount)
@@ -78,10 +79,13 @@ class ProportionalAllocatorTest {
         weights.put(a, 10L);
         weights.put(b, 10L);
 
-        List<ProportionalAllocator.Allocation> allocations =
-                ProportionalAllocator.allocate(100, weights, 1);
+        List<ProportionalAllocator.Allocation> allocations = ProportionalAllocator.allocate(100, weights, 1);
 
-        assertEquals(100, allocations.stream().mapToLong(ProportionalAllocator.Allocation::amount).sum());
+        assertEquals(
+                100,
+                allocations.stream()
+                        .mapToLong(ProportionalAllocator.Allocation::amount)
+                        .sum());
     }
 
     @Test
@@ -90,8 +94,7 @@ class ProportionalAllocatorTest {
         Map<UUID, Long> weights = new LinkedHashMap<>();
         weights.put(holder, 50L);
 
-        List<ProportionalAllocator.Allocation> allocations =
-                ProportionalAllocator.allocate(100, weights, 100);
+        List<ProportionalAllocator.Allocation> allocations = ProportionalAllocator.allocate(100, weights, 100);
 
         assertEquals(1, allocations.size());
         assertEquals(50, allocations.get(0).amount());
@@ -105,10 +108,13 @@ class ProportionalAllocatorTest {
         weights.put(a, 1L);
         weights.put(b, 2L);
 
-        List<ProportionalAllocator.Allocation> allocations =
-                ProportionalAllocator.allocate(100, weights);
+        List<ProportionalAllocator.Allocation> allocations = ProportionalAllocator.allocate(100, weights);
 
-        assertEquals(100, allocations.stream().mapToLong(ProportionalAllocator.Allocation::amount).sum());
+        assertEquals(
+                100,
+                allocations.stream()
+                        .mapToLong(ProportionalAllocator.Allocation::amount)
+                        .sum());
     }
 
     @Test
@@ -119,10 +125,13 @@ class ProportionalAllocatorTest {
         weights.put(a, 80L);
         weights.put(b, 70L);
 
-        List<ProportionalAllocator.Allocation> allocations =
-                ProportionalAllocator.allocate(100, weights, 100);
+        List<ProportionalAllocator.Allocation> allocations = ProportionalAllocator.allocate(100, weights, 100);
 
-        assertEquals(100, allocations.stream().mapToLong(ProportionalAllocator.Allocation::amount).sum());
+        assertEquals(
+                100,
+                allocations.stream()
+                        .mapToLong(ProportionalAllocator.Allocation::amount)
+                        .sum());
     }
 
     @Test
@@ -133,12 +142,13 @@ class ProportionalAllocatorTest {
         weights.put(a, Long.MAX_VALUE);
         weights.put(b, Long.MAX_VALUE);
 
-        List<ProportionalAllocator.Allocation> allocations =
-                ProportionalAllocator.allocate(Long.MAX_VALUE, weights);
+        List<ProportionalAllocator.Allocation> allocations = ProportionalAllocator.allocate(Long.MAX_VALUE, weights);
 
-        assertEquals(Long.MAX_VALUE, allocations.stream()
-                .map(ProportionalAllocator.Allocation::amount)
-                .reduce(0L, Math::addExact));
+        assertEquals(
+                Long.MAX_VALUE,
+                allocations.stream()
+                        .map(ProportionalAllocator.Allocation::amount)
+                        .reduce(0L, Math::addExact));
     }
 
     @Test
@@ -152,8 +162,7 @@ class ProportionalAllocatorTest {
         weights.put(nullValue, null);
         weights.put(null, 3L);
 
-        List<ProportionalAllocator.Allocation> allocations =
-                ProportionalAllocator.allocate(20, weights);
+        List<ProportionalAllocator.Allocation> allocations = ProportionalAllocator.allocate(20, weights);
 
         assertEquals(1, allocations.size());
         assertEquals(valid, allocations.get(0).id());

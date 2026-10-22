@@ -16,15 +16,40 @@ import net.minecraft.world.phys.BlockHitResult;
 import org.jetbrains.annotations.Nullable;
 
 public final class CompanyDeskBlock extends BaseEntityBlock {
-    public CompanyDeskBlock(Properties properties) { super(properties); }
-    @Override public InteractionResult use(BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
-        if (!level.isClientSide && player instanceof ServerPlayer server && level.getBlockEntity(pos) instanceof CompanyDeskBlockEntity desk) {
+    public CompanyDeskBlock(Properties properties) {
+        super(properties);
+    }
+
+    @Override
+    public InteractionResult use(
+            BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
+        if (!level.isClientSide
+                && player instanceof ServerPlayer server
+                && level.getBlockEntity(pos) instanceof CompanyDeskBlockEntity desk) {
             if (desk.bindOrValidate(server)) CompanyGameplayGuiOpener.open(server, pos);
-            else server.displayClientMessage(net.minecraft.network.chat.Component.translatable("finance.company_gameplay.desk_denied"), true);
+            else
+                server.displayClientMessage(
+                        net.minecraft.network.chat.Component.translatable("finance.company_gameplay.desk_denied"),
+                        true);
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
-    @Override public void playerWillDestroy(Level level, BlockPos pos, BlockState state, Player player) { if (!level.isClientSide && level.getBlockEntity(pos) instanceof CompanyDeskBlockEntity desk) desk.unbindLocation(); super.playerWillDestroy(level, pos, state, player); }
-    @Override public RenderShape getRenderShape(BlockState state) { return RenderShape.MODEL; }
-    @Nullable @Override public BlockEntity newBlockEntity(BlockPos pos, BlockState state) { return new CompanyDeskBlockEntity(pos, state); }
+
+    @Override
+    public void playerWillDestroy(Level level, BlockPos pos, BlockState state, Player player) {
+        if (!level.isClientSide && level.getBlockEntity(pos) instanceof CompanyDeskBlockEntity desk)
+            desk.unbindLocation();
+        super.playerWillDestroy(level, pos, state, player);
+    }
+
+    @Override
+    public RenderShape getRenderShape(BlockState state) {
+        return RenderShape.MODEL;
+    }
+
+    @Nullable
+    @Override
+    public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
+        return new CompanyDeskBlockEntity(pos, state);
+    }
 }

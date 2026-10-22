@@ -32,6 +32,7 @@ public class StockPriceEngine {
 
     /** 熔断：5 分钟内跌超 15%，暂停交易 1 分钟。 */
     static final double BREAKER_DROP = 0.15;
+
     static final int BREAKER_WINDOW_MINUTES = 5;
     static final int BREAKER_HALT_MINUTES = 1;
 
@@ -49,6 +50,7 @@ public class StockPriceEngine {
 
     /** 市价范围：fairValue × [MIN, MAX]。放宽到 0.2~5 倍，泡沫和股灾才有空间。 */
     static final double MIN_PRICE_RATIO = 0.2;
+
     static final double MAX_PRICE_RATIO = 5.0;
 
     /** 每只股票最多保留的价格快照数量。 */
@@ -76,6 +78,7 @@ public class StockPriceEngine {
 
     /** 熔断剩余分钟数；累计熔断次数（报纸和面板用，不存档）。 */
     private int breakerMinutes;
+
     private int breakerTrips;
 
     // ---- 24h 统计 ----
@@ -173,8 +176,8 @@ public class StockPriceEngine {
      * @param smoothedDailyProfit 最近 7 日平滑利润
      * @param industrySentiment 行业景气（核心商品价格 / 基准价）
      */
-    public void updateFairValue(long companyAssetValue, long totalShares,
-                                long smoothedDailyProfit, double industrySentiment) {
+    public void updateFairValue(
+            long companyAssetValue, long totalShares, long smoothedDailyProfit, double industrySentiment) {
         if (totalShares <= 0) return;
 
         double sentiment = clamp(industrySentiment, 0.35, 2.0);

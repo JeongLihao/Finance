@@ -4,22 +4,21 @@ import finance.block.entity.WarehouseControllerBlockEntity;
 import finance.commodity.Commodity;
 import finance.commodity.CommodityInventoryManager;
 import finance.commodity.CommodityRegistry;
+import finance.contract.ContractManager;
+import finance.contract.ContractStatus;
 import finance.warehouse.CommodityItemResolver;
 import finance.warehouse.InventoryTransactionService;
 import finance.warehouse.WarehouseManager;
 import finance.warehouse.WarehouseRecord;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.MenuProvider;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraftforge.network.NetworkHooks;
-
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
-import finance.contract.ContractManager;
-import finance.contract.ContractStatus;
 
 public final class WarehouseGuiOpener {
     private WarehouseGuiOpener() {}
@@ -43,33 +42,77 @@ public final class WarehouseGuiOpener {
         long upgradeCash = upgrade == null ? 0 : upgrade.cash();
         String upgradeMaterials = finance.warehouse.WarehouseUpgradeRequirementService.summary(upgrade);
         String ownerName = record.ownerId().equals(player.getUUID())
-                ? player.getGameProfile().getName() : record.ownerId().toString().substring(0, 8);
-        finance.gameplay.company.capital.WorldCapitalProject capitalProject = record.companyId() == null ? null
+                ? player.getGameProfile().getName()
+                : record.ownerId().toString().substring(0, 8);
+        finance.gameplay.company.capital.WorldCapitalProject capitalProject = record.companyId() == null
+                ? null
                 : finance.gameplay.company.capital.CapitalProjectManager.forCompany(record.companyId()).stream()
-                .filter(project -> record.warehouseId().equals(project.targetId()) && !project.status().terminal())
-                .findFirst().orElse(null);
+                        .filter(project -> record.warehouseId().equals(project.targetId())
+                                && !project.status().terminal())
+                        .findFirst()
+                        .orElse(null);
         MenuProvider provider = new MenuProvider() {
-            @Override public Component getDisplayName() { return Component.translatable("screen.finance.warehouse"); }
-            @Override public WarehouseMenu createMenu(int containerId, net.minecraft.world.entity.player.Inventory inventory,
-                                                       net.minecraft.world.entity.player.Player menuPlayer) {
-                return new WarehouseMenu(containerId, record.warehouseId(), ownerName, record.dimensionId(),
-                        record.blockPos(), used, capacity, record.tier().level(), record.transferLimit(),
-                        upgradeCash, upgradeMaterials, record.status(), record.companyId() != null,
+            @Override
+            public Component getDisplayName() {
+                return Component.translatable("screen.finance.warehouse");
+            }
+
+            @Override
+            public WarehouseMenu createMenu(
+                    int containerId,
+                    net.minecraft.world.entity.player.Inventory inventory,
+                    net.minecraft.world.entity.player.Player menuPlayer) {
+                return new WarehouseMenu(
+                        containerId,
+                        record.warehouseId(),
+                        ownerName,
+                        record.dimensionId(),
+                        record.blockPos(),
+                        used,
+                        capacity,
+                        record.tier().level(),
+                        record.transferLimit(),
+                        upgradeCash,
+                        upgradeMaterials,
+                        record.status(),
+                        record.companyId() != null,
                         capitalProject == null ? null : capitalProject.projectId(),
                         capitalProject == null ? "" : capitalProject.status().name(),
                         capitalProject == null ? 0 : capitalProject.budget(),
-                        capitalProject == null ? 0 : capitalProject.fundedAmount(), rows, contracts, shipments,
-                        statusKey, statusAmount);
+                        capitalProject == null ? 0 : capitalProject.fundedAmount(),
+                        rows,
+                        contracts,
+                        shipments,
+                        statusKey,
+                        statusAmount);
             }
         };
-        NetworkHooks.openScreen(player, provider, buffer -> WarehouseMenu.write(buffer, record.warehouseId(),
-                ownerName, record.dimensionId(), record.blockPos(), used, capacity, record.tier().level(),
-                record.transferLimit(), upgradeCash, upgradeMaterials, record.status(),
-                record.companyId() != null, capitalProject == null ? null : capitalProject.projectId(),
-                capitalProject == null ? "" : capitalProject.status().name(),
-                capitalProject == null ? 0 : capitalProject.budget(),
-                capitalProject == null ? 0 : capitalProject.fundedAmount(),
-                rows, contracts, shipments, statusKey, statusAmount));
+        NetworkHooks.openScreen(
+                player,
+                provider,
+                buffer -> WarehouseMenu.write(
+                        buffer,
+                        record.warehouseId(),
+                        ownerName,
+                        record.dimensionId(),
+                        record.blockPos(),
+                        used,
+                        capacity,
+                        record.tier().level(),
+                        record.transferLimit(),
+                        upgradeCash,
+                        upgradeMaterials,
+                        record.status(),
+                        record.companyId() != null,
+                        capitalProject == null ? null : capitalProject.projectId(),
+                        capitalProject == null ? "" : capitalProject.status().name(),
+                        capitalProject == null ? 0 : capitalProject.budget(),
+                        capitalProject == null ? 0 : capitalProject.fundedAmount(),
+                        rows,
+                        contracts,
+                        shipments,
+                        statusKey,
+                        statusAmount));
         return true;
     }
 
@@ -78,13 +121,20 @@ public final class WarehouseGuiOpener {
                 .filter(shipment -> shipment.sourceWarehouseId().equals(warehouse.warehouseId())
                         || shipment.destinationWarehouseId().equals(warehouse.warehouseId()))
                 .limit(WarehouseMenu.MAX_SHIPMENTS)
-                .map(shipment -> new WarehouseMenu.ShipmentRow(shipment.id(), shipment.commodityId(),
-                        shipment.quantity(), shortId(shipment.sourceWarehouseId()),
-                        shortId(shipment.destinationWarehouseId()), shipment.deadlineDay(), shipment.status().name()))
+                .map(shipment -> new WarehouseMenu.ShipmentRow(
+                        shipment.id(),
+                        shipment.commodityId(),
+                        shipment.quantity(),
+                        shortId(shipment.sourceWarehouseId()),
+                        shortId(shipment.destinationWarehouseId()),
+                        shipment.deadlineDay(),
+                        shipment.status().name()))
                 .toList();
     }
 
-    private static String shortId(java.util.UUID id) { return id.toString().substring(0, 8); }
+    private static String shortId(java.util.UUID id) {
+        return id.toString().substring(0, 8);
+    }
 
     private static List<WarehouseMenu.ContractRow> contracts(ServerPlayer player) {
         return ContractManager.contracts().values().stream()
@@ -92,9 +142,14 @@ public final class WarehouseGuiOpener {
                         || player.getUUID().equals(contract.acceptedPlayerId()))
                 .sorted(Comparator.comparingLong(finance.contract.FinanceContract::deadlineDay))
                 .limit(WarehouseMenu.MAX_CONTRACTS)
-                .map(contract -> new WarehouseMenu.ContractRow(contract.id(), contract.commodityId(),
-                        contract.requiredQuantity(), contract.rewardAmount(), contract.deadlineDay(),
-                        contract.status().name(), player.getUUID().equals(contract.acceptedPlayerId())))
+                .map(contract -> new WarehouseMenu.ContractRow(
+                        contract.id(),
+                        contract.commodityId(),
+                        contract.requiredQuantity(),
+                        contract.rewardAmount(),
+                        contract.deadlineDay(),
+                        contract.status().name(),
+                        player.getUUID().equals(contract.acceptedPlayerId())))
                 .toList();
     }
 
@@ -102,13 +157,21 @@ public final class WarehouseGuiOpener {
         List<WarehouseMenu.CommodityRow> rows = new ArrayList<>();
         for (Commodity commodity : CommodityRegistry.getAllCommodities()) {
             CommodityItemResolver.Resolution resolution = CommodityItemResolver.resolve(commodity.getId());
-            int inventory = resolution.valid() ? InventoryTransactionService.countEligible(
-                    player.getInventory(), resolution.item()) : 0;
-            int custody = CommodityInventoryManager.getCommodityAmount(finance.warehouse.WarehouseService.custodyOwner(record), commodity.getId());
-            java.util.UUID custodyId=finance.warehouse.WarehouseService.custodyOwner(record);
-            int pledged=finance.collateral.InventoryCollateralManager.pledged(custodyId,commodity.getId());
-            rows.add(new WarehouseMenu.CommodityRow(commodity.getId(), commodity.getDisplayName(), custody,
-                    pledged,Math.max(0,custody-pledged),inventory, resolution.valid()));
+            int inventory = resolution.valid()
+                    ? InventoryTransactionService.countEligible(player.getInventory(), resolution.item())
+                    : 0;
+            int custody = CommodityInventoryManager.getCommodityAmount(
+                    finance.warehouse.WarehouseService.custodyOwner(record), commodity.getId());
+            java.util.UUID custodyId = finance.warehouse.WarehouseService.custodyOwner(record);
+            int pledged = finance.collateral.InventoryCollateralManager.pledged(custodyId, commodity.getId());
+            rows.add(new WarehouseMenu.CommodityRow(
+                    commodity.getId(),
+                    commodity.getDisplayName(),
+                    custody,
+                    pledged,
+                    Math.max(0, custody - pledged),
+                    inventory,
+                    resolution.valid()));
         }
         rows.sort(Comparator.comparing(WarehouseMenu.CommodityRow::name));
         return rows;

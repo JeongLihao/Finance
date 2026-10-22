@@ -1,7 +1,6 @@
 package finance.gameplay.company.factory;
 
 import finance.company.CompanyType;
-
 import java.util.Map;
 
 /**
@@ -11,16 +10,24 @@ import java.util.Map;
  * @param required      该档所需的最少设备数量
  * @param jobsPerDevice 每台被计入的设备提供的岗位
  */
-public record ProductionMethod(CompanyType companyType, ProductionTier tier, String key, String displayName,
-                               Map<FactoryEquipment, Integer> required, int jobsPerDevice,
-                               Map<String, Integer> inputs, Map<String, Integer> outputs) {
+public record ProductionMethod(
+        CompanyType companyType,
+        ProductionTier tier,
+        String key,
+        String displayName,
+        Map<FactoryEquipment, Integer> required,
+        int jobsPerDevice,
+        Map<String, Integer> inputs,
+        Map<String, Integer> outputs) {
     public ProductionMethod {
         required = Map.copyOf(required);
         inputs = Map.copyOf(inputs);
         outputs = Map.copyOf(outputs);
     }
 
-    public String translationKey() { return "screen.finance.factory.method." + key; }
+    public String translationKey() {
+        return "screen.finance.factory.method." + key;
+    }
 
     /** 设备是否满足本档的最少数量要求。 */
     public boolean satisfiedBy(Map<FactoryEquipment, Integer> counts) {

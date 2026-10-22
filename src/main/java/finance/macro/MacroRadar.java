@@ -7,7 +7,6 @@ import finance.settlement.SettlementManager;
 import finance.settlement.SettlementRecord;
 import finance.village.VillageManager;
 import finance.village.VillageRecord;
-
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -26,12 +25,17 @@ public final class MacroRadar {
     /** 套利时每种商品只比较的出发地/目的地个数。 */
     static final int ARBITRAGE_CANDIDATES = 3;
 
-    public enum Kind { SHORTAGE, ARBITRAGE, LABOR, POLICY }
+    public enum Kind {
+        SHORTAGE,
+        ARBITRAGE,
+        LABOR,
+        POLICY
+    }
 
     /** 一条商机。text 是给玩家看的一句话。 */
-    public record Opportunity(Kind kind, long score, String text) { }
+    public record Opportunity(Kind kind, long score, String text) {}
 
-    private MacroRadar() { }
+    private MacroRadar() {}
 
     public static List<Opportunity> scan(int limit) {
         List<Opportunity> out = new ArrayList<>();
@@ -52,9 +56,16 @@ public final class MacroRadar {
                 GoodBook b = e.getValue();
                 if (b.factorBps < SHORTAGE_BPS || b.lastSupply >= b.lastDemand) continue;
                 long gap = b.lastDemand - b.lastSupply;
-                out.add(new Opportunity(Kind.SHORTAGE, b.factorBps / 10 + gap,
-                        String.format("%s 缺%s：本地价 %d（%+d%%），每天还差约 %d 件", s.displayName(), name(e.getKey()),
-                                MacroEconomyService.localPrice(econ, e.getKey()), (b.factorBps - 10_000) / 100, gap)));
+                out.add(new Opportunity(
+                        Kind.SHORTAGE,
+                        b.factorBps / 10 + gap,
+                        String.format(
+                                "%s 缺%s：本地价 %d（%+d%%），每天还差约 %d 件",
+                                s.displayName(),
+                                name(e.getKey()),
+                                MacroEconomyService.localPrice(econ, e.getKey()),
+                                (b.factorBps - 10_000) / 100,
+                                gap)));
             }
         }
     }
@@ -74,15 +85,20 @@ public final class MacroRadar {
             for (String commodity : MacroEconomyManager.settlement(s.id()).goods.keySet()) {
                 long buy = CaravanPricing.sourceBuyPrice(commodity, s);
                 long sell = CaravanPricing.destSellPrice(commodity, s, 0);
-                if (buy > 0) buys.computeIfAbsent(s.dimensionId(), k -> new java.util.HashMap<>())
-                        .computeIfAbsent(commodity, k -> new ArrayList<>()).add(new long[]{buy, i});
-                if (sell > 0) sells.computeIfAbsent(s.dimensionId(), k -> new java.util.HashMap<>())
-                        .computeIfAbsent(commodity, k -> new ArrayList<>()).add(new long[]{sell, i});
+                if (buy > 0)
+                    buys.computeIfAbsent(s.dimensionId(), k -> new java.util.HashMap<>())
+                            .computeIfAbsent(commodity, k -> new ArrayList<>())
+                            .add(new long[] {buy, i});
+                if (sell > 0)
+                    sells.computeIfAbsent(s.dimensionId(), k -> new java.util.HashMap<>())
+                            .computeIfAbsent(commodity, k -> new ArrayList<>())
+                            .add(new long[] {sell, i});
             }
         }
         for (var dim : sells.entrySet()) {
             for (var good : dim.getValue().entrySet()) {
-                List<long[]> from = buys.getOrDefault(dim.getKey(), java.util.Map.of()).getOrDefault(good.getKey(), List.of());
+                List<long[]> from =
+                        buys.getOrDefault(dim.getKey(), java.util.Map.of()).getOrDefault(good.getKey(), List.of());
                 List<long[]> to = new ArrayList<>(good.getValue());
                 if (from.isEmpty()) continue;
                 List<long[]> cheapest = new ArrayList<>(from);
@@ -97,9 +113,17 @@ public final class MacroRadar {
                         SettlementRecord dst = sites.get((int) s[1]);
                         long days = CaravanPricing.travelDays(CaravanPricing.distanceBlocks(src, dst));
                         if (days <= 0) continue;
-                        out.add(new Opportunity(Kind.ARBITRAGE, profit,
-                                String.format("商路 %s → %s 运%s：每趟 %d 件约赚 %d，路上 %d 天", src.displayName(), dst.displayName(),
-                                        name(good.getKey()), TRIP_QTY, profit, days)));
+                        out.add(new Opportunity(
+                                Kind.ARBITRAGE,
+                                profit,
+                                String.format(
+                                        "商路 %s → %s 运%s：每趟 %d 件约赚 %d，路上 %d 天",
+                                        src.displayName(),
+                                        dst.displayName(),
+                                        name(good.getKey()),
+                                        TRIP_QTY,
+                                        profit,
+                                        days)));
                     }
                 }
             }
@@ -113,9 +137,12 @@ public final class MacroRadar {
             if (s == null || v == null || !MacroEconomyService.usable(s)) continue;
             long idle = (long) v.population() * MacroEconomyService.WORKFORCE_BPS / 10_000 - econ.employed;
             if (idle < IDLE_WORKERS) continue;
-            out.add(new Opportunity(Kind.LABOR, idle * 20,
-                    String.format("%s 有约 %d 人没工作：在附近建厂，工资开到 %d 就能招到人", s.displayName(), idle,
-                            MacroLaborService.reservationWage())));
+            out.add(new Opportunity(
+                    Kind.LABOR,
+                    idle * 20,
+                    String.format(
+                            "%s 有约 %d 人没工作：在附近建厂，工资开到 %d 就能招到人",
+                            s.displayName(), idle, MacroLaborService.reservationWage())));
         }
     }
 
@@ -126,15 +153,18 @@ public final class MacroRadar {
         long today = MacroEconomyManager.lastProcessedDay();
         long left = today == Long.MIN_VALUE ? Long.MAX_VALUE : outlook.nextMeetingDay() - today;
         if (left > Math.max(1, finance.config.FinanceConfig.policyGuidanceLeadDays())) return;
-        String hint = outlook.recommendedBps() < outlook.currentBps() ? "可能降息：现在认购央行债券或开定期存款，能锁住更高的利率"
-                : outlook.recommendedBps() > outlook.currentBps() ? "可能加息：贷款和发债成本会上升，央行债券的新利率会更高"
-                : "大概率维持利率";
-        out.add(new Opportunity(Kind.POLICY, 300, String.format("第 %d 天央行议息（当前 %.2f%%）：%s",
-                outlook.nextMeetingDay(), outlook.currentBps() / 100.0, hint)));
+        String hint = outlook.recommendedBps() < outlook.currentBps()
+                ? "可能降息：现在认购央行债券或开定期存款，能锁住更高的利率"
+                : outlook.recommendedBps() > outlook.currentBps() ? "可能加息：贷款和发债成本会上升，央行债券的新利率会更高" : "大概率维持利率";
+        out.add(new Opportunity(
+                Kind.POLICY,
+                300,
+                String.format(
+                        "第 %d 天央行议息（当前 %.2f%%）：%s", outlook.nextMeetingDay(), outlook.currentBps() / 100.0, hint)));
     }
 
     /** 一次付费商情调查的结果。 */
-    public record Purchase(boolean success, String message, List<Opportunity> opportunities) { }
+    public record Purchase(boolean success, String message, List<Opportunity> opportunities) {}
 
     /** 付费做一次商情调查：费用进 NPC 资金池，冷却期内拒绝。 */
     public static Purchase purchase(java.util.UUID player, long day) {
@@ -155,9 +185,16 @@ public final class MacroRadar {
     }
 
     private static boolean payToPool(java.util.UUID player, long cost) {
-        if (!finance.account.AccountManager.moveFunds(player, finance.market.NpcMarketMaker.NPC_UUID, cost)) return false;
-        finance.account.AccountManager.addTransactionRecord(new finance.account.TransactionRecord(player,
-                finance.market.NpcMarketMaker.NPC_UUID, cost, finance.account.TransactionType.MACRO_SURVEY, player, "radar", 0));
+        if (!finance.account.AccountManager.moveFunds(player, finance.market.NpcMarketMaker.NPC_UUID, cost))
+            return false;
+        finance.account.AccountManager.addTransactionRecord(new finance.account.TransactionRecord(
+                player,
+                finance.market.NpcMarketMaker.NPC_UUID,
+                cost,
+                finance.account.TransactionType.MACRO_SURVEY,
+                player,
+                "radar",
+                0));
         return true;
     }
 

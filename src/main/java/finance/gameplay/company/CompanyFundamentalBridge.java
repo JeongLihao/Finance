@@ -5,7 +5,6 @@ import finance.gameplay.company.capital.CapitalProjectManager;
 import finance.gameplay.company.capital.WorldCapitalProject;
 import finance.warehouse.WarehouseManager;
 import finance.warehouse.WarehouseRecord;
-
 import java.math.BigInteger;
 
 /**
@@ -14,9 +13,16 @@ import java.math.BigInteger;
  * from free cash and report assets, preventing double counting.
  */
 public final class CompanyFundamentalBridge {
-    public record Inputs(long reportAssetValue, long physicalFacilityValue, long committedProjectCash,
-                         long debtPrincipal, double capacityUtilization, int materialShortageFacilities,
-                         int capacityBlockedFacilities, int delayedShipments, boolean valuationDegraded) {}
+    public record Inputs(
+            long reportAssetValue,
+            long physicalFacilityValue,
+            long committedProjectCash,
+            long debtPrincipal,
+            double capacityUtilization,
+            int materialShortageFacilities,
+            int capacityBlockedFacilities,
+            int delayedShipments,
+            boolean valuationDegraded) {}
 
     private CompanyFundamentalBridge() {}
 
@@ -30,11 +36,12 @@ public final class CompanyFundamentalBridge {
             for (java.util.UUID id : profile.warehouseIds()) {
                 WarehouseRecord record = WarehouseManager.get(id);
                 if (record == null || !company.getCompanyId().equals(record.companyId())) continue;
-                physical = physical.add(switch (record.tier()) {
-                    case BASIC -> BigInteger.ZERO;
-                    case REINFORCED -> BigInteger.valueOf(250L);
-                    case INDUSTRIAL -> BigInteger.valueOf(1_750L);
-                });
+                physical = physical.add(
+                        switch (record.tier()) {
+                            case BASIC -> BigInteger.ZERO;
+                            case REINFORCED -> BigInteger.valueOf(250L);
+                            case INDUSTRIAL -> BigInteger.valueOf(1_750L);
+                        });
             }
         }
         for (CompanyFacilityRecord facility : CompanyFacilityManager.forCompany(company.getCompanyId())) {
@@ -47,11 +54,18 @@ public final class CompanyFundamentalBridge {
                 committed = committed.add(BigInteger.valueOf(project.fundedAmount()));
         }
         BigInteger assets = BigInteger.valueOf(snapshot.displayAssetValue()).add(physical);
-        double utilization = snapshot.warehouseCapacity() <= 0 ? 0.0
+        double utilization = snapshot.warehouseCapacity() <= 0
+                ? 0.0
                 : Math.max(0.0, Math.min(1.0, (double) snapshot.warehouseUsed() / snapshot.warehouseCapacity()));
-        return new Inputs(saturate(assets), saturate(physical), saturate(committed),
-                snapshot.totalDebtPrincipal(), utilization, snapshot.materialShortage() ? 1 : 0,
-                snapshot.capacityBlocked() ? 1 : 0, snapshot.abnormalShipmentCount(),
+        return new Inputs(
+                saturate(assets),
+                saturate(physical),
+                saturate(committed),
+                snapshot.totalDebtPrincipal(),
+                utilization,
+                snapshot.materialShortage() ? 1 : 0,
+                snapshot.capacityBlocked() ? 1 : 0,
+                snapshot.abnormalShipmentCount(),
                 snapshot.inventoryValuationDegraded());
     }
 

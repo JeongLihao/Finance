@@ -79,8 +79,7 @@ public class Account {
 
     /** 将可用余额中的 amount 转为冻结余额，余额不足返回 false */
     public boolean freezeFunds(long amount) {
-        if (amount <= 0 || balance < amount || frozenBalance < 0
-                || frozenBalance > Long.MAX_VALUE - amount) {
+        if (amount <= 0 || balance < amount || frozenBalance < 0 || frozenBalance > Long.MAX_VALUE - amount) {
             return false;
         }
         balance -= amount;
@@ -122,7 +121,9 @@ public class Account {
     }
 
     public boolean canSettleFrozenFunds(long reservedAmount, long paymentAmount) {
-        if (reservedAmount <= 0 || paymentAmount < 0 || paymentAmount > reservedAmount
+        if (reservedAmount <= 0
+                || paymentAmount < 0
+                || paymentAmount > reservedAmount
                 || frozenBalance < reservedAmount) {
             return false;
         }

@@ -11,7 +11,7 @@ public final class GoodBook {
     public static final int HISTORY_DAYS = 60;
 
     /** 一天的收盘记录。 */
-    public record Point(long day, int factorBps, long demand, long supply, long consumed) { }
+    public record Point(long day, int factorBps, long demand, long supply, long consumed) {}
 
     int factorBps = MacroFormulas.NEUTRAL_BPS;
     long demandToday;
@@ -26,13 +26,33 @@ public final class GoodBook {
     long lastExports;
     final ArrayDeque<Point> history = new ArrayDeque<>();
 
-    public int factorBps() { return factorBps; }
-    public long lastDemand() { return lastDemand; }
-    public long lastSupply() { return lastSupply; }
-    public long lastConsumed() { return lastConsumed; }
-    public long lastImports() { return lastImports; }
-    public long lastExports() { return lastExports; }
-    public List<Point> history() { return new ArrayList<>(history); }
+    public int factorBps() {
+        return factorBps;
+    }
+
+    public long lastDemand() {
+        return lastDemand;
+    }
+
+    public long lastSupply() {
+        return lastSupply;
+    }
+
+    public long lastConsumed() {
+        return lastConsumed;
+    }
+
+    public long lastImports() {
+        return lastImports;
+    }
+
+    public long lastExports() {
+        return lastExports;
+    }
+
+    public List<Point> history() {
+        return new ArrayList<>(history);
+    }
 
     void recordProcurement(long demand, long supply, long consumed) {
         demandToday = sat(demandToday, demand);

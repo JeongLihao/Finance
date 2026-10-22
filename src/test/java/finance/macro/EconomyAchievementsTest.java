@@ -1,5 +1,7 @@
 package finance.macro;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import finance.account.AccountManager;
@@ -18,18 +20,15 @@ import finance.village.VillageManager;
 import finance.village.VillageRecord;
 import finance.village.VillageStall;
 import finance.warehouse.*;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
+import java.util.UUID;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 /** 经济成就：没有服务器时成就进待发队列，便于断言。 */
 class EconomyAchievementsTest {
@@ -42,13 +41,15 @@ class EconomyAchievementsTest {
         EconomySavedData.resetRuntimeState();
         CommodityRegistry.resetToDefaults();
         CommodityRegistry.register(new Commodity("wheat", "minecraft:wheat", "Wheat", CommodityCategory.FOOD, 8));
-        CommodityRegistry.register(new Commodity("wool", "minecraft:white_wool", "Wool", CommodityCategory.MISCELLANEOUS, 9));
+        CommodityRegistry.register(
+                new Commodity("wool", "minecraft:white_wool", "Wool", CommodityCategory.MISCELLANEOUS, 9));
         AccountManager.getOrCreateSystemAccount(NpcMarketMaker.NPC_UUID);
         AccountManager.deposit(NpcMarketMaker.NPC_UUID, 10_000_000L);
         owner = UUID.randomUUID();
         AccountManager.getOrCreateSystemAccount(owner);
         AccountManager.deposit(owner, 100_000L);
-        settlement = SettlementManager.registerOrRecover(UUID.randomUUID(), "minecraft:overworld", new BlockPos(0, 64, 0), "alpha");
+        settlement = SettlementManager.registerOrRecover(
+                UUID.randomUUID(), "minecraft:overworld", new BlockPos(0, 64, 0), "alpha");
         MacroEconomyServiceTest.makeVillage(settlement, 24, 18, 8, 10);
         company = new Company(UUID.randomUUID(), "Mill", CompanyType.RAW_MATERIALS, 100_000, owner);
         CompanyManager.registerDirect(company);
@@ -62,12 +63,28 @@ class EconomyAchievementsTest {
 
     private void facility(int level) {
         CompanyGameplayProfile profile = CompanyGameplayManager.createForNewCompany(company);
-        WarehouseRecord warehouse = new WarehouseRecord(UUID.randomUUID(), "minecraft:overworld", BlockPos.ZERO, owner,
-                company.getCompanyId(), 4096, WarehouseStatus.ACTIVE, 0, 0, WarehousePermissionMode.OWNER_ONLY);
+        WarehouseRecord warehouse = new WarehouseRecord(
+                UUID.randomUUID(),
+                "minecraft:overworld",
+                BlockPos.ZERO,
+                owner,
+                company.getCompanyId(),
+                4096,
+                WarehouseStatus.ACTIVE,
+                0,
+                0,
+                WarehousePermissionMode.OWNER_ONLY);
         WarehouseManager.restore(warehouse);
         profile.bindWarehouse(warehouse.warehouseId());
-        CompanyFacilityManager.restore(new CompanyFacilityRecord(UUID.randomUUID(), company.getCompanyId(), "minecraft:overworld",
-                new BlockPos(10, 64, 10), CompanyFacilityType.FACTORY_CONTROLLER, level, CompanyFacilityStatus.ACTIVE, -1,
+        CompanyFacilityManager.restore(new CompanyFacilityRecord(
+                UUID.randomUUID(),
+                company.getCompanyId(),
+                "minecraft:overworld",
+                new BlockPos(10, 64, 10),
+                CompanyFacilityType.FACTORY_CONTROLLER,
+                level,
+                CompanyFacilityStatus.ACTIVE,
+                -1,
                 warehouse.warehouseId()));
     }
 
@@ -78,7 +95,8 @@ class EconomyAchievementsTest {
         }
     }
 
-    @Test void generousEmployerEarnsFirstHireAndGoodBoss() {
+    @Test
+    void generousEmployerEarnsFirstHireAndGoodBoss() {
         facility(2);
         assertTrue(MacroLaborService.setWage(owner, company.getCompanyId(), 30));
         days(1, 1);
@@ -89,7 +107,8 @@ class EconomyAchievementsTest {
         assertFalse(EconomyAchievements.pending(owner).contains(EconomyAchievements.SWEATSHOP));
     }
 
-    @Test void stingyEmployerEarnsSweatshop() {
+    @Test
+    void stingyEmployerEarnsSweatshop() {
         facility(1);
         assertTrue(MacroLaborService.setWage(owner, company.getCompanyId(), MacroLaborService.reservationWage()));
         days(1, 4);
@@ -97,7 +116,8 @@ class EconomyAchievementsTest {
         assertFalse(EconomyAchievements.pending(owner).contains(EconomyAchievements.GOOD_BOSS));
     }
 
-    @Test void deliveringFoodToAStarvingSettlementIsFamineRelief() {
+    @Test
+    void deliveringFoodToAStarvingSettlementIsFamineRelief() {
         SettlementEconomy econ = MacroEconomyManager.getOrCreate(settlement.id());
         econ.lastFulfilment.put(NeedCategory.FOOD, 0.3);
         EconomyAchievements.onCaravanDelivered(owner, settlement.id(), "wool");
@@ -110,7 +130,8 @@ class EconomyAchievementsTest {
         assertTrue(EconomyAchievements.pending(other).isEmpty(), "不饿的地方不算救灾");
     }
 
-    @Test void dominatingALocalMarketIsMonopoly() {
+    @Test
+    void dominatingALocalMarketIsMonopoly() {
         SettlementEconomy econ = MacroEconomyManager.getOrCreate(settlement.id());
         econ.book("wheat").lastConsumed = 40;
         UUID rival = UUID.randomUUID();
@@ -121,7 +142,8 @@ class EconomyAchievementsTest {
         assertFalse(EconomyAchievements.pending(rival).contains(EconomyAchievements.MONOPOLY));
     }
 
-    @Test void sittingOnStockDuringAShortageIsHoarding() {
+    @Test
+    void sittingOnStockDuringAShortageIsHoarding() {
         VillageStall stall = VillageManager.registerStall(settlement.id(), owner, "wool", 20);
         stall.addStock(5);
         MacroEconomyManager.getOrCreate(settlement.id()).book("wool").factorBps = 17_500;
@@ -129,7 +151,8 @@ class EconomyAchievementsTest {
         assertTrue(EconomyAchievements.pending(owner).contains(EconomyAchievements.HOARDER));
     }
 
-    @Test void prosperousSettlementAchievements() {
+    @Test
+    void prosperousSettlementAchievements() {
         facility(1);
         VillageRecord village = VillageManager.get(settlement.id());
         days(1, 1);
@@ -141,7 +164,8 @@ class EconomyAchievementsTest {
         assertTrue(EconomyAchievements.pending(owner).contains(EconomyAchievements.GOLDEN_AGE));
     }
 
-    @Test void pendingAchievementsSurviveSaveLoad() {
+    @Test
+    void pendingAchievementsSurviveSaveLoad() {
         EconomyAchievements.award(owner, EconomyAchievements.RATE_CALL);
         EconomyAchievements.award(owner, "not_an_achievement");
         CompoundTag saved = new EconomySavedData().save(new CompoundTag());
@@ -149,27 +173,36 @@ class EconomyAchievementsTest {
         assertEquals(java.util.Set.of(EconomyAchievements.RATE_CALL), EconomyAchievements.pending(owner));
     }
 
-    @Test void everyAchievementHasAdvancementAndTranslations() throws Exception {
+    @Test
+    void everyAchievementHasAdvancementAndTranslations() throws Exception {
         JsonObject zh = json("assets/finance/lang/zh_cn.json");
         JsonObject en = json("assets/finance/lang/en_us.json");
         for (String id : EconomyAchievements.ALL) {
             JsonObject adv = json("data/finance/advancements/" + id + ".json");
-            assertEquals(id, adv.getAsJsonObject("criteria").getAsJsonObject("event").getAsJsonObject("conditions")
-                    .get("event").getAsString(), id);
+            assertEquals(
+                    id,
+                    adv.getAsJsonObject("criteria")
+                            .getAsJsonObject("event")
+                            .getAsJsonObject("conditions")
+                            .get("event")
+                            .getAsString(),
+                    id);
             assertTrue(id.length() <= 48, "触发器事件名最长 48");
-            for (String key : new String[]{"advancement.finance." + id, "advancement.finance." + id + ".desc"}) {
+            for (String key : new String[] {"advancement.finance." + id, "advancement.finance." + id + ".desc"}) {
                 assertTrue(zh.has(key), key);
                 assertTrue(en.has(key), key);
             }
             String parent = adv.get("parent").getAsString().substring("finance:".length());
-            assertNotNull(getClass().getClassLoader().getResource("data/finance/advancements/" + parent + ".json"), parent);
+            assertNotNull(
+                    getClass().getClassLoader().getResource("data/finance/advancements/" + parent + ".json"), parent);
         }
     }
 
     private JsonObject json(String path) throws Exception {
         try (InputStream in = getClass().getClassLoader().getResourceAsStream(path)) {
             assertNotNull(in, path);
-            return JsonParser.parseReader(new InputStreamReader(in, StandardCharsets.UTF_8)).getAsJsonObject();
+            return JsonParser.parseReader(new InputStreamReader(in, StandardCharsets.UTF_8))
+                    .getAsJsonObject();
         }
     }
 }

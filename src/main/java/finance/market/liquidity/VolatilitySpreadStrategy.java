@@ -1,7 +1,6 @@
 package finance.market.liquidity;
 
 import finance.config.FinanceConfig;
-
 import java.util.Optional;
 
 /**
@@ -34,7 +33,8 @@ public final class VolatilitySpreadStrategy implements LiquidityStrategy {
         if (!(volatility > 0.0)) {
             return Optional.of(base);
         }
-        double volAdj = Math.min(volatility * FinanceConfig.marketMakerVolatilityFactor(),
+        double volAdj = Math.min(
+                volatility * FinanceConfig.marketMakerVolatilityFactor(),
                 FinanceConfig.marketMakerMaxVolatilityAdjust());
         if (!(volAdj > 0.0)) {
             return Optional.of(base);

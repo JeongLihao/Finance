@@ -1,16 +1,15 @@
 package finance.policy;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import finance.data.EconomySavedData;
 import finance.metrics.EconomyMetricsService;
+import java.util.List;
+import java.util.UUID;
 import net.minecraft.nbt.CompoundTag;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
-import java.util.List;
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 /** 央行基准利率政策工具：规则、议息、传导、锁定。 */
 class PolicyRateTest {
@@ -105,12 +104,12 @@ class PolicyRateTest {
     @Test
     void guidanceIsSentOnceInLeadWindow() {
         seedInflation();
-        PolicyMeetingService.onDayTick(null, 0);   // 下次议息 day 30
-        PolicyMeetingService.onDayTick(null, 26);  // 窗口外
+        PolicyMeetingService.onDayTick(null, 0); // 下次议息 day 30
+        PolicyMeetingService.onDayTick(null, 26); // 窗口外
         assertEquals(-1, PolicyMeetingService.guidanceSentForMeeting());
-        PolicyMeetingService.onDayTick(null, 27);  // 进入前瞻窗口（提前 3 天）
+        PolicyMeetingService.onDayTick(null, 27); // 进入前瞻窗口（提前 3 天）
         assertEquals(30, PolicyMeetingService.guidanceSentForMeeting());
-        PolicyMeetingService.onDayTick(null, 28);  // 不重复发
+        PolicyMeetingService.onDayTick(null, 28); // 不重复发
         assertEquals(30, PolicyMeetingService.guidanceSentForMeeting());
     }
 
@@ -138,10 +137,10 @@ class PolicyRateTest {
     void autoMeetingKeepsManualSameDayChange() {
         // P1-20：AUTO 模式议息日当天已有人工调息 → 尊重人工，不覆盖、不虚假公告
         seedInflation();
-        PolicyMeetingService.onDayTick(null, 0);   // 下次议息 day 30，周期基线 500
-        PolicyMeetingService.onDayTick(null, 27);  // 前瞻，基线 500
+        PolicyMeetingService.onDayTick(null, 0); // 下次议息 day 30，周期基线 500
+        PolicyMeetingService.onDayTick(null, 27); // 前瞻，基线 500
         assertTrue(MonetaryPolicyService.setBenchmarkRate(30, 550, "manual")); // 议息日当天人工调息
-        PolicyMeetingService.onDayTick(null, 30);  // 议息：检测到干预，走人工保留
+        PolicyMeetingService.onDayTick(null, 30); // 议息：检测到干预，走人工保留
         assertEquals(550, MonetaryPolicyService.benchmarkRateBasisPoints());
         assertEquals(1, MonetaryPolicyService.history().size()); // 无新增议息记录
         assertEquals(60, PolicyMeetingService.nextMeetingDay()); // 日历照常推进
@@ -152,10 +151,10 @@ class PolicyRateTest {
         // P2：无前瞻快照（直接跳天，未触发前瞻）时，周期中人工调息不被建议静默覆盖
         seedInflation();
         PolicyMeetingService.setModeOverrideForTest("ADVISORY");
-        PolicyMeetingService.onDayTick(null, 0);   // 下次议息 day 30，周期基线 500；跳过 27-29，不发前瞻
+        PolicyMeetingService.onDayTick(null, 0); // 下次议息 day 30，周期基线 500；跳过 27-29，不发前瞻
         assertEquals(-1, PolicyMeetingService.guidanceSentForMeeting());
         assertTrue(MonetaryPolicyService.setBenchmarkRate(15, 700, "manual")); // 周期中人工调息
-        PolicyMeetingService.onDayTick(null, 30);  // 议息：退化为周期起点比对 → 干预 → 维持 700
+        PolicyMeetingService.onDayTick(null, 30); // 议息：退化为周期起点比对 → 干预 → 维持 700
         assertEquals(700, MonetaryPolicyService.benchmarkRateBasisPoints());
     }
 
@@ -209,7 +208,8 @@ class PolicyRateTest {
         assertTrue(result.success(), result.message());
         int locked = finance.debt.CompanyLoanManager.loans().get(result.id()).annualRateBasisPoints();
         assertTrue(MonetaryPolicyService.setBenchmarkRate(1, 900, "hike"));
-        assertEquals(locked, finance.debt.CompanyLoanManager.loans().get(result.id()).annualRateBasisPoints());
+        assertEquals(
+                locked, finance.debt.CompanyLoanManager.loans().get(result.id()).annualRateBasisPoints());
         // 但新贷款用新利率
         var result2 = finance.debt.CompanyLoanManager.applyCommercial(owner, companyId, bank.id(), 10_000, 1, 10, 3);
         assertTrue(result2.success(), result2.message());

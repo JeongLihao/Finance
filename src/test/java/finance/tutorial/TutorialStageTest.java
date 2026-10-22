@@ -1,13 +1,12 @@
 package finance.tutorial;
 
-import org.junit.jupiter.api.Test;
-
-import java.util.HashSet;
-import java.util.Set;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.HashSet;
+import java.util.Set;
+import org.junit.jupiter.api.Test;
 
 class TutorialStageTest {
     @Test
@@ -37,16 +36,24 @@ class TutorialStageTest {
 
     @Test
     void allNineMilestonesCompleteTheMainRoute() {
-        Set<String> events = Set.of("has_ledger", "wallet_opened", "has_market_terminal",
-                "warehouse_built", "warehouse_deposit", "first_trade", "first_contract",
-                "company_member", "company_production");
+        Set<String> events = Set.of(
+                "has_ledger",
+                "wallet_opened",
+                "has_market_terminal",
+                "warehouse_built",
+                "warehouse_deposit",
+                "first_trade",
+                "first_contract",
+                "company_member",
+                "company_production");
         assertEquals(TutorialStage.COMPLETE, TutorialStage.next(events));
     }
 
     @Test
     void optionalRoutesProduceAStableBoundedBitMask() {
         assertEquals(0, TutorialOptionalGoal.completedMask(Set.of()));
-        assertEquals(TutorialOptionalGoal.LOGISTICS.bit() | TutorialOptionalGoal.EXPLORATION.bit(),
+        assertEquals(
+                TutorialOptionalGoal.LOGISTICS.bit() | TutorialOptionalGoal.EXPLORATION.bit(),
                 TutorialOptionalGoal.completedMask(Set.of("first_shipment", "field_survey", "unknown")));
         assertEquals(63, TutorialOptionalGoal.validMask());
     }

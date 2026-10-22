@@ -1,8 +1,8 @@
 package finance.client;
 
-import org.junit.jupiter.api.Test;
-
 import static org.junit.jupiter.api.Assertions.*;
+
+import org.junit.jupiter.api.Test;
 
 /** 界面上显示的状态、风险等级不能再是英文常量名。 */
 class StatusLabelTest {
@@ -15,7 +15,8 @@ class StatusLabelTest {
         }
     }
 
-    @Test void everyDisplayedStatusEnumHasAChineseLabel() {
+    @Test
+    void everyDisplayedStatusEnumHasAChineseLabel() {
         assertAllTranslated(finance.debt.BondStatus.class);
         assertAllTranslated(finance.bank.BankStatus.class);
         assertAllTranslated(finance.regional.RegionalSupplyPressure.class);
@@ -25,7 +26,8 @@ class StatusLabelTest {
         assertAllTranslated(finance.gameplay.company.CompanyOperatingHealth.class);
     }
 
-    @Test void stringsAndUnknownValuesWork() {
+    @Test
+    void stringsAndUnknownValuesWork() {
         assertEquals("短缺", FinanceFormat.label("SHORTAGE"));
         assertEquals("自定义", FinanceFormat.label("自定义"));
         assertEquals("", FinanceFormat.label(null));

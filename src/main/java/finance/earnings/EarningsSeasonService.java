@@ -12,12 +12,11 @@ import finance.feedback.WorldFeedbackType;
 import finance.stock.Stock;
 import finance.stock.StockMarketManager;
 import finance.util.MathUtil;
-import net.minecraft.server.MinecraftServer;
-
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import net.minecraft.server.MinecraftServer;
 
 /**
  * 财报季服务 —— 每 MC 天检查上市公司财报日，发布季报并按预期差定价。
@@ -27,8 +26,7 @@ import java.util.List;
  */
 public final class EarningsSeasonService {
 
-    private EarningsSeasonService() {
-    }
+    private EarningsSeasonService() {}
 
     public static void processDay(MinecraftServer server, long mcDay) {
         int quarterDays = FinanceConfig.earningsQuarterDays();
@@ -55,11 +53,11 @@ public final class EarningsSeasonService {
         }
     }
 
-    private static void publishEarnings(MinecraftServer server, Company company,
-                                        Stock stock, long mcDay) {
+    private static void publishEarnings(MinecraftServer server, Company company, Stock stock, long mcDay) {
         Company.QuarterAccumulator acc = company.drainQuarter();
         List<QuarterlyEarningsReport> history = company.getEarningsHistory();
-        int quarterIndex = history.isEmpty() ? 1 : history.get(history.size() - 1).quarterIndex() + 1;
+        int quarterIndex =
+                history.isEmpty() ? 1 : history.get(history.size() - 1).quarterIndex() + 1;
 
         boolean hasData = acc.revenue() != 0 || acc.expenses() != 0;
         long netProfit = acc.revenue() - acc.expenses();
@@ -74,22 +72,31 @@ public final class EarningsSeasonService {
         long surprise = hasData ? EarningsExpectation.surpriseBps(netProfit, expected) : 0;
 
         QuarterlyEarningsReport report = new QuarterlyEarningsReport(
-                company.getCompanyId(), stock.getSymbol(), company.getName(),
-                quarterIndex, mcDay, acc.days(),
-                acc.revenue(), acc.expenses(), netProfit, eps,
-                revenueQoQ, profitQoQ, dividendPerShare, hasData,
-                expected, surprise,
+                company.getCompanyId(),
+                stock.getSymbol(),
+                company.getName(),
+                quarterIndex,
+                mcDay,
+                acc.days(),
+                acc.revenue(),
+                acc.expenses(),
+                netProfit,
+                eps,
+                revenueQoQ,
+                profitQoQ,
+                dividendPerShare,
+                hasData,
+                expected,
+                surprise,
                 LocalDateTime.now());
-        company.addEarningsReportDirect(report,
-                Math.max(1, FinanceConfig.earningsHistoryKept()));
+        company.addEarningsReportDirect(report, Math.max(1, FinanceConfig.earningsHistoryKept()));
 
         // 预期差定价：只在"有数据且有预期"时冲击
         if (hasData && expected != Long.MIN_VALUE && surprise != 0) {
             double shockBps = (double) surprise * FinanceConfig.earningsReactionBps() / 10000.0;
             long maxShock = Math.max(1, FinanceConfig.earningsMaxShockBps());
             shockBps = Math.max(-maxShock, Math.min(maxShock, shockBps));
-            double fvPass = Math.max(0.0, Math.min(1.0,
-                    FinanceConfig.earningsFvPassThroughBps() / 10000.0));
+            double fvPass = Math.max(0.0, Math.min(1.0, FinanceConfig.earningsFvPassThroughBps() / 10000.0));
             stock.applyEarningsShock(shockBps, fvPass);
         }
 
@@ -109,8 +116,8 @@ public final class EarningsSeasonService {
         return total;
     }
 
-    private static void announce(MinecraftServer server, Company company, Stock stock,
-                                 QuarterlyEarningsReport report, long expected) {
+    private static void announce(
+            MinecraftServer server, Company company, Stock stock, QuarterlyEarningsReport report, long expected) {
         String key;
         FeedbackSeverity severity;
         List<String> args = new ArrayList<>();
@@ -139,18 +146,20 @@ public final class EarningsSeasonService {
             severity = FeedbackSeverity.INFO;
         }
 
-        WorldEconomyFeedbackService.publish(server, new WorldEconomyEvent(
-                "earnings:Q" + report.quarterIndex(),
-                WorldFeedbackType.EARNINGS_REPORT,
-                severity,
-                company.getCompanyId().toString(),
-                report.mcDay(),
-                "",
-                null,
-                key,
-                Collections.unmodifiableList(args),
-                FeedbackAudience.GLOBAL,
-                Collections.emptySet()));
+        WorldEconomyFeedbackService.publish(
+                server,
+                new WorldEconomyEvent(
+                        "earnings:Q" + report.quarterIndex(),
+                        WorldFeedbackType.EARNINGS_REPORT,
+                        severity,
+                        company.getCompanyId().toString(),
+                        report.mcDay(),
+                        "",
+                        null,
+                        key,
+                        Collections.unmodifiableList(args),
+                        FeedbackAudience.GLOBAL,
+                        Collections.emptySet()));
         // 审计留痕：WorldEconomyFeedbackService.HISTORY 已持久化（record() 内 markDirty），不再另记流水。
     }
 

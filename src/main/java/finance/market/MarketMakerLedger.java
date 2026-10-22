@@ -4,7 +4,6 @@ import finance.account.AccountManager;
 import finance.config.FinanceConfig;
 import finance.data.EconomySavedData;
 import finance.stock.Stock;
-
 import java.util.Collections;
 import java.util.EnumMap;
 import java.util.HashMap;
@@ -38,8 +37,7 @@ public final class MarketMakerLedger {
      * <p>Phase 3 在 {@link finance.futures.MarginManager} 下为该 UUID 建立保证金账户；
      * Phase 4 的央行联动只读该账户（不存在即 Phase 3 未建账时跳过），绝不替 Phase 3 建账。</p>
      */
-    public static final UUID FUTURES_MARGIN_UUID =
-            UUID.fromString("00000000-0000-0000-0000-00000000f002");
+    public static final UUID FUTURES_MARGIN_UUID = UUID.fromString("00000000-0000-0000-0000-00000000f002");
 
     /** 子账本市场划分。 */
     public enum SubMarket {
@@ -74,8 +72,7 @@ public final class MarketMakerLedger {
         }
     }
 
-    private MarketMakerLedger() {
-    }
+    private MarketMakerLedger() {}
 
     // ================================================================
     // 查询

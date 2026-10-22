@@ -4,8 +4,7 @@ import finance.company.Company;
 
 /** Deterministic rating derived from solvency, profitability and defaults. */
 public final class CompanyCreditService {
-    private CompanyCreditService() {
-    }
+    private CompanyCreditService() {}
 
     public static CreditRating rate(Company company) {
         if (company == null || company.isBankruptcyRisk()) return CreditRating.D;
@@ -30,7 +29,8 @@ public final class CompanyCreditService {
 
     public static long totalDebt(java.util.UUID companyId) {
         return finance.util.MathUtil.saturatedAddNonNegative(
-                CorporateBondManager.outstandingPrincipal(companyId), CompanyLoanManager.outstandingPrincipal(companyId));
+                CorporateBondManager.outstandingPrincipal(companyId),
+                CompanyLoanManager.outstandingPrincipal(companyId));
     }
 
     private static boolean hasDefault(java.util.UUID companyId) {

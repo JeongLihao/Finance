@@ -1,7 +1,6 @@
 package finance.centralbank;
 
 import finance.metrics.EconomyMetricsService;
-
 import java.util.List;
 
 /**
@@ -11,8 +10,14 @@ import java.util.List;
 public final class MoneySupplyService {
 
     /** accounts：玩家和银行账户；companies：公司账上；notes：钞票；change7d：账户加公司最近 7 天的变化。 */
-    public record Summary(long accounts, long companies, long notes, long circulating, long centralBankAndMarket,
-                          long change7d, boolean hasHistory) {}
+    public record Summary(
+            long accounts,
+            long companies,
+            long notes,
+            long circulating,
+            long centralBankAndMarket,
+            long change7d,
+            boolean hasHistory) {}
 
     private MoneySupplyService() {}
 

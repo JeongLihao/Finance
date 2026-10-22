@@ -3,11 +3,10 @@ package finance.network;
 import finance.gameplay.FinanceGameplayService;
 import finance.gameplay.FinanceScreenMode;
 import finance.gameplay.FinanceTerminalType;
+import java.util.function.Supplier;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.network.NetworkEvent;
-
-import java.util.function.Supplier;
 
 /**
  * 客户端快捷键请求打开金融中心 GUI。
@@ -42,8 +41,7 @@ public class OpenFinanceGuiPacket {
 
     public static OpenFinanceGuiPacket decode(FriendlyByteBuf buffer) {
         return new OpenFinanceGuiPacket(
-                buffer.readEnum(FinanceTerminalType.class),
-                buffer.readEnum(FinanceScreenMode.class));
+                buffer.readEnum(FinanceTerminalType.class), buffer.readEnum(FinanceScreenMode.class));
     }
 
     public static void handle(OpenFinanceGuiPacket packet, Supplier<NetworkEvent.Context> ctx) {

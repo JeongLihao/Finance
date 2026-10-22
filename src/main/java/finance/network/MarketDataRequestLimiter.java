@@ -35,7 +35,10 @@ public final class MarketDataRequestLimiter {
         return true;
     }
 
-    public static synchronized void clear() { WINDOWS.clear(); RECENT_KEYS.clear(); }
+    public static synchronized void clear() {
+        WINDOWS.clear();
+        RECENT_KEYS.clear();
+    }
 
     private record Window(long startedAt, int count) {}
 }

@@ -1,23 +1,22 @@
 package finance.metrics;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import finance.account.AccountManager;
+import finance.commodity.CommodityRegistry;
 import finance.company.Company;
 import finance.company.CompanyManager;
 import finance.company.CompanyType;
-import finance.commodity.CommodityRegistry;
 import finance.data.EconomySavedData;
 import finance.market.CentralBank;
 import finance.market.NpcMarketMaker;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
 import net.minecraft.nbt.CompoundTag;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
 
 class EconomyMetricsServiceTest {
 
@@ -46,7 +45,8 @@ class EconomyMetricsServiceTest {
         assertEquals(0, EconomyMetricsService.getCurrentCommodityVolume());
         assertEquals(0, EconomyMetricsService.getCurrentStockVolume());
         assertEquals(1, EconomyMetricsService.getDailySnapshots().size());
-        EconomyMetricsService.DailySnapshot snapshot = EconomyMetricsService.getDailySnapshots().get(0);
+        EconomyMetricsService.DailySnapshot snapshot =
+                EconomyMetricsService.getDailySnapshots().get(0);
         assertEquals(3, snapshot.mcDay());
         assertEquals(12, snapshot.commodityVolume());
         assertEquals(7, snapshot.stockVolume());
@@ -190,8 +190,8 @@ class EconomyMetricsServiceTest {
         AccountManager.getAccount(PLAYER_ID).freezeFunds(50);
         AccountManager.getAccount(NpcMarketMaker.NPC_UUID).setBalance(200);
         AccountManager.getAccount(CentralBank.UUID).setBalance(300);
-        CompanyManager.registerDirect(new Company(
-                COMPANY_ID, "Metrics Company", CompanyType.RAW_MATERIALS, 400, PLAYER_ID));
+        CompanyManager.registerDirect(
+                new Company(COMPANY_ID, "Metrics Company", CompanyType.RAW_MATERIALS, 400, PLAYER_ID));
 
         EconomyMetricsService.CurrentMetrics metrics = EconomyMetricsService.getCurrentMetrics();
 
@@ -209,7 +209,6 @@ class EconomyMetricsServiceTest {
     }
 
     private static EconomyMetricsService.DailySnapshot snapshot(long day) {
-        return new EconomyMetricsService.DailySnapshot(
-                day, 0, 0, 0, 0, 0, 0, 0, 0, 100.0, 0);
+        return new EconomyMetricsService.DailySnapshot(day, 0, 0, 0, 0, 0, 0, 0, 0, 100.0, 0);
     }
 }

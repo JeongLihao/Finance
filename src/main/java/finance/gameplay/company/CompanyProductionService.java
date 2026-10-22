@@ -4,19 +4,19 @@ import finance.account.AccountManager;
 import finance.account.TransactionRecord;
 import finance.account.TransactionType;
 import finance.company.Company;
-import finance.company.CompanyManager;
 import finance.data.EconomySavedData;
-
 import java.math.BigInteger;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
 public final class CompanyProductionService {
     public record DayResult(int producedFacilities, boolean legacyFallback) {}
+
     private CompanyProductionService() {}
 
     public static DayResult processCompanyDay(Company company, long day) {
-        if(!finance.diagnostic.ModuleHealthRegistry.mayWrite(finance.diagnostic.ModuleHealthRegistry.Module.COMPANY_GAMEPLAY))return new DayResult(0,false);
+        if (!finance.diagnostic.ModuleHealthRegistry.mayWrite(
+                finance.diagnostic.ModuleHealthRegistry.Module.COMPANY_GAMEPLAY)) return new DayResult(0, false);
         CompanyGameplayProfile profile = CompanyGameplayManager.profileFor(company);
         if (profile.operatingMode() == CompanyOperatingMode.LEGACY_AUTOMATIC) return new DayResult(0, false);
         int produced = 0;
@@ -24,7 +24,8 @@ public final class CompanyProductionService {
             if (processFacility(company, facility, day)) produced++;
         }
         boolean fallback = false;
-        if (profile.operatingMode() == CompanyOperatingMode.HYBRID && produced == 0
+        if (profile.operatingMode() == CompanyOperatingMode.HYBRID
+                && produced == 0
                 && profile.lastLegacyFallbackDay() < day) {
             fallback = legacyFallback(company);
             profile.setLastLegacyFallbackDay(day);
@@ -41,17 +42,30 @@ public final class CompanyProductionService {
     }
 
     public static boolean processFacility(Company company, CompanyFacilityRecord facility, long day) {
-        if(!finance.diagnostic.ModuleHealthRegistry.mayWrite(finance.diagnostic.ModuleHealthRegistry.Module.COMPANY_GAMEPLAY))return false;
-        if (company == null || facility == null || day < 0 || facility.lastProcessedDay() >= day
+        if (!finance.diagnostic.ModuleHealthRegistry.mayWrite(
+                finance.diagnostic.ModuleHealthRegistry.Module.COMPANY_GAMEPLAY)) return false;
+        if (company == null
+                || facility == null
+                || day < 0
+                || facility.lastProcessedDay() >= day
                 || facility.status() == CompanyFacilityStatus.DISABLED) return false;
         facility.setLastProcessedDay(day);
-        if (company.isBankruptcyRisk()) { facility.setStatus(CompanyFacilityStatus.BANKRUPTCY_HOLD,day); return false; }
-        if (facility.boundWarehouseId() == null || !CompanyGameplayManager.profileFor(company).warehouseIds()
-                .contains(facility.boundWarehouseId())) { facility.setStatus(CompanyFacilityStatus.OUTPUT_FULL,day); return false; }
+        if (company.isBankruptcyRisk()) {
+            facility.setStatus(CompanyFacilityStatus.BANKRUPTCY_HOLD, day);
+            return false;
+        }
+        if (facility.boundWarehouseId() == null
+                || !CompanyGameplayManager.profileFor(company).warehouseIds().contains(facility.boundWarehouseId())) {
+            facility.setStatus(CompanyFacilityStatus.OUTPUT_FULL, day);
+            return false;
+        }
         // 厂房：当天生效的生产方式决定投入产出；缺少设备就停产
         finance.gameplay.company.factory.FactoryService.prepare(facility, day);
         var method = finance.gameplay.company.factory.FactoryService.effectiveMethod(facility, company, day);
-        if (method == null) { facility.setStatus(CompanyFacilityStatus.EQUIPMENT_MISSING, day); return false; }
+        if (method == null) {
+            facility.setStatus(CompanyFacilityStatus.EQUIPMENT_MISSING, day);
+            return false;
+        }
         int throughput = finance.config.FinanceConfig.factoryThroughput(facility.productionLevel());
         Map<String, Integer> inputs = scaled(method.inputs(), throughput);
         Map<String, Integer> outputs = scaled(method.outputs(), throughput);
@@ -66,34 +80,56 @@ public final class CompanyProductionService {
         if (staffing < 10_000) {
             inputs = finance.macro.MacroLaborService.scale(inputs, staffing);
             outputs = finance.macro.MacroLaborService.scale(outputs, staffing);
-            if (outputs.isEmpty()) { facility.setStatus(CompanyFacilityStatus.UNDERSTAFFED,day); return false; }
+            if (outputs.isEmpty()) {
+                facility.setStatus(CompanyFacilityStatus.UNDERSTAFFED, day);
+                return false;
+            }
         }
-        if (!CompanyInventoryFacade.canAddOutput(company, outputs)) { facility.setStatus(CompanyFacilityStatus.OUTPUT_FULL,day); return false; }
-        for (var e : inputs.entrySet()) if (CompanyInventoryFacade.availableInput(company, e.getKey()) < e.getValue()) {
-            facility.setStatus(CompanyFacilityStatus.MISSING_INPUT,day); return false;
+        if (!CompanyInventoryFacade.canAddOutput(company, outputs)) {
+            facility.setStatus(CompanyFacilityStatus.OUTPUT_FULL, day);
+            return false;
         }
+        for (var e : inputs.entrySet())
+            if (CompanyInventoryFacade.availableInput(company, e.getKey()) < e.getValue()) {
+                facility.setStatus(CompanyFacilityStatus.MISSING_INPUT, day);
+                return false;
+            }
         long baseMaintenance = Math.max(1L, company.estimateDailyOperatingCost() / 4L);
-        long maintenance = Math.max(1L, java.math.BigInteger.valueOf(baseMaintenance)
-                .multiply(java.math.BigInteger.valueOf(finance.config.FinanceConfig.factoryMaintenanceBasisPoints(
-                        facility.productionLevel())))
-                .divide(java.math.BigInteger.valueOf(10_000L))
-                .min(java.math.BigInteger.valueOf(Long.MAX_VALUE)).longValue());
+        long maintenance = Math.max(
+                1L,
+                java.math.BigInteger.valueOf(baseMaintenance)
+                        .multiply(java.math.BigInteger.valueOf(
+                                finance.config.FinanceConfig.factoryMaintenanceBasisPoints(facility.productionLevel())))
+                        .divide(java.math.BigInteger.valueOf(10_000L))
+                        .min(java.math.BigInteger.valueOf(Long.MAX_VALUE))
+                        .longValue());
         if (company.getCash() < maintenance || !company.withdraw(maintenance)) {
-            facility.setStatus(CompanyFacilityStatus.BANKRUPTCY_HOLD,day); return false;
+            facility.setStatus(CompanyFacilityStatus.BANKRUPTCY_HOLD, day);
+            return false;
         }
         CompanyInventoryFacade.Consumption consumed = CompanyInventoryFacade.consumeInputAtomically(company, inputs);
-        if (consumed == null) { company.deposit(maintenance); facility.setStatus(CompanyFacilityStatus.MISSING_INPUT,day); return false; }
+        if (consumed == null) {
+            company.deposit(maintenance);
+            facility.setStatus(CompanyFacilityStatus.MISSING_INPUT, day);
+            return false;
+        }
         if (!CompanyInventoryFacade.addOutputAtomically(company, outputs)) {
             if (!CompanyInventoryFacade.rollback(company, consumed) || !company.deposit(maintenance))
                 throw new IllegalStateException("company production compensation failed");
-            facility.setStatus(CompanyFacilityStatus.OUTPUT_FULL,day); return false;
+            facility.setStatus(CompanyFacilityStatus.OUTPUT_FULL, day);
+            return false;
         }
-        facility.setStatus(CompanyFacilityStatus.ACTIVE,day);
+        facility.setStatus(CompanyFacilityStatus.ACTIVE, day);
         company.recordGameplayCost(maintenance);
         int total = outputs.values().stream().mapToInt(Integer::intValue).sum();
-        AccountManager.addTransactionRecord(new TransactionRecord(company.getCompanyId(),
-                CompanyInventoryFacade.custodyId(company.getCompanyId()), maintenance,
-                TransactionType.FACILITY_PRODUCTION, company.getOwnerId(), company.getName(), total));
+        AccountManager.addTransactionRecord(new TransactionRecord(
+                company.getCompanyId(),
+                CompanyInventoryFacade.custodyId(company.getCompanyId()),
+                maintenance,
+                TransactionType.FACILITY_PRODUCTION,
+                company.getOwnerId(),
+                company.getName(),
+                total));
         return true;
     }
 

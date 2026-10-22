@@ -1,2 +1,12 @@
 package finance.insurance;
-public enum ClaimStatus { REPORTED, REVIEWING, NEEDS_INFORMATION, APPROVED, PARTIALLY_PAID, PAID, REJECTED, WITHDRAWN }
+
+public enum ClaimStatus {
+    REPORTED,
+    REVIEWING,
+    NEEDS_INFORMATION,
+    APPROVED,
+    PARTIALLY_PAID,
+    PAID,
+    REJECTED,
+    WITHDRAWN
+}

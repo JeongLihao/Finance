@@ -27,43 +27,60 @@ public final class CashCommand {
         CashService.Result run(ServerPlayer player, PlayerCashPurse purse, long value, long day);
     }
 
-    private CashCommand() { }
+    private CashCommand() {}
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(Commands.literal("cash")
                 .executes(CashCommand::info)
-                .then(Commands.literal("withdraw").then(Commands.argument("amount", LongArgumentType.longArg(1, CashService.MAX_WITHDRAW))
-                        .executes(c -> run(c, LongArgumentType.getLong(c, "amount"),
-                                (p, purse, v, day) -> CashService.withdraw(p.getUUID(), purse, v)))))
+                .then(Commands.literal("withdraw")
+                        .then(Commands.argument("amount", LongArgumentType.longArg(1, CashService.MAX_WITHDRAW))
+                                .executes(c -> run(
+                                        c,
+                                        LongArgumentType.getLong(c, "amount"),
+                                        (p, purse, v, day) -> CashService.withdraw(p.getUUID(), purse, v)))))
                 .then(Commands.literal("deposit")
                         .executes(c -> run(c, 0, (p, purse, v, day) -> CashService.deposit(p.getUUID(), purse, v)))
                         .then(Commands.argument("amount", LongArgumentType.longArg(1))
-                                .executes(c -> run(c, LongArgumentType.getLong(c, "amount"),
+                                .executes(c -> run(
+                                        c,
+                                        LongArgumentType.getLong(c, "amount"),
                                         (p, purse, v, day) -> CashService.deposit(p.getUUID(), purse, v)))))
-                .then(Commands.literal("sell").then(Commands.argument("count", LongArgumentType.longArg(1, CashService.MAX_EMERALDS_PER_ACTION))
-                        .executes(c -> run(c, LongArgumentType.getLong(c, "count"),
-                                (p, purse, v, day) -> CashService.sellEmeralds(p.getUUID(), purse, v, day)))))
-                .then(Commands.literal("buy").then(Commands.argument("count", LongArgumentType.longArg(1, CashService.MAX_EMERALDS_PER_ACTION))
-                        .executes(c -> run(c, LongArgumentType.getLong(c, "count"),
-                                (p, purse, v, day) -> CashService.buyEmeralds(p.getUUID(), purse, v, day))))));
+                .then(Commands.literal("sell")
+                        .then(Commands.argument(
+                                        "count", LongArgumentType.longArg(1, CashService.MAX_EMERALDS_PER_ACTION))
+                                .executes(c -> run(
+                                        c,
+                                        LongArgumentType.getLong(c, "count"),
+                                        (p, purse, v, day) -> CashService.sellEmeralds(p.getUUID(), purse, v, day)))))
+                .then(Commands.literal("buy")
+                        .then(Commands.argument(
+                                        "count", LongArgumentType.longArg(1, CashService.MAX_EMERALDS_PER_ACTION))
+                                .executes(c -> run(
+                                        c,
+                                        LongArgumentType.getLong(c, "count"),
+                                        (p, purse, v, day) -> CashService.buyEmeralds(p.getUUID(), purse, v, day))))));
     }
 
     private static int info(CommandContext<CommandSourceStack> c) throws CommandSyntaxException {
         ServerPlayer player = c.getSource().getPlayerOrException();
         PlayerCashPurse purse = new PlayerCashPurse(player);
         CashService.Quote q = CashService.quote(purse, EconomyCycleService.currentMcDay(player.server));
-        c.getSource().sendSuccess(() -> Component.literal("账户余额 " + AccountManager.getBalance(player.getUUID())
-                + "，随身现金 " + purse.cashTotal() + "，绿宝石 " + purse.emeralds() + " 颗\n"
-                + "卖出 1 颗绿宝石得 " + q.emeraldToCash() + " 便士，买入 1 颗付 " + q.cashToEmerald() + " 便士\n"
-                + "今日还可卖出 " + q.sellLeft() + "/" + q.sellLimit() + " 颗，买入 " + q.buyLeft() + "/" + q.buyLimit() + " 颗"
-                + (q.enabled() ? "" : "\n实体现金未启用（配置 cash.enabled）")), false);
+        c.getSource()
+                .sendSuccess(
+                        () -> Component.literal("账户余额 " + AccountManager.getBalance(player.getUUID())
+                                + "，随身现金 " + purse.cashTotal() + "，绿宝石 " + purse.emeralds() + " 颗\n"
+                                + "卖出 1 颗绿宝石得 " + q.emeraldToCash() + " 便士，买入 1 颗付 " + q.cashToEmerald() + " 便士\n"
+                                + "今日还可卖出 " + q.sellLeft() + "/" + q.sellLimit() + " 颗，买入 " + q.buyLeft() + "/"
+                                + q.buyLimit() + " 颗"
+                                + (q.enabled() ? "" : "\n实体现金未启用（配置 cash.enabled）")),
+                        false);
         return 1;
     }
 
     private static int run(CommandContext<CommandSourceStack> c, long value, Op op) throws CommandSyntaxException {
         ServerPlayer player = c.getSource().getPlayerOrException();
-        CashService.Result r = op.run(player, new PlayerCashPurse(player), value,
-                EconomyCycleService.currentMcDay(player.server));
+        CashService.Result r =
+                op.run(player, new PlayerCashPurse(player), value, EconomyCycleService.currentMcDay(player.server));
         if (r.success()) {
             c.getSource().sendSuccess(() -> Component.literal(r.message()), false);
             return 1;

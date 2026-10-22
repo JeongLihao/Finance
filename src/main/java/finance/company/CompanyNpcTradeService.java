@@ -12,8 +12,7 @@ import finance.util.MathUtil;
 
 public final class CompanyNpcTradeService {
 
-    private CompanyNpcTradeService() {
-    }
+    private CompanyNpcTradeService() {}
 
     public record CommoditySettlementResult(boolean success, long payment, int quantity, String reason) {
         static CommoditySettlementResult fail(String reason) {
@@ -23,12 +22,12 @@ public final class CompanyNpcTradeService {
 
     public static CommoditySettlementResult buyForCompany(Company company, String commodityId, int quantity) {
         MarketPrice price = NpcMarketMaker.getMarketPrice(commodityId);
-        return price == null ? CommoditySettlementResult.fail("商品没有市场报价")
+        return price == null
+                ? CommoditySettlementResult.fail("商品没有市场报价")
                 : buyForCompany(company, commodityId, quantity, price.getAskPrice());
     }
 
-    static CommoditySettlementResult buyForCompany(Company company, String commodityId,
-                                                    int quantity, long unitPrice) {
+    static CommoditySettlementResult buyForCompany(Company company, String commodityId, int quantity, long unitPrice) {
         long payment = validate(company, commodityId, quantity, unitPrice);
         if (payment <= 0) return CommoditySettlementResult.fail("交易参数或金额无效");
         if (company.getCash() < payment) return CommoditySettlementResult.fail("公司现金不足");
@@ -59,21 +58,32 @@ public final class CompanyNpcTradeService {
 
         company.recordPurchaseCost(payment);
         AccountManager.addTransactionRecord(new TransactionRecord(
-                company.getCompanyId(), NpcMarketMaker.NPC_UUID, payment, TransactionType.NPC_SELL,
-                company.getOwnerId(), company.getName() + "/" + commodityId, quantity));
-        CommodityTradeRecorder.recordCompletedTrade(company.getCompanyId(), NpcMarketMaker.NPC_UUID,
-                commodityId, unitPrice, quantity, CommodityTradeSource.COMPANY_NPC, false);
+                company.getCompanyId(),
+                NpcMarketMaker.NPC_UUID,
+                payment,
+                TransactionType.NPC_SELL,
+                company.getOwnerId(),
+                company.getName() + "/" + commodityId,
+                quantity));
+        CommodityTradeRecorder.recordCompletedTrade(
+                company.getCompanyId(),
+                NpcMarketMaker.NPC_UUID,
+                commodityId,
+                unitPrice,
+                quantity,
+                CommodityTradeSource.COMPANY_NPC,
+                false);
         return new CommoditySettlementResult(true, payment, quantity, "公司采购成功");
     }
 
     public static CommoditySettlementResult sellForCompany(Company company, String commodityId, int quantity) {
         MarketPrice price = NpcMarketMaker.getMarketPrice(commodityId);
-        return price == null ? CommoditySettlementResult.fail("商品没有市场报价")
+        return price == null
+                ? CommoditySettlementResult.fail("商品没有市场报价")
                 : sellForCompany(company, commodityId, quantity, price.getBidPrice());
     }
 
-    static CommoditySettlementResult sellForCompany(Company company, String commodityId,
-                                                     int quantity, long unitPrice) {
+    static CommoditySettlementResult sellForCompany(Company company, String commodityId, int quantity, long unitPrice) {
         long payment = validate(company, commodityId, quantity, unitPrice);
         if (payment <= 0) return CommoditySettlementResult.fail("交易参数或金额无效");
         if (company.getInventoryAmount(commodityId) < quantity) return CommoditySettlementResult.fail("公司库存不足");
@@ -106,10 +116,21 @@ public final class CompanyNpcTradeService {
 
         company.recordSalesRevenue(payment);
         AccountManager.addTransactionRecord(new TransactionRecord(
-                NpcMarketMaker.NPC_UUID, company.getCompanyId(), payment, TransactionType.NPC_BUY,
-                company.getOwnerId(), company.getName() + "/" + commodityId, quantity));
-        CommodityTradeRecorder.recordCompletedTrade(NpcMarketMaker.NPC_UUID, company.getCompanyId(),
-                commodityId, unitPrice, quantity, CommodityTradeSource.COMPANY_NPC, true);
+                NpcMarketMaker.NPC_UUID,
+                company.getCompanyId(),
+                payment,
+                TransactionType.NPC_BUY,
+                company.getOwnerId(),
+                company.getName() + "/" + commodityId,
+                quantity));
+        CommodityTradeRecorder.recordCompletedTrade(
+                NpcMarketMaker.NPC_UUID,
+                company.getCompanyId(),
+                commodityId,
+                unitPrice,
+                quantity,
+                CommodityTradeSource.COMPANY_NPC,
+                true);
         return new CommoditySettlementResult(true, payment, quantity, "公司出售成功");
     }
 

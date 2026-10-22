@@ -1,7 +1,6 @@
 package finance.event;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -10,7 +9,6 @@ import java.util.concurrent.ThreadLocalRandom;
  * 后续可改为从配置文件加载。
  */
 public class EventTemplates {
-
 
     private static final List<Template> MINOR = new ArrayList<>();
     private static final List<Template> MAJOR = new ArrayList<>();
@@ -47,38 +45,34 @@ public class EventTemplates {
      * @return 具体化的 MarketEvent，或 null
      */
     public static MarketEvent roll(EventTier tier, List<String> commodityIds) {
-        List<Template> pool = switch (tier) {
-            case MINOR -> MINOR;
-            case MAJOR -> MAJOR;
-            case BLACK_SWAN -> BLACK_SWANS;
-        };
+        List<Template> pool =
+                switch (tier) {
+                    case MINOR -> MINOR;
+                    case MAJOR -> MAJOR;
+                    case BLACK_SWAN -> BLACK_SWANS;
+                };
 
         if (pool.isEmpty()) return null;
 
         Template template = pool.get(ThreadLocalRandom.current().nextInt(pool.size()));
 
         // affectsAll = true → 影响全部商品（commodityId = null）
-        String commodityId = template.affectsAll ? null
+        String commodityId = template.affectsAll
+                ? null
                 : commodityIds.get(ThreadLocalRandom.current().nextInt(commodityIds.size()));
 
         int pctRange = tier.maxPct - tier.minPct;
         int pct = tier.minPct + (pctRange > 0 ? ThreadLocalRandom.current().nextInt(pctRange + 1) : 0);
         boolean positive = template.baseMultiplier >= 1.0;
-        double multiplier = positive
-                ? 1.0 + pct / 100.0
-                : 1.0 - pct / 100.0;
+        double multiplier = positive ? 1.0 + pct / 100.0 : 1.0 - pct / 100.0;
 
         int duration = tier.minDuration;
         if (tier.maxDuration > tier.minDuration) {
             duration += ThreadLocalRandom.current().nextInt(tier.maxDuration - tier.minDuration + 1);
         }
 
-        return new MarketEvent(template.name, template.description, tier,
-                commodityId, multiplier, duration);
+        return new MarketEvent(template.name, template.description, tier, commodityId, multiplier, duration);
     }
-
-
-
 
     /** 事件模板 */
     public static class Template {
@@ -86,10 +80,10 @@ public class EventTemplates {
         public final String description;
         /** true = 影响全部商品，false = 影响单个随机商品 */
         public final boolean affectsAll;
+
         public final double baseMultiplier;
 
-        public Template(String name, String description, boolean affectsAll,
-                        double baseMultiplier) {
+        public Template(String name, String description, boolean affectsAll, double baseMultiplier) {
             this.name = name;
             this.description = description;
             this.affectsAll = affectsAll;

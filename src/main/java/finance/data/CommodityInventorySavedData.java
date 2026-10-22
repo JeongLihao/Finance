@@ -2,6 +2,8 @@ package finance.data;
 
 import finance.commodity.CommodityInventory;
 import finance.commodity.CommodityInventoryManager;
+import java.util.Map;
+import java.util.UUID;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
@@ -9,17 +11,13 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.level.saveddata.SavedData;
 import net.minecraft.world.level.storage.DimensionDataStorage;
 
-import java.util.Map;
-import java.util.UUID;
-
 /**
  * 商品库存持久化 —— 与 {@link EconomySavedData} 分开存储，
  * 将玩家的商品持有量写入 Minecraft 世界存档。
  */
 public class CommodityInventorySavedData extends SavedData {
 
-    public static final String DATA_NAME =
-            "finance_inventory";
+    public static final String DATA_NAME = "finance_inventory";
 
     private static CommodityInventorySavedData INSTANCE;
 
@@ -32,48 +30,28 @@ public class CommodityInventorySavedData extends SavedData {
 
         ListTag playersTag = new ListTag();
 
-        for (UUID playerId :
-                CommodityInventoryManager
-                        .getInventories()
-                        .keySet()) {
+        for (UUID playerId : CommodityInventoryManager.getInventories().keySet()) {
 
-            CompoundTag playerTag =
-                    new CompoundTag();
+            CompoundTag playerTag = new CompoundTag();
 
-            playerTag.putUUID(
-                    "PlayerUUID",
-                    playerId
-            );
+            playerTag.putUUID("PlayerUUID", playerId);
 
-            CommodityInventory inventory =
-                    CommodityInventoryManager
-                            .getInventory(playerId);
+            CommodityInventory inventory = CommodityInventoryManager.getInventory(playerId);
 
-            CompoundTag commoditiesTag =
-                    new CompoundTag();
+            CompoundTag commoditiesTag = new CompoundTag();
 
             for (Map.Entry<String, Integer> entry :
-                    inventory.getAllCommodities()
-                            .entrySet()) {
+                    inventory.getAllCommodities().entrySet()) {
 
-                commoditiesTag.putInt(
-                        entry.getKey(),
-                        entry.getValue()
-                );
+                commoditiesTag.putInt(entry.getKey(), entry.getValue());
             }
 
-            playerTag.put(
-                    "Commodities",
-                    commoditiesTag
-            );
+            playerTag.put("Commodities", commoditiesTag);
 
             playersTag.add(playerTag);
         }
 
-        tag.put(
-                "Inventories",
-                playersTag
-        );
+        tag.put("Inventories", playersTag);
 
         return tag;
     }
@@ -82,47 +60,27 @@ public class CommodityInventorySavedData extends SavedData {
     // 加载
     // ================================================================
 
-    public static CommodityInventorySavedData load(
-            CompoundTag tag
-    ) {
+    public static CommodityInventorySavedData load(CompoundTag tag) {
 
-        CommodityInventorySavedData data =
-                new CommodityInventorySavedData();
+        CommodityInventorySavedData data = new CommodityInventorySavedData();
 
         resetRuntimeState();
 
-        ListTag playersTag =
-                tag.getList(
-                        "Inventories",
-                        Tag.TAG_COMPOUND
-                );
+        ListTag playersTag = tag.getList("Inventories", Tag.TAG_COMPOUND);
 
         for (Tag rawTag : playersTag) {
 
-            CompoundTag playerTag =
-                    (CompoundTag) rawTag;
+            CompoundTag playerTag = (CompoundTag) rawTag;
 
-            UUID playerId =
-                    playerTag.getUUID(
-                            "PlayerUUID"
-                    );
+            UUID playerId = playerTag.getUUID("PlayerUUID");
 
-            CompoundTag commoditiesTag =
-                    playerTag.getCompound(
-                            "Commodities"
-                    );
+            CompoundTag commoditiesTag = playerTag.getCompound("Commodities");
 
-            CommodityInventory inventory =
-                    CommodityInventoryManager
-                            .getInventory(playerId);
+            CommodityInventory inventory = CommodityInventoryManager.getInventory(playerId);
 
-            for (String key :
-                    commoditiesTag.getAllKeys()) {
+            for (String key : commoditiesTag.getAllKeys()) {
 
-                inventory.setCommodity(
-                        key,
-                        commoditiesTag.getInt(key)
-                );
+                inventory.setCommodity(key, commoditiesTag.getInt(key));
             }
         }
 
@@ -142,20 +100,12 @@ public class CommodityInventorySavedData extends SavedData {
         return new CommodityInventorySavedData();
     }
 
-    public static CommodityInventorySavedData get(
-            MinecraftServer server
-    ) {
+    public static CommodityInventorySavedData get(MinecraftServer server) {
 
-        DimensionDataStorage storage =
-                server.overworld()
-                        .getDataStorage();
+        DimensionDataStorage storage = server.overworld().getDataStorage();
 
-        INSTANCE =
-                storage.computeIfAbsent(
-                        CommodityInventorySavedData::load,
-                        CommodityInventorySavedData::createFresh,
-                        DATA_NAME
-                );
+        INSTANCE = storage.computeIfAbsent(
+                CommodityInventorySavedData::load, CommodityInventorySavedData::createFresh, DATA_NAME);
 
         return INSTANCE;
     }

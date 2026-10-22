@@ -8,9 +8,13 @@ import finance.company.CompanyProposalType;
  * <p>弃权就是不投票，会拉低参与率。这是有意设计：玩家持股太少时，提案可能因参与率不足而失败。</p>
  */
 public final class NpcVotingRules {
-    private NpcVotingRules() { }
+    private NpcVotingRules() {}
 
-    public enum Choice { SUPPORT, OPPOSE, ABSTAIN }
+    public enum Choice {
+        SUPPORT,
+        OPPOSE,
+        ABSTAIN
+    }
 
     /** 投票理由代码，展示文本由客户端本地化，这里保留中文兜底。 */
     public enum VoteReason {
@@ -29,15 +33,27 @@ public final class NpcVotingRules {
 
         private final String fallbackText;
 
-        VoteReason(String fallbackText) { this.fallbackText = fallbackText; }
+        VoteReason(String fallbackText) {
+            this.fallbackText = fallbackText;
+        }
 
-        public String fallbackText() { return fallbackText; }
+        public String fallbackText() {
+            return fallbackText;
+        }
     }
 
     public record Decision(Choice choice, VoteReason reason) {
-        static Decision support(VoteReason r) { return new Decision(Choice.SUPPORT, r); }
-        static Decision oppose(VoteReason r) { return new Decision(Choice.OPPOSE, r); }
-        static Decision abstain() { return new Decision(Choice.ABSTAIN, VoteReason.NEUTRAL); }
+        static Decision support(VoteReason r) {
+            return new Decision(Choice.SUPPORT, r);
+        }
+
+        static Decision oppose(VoteReason r) {
+            return new Decision(Choice.OPPOSE, r);
+        }
+
+        static Decision abstain() {
+            return new Decision(Choice.ABSTAIN, VoteReason.NEUTRAL);
+        }
     }
 
     /**
@@ -52,25 +68,38 @@ public final class NpcVotingRules {
      * @param profitTrendPositive  近期利润为正且在增长
      * @param bankruptcyRisk       是否处于破产风险
      */
-    public record Context(CompanyProposalType type, long proposedDividendPercent, long currentDividendPercent,
-                          long issuePrice, long fundamentalPerShare, long retainedEarnings,
-                          boolean profitTrendPositive, boolean bankruptcyRisk) { }
+    public record Context(
+            CompanyProposalType type,
+            long proposedDividendPercent,
+            long currentDividendPercent,
+            long issuePrice,
+            long fundamentalPerShare,
+            long retainedEarnings,
+            boolean profitTrendPositive,
+            boolean bankruptcyRisk) {}
 
     public static Decision decide(NpcInvestorArchetype archetype, Context c) {
         if (archetype == null || c == null || c.type() == null) return Decision.abstain();
         return switch (c.type()) {
             case DIVIDEND -> dividend(archetype, c);
             case SHARE_ISSUE -> shareIssue(archetype, c);
-            case SHARE_BUYBACK -> archetype == NpcInvestorArchetype.SPECULATOR || archetype == NpcInvestorArchetype.VALUE
-                    ? Decision.support(VoteReason.BUYBACK_SUPPORT) : Decision.abstain();
-            case TREASURY_RETIREMENT -> archetype == NpcInvestorArchetype.VALUE || archetype == NpcInvestorArchetype.DIVIDEND
-                    ? Decision.support(VoteReason.RETIREMENT_ACCRETIVE) : Decision.abstain();
+            case SHARE_BUYBACK -> archetype == NpcInvestorArchetype.SPECULATOR
+                            || archetype == NpcInvestorArchetype.VALUE
+                    ? Decision.support(VoteReason.BUYBACK_SUPPORT)
+                    : Decision.abstain();
+            case TREASURY_RETIREMENT -> archetype == NpcInvestorArchetype.VALUE
+                            || archetype == NpcInvestorArchetype.DIVIDEND
+                    ? Decision.support(VoteReason.RETIREMENT_ACCRETIVE)
+                    : Decision.abstain();
             case CAPITAL_PROJECT, MAJOR_ASSET_PURCHASE -> {
                 if (c.bankruptcyRisk()) yield Decision.oppose(VoteReason.BANKRUPTCY_RISK_OPPOSE);
-                yield archetype == NpcInvestorArchetype.GROWTH ? Decision.support(VoteReason.GROWTH_INVESTMENT) : Decision.abstain();
+                yield archetype == NpcInvestorArchetype.GROWTH
+                        ? Decision.support(VoteReason.GROWTH_INVESTMENT)
+                        : Decision.abstain();
             }
             case EMERGENCY_RECAPITALIZATION -> c.bankruptcyRisk()
-                    ? Decision.support(VoteReason.BANKRUPTCY_RISK_RESCUE) : Decision.abstain();
+                    ? Decision.support(VoteReason.BANKRUPTCY_RISK_RESCUE)
+                    : Decision.abstain();
             case RENAME, FUND_USAGE, TENDER_OFFER_RESPONSE, CONTROL_TRANSFER -> Decision.abstain();
         };
     }
@@ -81,11 +110,14 @@ public final class NpcVotingRules {
         if (proposed == current) return Decision.abstain();
         boolean raise = proposed > current;
         return switch (archetype) {
-            case DIVIDEND -> raise ? Decision.support(VoteReason.DIVIDEND_RAISED) : Decision.oppose(VoteReason.DIVIDEND_CUT);
+            case DIVIDEND -> raise
+                    ? Decision.support(VoteReason.DIVIDEND_RAISED)
+                    : Decision.oppose(VoteReason.DIVIDEND_CUT);
             case GROWTH -> {
                 if (!raise) yield Decision.support(VoteReason.PREFER_RETENTION);
                 yield c.retainedEarnings() <= 0 || !c.profitTrendPositive()
-                        ? Decision.oppose(VoteReason.RETAINED_EARNINGS_LOW) : Decision.abstain();
+                        ? Decision.oppose(VoteReason.RETAINED_EARNINGS_LOW)
+                        : Decision.abstain();
             }
             case SPECULATOR, VALUE -> Decision.abstain();
         };
@@ -94,9 +126,12 @@ public final class NpcVotingRules {
     private static Decision shareIssue(NpcInvestorArchetype archetype, Context c) {
         boolean belowFundamental = c.fundamentalPerShare() > 0 && c.issuePrice() < c.fundamentalPerShare();
         return switch (archetype) {
-            case DIVIDEND, VALUE -> belowFundamental ? Decision.oppose(VoteReason.ISSUE_BELOW_FUNDAMENTAL) : Decision.abstain();
+            case DIVIDEND, VALUE -> belowFundamental
+                    ? Decision.oppose(VoteReason.ISSUE_BELOW_FUNDAMENTAL)
+                    : Decision.abstain();
             case GROWTH -> c.profitTrendPositive() && !c.bankruptcyRisk()
-                    ? Decision.support(VoteReason.ISSUE_FOR_GROWTH) : Decision.abstain();
+                    ? Decision.support(VoteReason.ISSUE_FOR_GROWTH)
+                    : Decision.abstain();
             case SPECULATOR -> Decision.abstain();
         };
     }

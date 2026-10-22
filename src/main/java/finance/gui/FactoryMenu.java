@@ -31,8 +31,7 @@ public final class FactoryMenu extends AbstractContainerMenu {
         super(ModMenus.FACTORY.get(), containerId);
         if (blockEntity == null) throw new IllegalArgumentException("Factory block entity missing");
         this.blockEntity = blockEntity;
-        this.access = ContainerLevelAccess.create(
-                blockEntity.getLevel(), blockEntity.getBlockPos());
+        this.access = ContainerLevelAccess.create(blockEntity.getLevel(), blockEntity.getBlockPos());
 
         // 0=输入槽：只接受有配方的物品；1=输出槽：只取不放。
         this.addSlot(new SlotItemHandler(blockEntity.itemHandler(), FactoryBlockEntity.SLOT_INPUT, 56, 35) {

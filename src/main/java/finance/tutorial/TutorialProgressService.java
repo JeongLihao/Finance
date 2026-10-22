@@ -3,16 +3,15 @@ package finance.tutorial;
 import finance.network.FinancePacketHandler;
 import finance.network.TutorialProgressPacket;
 import finance.registry.ModItems;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.Item;
 import net.minecraftforge.network.PacketDistributor;
-
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
 
 /** Server-authoritative, per-player tutorial milestones stored with player data. */
 public final class TutorialProgressService {
@@ -21,11 +20,26 @@ public final class TutorialProgressService {
     private static final String LAST_SYNC_TAG = "LastSyncedStage";
     private static final String LAST_OPTIONAL_SYNC_TAG = "LastSyncedOptionalMask";
     private static final Set<String> RECOGNIZED_EVENTS = Set.of(
-            "has_ledger", "wallet_opened", "has_market_terminal", "warehouse_built",
-            "warehouse_deposit", "first_trade", "first_contract", "company_member",
-            "company_production", "first_shipment", "first_village_help", "field_survey",
-            "advanced_finance", "capital_project_complete", "regional_risk_view", "collateral_active",
-            "collateral_repaid", "hedge_linked", "insured_risk", "risk_summary_view");
+            "has_ledger",
+            "wallet_opened",
+            "has_market_terminal",
+            "warehouse_built",
+            "warehouse_deposit",
+            "first_trade",
+            "first_contract",
+            "company_member",
+            "company_production",
+            "first_shipment",
+            "first_village_help",
+            "field_survey",
+            "advanced_finance",
+            "capital_project_complete",
+            "regional_risk_view",
+            "collateral_active",
+            "collateral_repaid",
+            "hedge_linked",
+            "insured_risk",
+            "risk_summary_view");
     private static final Map<String, List<String>> ADVANCEMENT_EVENTS = Map.ofEntries(
             Map.entry("first_coin", List.of("has_ledger")),
             Map.entry("portable_finance", List.of("wallet_opened", "has_market_terminal")),
@@ -74,8 +88,11 @@ public final class TutorialProgressService {
 
     public static void copy(ServerPlayer original, ServerPlayer replacement) {
         if (original.getPersistentData().contains(ROOT_TAG)) {
-            replacement.getPersistentData().put(ROOT_TAG,
-                    original.getPersistentData().getCompound(ROOT_TAG).copy());
+            replacement
+                    .getPersistentData()
+                    .put(
+                            ROOT_TAG,
+                            original.getPersistentData().getCompound(ROOT_TAG).copy());
         }
     }
 
@@ -97,12 +114,13 @@ public final class TutorialProgressService {
         CompoundTag root = root(player);
         TutorialStage stage = stage(player);
         int optionalMask = optionalMask(player);
-        if (!force && root.getInt(LAST_SYNC_TAG) == stage.ordinal() + 1
+        if (!force
+                && root.getInt(LAST_SYNC_TAG) == stage.ordinal() + 1
                 && root.getInt(LAST_OPTIONAL_SYNC_TAG) == optionalMask + 1) return;
         root.putInt(LAST_SYNC_TAG, stage.ordinal() + 1);
         root.putInt(LAST_OPTIONAL_SYNC_TAG, optionalMask + 1);
-        FinancePacketHandler.CHANNEL.send(PacketDistributor.PLAYER.with(() -> player),
-                new TutorialProgressPacket(stage, optionalMask));
+        FinancePacketHandler.CHANNEL.send(
+                PacketDistributor.PLAYER.with(() -> player), new TutorialProgressPacket(stage, optionalMask));
     }
 
     private static Set<String> completedEvents(ServerPlayer player) {
@@ -124,9 +142,11 @@ public final class TutorialProgressService {
         CompoundTag root = root(player);
         CompoundTag events = root.getCompound(EVENTS_TAG);
         for (Map.Entry<String, List<String>> entry : ADVANCEMENT_EVENTS.entrySet()) {
-            var advancement = player.getServer().getAdvancements().getAdvancement(
-                    ResourceLocation.fromNamespaceAndPath("finance", entry.getKey()));
-            if (advancement == null || !player.getAdvancements().getOrStartProgress(advancement).isDone()) continue;
+            var advancement = player.getServer()
+                    .getAdvancements()
+                    .getAdvancement(ResourceLocation.fromNamespaceAndPath("finance", entry.getKey()));
+            if (advancement == null
+                    || !player.getAdvancements().getOrStartProgress(advancement).isDone()) continue;
             for (String event : entry.getValue()) events.putBoolean(event, true);
         }
         root.put(EVENTS_TAG, events);

@@ -1,7 +1,6 @@
 package finance.earnings;
 
 import finance.config.FinanceConfig;
-
 import java.util.List;
 
 /**
@@ -12,8 +11,7 @@ import java.util.List;
  */
 public final class EarningsExpectation {
 
-    private EarningsExpectation() {
-    }
+    private EarningsExpectation() {}
 
     /**
      * 计算市场预期净利润。

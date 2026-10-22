@@ -19,12 +19,14 @@ public final class MacroFormulas {
      * 人口越多摊得越薄，越少越厚（最多 3 倍）。于是没有工作的聚落会回到自然规模，而不是一直涨或一直跌。
      */
     public static final int SUBSISTENCE_SOL = 1_000;
+
     public static final int MAX_SUBSISTENCE_SOL = 3_000;
     /** 人均日收入每 1 元带来的生活水平加成。默认工资 12 时每个岗位约多养活 2.4 人。 */
     public static final int INCOME_SOL_PER_UNIT = 200;
+
     public static final int MAX_INCOME_SOL = 2_000;
 
-    private MacroFormulas() { }
+    private MacroFormulas() {}
 
     /**
      * 维多利亚 3 式目标价格系数：{@code 10000 × (1 + 0.75 × clamp((需求−供给)/min(需求,供给), −1, 1))}。
@@ -70,7 +72,8 @@ public final class MacroFormulas {
             total += Math.max(0, Math.min(1, f)) * c.weight();
             weights += c.weight();
         }
-        double food = fulfilment == null ? 0 : Math.max(0, Math.min(1, fulfilment.getOrDefault(NeedCategory.FOOD, 0.0)));
+        double food =
+                fulfilment == null ? 0 : Math.max(0, Math.min(1, fulfilment.getOrDefault(NeedCategory.FOOD, 0.0)));
         double base = weights == 0 ? 0 : total / weights * NEEDS_SOL_MAX * (0.5 + 0.5 * food);
         double income = Math.min(MAX_INCOME_SOL, Math.max(0, incomePerCapita) * INCOME_SOL_PER_UNIT);
         return clampSol((int) Math.round(base + income + bonusBps));
@@ -116,7 +119,7 @@ public final class MacroFormulas {
      */
     public static long migrants(int population, int rateBps, long day) {
         if (population <= 0 || rateBps <= 0) return 0;
-        long perDay = (long) population * rateBps;   // 单位：1/10000 人
+        long perDay = (long) population * rateBps; // 单位：1/10000 人
         if (perDay >= 10_000) return perDay / 10_000;
         long period = (10_000 + perDay - 1) / perDay;
         return Math.floorMod(day, period) == 0 ? 1 : 0;

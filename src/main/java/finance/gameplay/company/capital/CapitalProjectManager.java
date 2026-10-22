@@ -19,8 +19,7 @@ public final class CapitalProjectManager {
 
     private static final Map<UUID, WorldCapitalProject> PROJECTS = new LinkedHashMap<>();
 
-    private CapitalProjectManager() {
-    }
+    private CapitalProjectManager() {}
 
     public static Map<UUID, WorldCapitalProject> projects() {
         return Collections.unmodifiableMap(PROJECTS);
@@ -87,8 +86,8 @@ public final class CapitalProjectManager {
 
     /** Serializer entry point: accepts restored records without capacity side effects. */
     public static synchronized boolean restore(WorldCapitalProject project) {
-        if (project == null || PROJECTS.containsKey(project.projectId())
-                || PROJECTS.size() >= MAX_PROJECTS) return false;
+        if (project == null || PROJECTS.containsKey(project.projectId()) || PROJECTS.size() >= MAX_PROJECTS)
+            return false;
         PROJECTS.put(project.projectId(), project);
         return true;
     }

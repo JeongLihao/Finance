@@ -1,23 +1,28 @@
 package finance.network;
 
 import finance.cycle.EconomyCycleService;
+import finance.diagnostic.ModuleHealthRegistry;
 import finance.governance.CorporateActionManager;
 import finance.governance.CorporateRestructuringService;
-import finance.diagnostic.ModuleHealthRegistry;
+import java.util.UUID;
+import java.util.function.Supplier;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.network.NetworkEvent;
 import net.minecraftforge.network.PacketDistributor;
 
-import java.util.UUID;
-import java.util.function.Supplier;
-
-public record GovernanceActionPacket(Action action, UUID targetId, long price, long quantity,
-                                     long minimum, int duration, String operationKey) {
+public record GovernanceActionPacket(
+        Action action, UUID targetId, long price, long quantity, long minimum, int duration, String operationKey) {
     public enum Action {
-        START_BUYBACK, ACCEPT_BUYBACK, START_TENDER, ACCEPT_TENDER,
-        CANCEL_BUYBACK, CANCEL_TENDER, RETIRE_TREASURY,
-        EXECUTE_RECAPITALIZATION, EXECUTE_ASSET_PURCHASE
+        START_BUYBACK,
+        ACCEPT_BUYBACK,
+        START_TENDER,
+        ACCEPT_TENDER,
+        CANCEL_BUYBACK,
+        CANCEL_TENDER,
+        RETIRE_TREASURY,
+        EXECUTE_RECAPITALIZATION,
+        EXECUTE_ASSET_PURCHASE
     }
 
     public static void encode(GovernanceActionPacket packet, FriendlyByteBuf buffer) {
@@ -47,49 +52,67 @@ public record GovernanceActionPacket(Action action, UUID targetId, long price, l
         NetworkEvent.Context context = supplier.get();
         context.enqueueWork(() -> {
             ServerPlayer player = context.getSender();
-            if (player == null || packet.action == null || packet.targetId == null
-                    || packet.operationKey == null || packet.operationKey.isBlank()
+            if (player == null
+                    || packet.action == null
+                    || packet.targetId == null
+                    || packet.operationKey == null
+                    || packet.operationKey.isBlank()
                     || packet.operationKey.length() > 96) return;
             if (!ModuleHealthRegistry.mayWrite(ModuleHealthRegistry.Module.STOCK)) {
-                sendResult(player,packet.targetId,false);
+                sendResult(player, packet.targetId, false);
                 GuiFeedbackPacket.send(player, "股票与治理模块已因一致性问题暂停写入");
                 return;
             }
-            if (!MarketDataRequestLimiter.allow(player.getUUID(), player.server.getTickCount(),
-                    "governance:" + packet.action)) {
-                sendResult(player,packet.targetId,false);
+            if (!MarketDataRequestLimiter.allow(
+                    player.getUUID(), player.server.getTickCount(), "governance:" + packet.action)) {
+                sendResult(player, packet.targetId, false);
                 GuiFeedbackPacket.send(player, "操作过于频繁");
                 return;
             }
             long day = EconomyCycleService.currentMcDay(player.server);
-            CorporateActionManager.Result result = switch (packet.action) {
-                case START_BUYBACK -> CorporateActionManager.startBuyback(player.getUUID(), packet.targetId,
-                        packet.price, packet.quantity, packet.duration, day, packet.operationKey);
-                case ACCEPT_BUYBACK -> CorporateActionManager.acceptBuyback(player.getUUID(), packet.targetId,
-                        packet.quantity, day, packet.operationKey);
-                case START_TENDER -> finance.governance.TakeoverService.offerTender(player.getUUID(), packet.targetId,
-                        packet.price, packet.quantity, packet.minimum, packet.duration, day, packet.operationKey);
-                case ACCEPT_TENDER -> CorporateActionManager.acceptTender(player.getUUID(), packet.targetId,
-                        packet.quantity, day, packet.operationKey);
-                case CANCEL_BUYBACK -> CorporateActionManager.cancelBuyback(player.getUUID(), packet.targetId,
-                        day, packet.operationKey);
-                case CANCEL_TENDER -> CorporateActionManager.cancelTender(player.getUUID(), packet.targetId,
-                        day, packet.operationKey);
-                case RETIRE_TREASURY -> CorporateActionManager.retireTreasury(player.getUUID(), packet.targetId,
-                        packet.quantity, day, packet.operationKey);
-                case EXECUTE_RECAPITALIZATION -> CorporateRestructuringService.emergencyContribution(
-                        player.getUUID(), packet.targetId, day, packet.operationKey);
-                case EXECUTE_ASSET_PURCHASE -> CorporateRestructuringService.purchaseInventoryAsset(
-                        player.getUUID(), packet.targetId, day, packet.operationKey);
-            };
-            sendResult(player,packet.targetId,result.success());
+            CorporateActionManager.Result result =
+                    switch (packet.action) {
+                        case START_BUYBACK -> CorporateActionManager.startBuyback(
+                                player.getUUID(),
+                                packet.targetId,
+                                packet.price,
+                                packet.quantity,
+                                packet.duration,
+                                day,
+                                packet.operationKey);
+                        case ACCEPT_BUYBACK -> CorporateActionManager.acceptBuyback(
+                                player.getUUID(), packet.targetId, packet.quantity, day, packet.operationKey);
+                        case START_TENDER -> finance.governance.TakeoverService.offerTender(
+                                player.getUUID(),
+                                packet.targetId,
+                                packet.price,
+                                packet.quantity,
+                                packet.minimum,
+                                packet.duration,
+                                day,
+                                packet.operationKey);
+                        case ACCEPT_TENDER -> CorporateActionManager.acceptTender(
+                                player.getUUID(), packet.targetId, packet.quantity, day, packet.operationKey);
+                        case CANCEL_BUYBACK -> CorporateActionManager.cancelBuyback(
+                                player.getUUID(), packet.targetId, day, packet.operationKey);
+                        case CANCEL_TENDER -> CorporateActionManager.cancelTender(
+                                player.getUUID(), packet.targetId, day, packet.operationKey);
+                        case RETIRE_TREASURY -> CorporateActionManager.retireTreasury(
+                                player.getUUID(), packet.targetId, packet.quantity, day, packet.operationKey);
+                        case EXECUTE_RECAPITALIZATION -> CorporateRestructuringService.emergencyContribution(
+                                player.getUUID(), packet.targetId, day, packet.operationKey);
+                        case EXECUTE_ASSET_PURCHASE -> CorporateRestructuringService.purchaseInventoryAsset(
+                                player.getUUID(), packet.targetId, day, packet.operationKey);
+                    };
+            sendResult(player, packet.targetId, result.success());
             GuiFeedbackPacket.send(player, result.message());
         });
         context.setPacketHandled(true);
     }
 
-    private static void sendResult(ServerPlayer player,UUID targetId,boolean success){
-        if(player!=null&&targetId!=null)FinancePacketHandler.CHANNEL.send(
-                PacketDistributor.PLAYER.with(()->player),new GovernanceActionResultPacket(targetId,success));
+    private static void sendResult(ServerPlayer player, UUID targetId, boolean success) {
+        if (player != null && targetId != null)
+            FinancePacketHandler.CHANNEL.send(
+                    PacketDistributor.PLAYER.with(() -> player), new GovernanceActionResultPacket(targetId, success));
     }
 }

@@ -23,7 +23,11 @@ public enum NpcReason {
 
     private final String fallbackText;
 
-    NpcReason(String fallbackText) { this.fallbackText = fallbackText; }
+    NpcReason(String fallbackText) {
+        this.fallbackText = fallbackText;
+    }
 
-    public String fallbackText() { return fallbackText; }
+    public String fallbackText() {
+        return fallbackText;
+    }
 }

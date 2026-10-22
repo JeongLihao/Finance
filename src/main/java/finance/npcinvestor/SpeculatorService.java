@@ -6,7 +6,6 @@ import finance.margin.MarginPoolManager;
 import finance.margin.MarginService;
 import finance.stock.Stock;
 import finance.stock.StockMarketManager;
-
 import java.util.ArrayDeque;
 import java.util.HashMap;
 import java.util.Map;
@@ -44,12 +43,15 @@ public final class SpeculatorService {
             if (change > TRIGGER) {
                 long cap = Math.round(stock.getFloatShares() * MAX_FLOAT_RATIO) - financed;
                 long qty = Math.min(cap, Math.max(1, Math.round(stock.getFloatShares() * ORDER_FLOAT_RATIO)));
-                long cash = AccountManager.getBalance(id) + MarginPoolManager.getAccount(id).getCashCollateral();
+                long cash = AccountManager.getBalance(id)
+                        + MarginPoolManager.getAccount(id).getCashCollateral();
                 qty = Math.min(qty, cash * 2 / Math.max(1, now));
                 if (qty <= 0) continue;
-                long need = (qty * now + 1) / 2 + qty;  // 首付一半，多留一点应对报价价差
+                long need = (qty * now + 1) / 2 + qty; // 首付一半，多留一点应对报价价差
                 long topUp = need - MarginPoolManager.getAccount(id).getCashCollateral();
-                if (topUp > 0 && !MarginService.depositCollateral(id, Math.min(topUp, AccountManager.getBalance(id))).success()) continue;
+                if (topUp > 0
+                        && !MarginService.depositCollateral(id, Math.min(topUp, AccountManager.getBalance(id)))
+                                .success()) continue;
                 MarginService.marginBuy(id, symbol, qty);
             } else if (change < -TRIGGER && financed > 0) {
                 MarginService.closeFinanced(id, symbol);

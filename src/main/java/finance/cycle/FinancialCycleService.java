@@ -12,12 +12,19 @@ public final class FinancialCycleService {
     private static long lastClosedMarketDay = -1;
     private static long observedMarketDay = -1;
 
-    private FinancialCycleService() {
+    private FinancialCycleService() {}
+
+    public static long lastProcessedDay() {
+        return lastProcessedDay;
     }
 
-    public static long lastProcessedDay() { return lastProcessedDay; }
-    public static long lastClosedMarketDay() { return lastClosedMarketDay; }
-    public static long observedMarketDay() { return observedMarketDay; }
+    public static long lastClosedMarketDay() {
+        return lastClosedMarketDay;
+    }
+
+    public static long observedMarketDay() {
+        return observedMarketDay;
+    }
 
     public static int advanceTo(long currentMcDay) {
         if (currentMcDay < 0 || currentMcDay <= lastProcessedDay) return 0;
@@ -35,20 +42,27 @@ public final class FinancialCycleService {
     private static void processDay(long day) {
         // Bond and loan schedules are attached here by their managers. Keeping
         // this as the only daily entry point prevents restart double execution.
-        if(finance.diagnostic.ModuleHealthRegistry.mayWrite(finance.diagnostic.ModuleHealthRegistry.Module.DEBT)){
+        if (finance.diagnostic.ModuleHealthRegistry.mayWrite(finance.diagnostic.ModuleHealthRegistry.Module.DEBT)) {
             finance.debt.CorporateBondManager.processDay(day);
             finance.debt.CompanyLoanManager.processDay(day);
         }
         finance.fixedincome.CentralBankBillManager.processDay(day);
         finance.fixedincome.TreasuryBondManager.processDay(day);
-        if(finance.diagnostic.ModuleHealthRegistry.mayWrite(finance.diagnostic.ModuleHealthRegistry.Module.FUTURES))finance.futures.FuturesMarketManager.processDay(day);
-        if(finance.diagnostic.ModuleHealthRegistry.mayWrite(finance.diagnostic.ModuleHealthRegistry.Module.BANKING))finance.bank.BankingManager.processDay(day);
-        if(finance.diagnostic.ModuleHealthRegistry.mayWrite(finance.diagnostic.ModuleHealthRegistry.Module.COLLATERAL))finance.collateral.InventoryCollateralService.processDay(day);
-        if(finance.diagnostic.ModuleHealthRegistry.mayWrite(finance.diagnostic.ModuleHealthRegistry.Module.FUND))finance.fund.FundManager.processDay(day);
-        if(finance.diagnostic.ModuleHealthRegistry.mayWrite(finance.diagnostic.ModuleHealthRegistry.Module.INSURANCE))finance.insurance.InsuranceManager.processDay(day);
-        if(finance.diagnostic.ModuleHealthRegistry.mayWrite(finance.diagnostic.ModuleHealthRegistry.Module.STOCK))finance.governance.CorporateActionManager.processDay(day);
+        if (finance.diagnostic.ModuleHealthRegistry.mayWrite(finance.diagnostic.ModuleHealthRegistry.Module.FUTURES))
+            finance.futures.FuturesMarketManager.processDay(day);
+        if (finance.diagnostic.ModuleHealthRegistry.mayWrite(finance.diagnostic.ModuleHealthRegistry.Module.BANKING))
+            finance.bank.BankingManager.processDay(day);
+        if (finance.diagnostic.ModuleHealthRegistry.mayWrite(finance.diagnostic.ModuleHealthRegistry.Module.COLLATERAL))
+            finance.collateral.InventoryCollateralService.processDay(day);
+        if (finance.diagnostic.ModuleHealthRegistry.mayWrite(finance.diagnostic.ModuleHealthRegistry.Module.FUND))
+            finance.fund.FundManager.processDay(day);
+        if (finance.diagnostic.ModuleHealthRegistry.mayWrite(finance.diagnostic.ModuleHealthRegistry.Module.INSURANCE))
+            finance.insurance.InsuranceManager.processDay(day);
+        if (finance.diagnostic.ModuleHealthRegistry.mayWrite(finance.diagnostic.ModuleHealthRegistry.Module.STOCK))
+            finance.governance.CorporateActionManager.processDay(day);
         // 两融：先计息、后重估保证金率并强平（与公司行动同一门控）
-        if(finance.diagnostic.ModuleHealthRegistry.mayWrite(finance.diagnostic.ModuleHealthRegistry.Module.STOCK))finance.margin.MarginService.processDay(day,finance.simple.BetNotices::liquidated);
+        if (finance.diagnostic.ModuleHealthRegistry.mayWrite(finance.diagnostic.ModuleHealthRegistry.Module.STOCK))
+            finance.margin.MarginService.processDay(day, finance.simple.BetNotices::liquidated);
         finance.contract.ContractManager.processDay(day);
         if (finance.diagnostic.ModuleHealthRegistry.mayWrite(
                 finance.diagnostic.ModuleHealthRegistry.Module.COMPANY_GAMEPLAY))
@@ -58,10 +72,15 @@ public final class FinancialCycleService {
     /** Closes a fully completed market day before the new day's price reset. */
     public static boolean closeMarketDay(long completedMcDay) {
         if (completedMcDay < 0 || completedMcDay <= lastClosedMarketDay) return false;
-        if(finance.diagnostic.ModuleHealthRegistry.mayWrite(finance.diagnostic.ModuleHealthRegistry.Module.FUTURES))finance.futures.FuturesClearingService.closeDay(completedMcDay);
-        if(finance.diagnostic.ModuleHealthRegistry.mayWrite(finance.diagnostic.ModuleHealthRegistry.Module.HISTORY))MarketIndexService.closeDay(completedMcDay);
-        if(finance.diagnostic.ModuleHealthRegistry.mayWrite(finance.diagnostic.ModuleHealthRegistry.Module.BANKING))finance.bank.BankingManager.closeDay(completedMcDay);
-        if(finance.diagnostic.ModuleHealthRegistry.mayWrite(finance.diagnostic.ModuleHealthRegistry.Module.REGIONAL_RISK))finance.regional.RegionalCommodityMetricsService.closeDay(completedMcDay);
+        if (finance.diagnostic.ModuleHealthRegistry.mayWrite(finance.diagnostic.ModuleHealthRegistry.Module.FUTURES))
+            finance.futures.FuturesClearingService.closeDay(completedMcDay);
+        if (finance.diagnostic.ModuleHealthRegistry.mayWrite(finance.diagnostic.ModuleHealthRegistry.Module.HISTORY))
+            MarketIndexService.closeDay(completedMcDay);
+        if (finance.diagnostic.ModuleHealthRegistry.mayWrite(finance.diagnostic.ModuleHealthRegistry.Module.BANKING))
+            finance.bank.BankingManager.closeDay(completedMcDay);
+        if (finance.diagnostic.ModuleHealthRegistry.mayWrite(
+                finance.diagnostic.ModuleHealthRegistry.Module.REGIONAL_RISK))
+            finance.regional.RegionalCommodityMetricsService.closeDay(completedMcDay);
         lastClosedMarketDay = completedMcDay;
         EconomySavedData.markDirty();
         return true;
@@ -83,8 +102,21 @@ public final class FinancialCycleService {
         return closed;
     }
 
-    public static void restoreLastProcessedDay(long day) { lastProcessedDay = Math.max(-1, day); }
-    public static void restoreLastClosedMarketDay(long day) { lastClosedMarketDay = Math.max(-1, day); }
-    public static void restoreObservedMarketDay(long day) { observedMarketDay = Math.max(-1, day); }
-    public static void clearDirect() { lastProcessedDay = -1; lastClosedMarketDay = -1; observedMarketDay = -1; }
+    public static void restoreLastProcessedDay(long day) {
+        lastProcessedDay = Math.max(-1, day);
+    }
+
+    public static void restoreLastClosedMarketDay(long day) {
+        lastClosedMarketDay = Math.max(-1, day);
+    }
+
+    public static void restoreObservedMarketDay(long day) {
+        observedMarketDay = Math.max(-1, day);
+    }
+
+    public static void clearDirect() {
+        lastProcessedDay = -1;
+        lastClosedMarketDay = -1;
+        observedMarketDay = -1;
+    }
 }

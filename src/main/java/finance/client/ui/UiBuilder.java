@@ -26,9 +26,13 @@ public final class UiBuilder {
         this.explain = explain;
     }
 
-    public List<UiElement> elements() { return out; }
+    public List<UiElement> elements() {
+        return out;
+    }
 
-    public int width(String text) { return measure.width(text); }
+    public int width(String text) {
+        return measure.width(text);
+    }
 
     // ---------------------------------------------------------------- 背景
 
@@ -49,8 +53,19 @@ public final class UiBuilder {
         String shown = clip(text, maxWidth);
         if (shown.isEmpty()) return 0;
         int w = measure.width(shown);
-        out.add(new UiElement(UiElement.Kind.TEXT, x, y, w, TEXT_H, shown, color, 1, null,
-                shown.equals(text) ? null : text, null, 0));
+        out.add(new UiElement(
+                UiElement.Kind.TEXT,
+                x,
+                y,
+                w,
+                TEXT_H,
+                shown,
+                color,
+                1,
+                null,
+                shown.equals(text) ? null : text,
+                null,
+                0));
         return w;
     }
 
@@ -65,8 +80,19 @@ public final class UiBuilder {
     public void bigText(int x, int y, int maxWidth, String text, int color, float scale) {
         String shown = clip(text, (int) (maxWidth / scale));
         int w = (int) Math.ceil(measure.width(shown) * scale);
-        out.add(new UiElement(UiElement.Kind.TEXT, x, y, w, (int) Math.ceil(TEXT_H * scale), shown, color, scale, null,
-                shown.equals(text) ? null : text, null, 0));
+        out.add(new UiElement(
+                UiElement.Kind.TEXT,
+                x,
+                y,
+                w,
+                (int) Math.ceil(TEXT_H * scale),
+                shown,
+                color,
+                scale,
+                null,
+                shown.equals(text) ? null : text,
+                null,
+                0));
     }
 
     /** 自动换行，最多 maxLines 行（放不下的部分截断，悬停看全文）；返回占用的高度。 */
@@ -76,8 +102,19 @@ public final class UiBuilder {
         for (int i = 0; i < n; i++) {
             if (i == n - 1 && lines.size() > n) {
                 String shown = clip(String.join("", lines.subList(i, lines.size())), width);
-                out.add(new UiElement(UiElement.Kind.TEXT, x, y + i * LINE, measure.width(shown), TEXT_H, shown, color, 1,
-                        null, text, null, 0));
+                out.add(new UiElement(
+                        UiElement.Kind.TEXT,
+                        x,
+                        y + i * LINE,
+                        measure.width(shown),
+                        TEXT_H,
+                        shown,
+                        color,
+                        1,
+                        null,
+                        text,
+                        null,
+                        0));
             } else {
                 text(x, y + i * LINE, width, lines.get(i), color);
             }
@@ -139,8 +176,19 @@ public final class UiBuilder {
             out.add(new UiElement(UiElement.Kind.BUTTON, x, y, w, BUTTON_H, label, 0, 1, action, null, null, 0));
         } else {
             String reason = blocked;
-            out.add(new UiElement(UiElement.Kind.BUTTON_DISABLED, x, y, w, BUTTON_H, label, 0, 1,
-                    () -> explain.accept(reason), reason, null, 0));
+            out.add(new UiElement(
+                    UiElement.Kind.BUTTON_DISABLED,
+                    x,
+                    y,
+                    w,
+                    BUTTON_H,
+                    label,
+                    0,
+                    1,
+                    () -> explain.accept(reason),
+                    reason,
+                    null,
+                    0));
         }
         return w;
     }
@@ -193,19 +241,54 @@ public final class UiBuilder {
     // ---------------------------------------------------------------- 其他
 
     public void progress(int x, int y, int w, double ratio) {
-        out.add(new UiElement(UiElement.Kind.PROGRESS, x, y, w, 5, null, 0, 1, null, null, null,
+        out.add(new UiElement(
+                UiElement.Kind.PROGRESS,
+                x,
+                y,
+                w,
+                5,
+                null,
+                0,
+                1,
+                null,
+                null,
+                null,
                 Math.max(0, Math.min(1, Double.isFinite(ratio) ? ratio : 0))));
     }
 
     /** 走势图（价格历史）。 */
     public void chart(int x, int y, int w, int h, List<Long> series, int color) {
-        out.add(new UiElement(UiElement.Kind.CHART, x, y, w, h, null, color, 1, null, null, null, 0,
+        out.add(new UiElement(
+                UiElement.Kind.CHART,
+                x,
+                y,
+                w,
+                h,
+                null,
+                color,
+                1,
+                null,
+                null,
+                null,
+                0,
                 series == null ? List.of() : List.copyOf(series)));
     }
 
     /** K 线：bars 为开、高、低、收四个数一组。 */
     public void candles(int x, int y, int w, int h, List<Long> bars) {
-        out.add(new UiElement(UiElement.Kind.CANDLES, x, y, w, h, null, 0, 1, null, null, null, 0,
+        out.add(new UiElement(
+                UiElement.Kind.CANDLES,
+                x,
+                y,
+                w,
+                h,
+                null,
+                0,
+                1,
+                null,
+                null,
+                null,
+                0,
                 bars == null ? List.of() : List.copyOf(bars)));
     }
 

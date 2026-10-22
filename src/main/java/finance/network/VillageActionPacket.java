@@ -6,14 +6,20 @@ import finance.settlement.SettlementService;
 import finance.village.VillageManager;
 import finance.village.VillageService;
 import finance.village.VillageStall;
+import java.util.UUID;
+import java.util.function.Supplier;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraftforge.network.NetworkEvent;
 
-import java.util.UUID;
-import java.util.function.Supplier;
-
-public record VillageActionPacket(Action action, String settlementId, String stallId, String commodityId, long price, int quantity) {
-    public enum Action { REGISTER_STALL, STOCK_STALL, SET_PRICE, WITHDRAW_STALL, CLOSE_STALL }
+public record VillageActionPacket(
+        Action action, String settlementId, String stallId, String commodityId, long price, int quantity) {
+    public enum Action {
+        REGISTER_STALL,
+        STOCK_STALL,
+        SET_PRICE,
+        WITHDRAW_STALL,
+        CLOSE_STALL
+    }
 
     private static final int MAX_ID_LENGTH = 64;
 
@@ -62,7 +68,8 @@ public record VillageActionPacket(Action action, String settlementId, String sta
             switch (p.action) {
                 case REGISTER_STALL -> {
                     // 开店：在目标聚落附近才能登记
-                    if (settlementUuid == null || SettlementManager.get(settlementUuid) == null
+                    if (settlementUuid == null
+                            || SettlementManager.get(settlementUuid) == null
                             || !SettlementService.isNearby(player, settlementUuid)) {
                         GuiFeedbackPacket.send(player, "finance.village.not_nearby");
                         return;
@@ -83,9 +90,7 @@ public record VillageActionPacket(Action action, String settlementId, String sta
                     // 摊位管理：settlementId 必须与摊位归属一致，且玩家须在该摊位所在聚落附近。
                     // 否则 A 聚落附近可远程管理 B 聚落摊位（owner 校验仍在，无越权，但属非预期行为）。
                     VillageStall stall = stallUuid == null ? null : VillageManager.stall(stallUuid);
-                    if (stall == null
-                            || settlementUuid == null
-                            || !settlementUuid.equals(stall.settlementId())) {
+                    if (stall == null || settlementUuid == null || !settlementUuid.equals(stall.settlementId())) {
                         GuiFeedbackPacket.send(player, "finance.village.invalid_stall");
                         return;
                     }
@@ -122,7 +127,9 @@ public record VillageActionPacket(Action action, String settlementId, String sta
                             if (!VillageService.closeStall(player, stallUuid))
                                 GuiFeedbackPacket.send(player, "finance.village.close_failed");
                         }
-                        default -> { /* 不可达 */ }
+                        default -> {
+                            /* 不可达 */
+                        }
                     }
                 }
             }

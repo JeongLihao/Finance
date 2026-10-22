@@ -4,7 +4,6 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.EnumMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -21,8 +20,8 @@ public final class MacroEconomyManager {
     public static final int MAX_SNAPSHOTS = 120;
 
     /** 每日宏观快照。CPI 以 1/100 为单位（10000 = 100.00）。 */
-    public record Snapshot(long day, long cpiX100, long population, int avgSol, long employed,
-                           long wages, long consumptionValue) { }
+    public record Snapshot(
+            long day, long cpiX100, long population, int avgSol, long employed, long wages, long consumptionValue) {}
 
     private static final Map<UUID, SettlementEconomy> SETTLEMENTS = new LinkedHashMap<>();
     /** 设施 id → 在岗人数。 */
@@ -31,15 +30,18 @@ public final class MacroEconomyManager {
     private static final Map<UUID, UUID> LABOR_SOURCE = new LinkedHashMap<>();
     /** 公司 id → 日工资。 */
     private static final Map<UUID, Long> WAGES = new LinkedHashMap<>();
+
     private static final ArrayDeque<Snapshot> SNAPSHOTS = new ArrayDeque<>();
     private static long lastProcessedDay = Long.MIN_VALUE;
     private static long lastLaborDay = Long.MIN_VALUE;
 
-    private MacroEconomyManager() { }
+    private MacroEconomyManager() {}
 
     // ---------------------------------------------------------------- 聚落
 
-    public static SettlementEconomy settlement(UUID id) { return id == null ? null : SETTLEMENTS.get(id); }
+    public static SettlementEconomy settlement(UUID id) {
+        return id == null ? null : SETTLEMENTS.get(id);
+    }
 
     static SettlementEconomy getOrCreate(UUID id) {
         if (id == null) return null;
@@ -51,13 +53,19 @@ public final class MacroEconomyManager {
         return e;
     }
 
-    public static Collection<SettlementEconomy> settlements() { return Collections.unmodifiableCollection(SETTLEMENTS.values()); }
+    public static Collection<SettlementEconomy> settlements() {
+        return Collections.unmodifiableCollection(SETTLEMENTS.values());
+    }
 
-    static void retainSettlements(java.util.Set<UUID> ids) { SETTLEMENTS.keySet().retainAll(ids); }
+    static void retainSettlements(java.util.Set<UUID> ids) {
+        SETTLEMENTS.keySet().retainAll(ids);
+    }
 
     // ---------------------------------------------------------------- 劳动力
 
-    public static long employment(UUID facilityId) { return facilityId == null ? 0 : EMPLOYMENT.getOrDefault(facilityId, 0L); }
+    public static long employment(UUID facilityId) {
+        return facilityId == null ? 0 : EMPLOYMENT.getOrDefault(facilityId, 0L);
+    }
 
     static void setEmployment(UUID facilityId, long employed, UUID source) {
         if (facilityId == null) return;
@@ -71,10 +79,13 @@ public final class MacroEconomyManager {
         if (source != null) LABOR_SOURCE.put(facilityId, source);
     }
 
-    public static UUID laborSource(UUID facilityId) { return facilityId == null ? null : LABOR_SOURCE.get(facilityId); }
+    public static UUID laborSource(UUID facilityId) {
+        return facilityId == null ? null : LABOR_SOURCE.get(facilityId);
+    }
 
-    public static Map<UUID, Long> employmentDirect() { return Collections.unmodifiableMap(EMPLOYMENT); }
-
+    public static Map<UUID, Long> employmentDirect() {
+        return Collections.unmodifiableMap(EMPLOYMENT);
+    }
 
     static void retainFacilities(java.util.Set<UUID> ids) {
         EMPLOYMENT.keySet().retainAll(ids);
@@ -87,7 +98,6 @@ public final class MacroEconomyManager {
         return w == null ? Math.max(0, defaultWage) : w;
     }
 
-
     static boolean setWage(UUID companyId, long wage) {
         if (companyId == null || wage < 0) return false;
         if (!WAGES.containsKey(companyId) && WAGES.size() >= MAX_COMPANY_WAGES) return false;
@@ -95,7 +105,9 @@ public final class MacroEconomyManager {
         return true;
     }
 
-    public static Map<UUID, Long> wagesDirect() { return Collections.unmodifiableMap(WAGES); }
+    public static Map<UUID, Long> wagesDirect() {
+        return Collections.unmodifiableMap(WAGES);
+    }
 
     // ---------------------------------------------------------------- 指标
 
@@ -105,19 +117,31 @@ public final class MacroEconomyManager {
         while (SNAPSHOTS.size() > MAX_SNAPSHOTS) SNAPSHOTS.removeFirst();
     }
 
-    public static List<Snapshot> snapshots() { return new ArrayList<>(SNAPSHOTS); }
+    public static List<Snapshot> snapshots() {
+        return new ArrayList<>(SNAPSHOTS);
+    }
 
-    public static Snapshot latestSnapshot() { return SNAPSHOTS.peekLast(); }
+    public static Snapshot latestSnapshot() {
+        return SNAPSHOTS.peekLast();
+    }
 
     // ---------------------------------------------------------------- 日结标记
 
-    public static long lastProcessedDay() { return lastProcessedDay; }
+    public static long lastProcessedDay() {
+        return lastProcessedDay;
+    }
 
-    static void setLastProcessedDay(long day) { lastProcessedDay = day; }
+    static void setLastProcessedDay(long day) {
+        lastProcessedDay = day;
+    }
 
-    public static long lastLaborDay() { return lastLaborDay; }
+    public static long lastLaborDay() {
+        return lastLaborDay;
+    }
 
-    static void setLastLaborDay(long day) { lastLaborDay = day; }
+    static void setLastLaborDay(long day) {
+        lastLaborDay = day;
+    }
 
     public static void clearDirect() {
         SETTLEMENTS.clear();

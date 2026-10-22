@@ -5,24 +5,22 @@ import finance.chart.CandlestickSeries;
 import finance.chart.CandlestickService;
 import finance.chart.MarketInstrumentKey;
 import finance.chart.MarketInstrumentType;
+import java.util.Map;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
-
-import java.util.Map;
 
 public final class CandlestickDataSerializer {
 
     private static final int MAX_SERIES = 4096;
 
-    private CandlestickDataSerializer() {
-    }
+    private CandlestickDataSerializer() {}
 
     public static void save(CompoundTag root) {
         ListTag seriesList = new ListTag();
         int count = 0;
-        for (Map.Entry<MarketInstrumentKey, CandlestickSeries> entry
-                : CandlestickService.getSeriesDirect().entrySet()) {
+        for (Map.Entry<MarketInstrumentKey, CandlestickSeries> entry :
+                CandlestickService.getSeriesDirect().entrySet()) {
             if (count++ >= MAX_SERIES) break;
             CompoundTag seriesTag = new CompoundTag();
             seriesTag.putString("Type", entry.getKey().type().name());
@@ -50,8 +48,8 @@ public final class CandlestickDataSerializer {
         ListTag list = root.getList("Candlesticks", Tag.TAG_COMPOUND);
         for (int index = 0; index < Math.min(MAX_SERIES, list.size()); index++) {
             CompoundTag seriesTag = list.getCompound(index);
-            MarketInstrumentType type = NbtDataSupport.safeEnum(
-                    MarketInstrumentType.class, seriesTag.getString("Type"), null);
+            MarketInstrumentType type =
+                    NbtDataSupport.safeEnum(MarketInstrumentType.class, seriesTag.getString("Type"), null);
             MarketInstrumentKey key = MarketInstrumentKey.tryCreate(type, seriesTag.getString("Id"));
             if (key == null) continue;
             CandlestickSeries series = new CandlestickSeries();
@@ -61,8 +59,12 @@ public final class CandlestickDataSerializer {
                 CompoundTag barTag = bars.getCompound(barIndex);
                 try {
                     series.addLoaded(new Candlestick(
-                            barTag.getLong("Day"), barTag.getLong("Open"), barTag.getLong("High"),
-                            barTag.getLong("Low"), barTag.getLong("Close"), barTag.getLong("Volume")));
+                            barTag.getLong("Day"),
+                            barTag.getLong("Open"),
+                            barTag.getLong("High"),
+                            barTag.getLong("Low"),
+                            barTag.getLong("Close"),
+                            barTag.getLong("Volume")));
                 } catch (IllegalArgumentException ignored) {
                     // Skip corrupt bars without discarding the rest of the economy save.
                 }

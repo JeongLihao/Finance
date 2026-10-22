@@ -22,13 +22,7 @@ public class Trade {
     private final LocalDateTime timestamp;
 
     /** 新建成交记录，时间戳自动设为当前时间 */
-    public Trade(
-            UUID buyer,
-            UUID seller,
-            String commodityId,
-            long price,
-            int quantity
-    ) {
+    public Trade(UUID buyer, UUID seller, String commodityId, long price, int quantity) {
 
         this.buyer = buyer;
         this.seller = seller;
@@ -39,14 +33,7 @@ public class Trade {
     }
 
     /** 从持久化数据恢复成交记录，使用指定时间戳 */
-    public Trade(
-            UUID buyer,
-            UUID seller,
-            String commodityId,
-            long price,
-            int quantity,
-            LocalDateTime timestamp
-    ) {
+    public Trade(UUID buyer, UUID seller, String commodityId, long price, int quantity, LocalDateTime timestamp) {
 
         this.buyer = buyer;
         this.seller = seller;

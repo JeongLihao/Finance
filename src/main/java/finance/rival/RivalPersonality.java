@@ -23,15 +23,25 @@ public enum RivalPersonality {
         this.contractPremiumBps = contractPremiumBps;
     }
 
-    public String displayName() { return displayName; }
-    public int upgradeCashMultiple() { return upgradeCashMultiple; }
-    public int contractPremiumBps() { return contractPremiumBps; }
+    public String displayName() {
+        return displayName;
+    }
+
+    public int upgradeCashMultiple() {
+        return upgradeCashMultiple;
+    }
+
+    public int contractPremiumBps() {
+        return contractPremiumBps;
+    }
 
     /** 按公司 ID 确定性派生人格（同一存档结果可复现）。 */
     public static RivalPersonality forCompany(UUID companyId) {
         if (companyId == null) return CONSERVATIVE;
         RivalPersonality[] all = values();
-        return all[(int) Math.floorMod(companyId.getMostSignificantBits() ^ companyId.getLeastSignificantBits(), (long) all.length)];
+        return all[
+                (int) Math.floorMod(
+                        companyId.getMostSignificantBits() ^ companyId.getLeastSignificantBits(), (long) all.length)];
     }
 
     public static RivalPersonality parse(String name) {

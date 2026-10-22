@@ -17,7 +17,6 @@ import finance.util.MathUtil;
 import finance.village.VillageManager;
 import finance.village.VillageRecord;
 import finance.village.VillageStall;
-
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.HashSet;
@@ -42,15 +41,17 @@ public final class MacroEconomyService {
     /** 可雇用人口占聚落人口的比例（基点）。 */
     public static final int WORKFORCE_BPS = 6_000;
 
-    private MacroEconomyService() { }
+    private MacroEconomyService() {}
 
     public static boolean active() {
         return FinanceConfig.macroEnabled() && ModuleHealthRegistry.mayWrite(ModuleHealthRegistry.Module.MACRO_ECONOMY);
     }
 
     static boolean usable(SettlementRecord s) {
-        return s != null && (s.status() == SettlementStatus.ACTIVE || s.status() == SettlementStatus.REBUILDING
-                || s.status() == SettlementStatus.RAID_ALERT);
+        return s != null
+                && (s.status() == SettlementStatus.ACTIVE
+                        || s.status() == SettlementStatus.REBUILDING
+                        || s.status() == SettlementStatus.RAID_ALERT);
     }
 
     // ================================================================ VillageService 钩子
@@ -71,7 +72,9 @@ public final class MacroEconomyService {
         Map<String, Long> needs = new TreeMap<>();
         for (NeedCategory category : NeedCategory.values()) {
             double units = econ.required.getOrDefault(category, 0.0);
-            Map<String, Long> goods = MacroNeeds.allocate(category, units,
+            Map<String, Long> goods = MacroNeeds.allocate(
+                    category,
+                    units,
                     id -> CommodityRegistry.getCommodity(id) != null,
                     id -> stallStock.getOrDefault(id, 0L) > 0
                             || CommodityInventoryManager.getCommodityAmount(settlementId, id) > 0
@@ -97,7 +100,8 @@ public final class MacroEconomyService {
     }
 
     /** 采购结束后回报一种商品的需求、供给和实际消费。 */
-    public static void recordProcurement(UUID settlementId, String commodityId, long demand, long supply, long consumed) {
+    public static void recordProcurement(
+            UUID settlementId, String commodityId, long demand, long supply, long consumed) {
         if (!active()) return;
         SettlementEconomy econ = MacroEconomyManager.getOrCreate(settlementId);
         if (econ == null) return;
@@ -165,7 +169,9 @@ public final class MacroEconomyService {
             boolean marketRan = village.lastMarketDay() == day && !econ.required.isEmpty();
             closeSettlementDay(econ, village, day, step, growthBps, marketRan);
             recycleBudget(village);
-            byDimension.computeIfAbsent(settlement.dimensionId(), k -> new ArrayList<>()).add(settlement.id());
+            byDimension
+                    .computeIfAbsent(settlement.dimensionId(), k -> new ArrayList<>())
+                    .add(settlement.id());
         }
         MacroEconomyManager.retainSettlements(known);
         for (List<UUID> ids : byDimension.values()) migrate(ids, day);
@@ -176,8 +182,8 @@ public final class MacroEconomyService {
         EconomySavedData.markDirty();
     }
 
-    static void closeSettlementDay(SettlementEconomy econ, VillageRecord village, long day, int step,
-                                   int growthBps, boolean marketRan) {
+    static void closeSettlementDay(
+            SettlementEconomy econ, VillageRecord village, long day, int step, int growthBps, boolean marketRan) {
         for (GoodBook book : econ.goods.values()) book.close(day, step);
         if (!marketRan) {
             econ.rollIncome();
@@ -199,8 +205,8 @@ public final class MacroEconomyService {
         econ.rollIncome();
         double incomePerCapita = population <= 0 ? 0 : (double) econ.lastIncome / population;
         int subsistence = MacroFormulas.subsistenceSol(population, FinanceConfig.villagePopulation());
-        econ.solBps = MacroFormulas.smoothSol(econ.solBps,
-                MacroFormulas.targetSol(fulfilment, incomePerCapita, subsistence));
+        econ.solBps =
+                MacroFormulas.smoothSol(econ.solBps, MacroFormulas.targetSol(fulfilment, incomePerCapita, subsistence));
 
         econ.growthMilli += MacroFormulas.growthMilli(population, econ.solBps, growthBps, false);
         long whole = econ.growthMilli / 1000;
@@ -224,14 +230,15 @@ public final class MacroEconomyService {
     static void recycleBudget(VillageRecord village) {
         UUID budget = village.budgetAccountId();
         if (budget == null) return;
-        long daily = MathUtil.multiplyExactOrNegative1(FinanceConfig.villagePerCapitaBudget(), Math.max(0, village.population()));
+        long daily = MathUtil.multiplyExactOrNegative1(
+                FinanceConfig.villagePerCapitaBudget(), Math.max(0, village.population()));
         long cap = MathUtil.multiplyExactOrNegative1(daily, Math.max(1, FinanceConfig.villageBudgetReserveDays()));
         if (cap <= 0) return;
         long excess = AccountManager.getBalance(budget) - cap * 2;
         if (excess <= 0) return;
         if (AccountManager.moveFunds(budget, NpcMarketMaker.NPC_UUID, excess)) {
-            AccountManager.addTransactionRecord(new TransactionRecord(budget, NpcMarketMaker.NPC_UUID, excess,
-                    TransactionType.MACRO_VILLAGE_SPENDING, budget, "", 0));
+            AccountManager.addTransactionRecord(new TransactionRecord(
+                    budget, NpcMarketMaker.NPC_UUID, excess, TransactionType.MACRO_VILLAGE_SPENDING, budget, "", 0));
         }
     }
 
@@ -247,8 +254,14 @@ public final class MacroEconomyService {
             SettlementEconomy econ = MacroEconomyManager.settlement(id);
             if (econ == null) continue;
             int score = MacroFormulas.attractiveness(econ.solBps, false);
-            if (score < worstScore) { worstScore = score; worst = id; }
-            if (score > bestScore) { bestScore = score; best = id; }
+            if (score < worstScore) {
+                worstScore = score;
+                worst = id;
+            }
+            if (score > bestScore) {
+                bestScore = score;
+                best = id;
+            }
         }
         if (worst == null || best == null || worst.equals(best) || bestScore - worstScore < gap) return;
         VillageRecord from = VillageManager.get(worst);

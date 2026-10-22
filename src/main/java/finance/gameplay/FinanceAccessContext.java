@@ -1,8 +1,7 @@
 package finance.gameplay;
 
-import net.minecraft.core.BlockPos;
-
 import java.util.UUID;
+import net.minecraft.core.BlockPos;
 
 /**
  * 服务端构造的金融入口上下文。
@@ -28,8 +27,7 @@ public record FinanceAccessContext(
         int permissionLevel,
         boolean entryVerified,
         boolean sameDimension,
-        double distanceSquared
-) {
+        double distanceSquared) {
     public FinanceAccessContext {
         if (permissionLevel < 0) permissionLevel = 0;
         if (!Double.isFinite(distanceSquared) || distanceSquared < 0) {

@@ -1,12 +1,11 @@
 package finance.market.liquidity;
 
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.Optional;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 /**
  * Phase 2 做市商报价引擎的纯逻辑测试（攻击视角）。
@@ -28,8 +27,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class QuoteEngineTest {
 
-    private static MarketState state(long mid, long lastPrice, long inventory, long target,
-                                     double volatility, double baseSpread) {
+    private static MarketState state(
+            long mid, long lastPrice, long inventory, long target, double volatility, double baseSpread) {
         return new MarketState(mid, lastPrice, mid, inventory, target, volatility, baseSpread, false);
     }
 
@@ -57,8 +56,8 @@ class QuoteEngineTest {
     @Test
     void lowInventoryShiftsQuotesUp() {
         // 库存 0/500：skew = 0.5×(0-1) = -0.5 → 钳制 -0.10，整体上移 1000
-        Quote quote = QuoteEngine.buildQuote(state(10_000, 10_000, 0, 500, 0.0, 0.02))
-                .orElseThrow();
+        Quote quote =
+                QuoteEngine.buildQuote(state(10_000, 10_000, 0, 500, 0.0, 0.02)).orElseThrow();
         assertEquals(10_800L, quote.bidAsLong());
         assertEquals(11_200L, quote.askAsLong());
     }
@@ -109,8 +108,7 @@ class QuoteEngineTest {
     @Test
     void roundTripAlwaysLosesAcrossExtremeStates() {
         long[] mids = {1L, 10L, 100L, 10_000L, 1_000_000L};
-        long[][] inventories = {{0L, 500L}, {250L, 500L}, {500L, 500L},
-                {1_000L, 500L}, {10_000L, 500L}, {500L, 0L}};
+        long[][] inventories = {{0L, 500L}, {250L, 500L}, {500L, 500L}, {1_000L, 500L}, {10_000L, 500L}, {500L, 0L}};
         double[] volatilities = {0.0, 0.01, 0.2, 1.0};
         long[] lastPrices = {8_000L, 10_000L, 12_000L};
         for (long mid : mids) {
@@ -119,9 +117,10 @@ class QuoteEngineTest {
                     for (long last : lastPrices) {
                         MarketState s = new MarketState(mid, last, mid, inv[0], inv[1], vol, 0.02, false);
                         Quote quote = QuoteEngine.buildQuote(s).orElseThrow();
-                        assertTrue(quote.askAsLong() > quote.bidAsLong(),
-                                "ask-bid 必须 > 0：mid=" + mid + " inv=" + inv[0] + "/" + inv[1]
-                                        + " vol=" + vol + " last=" + last);
+                        assertTrue(
+                                quote.askAsLong() > quote.bidAsLong(),
+                                "ask-bid 必须 > 0：mid=" + mid + " inv=" + inv[0] + "/" + inv[1] + " vol=" + vol + " last="
+                                        + last);
                         assertTrue(quote.bidAsLong() >= 1);
                     }
                 }
@@ -147,17 +146,20 @@ class QuoteEngineTest {
         assertEquals(10_200L, bare.askAsLong());
 
         // 只开库存偏斜
-        Quote skewOnly = QuoteEngine.buildQuote(s, List.of(new InventorySkewStrategy())).orElseThrow();
+        Quote skewOnly =
+                QuoteEngine.buildQuote(s, List.of(new InventorySkewStrategy())).orElseThrow();
         assertEquals(8_800L, skewOnly.bidAsLong());
         assertEquals(9_200L, skewOnly.askAsLong());
 
         // 只开波动率价差
-        Quote volOnly = QuoteEngine.buildQuote(s, List.of(new VolatilitySpreadStrategy())).orElseThrow();
+        Quote volOnly = QuoteEngine.buildQuote(s, List.of(new VolatilitySpreadStrategy()))
+                .orElseThrow();
         assertEquals(8_800L, volOnly.bidAsLong());
         assertEquals(11_200L, volOnly.askAsLong());
 
         // 只开均值回归（现价=mid，无偏离 → 不调整）
-        Quote targetOnly = QuoteEngine.buildQuote(s, List.of(new TargetPriceStrategy())).orElseThrow();
+        Quote targetOnly =
+                QuoteEngine.buildQuote(s, List.of(new TargetPriceStrategy())).orElseThrow();
         assertEquals(9_800L, targetOnly.bidAsLong());
         assertEquals(10_200L, targetOnly.askAsLong());
 
@@ -168,7 +170,8 @@ class QuoteEngineTest {
 
         // 默认配置下三个策略都启用
         assertEquals(3, QuoteEngine.activeStrategies().size());
-        assertEquals(List.of("target-price", "inventory-skew", "volatility-spread"),
+        assertEquals(
+                List.of("target-price", "inventory-skew", "volatility-spread"),
                 QuoteEngine.defaultChain().stream().map(LiquidityStrategy::name).toList());
     }
 
@@ -185,8 +188,8 @@ class QuoteEngineTest {
                 return Optional.empty();
             }
         };
-        Quote quote = QuoteEngine.buildQuote(state(10_000, 10_000, 500, 500, 0.0, 0.02),
-                List.of(abstain)).orElseThrow();
+        Quote quote = QuoteEngine.buildQuote(state(10_000, 10_000, 500, 500, 0.0, 0.02), List.of(abstain))
+                .orElseThrow();
         assertEquals(9_800L, quote.bidAsLong());
         assertEquals(10_200L, quote.askAsLong());
     }
@@ -213,8 +216,7 @@ class QuoteEngineTest {
         assertEquals(0.0, VolatilityEstimator.estimate(List.of(0L, -5L), 32));
 
         // 100↔110 交替：收益率 ±ln(1.1)，标准差 ≈ 0.0953
-        double alternating = VolatilityEstimator.estimate(
-                List.of(100L, 110L, 100L, 110L, 100L), 32);
+        double alternating = VolatilityEstimator.estimate(List.of(100L, 110L, 100L, 110L, 100L), 32);
         assertTrue(alternating > 0.09 && alternating < 0.10, "vol=" + alternating);
 
         // 平稳序列波动更小

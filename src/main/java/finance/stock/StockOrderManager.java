@@ -3,18 +3,17 @@ package finance.stock;
 import finance.account.AccountManager;
 import finance.account.TransactionRecord;
 import finance.account.TransactionType;
+import finance.chart.CandlestickService;
+import finance.chart.MarketInstrumentType;
 import finance.data.EconomySavedData;
 import finance.governance.CorporateActionManager;
 import finance.market.MarketMakerLedger;
 import finance.market.liquidity.MarketMakerQuotes;
 import finance.market.liquidity.QuoteView;
-import finance.metrics.EconomyMetricsService;
 import finance.marketdata.RecentTradeService;
 import finance.marketdata.TradeDirection;
+import finance.metrics.EconomyMetricsService;
 import finance.util.MathUtil;
-import finance.chart.CandlestickService;
-import finance.chart.MarketInstrumentType;
-
 import java.util.*;
 
 /**
@@ -119,8 +118,7 @@ public class StockOrderManager {
 
         // 创始人锁定期内不可卖出
         if (stock.isFounderLocked(playerId)) {
-            return OrderResult.fail("创始人股份锁定期内不可卖出（剩余 "
-                    + stock.getFounderLockupDaysRemaining() + " 天）。");
+            return OrderResult.fail("创始人股份锁定期内不可卖出（剩余 " + stock.getFounderLockupDaysRemaining() + " 天）。");
         }
 
         // 检查玩家持股
@@ -164,7 +162,7 @@ public class StockOrderManager {
 
             // 价格必须匹配
             boolean priceMatch = order.getType() == StockOrderType.BUY
-                    ? order.getPrice() >= opposite.getPrice()  // 买单出价 ≥ 卖单要价
+                    ? order.getPrice() >= opposite.getPrice() // 买单出价 ≥ 卖单要价
                     : order.getPrice() <= opposite.getPrice(); // 卖单要价 ≤ 买单出价
 
             if (!priceMatch) {
@@ -181,8 +179,15 @@ public class StockOrderManager {
             UUID sellerId = order.getType() == StockOrderType.BUY ? opposite.getPlayerId() : order.getPlayerId();
 
             // 执行成交。失败时不推进订单状态，避免账户/持仓和订单数量半成功。
-            if (!executeTrade(buyerId, sellerId, order.getSymbol(),
-                    tradePrice, tradeQty, stock, buyerLimitPrice, order.getType() == StockOrderType.BUY)) {
+            if (!executeTrade(
+                    buyerId,
+                    sellerId,
+                    order.getSymbol(),
+                    tradePrice,
+                    tradeQty,
+                    stock,
+                    buyerLimitPrice,
+                    order.getType() == StockOrderType.BUY)) {
                 order.setQuantity(remainingQty);
                 addOrderDirect(order);
                 EconomySavedData.markDirty();
@@ -276,8 +281,15 @@ public class StockOrderManager {
             if (!check.success()) {
                 return OrderResult.fail(check.reason());
             }
-            if (!executeTrade(order.getPlayerId(), MARKET_MAKER_UUID, symbol,
-                    tradePrice, (int) fillQty, stock, order.getPrice(), true)) {
+            if (!executeTrade(
+                    order.getPlayerId(),
+                    MARKET_MAKER_UUID,
+                    symbol,
+                    tradePrice,
+                    (int) fillQty,
+                    stock,
+                    order.getPrice(),
+                    true)) {
                 return OrderResult.fail("做市商成交结算失败。");
             }
             return finishMarketMakerFill(order, fillQty, tradePrice);
@@ -295,7 +307,8 @@ public class StockOrderManager {
         }
         long cashCap = AccountManager.getBalance(MARKET_MAKER_UUID) / tradePrice;
         long headroom = MarketMakerLedger.maxInventory(floatShares) - MarketMakerLedger.getStockInventory(symbol);
-        long cap = Math.min(MarketMakerLedger.maxSingleTradeQty(floatShares),
+        long cap = Math.min(
+                MarketMakerLedger.maxSingleTradeQty(floatShares),
                 Math.min(cashCap, Math.min(lifetimeRemaining, headroom)));
         if (cap <= 0) {
             return OrderResult.fail("做市商暂无接盘额度（资金/库存/终身上限），已转入订单簿。");
@@ -306,8 +319,8 @@ public class StockOrderManager {
         if (!check.success()) {
             return OrderResult.fail(check.reason());
         }
-        if (!executeTrade(MARKET_MAKER_UUID, order.getPlayerId(), symbol,
-                tradePrice, (int) fillQty, stock, tradePrice, false)) {
+        if (!executeTrade(
+                MARKET_MAKER_UUID, order.getPlayerId(), symbol, tradePrice, (int) fillQty, stock, tradePrice, false)) {
             return OrderResult.fail("做市商成交结算失败。");
         }
         stock.addMarketMakerBoughtShares(fillQty);
@@ -325,8 +338,7 @@ public class StockOrderManager {
         if (remaining > 0) {
             order.setQuantity((int) remaining);
             addOrderDirect(order);
-            return OrderResult.ok("做市商部分成交 " + fillQty + " 股（成交价 " + tradePrice
-                    + "），剩余 " + remaining + " 股已挂入订单簿。");
+            return OrderResult.ok("做市商部分成交 " + fillQty + " 股（成交价 " + tradePrice + "），剩余 " + remaining + " 股已挂入订单簿。");
         }
         return OrderResult.ok("订单已与做市商成交，成交价: " + tradePrice);
     }
@@ -338,9 +350,15 @@ public class StockOrderManager {
      * 做市商卖出从子账本扣减库存、成交款进入总账户。任一环节失败则整体回滚，
      * 绝不出现"玩家收钱但做市商未扣款"或"玩家得股但库存未扣减"的半成功状态。</p>
      */
-    private static boolean executeTrade(UUID buyerId, UUID sellerId, String symbol,
-                                      long tradePrice, int tradeQty, Stock stock,
-                                      long buyerLimitPrice, boolean buyInitiated) {
+    private static boolean executeTrade(
+            UUID buyerId,
+            UUID sellerId,
+            String symbol,
+            long tradePrice,
+            int tradeQty,
+            Stock stock,
+            long buyerLimitPrice,
+            boolean buyInitiated) {
 
         // 计算成交金额
         long totalValue = MathUtil.multiplyExactOrNegative1(tradePrice, tradeQty);
@@ -358,7 +376,9 @@ public class StockOrderManager {
         if (mmSeller && !AccountManager.canDeposit(MARKET_MAKER_UUID, totalValue)) return false;
         if (playerBuyer && !StockPortfolioManager.canAddHolding(buyerId, symbol, tradeQty)) return false;
         // 做市商侧预检：余额/库存不足直接失败（真正扣减在提交阶段原子完成）
-        if (mmBuyer && !MarketMakerLedger.checkBuyable(symbol, tradeQty, tradePrice, stock.getFloatShares()).success()) {
+        if (mmBuyer
+                && !MarketMakerLedger.checkBuyable(symbol, tradeQty, tradePrice, stock.getFloatShares())
+                        .success()) {
             return false;
         }
         if (mmSeller && !MarketMakerLedger.checkSellable(symbol, tradeQty).success()) {
@@ -414,47 +434,30 @@ public class StockOrderManager {
         addTradeToHistory(trade);
         EconomyMetricsService.recordStockTrade(tradeQty);
         CandlestickService.recordTrade(MarketInstrumentType.STOCK, symbol, tradePrice, tradeQty);
-        RecentTradeService.record(MarketInstrumentType.STOCK, symbol, tradePrice, tradeQty,
+        RecentTradeService.record(
+                MarketInstrumentType.STOCK,
+                symbol,
+                tradePrice,
+                tradeQty,
                 buyInitiated ? TradeDirection.BUY : TradeDirection.SELL);
         if (playerBuyer) {
-            AccountManager.addTransactionRecord(
-                    new TransactionRecord(
-                            buyerId,
-                            sellerId,
-                            totalValue,
-                            TransactionType.STOCK_BUY,
-                            buyerId,
-                            symbol,
-                            tradeQty
-                    )
-            );
+            AccountManager.addTransactionRecord(new TransactionRecord(
+                    buyerId, sellerId, totalValue, TransactionType.STOCK_BUY, buyerId, symbol, tradeQty));
         }
         if (playerSeller) {
-            AccountManager.addTransactionRecord(
-                    new TransactionRecord(
-                            buyerId,
-                            sellerId,
-                            totalValue,
-                            TransactionType.STOCK_SELL,
-                            sellerId,
-                            symbol,
-                            tradeQty
-                    )
-            );
+            AccountManager.addTransactionRecord(new TransactionRecord(
+                    buyerId, sellerId, totalValue, TransactionType.STOCK_SELL, sellerId, symbol, tradeQty));
         }
         // 做市商成交单独记一笔（MARKET_MAKER_BUY/SELL），管理后台可审计做市商 P&L
         if (mmBuyer || mmSeller) {
-            AccountManager.addTransactionRecord(
-                    new TransactionRecord(
-                            buyerId,
-                            sellerId,
-                            totalValue,
-                            mmBuyer ? TransactionType.MARKET_MAKER_BUY : TransactionType.MARKET_MAKER_SELL,
-                            playerBuyer ? buyerId : sellerId,
-                            symbol,
-                            tradeQty
-                    )
-            );
+            AccountManager.addTransactionRecord(new TransactionRecord(
+                    buyerId,
+                    sellerId,
+                    totalValue,
+                    mmBuyer ? TransactionType.MARKET_MAKER_BUY : TransactionType.MARKET_MAKER_SELL,
+                    playerBuyer ? buyerId : sellerId,
+                    symbol,
+                    tradeQty));
         }
 
         EconomySavedData.markDirty();
@@ -465,8 +468,8 @@ public class StockOrderManager {
      * 回滚做市商侧已提交的资金/库存变动（玩家侧结算失败时调用）。
      * 回滚本身的存取款理论上不会失败（资金刚经手），忽略返回值以保持原有回滚风格。
      */
-    private static void rollbackMarketMakerLeg(boolean mmBuyer, boolean mmSeller,
-                                               String symbol, long tradeQty, long totalValue) {
+    private static void rollbackMarketMakerLeg(
+            boolean mmBuyer, boolean mmSeller, String symbol, long tradeQty, long totalValue) {
         if (mmBuyer) {
             AccountManager.deposit(MARKET_MAKER_UUID, totalValue);
             MarketMakerLedger.releaseBuy(symbol, tradeQty);
@@ -497,17 +500,14 @@ public class StockOrderManager {
                         ORDERS_BY_SYMBOL.remove(order.getSymbol());
                     }
                 }
-                AccountManager.addTransactionRecord(
-                        new TransactionRecord(
-                                playerId,
-                                playerId,
-                                Math.max(0, amount),
-                                TransactionType.STOCK_ORDER_CANCEL,
-                                playerId,
-                                order.getSymbol(),
-                                order.getQuantity()
-                        )
-                );
+                AccountManager.addTransactionRecord(new TransactionRecord(
+                        playerId,
+                        playerId,
+                        Math.max(0, amount),
+                        TransactionType.STOCK_ORDER_CANCEL,
+                        playerId,
+                        order.getSymbol(),
+                        order.getQuantity()));
                 EconomySavedData.markDirty();
                 return true;
             }
@@ -574,7 +574,9 @@ public class StockOrderManager {
 
     public static void addOrderDirect(StockOrder order) {
         ORDERS.add(order);
-        ORDERS_BY_SYMBOL.computeIfAbsent(order.getSymbol(), k -> new ArrayList<>()).add(order);
+        ORDERS_BY_SYMBOL
+                .computeIfAbsent(order.getSymbol(), k -> new ArrayList<>())
+                .add(order);
         sortOrderBook(ORDERS_BY_SYMBOL.get(order.getSymbol()));
     }
 

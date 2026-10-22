@@ -1,48 +1,48 @@
 package finance;
 
-import net.minecraftforge.fml.common.Mod;
+import finance.chart.CandlestickService;
 import finance.command.BalanceCommand;
-import net.minecraftforge.common.MinecraftForge;
-import net.minecraftforge.event.RegisterCommandsEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
+import finance.command.CommodityCommand;
+import finance.command.CompaniesCommand;
+import finance.command.CompanyCommand;
 import finance.command.FinanceCommand;
+import finance.command.InventoryCommand;
+import finance.command.MarginCommand;
+import finance.command.MarketCommand;
 import finance.command.PayCommand;
+import finance.command.PlayerBankCommand;
+import finance.command.TakeoverCommand;
 import finance.commodity.Commodity;
 import finance.commodity.CommodityCategory;
 import finance.commodity.CommodityRegistry;
-import finance.command.MarketCommand;
-import finance.command.CommodityCommand;
-import finance.command.InventoryCommand;
-import finance.command.CompaniesCommand;
-import finance.command.CompanyCommand;
-import finance.command.TakeoverCommand;
-import finance.command.MarginCommand;
-import finance.command.PlayerBankCommand;
 import finance.company.SystemCompanyInitializer;
 import finance.config.FinanceConfig;
 import finance.cycle.EconomyCycleService;
-import net.minecraftforge.event.server.ServerStartingEvent;
-import net.minecraftforge.event.server.ServerStoppedEvent;
-import finance.data.EconomySavedData;
 import finance.data.CommodityInventorySavedData;
-import finance.market.NpcMarketMaker;
+import finance.data.EconomySavedData;
+import finance.diagnostic.StartupSelfCheckService;
 import finance.market.MarketMakerLedger;
+import finance.market.NpcMarketMaker;
 import finance.network.FinancePacketHandler;
 import finance.network.MarketDataRequestLimiter;
-import finance.chart.CandlestickService;
-import finance.registry.ModMenus;
+import finance.registry.ModBlockEntities;
 import finance.registry.ModBlocks;
 import finance.registry.ModItems;
-import finance.registry.ModBlockEntities;
-import finance.stock.StockMarketManager;
+import finance.registry.ModMenus;
 import finance.stock.Stock;
-import finance.diagnostic.StartupSelfCheckService;
+import finance.stock.StockMarketManager;
+import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.event.RegisterCommandsEvent;
 import net.minecraftforge.event.TickEvent.Phase;
 import net.minecraftforge.event.TickEvent.ServerTickEvent;
-import net.minecraftforge.event.entity.player.PlayerEvent;
-import net.minecraftforge.event.entity.item.ItemExpireEvent;
 import net.minecraftforge.event.entity.EntityLeaveLevelEvent;
+import net.minecraftforge.event.entity.item.ItemExpireEvent;
+import net.minecraftforge.event.entity.player.PlayerEvent;
+import net.minecraftforge.event.server.ServerStartingEvent;
+import net.minecraftforge.event.server.ServerStoppedEvent;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.ModLoadingContext;
+import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.config.ModConfig;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 
@@ -67,10 +67,11 @@ public class FinanceMod {
 
     public static final String MOD_ID = "finance";
 
-    public FinanceMod(){
+    public FinanceMod() {
         finance.advancement.FinanceAdvancementTriggers.register();
         // 请勿修复这个错误，暂时未找到安全修复的方法，修复可能导致模组崩溃
-        net.minecraftforge.eventbus.api.IEventBus modBus = FMLJavaModLoadingContext.get().getModEventBus();
+        net.minecraftforge.eventbus.api.IEventBus modBus =
+                FMLJavaModLoadingContext.get().getModEventBus();
         ModBlocks.register(modBus);
         ModItems.register(modBus);
         ModBlockEntities.register(modBus);
@@ -85,67 +86,77 @@ public class FinanceMod {
 
         // ---- 注册默认商品 ----
         CommodityRegistry.registerDefault(
-                new Commodity(
-                        "iron",
-                        "minecraft:iron_ingot",
-                        "铁锭",
-                        CommodityCategory.RAW_MATERIALS,
-                        10
-                )
-        );
+                new Commodity("iron", "minecraft:iron_ingot", "铁锭", CommodityCategory.RAW_MATERIALS, 10));
+
+        CommodityRegistry.registerDefault(new Commodity("wheat", "minecraft:wheat", "小麦", CommodityCategory.FOOD, 8));
 
         CommodityRegistry.registerDefault(
-                new Commodity(
-                        "wheat",
-                        "minecraft:wheat",
-                        "小麦",
-                        CommodityCategory.FOOD,
-                        8
-                )
-        );
-
-        CommodityRegistry.registerDefault(
-                new Commodity(
-                        "stone",
-                        "minecraft:stone",
-                        "石头",
-                        CommodityCategory.BUILDING_BLOCKS,
-                        3
-                )
-        );
+                new Commodity("stone", "minecraft:stone", "石头", CommodityCategory.BUILDING_BLOCKS, 3));
 
         // ---- 宏观经济：需求类别的替代品（见 docs/MACRO_ECONOMY.md）----
         CommodityRegistry.registerDefault(new Commodity("bread", "minecraft:bread", "面包", CommodityCategory.FOOD, 30));
-        CommodityRegistry.registerDefault(new Commodity("wood", "minecraft:oak_log", "木头", CommodityCategory.BUILDING_BLOCKS, 4));
-        CommodityRegistry.registerDefault(new Commodity("coal", "minecraft:coal", "煤", CommodityCategory.RAW_MATERIALS, 6));
-        CommodityRegistry.registerDefault(new Commodity("wool", "minecraft:white_wool", "羊毛", CommodityCategory.MISCELLANEOUS, 9));
+        CommodityRegistry.registerDefault(
+                new Commodity("wood", "minecraft:oak_log", "木头", CommodityCategory.BUILDING_BLOCKS, 4));
+        CommodityRegistry.registerDefault(
+                new Commodity("coal", "minecraft:coal", "煤", CommodityCategory.RAW_MATERIALS, 6));
+        CommodityRegistry.registerDefault(
+                new Commodity("wool", "minecraft:white_wool", "羊毛", CommodityCategory.MISCELLANEOUS, 9));
 
         // ---- 央行储备分档：1 开服即有，2/3 随全服成交额解锁，0 = 只有玩家卖了才上架 ----
         java.util.Map.of("wood", 1, "stone", 1, "coal", 1, "wheat", 1, "iron", 2, "wool", 2, "bread", 0)
                 .forEach((id, tier) -> CommodityRegistry.getCommodity(id).reserveTier(tier));
-        CommodityRegistry.registerDefault(new Commodity("sand", "minecraft:sand", "沙子", CommodityCategory.BUILDING_BLOCKS, 2).reserveTier(1));
-        CommodityRegistry.registerDefault(new Commodity("potato", "minecraft:potato", "土豆", CommodityCategory.FOOD, 6).reserveTier(1));
-        CommodityRegistry.registerDefault(new Commodity("carrot", "minecraft:carrot", "胡萝卜", CommodityCategory.FOOD, 6).reserveTier(1));
-        CommodityRegistry.registerDefault(new Commodity("sugar_cane", "minecraft:sugar_cane", "甘蔗", CommodityCategory.FOOD, 5).reserveTier(1));
-        CommodityRegistry.registerDefault(new Commodity("copper", "minecraft:copper_ingot", "铜锭", CommodityCategory.RAW_MATERIALS, 7).reserveTier(2));
-        CommodityRegistry.registerDefault(new Commodity("leather", "minecraft:leather", "皮革", CommodityCategory.MISCELLANEOUS, 12).reserveTier(2));
-        CommodityRegistry.registerDefault(new Commodity("gold", "minecraft:gold_ingot", "金锭", CommodityCategory.RAW_MATERIALS, 40).reserveTier(3));
-        CommodityRegistry.registerDefault(new Commodity("redstone", "minecraft:redstone", "红石", CommodityCategory.REDSTONE, 8).reserveTier(3));
-        CommodityRegistry.registerDefault(new Commodity("lapis", "minecraft:lapis_lazuli", "青金石", CommodityCategory.RAW_MATERIALS, 15).reserveTier(3));
-        CommodityRegistry.registerDefault(new Commodity("glass", "minecraft:glass", "玻璃", CommodityCategory.BUILDING_BLOCKS, 6).reserveTier(0));
-        CommodityRegistry.registerDefault(new Commodity("paper", "minecraft:paper", "纸", CommodityCategory.MISCELLANEOUS, 6).reserveTier(0));
-        CommodityRegistry.registerDefault(new Commodity("book", "minecraft:book", "书", CommodityCategory.MISCELLANEOUS, 35).reserveTier(0));
-        CommodityRegistry.registerDefault(new Commodity("cooked_beef", "minecraft:cooked_beef", "牛排", CommodityCategory.FOOD, 18).reserveTier(0));
-        CommodityRegistry.registerDefault(new Commodity("obsidian", "minecraft:obsidian", "黑曜石", CommodityCategory.BUILDING_BLOCKS, 30).reserveTier(0));
-        CommodityRegistry.registerDefault(new Commodity("ender_pearl", "minecraft:ender_pearl", "末影珍珠", CommodityCategory.MISCELLANEOUS, 60).reserveTier(0));
-        CommodityRegistry.registerDefault(new Commodity("diamond", "minecraft:diamond", "钻石", CommodityCategory.RAW_MATERIALS, 300).reserveTier(0));
+        CommodityRegistry.registerDefault(
+                new Commodity("sand", "minecraft:sand", "沙子", CommodityCategory.BUILDING_BLOCKS, 2).reserveTier(1));
+        CommodityRegistry.registerDefault(
+                new Commodity("potato", "minecraft:potato", "土豆", CommodityCategory.FOOD, 6).reserveTier(1));
+        CommodityRegistry.registerDefault(
+                new Commodity("carrot", "minecraft:carrot", "胡萝卜", CommodityCategory.FOOD, 6).reserveTier(1));
+        CommodityRegistry.registerDefault(
+                new Commodity("sugar_cane", "minecraft:sugar_cane", "甘蔗", CommodityCategory.FOOD, 5).reserveTier(1));
+        CommodityRegistry.registerDefault(
+                new Commodity("copper", "minecraft:copper_ingot", "铜锭", CommodityCategory.RAW_MATERIALS, 7)
+                        .reserveTier(2));
+        CommodityRegistry.registerDefault(
+                new Commodity("leather", "minecraft:leather", "皮革", CommodityCategory.MISCELLANEOUS, 12)
+                        .reserveTier(2));
+        CommodityRegistry.registerDefault(
+                new Commodity("gold", "minecraft:gold_ingot", "金锭", CommodityCategory.RAW_MATERIALS, 40)
+                        .reserveTier(3));
+        CommodityRegistry.registerDefault(
+                new Commodity("redstone", "minecraft:redstone", "红石", CommodityCategory.REDSTONE, 8).reserveTier(3));
+        CommodityRegistry.registerDefault(
+                new Commodity("lapis", "minecraft:lapis_lazuli", "青金石", CommodityCategory.RAW_MATERIALS, 15)
+                        .reserveTier(3));
+        CommodityRegistry.registerDefault(
+                new Commodity("glass", "minecraft:glass", "玻璃", CommodityCategory.BUILDING_BLOCKS, 6).reserveTier(0));
+        CommodityRegistry.registerDefault(
+                new Commodity("paper", "minecraft:paper", "纸", CommodityCategory.MISCELLANEOUS, 6).reserveTier(0));
+        CommodityRegistry.registerDefault(
+                new Commodity("book", "minecraft:book", "书", CommodityCategory.MISCELLANEOUS, 35).reserveTier(0));
+        CommodityRegistry.registerDefault(
+                new Commodity("cooked_beef", "minecraft:cooked_beef", "牛排", CommodityCategory.FOOD, 18).reserveTier(0));
+        CommodityRegistry.registerDefault(
+                new Commodity("obsidian", "minecraft:obsidian", "黑曜石", CommodityCategory.BUILDING_BLOCKS, 30)
+                        .reserveTier(0));
+        CommodityRegistry.registerDefault(
+                new Commodity("ender_pearl", "minecraft:ender_pearl", "末影珍珠", CommodityCategory.MISCELLANEOUS, 60)
+                        .reserveTier(0));
+        CommodityRegistry.registerDefault(
+                new Commodity("diamond", "minecraft:diamond", "钻石", CommodityCategory.RAW_MATERIALS, 300)
+                        .reserveTier(0));
         // 绿宝石是普通商品、价格浮动：村民交易刷得越多，它就越便宜，不会冲垮货币（央行不供应）
-        CommodityRegistry.registerDefault(new Commodity(finance.cash.CashService.EMERALD, "minecraft:emerald", "绿宝石", CommodityCategory.MISCELLANEOUS, 50).reserveTier(0));
+        CommodityRegistry.registerDefault(new Commodity(
+                        finance.cash.CashService.EMERALD,
+                        "minecraft:emerald",
+                        "绿宝石",
+                        CommodityCategory.MISCELLANEOUS,
+                        50)
+                .reserveTier(0));
     }
 
     /** 注册所有命令 */
     @SubscribeEvent
-    public void onRegisterCommands(RegisterCommandsEvent event){
+    public void onRegisterCommands(RegisterCommandsEvent event) {
 
         BalanceCommand.register(event.getDispatcher());
 
@@ -177,22 +188,16 @@ public class FinanceMod {
 
     /** 服务器启动时加载持久化数据 */
     @SubscribeEvent
-    public void onServerStarting(
-            ServerStartingEvent event
-    ) {
+    public void onServerStarting(ServerStartingEvent event) {
 
         CommodityRegistry.resetToDefaults();
         EconomySavedData.resetRuntimeState();
         CommodityInventorySavedData.resetRuntimeState();
 
-        EconomySavedData.get(
-                event.getServer()
-        );
+        EconomySavedData.get(event.getServer());
         CandlestickService.observeDay(EconomyCycleService.currentMcDay(event.getServer()));
 
-        CommodityInventorySavedData.get(
-                event.getServer()
-        );
+        CommodityInventorySavedData.get(event.getServer());
 
         // 初始化国际市场
         NpcMarketMaker.seedNpcIfNeeded();
@@ -250,15 +255,20 @@ public class FinanceMod {
             finance.macro.EconomyAchievements.deliverPending(player);
             finance.macro.NewsService.notifyOnLogin(player);
             finance.account.AccountManager.getAccount(player.getUUID());
-            finance.company.Company playerCompany=finance.company.CompanyManager.getCompanyByOwner(player.getUUID());
-            if(playerCompany==null)playerCompany=finance.company.CompanyManager.getCompanies().stream().filter(company->
-                    finance.gameplay.company.CompanyMembershipService.hasPermission(company.getCompanyId(),player.getUUID(),
-                            finance.gameplay.company.CompanyPermission.VIEW_COMPANY)).findFirst().orElse(null);
-            if(playerCompany!=null){
-                finance.advancement.FinanceAdvancementTriggers.trigger(player,"company_member");
-                if(finance.gameplay.company.CompanyFacilityManager.forCompany(playerCompany.getCompanyId()).stream()
-                        .anyMatch(facility->facility.lastProcessedDay()>=0))
-                    finance.advancement.FinanceAdvancementTriggers.trigger(player,"company_production");
+            finance.company.Company playerCompany = finance.company.CompanyManager.getCompanyByOwner(player.getUUID());
+            if (playerCompany == null)
+                playerCompany = finance.company.CompanyManager.getCompanies().stream()
+                        .filter(company -> finance.gameplay.company.CompanyMembershipService.hasPermission(
+                                company.getCompanyId(),
+                                player.getUUID(),
+                                finance.gameplay.company.CompanyPermission.VIEW_COMPANY))
+                        .findFirst()
+                        .orElse(null);
+            if (playerCompany != null) {
+                finance.advancement.FinanceAdvancementTriggers.trigger(player, "company_member");
+                if (finance.gameplay.company.CompanyFacilityManager.forCompany(playerCompany.getCompanyId()).stream()
+                        .anyMatch(facility -> facility.lastProcessedDay() >= 0))
+                    finance.advancement.FinanceAdvancementTriggers.trigger(player, "company_production");
             }
         }
     }
@@ -272,7 +282,8 @@ public class FinanceMod {
     /** Vanilla discards item entities far below the world before their normal lifespan expires. */
     @SubscribeEvent
     public void onCargoLeaveLevel(EntityLeaveLevelEvent event) {
-        if (!event.getLevel().isClientSide && event.getEntity() instanceof net.minecraft.world.entity.item.ItemEntity item
+        if (!event.getLevel().isClientSide
+                && event.getEntity() instanceof net.minecraft.world.entity.item.ItemEntity item
                 && item.getY() < event.getLevel().getMinBuildHeight() - 16) {
             finance.item.SealedCargoCrateItem.markLost(item, "cargo item fell into the void");
         }
@@ -283,11 +294,12 @@ public class FinanceMod {
     public void onSettlementCasualty(net.minecraftforge.event.entity.living.LivingDeathEvent event) {
         if (!(event.getEntity().level() instanceof net.minecraft.server.level.ServerLevel level)
                 || !(event.getEntity() instanceof net.minecraft.world.entity.npc.Villager
-                || event.getEntity() instanceof net.minecraft.world.entity.animal.IronGolem)) return;
-        finance.settlement.SettlementService.nearest(level, event.getEntity().blockPosition(), 96).ifPresent(settlement -> {
-            if (settlement.noteCasualty(level.getGameTime() / 24_000L)) {
-                EconomySavedData.markDirty();
-            }
-        });
+                        || event.getEntity() instanceof net.minecraft.world.entity.animal.IronGolem)) return;
+        finance.settlement.SettlementService.nearest(level, event.getEntity().blockPosition(), 96)
+                .ifPresent(settlement -> {
+                    if (settlement.noteCasualty(level.getGameTime() / 24_000L)) {
+                        EconomySavedData.markDirty();
+                    }
+                });
     }
 }

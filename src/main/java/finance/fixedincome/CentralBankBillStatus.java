@@ -1,2 +1,6 @@
 package finance.fixedincome;
-public enum CentralBankBillStatus { ACTIVE, MATURED }
+
+public enum CentralBankBillStatus {
+    ACTIVE,
+    MATURED
+}

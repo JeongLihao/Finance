@@ -29,15 +29,20 @@ public final class FinancePonderScenes {
     public static void gettingStarted(SceneBuilder scene, SceneBuildingUtil util) {
         begin(scene, util, "getting_started", "Finance in the World");
         show(scene, util, CENTER, ModBlocks.MARKET_TERMINAL.get());
-        scene.overlay().showControls(util.vector().topOf(CENTER), Pointing.DOWN, 28)
-                .rightClick().withItem(new ItemStack(Items.BOOK));
+        scene.overlay()
+                .showControls(util.vector().topOf(CENTER), Pointing.DOWN, 28)
+                .rightClick()
+                .withItem(new ItemStack(Items.BOOK));
         scene.idle(32);
         show(scene, util, LEFT, ModBlocks.WAREHOUSE_CONTROLLER.get());
         show(scene, util, RIGHT, ModBlocks.COMPANY_DESK.get());
         connect(scene, util, LEFT, CENTER, PonderPalette.BLUE);
         connect(scene, util, CENTER, RIGHT, PonderPalette.GREEN);
-        scene.rotateCameraY(35); scene.idle(28);
-        success(scene, LEFT); success(scene, CENTER); success(scene, RIGHT);
+        scene.rotateCameraY(35);
+        scene.idle(28);
+        success(scene, LEFT);
+        success(scene, CENTER);
+        success(scene, RIGHT);
         label(scene, util, CENTER, "Explore → store → trade", PonderPalette.GREEN, 38);
         finish(scene);
     }
@@ -52,7 +57,10 @@ public final class FinancePonderScenes {
         scene.addKeyframe();
         label(scene, util, RIGHT, "Withdraw", PonderPalette.GREEN, 24);
         flow(scene, util, CENTER, RIGHT, new ItemStack(Items.IRON_INGOT, 8), PonderPalette.GREEN, 28);
-        scene.overlay().showControls(util.vector().topOf(CENTER), Pointing.DOWN, 25).rightClick().whileSneaking();
+        scene.overlay()
+                .showControls(util.vector().topOf(CENTER), Pointing.DOWN, 25)
+                .rightClick()
+                .whileSneaking();
         scene.idle(28);
         blocked(scene, util, CENTER);
         label(scene, util, CENTER, "Permission checked", PonderPalette.RED, 28);
@@ -66,10 +74,13 @@ public final class FinancePonderScenes {
         flow(scene, util, LEFT, RIGHT, new ItemStack(Items.IRON_INGOT, 6), PonderPalette.BLUE, 32);
         outline(scene, util, LEFT, PonderPalette.OUTPUT, 30);
         label(scene, util, LEFT, "Goods locked", PonderPalette.BLUE, 28);
-        scene.overlay().showControls(util.vector().topOf(RIGHT), Pointing.DOWN, 24).rightClick();
+        scene.overlay()
+                .showControls(util.vector().topOf(RIGHT), Pointing.DOWN, 24)
+                .rightClick();
         scene.idle(28);
         flow(scene, util, RIGHT, LEFT, new ItemStack(Items.EMERALD, 4), PonderPalette.GREEN, 32);
-        success(scene, LEFT); success(scene, RIGHT);
+        success(scene, LEFT);
+        success(scene, RIGHT);
         label(scene, util, CENTER, "One atomic exchange", PonderPalette.GREEN, 32);
         finish(scene);
     }
@@ -100,7 +111,9 @@ public final class FinancePonderScenes {
         connect(scene, util, LEFT, CENTER, PonderPalette.BLUE);
         flow(scene, util, CENTER, RIGHT, new ItemStack(Items.IRON_INGOT, 8), PonderPalette.INPUT, 28);
         label(scene, util, RIGHT, "One MC day", PonderPalette.MEDIUM, 30);
-        scene.rotateCameraY(25); scene.idle(28); scene.rotateCameraY(-25);
+        scene.rotateCameraY(25);
+        scene.idle(28);
+        scene.rotateCameraY(-25);
         success(scene, RIGHT);
         flow(scene, util, RIGHT, CENTER, new ItemStack(Items.GOLD_INGOT, 3), PonderPalette.OUTPUT, 28);
         blocked(scene, util, CENTER);
@@ -113,8 +126,8 @@ public final class FinancePonderScenes {
         show(scene, util, LEFT, ModBlocks.WAREHOUSE_CONTROLLER.get());
         show(scene, util, RIGHT, ModBlocks.WAREHOUSE_CONTROLLER.get());
         scene.world().setBlock(CENTER, Blocks.CHEST.defaultBlockState(), false);
-        ElementLink<WorldSectionElement> crate = scene.world().showIndependentSection(
-                util.select().position(CENTER), Direction.DOWN);
+        ElementLink<WorldSectionElement> crate =
+                scene.world().showIndependentSection(util.select().position(CENTER), Direction.DOWN);
         scene.idle(10);
         flow(scene, util, LEFT, CENTER, new ItemStack(Items.IRON_INGOT, 8), PonderPalette.INPUT, 24);
         outline(scene, util, CENTER, PonderPalette.BLUE, 28);
@@ -149,12 +162,17 @@ public final class FinancePonderScenes {
         begin(scene, util, "field_survey", "Field Survey");
         show(scene, util, LEFT, ModBlocks.SURVEY_BOARD.get());
         show(scene, util, RIGHT, ModBlocks.SETTLEMENT_TRADE_STATION.get());
-        scene.overlay().showControls(util.vector().topOf(LEFT), Pointing.DOWN, 24)
-                .rightClick().withItem(new ItemStack(Items.MAP));
+        scene.overlay()
+                .showControls(util.vector().topOf(LEFT), Pointing.DOWN, 24)
+                .rightClick()
+                .withItem(new ItemStack(Items.MAP));
         scene.idle(26);
         flow(scene, util, LEFT, RIGHT, new ItemStack(Items.FILLED_MAP), PonderPalette.BLUE, 42);
-        scene.rotateCameraY(45); scene.idle(20); scene.rotateCameraY(-45);
-        blocked(scene, util, LEFT); success(scene, RIGHT);
+        scene.rotateCameraY(45);
+        scene.idle(20);
+        scene.rotateCameraY(-45);
+        blocked(scene, util, LEFT);
+        success(scene, RIGHT);
         label(scene, util, RIGHT, "Reach the real target", PonderPalette.GREEN, 30);
         finish(scene);
     }
@@ -162,12 +180,15 @@ public final class FinancePonderScenes {
     public static void advancedFinance(SceneBuilder scene, SceneBuildingUtil util) {
         begin(scene, util, "advanced_finance", "Advanced Finance Terminal");
         show(scene, util, CENTER, ModBlocks.SECURITIES_TERMINAL.get());
-        scene.overlay().showControls(util.vector().topOf(CENTER), Pointing.DOWN, 24).rightClick();
+        scene.overlay()
+                .showControls(util.vector().topOf(CENTER), Pointing.DOWN, 24)
+                .rightClick();
         scene.idle(25);
         orbit(scene, util, LEFT, new ItemStack(Items.EMERALD), PonderPalette.GREEN);
         orbit(scene, util, RIGHT, new ItemStack(Items.PAPER), PonderPalette.BLUE);
         orbit(scene, util, FRONT, new ItemStack(Items.GOLD_INGOT), PonderPalette.MEDIUM);
-        scene.rotateCameraY(60); scene.idle(30);
+        scene.rotateCameraY(60);
+        scene.idle(30);
         success(scene, CENTER);
         label(scene, util, CENTER, "Stocks • bonds • futures", PonderPalette.BLUE, 32);
         finish(scene);
@@ -181,7 +202,8 @@ public final class FinancePonderScenes {
         outline(scene, util, RIGHT, PonderPalette.RED, 30);
         flow(scene, util, LEFT, CENTER, new ItemStack(Items.MAP), PonderPalette.BLUE, 24);
         flow(scene, util, CENTER, RIGHT, new ItemStack(Items.WHEAT, 16), PonderPalette.INPUT, 34);
-        scene.addKeyframe(); success(scene, RIGHT);
+        scene.addKeyframe();
+        success(scene, RIGHT);
         outline(scene, util, RIGHT, PonderPalette.GREEN, 32);
         flow(scene, util, RIGHT, CENTER, new ItemStack(Items.EMERALD, 5), PonderPalette.GREEN, 26);
         label(scene, util, RIGHT, "Next day: shortage ↓", PonderPalette.GREEN, 30);
@@ -214,10 +236,13 @@ public final class FinancePonderScenes {
         label(scene, util, LEFT, "Real exposure", PonderPalette.MEDIUM, 24);
         blocked(scene, util, RIGHT);
         label(scene, util, RIGHT, "Objective ≠ trade", PonderPalette.RED, 26);
-        scene.overlay().showControls(util.vector().topOf(RIGHT), Pointing.DOWN, 24).rightClick();
+        scene.overlay()
+                .showControls(util.vector().topOf(RIGHT), Pointing.DOWN, 24)
+                .rightClick();
         scene.idle(26);
         flow(scene, util, RIGHT, LEFT, new ItemStack(Items.PAPER), PonderPalette.BLUE, 28);
-        success(scene, LEFT); success(scene, RIGHT);
+        success(scene, LEFT);
+        success(scene, RIGHT);
         label(scene, util, CENTER, "Real position → coverage", PonderPalette.GREEN, 30);
         finish(scene);
     }
@@ -230,7 +255,8 @@ public final class FinancePonderScenes {
         flow(scene, util, CENTER, LEFT, new ItemStack(Items.PAPER), PonderPalette.BLUE, 24);
         outline(scene, util, LEFT, PonderPalette.BLUE, 30);
         scene.addKeyframe();
-        scene.effects().indicateRedstone(LEFT); scene.effects().indicateRedstone(RIGHT);
+        scene.effects().indicateRedstone(LEFT);
+        scene.effects().indicateRedstone(RIGHT);
         blocked(scene, util, FRONT);
         label(scene, util, FRONT, "Server evidence", PonderPalette.RED, 26);
         flow(scene, util, CENTER, RIGHT, new ItemStack(Items.EMERALD, 6), PonderPalette.GREEN, 30);
@@ -254,20 +280,26 @@ public final class FinancePonderScenes {
         scene.idle(7);
     }
 
-    private static void flow(SceneBuilder scene, SceneBuildingUtil util, BlockPos from, BlockPos to,
-                             ItemStack stack, PonderPalette color, int ticks) {
+    private static void flow(
+            SceneBuilder scene,
+            SceneBuildingUtil util,
+            BlockPos from,
+            BlockPos to,
+            ItemStack stack,
+            PonderPalette color,
+            int ticks) {
         Vec3 start = util.vector().topOf(from).add(0, .18, 0);
         Vec3 end = util.vector().topOf(to).add(0, .18, 0);
         scene.overlay().showBigLine(color, start, end, ticks + 4);
-        ElementLink<EntityElement> item = scene.world().createItemEntity(start,
-                end.subtract(start).scale(1.0D / Math.max(1, ticks)), stack);
+        ElementLink<EntityElement> item =
+                scene.world().createItemEntity(start, end.subtract(start).scale(1.0D / Math.max(1, ticks)), stack);
         scene.world().modifyEntity(item, entity -> entity.setNoGravity(true));
         scene.idle(ticks);
         scene.world().modifyEntity(item, Entity::discard);
     }
 
-    private static void orbit(SceneBuilder scene, SceneBuildingUtil util, BlockPos pos,
-                              ItemStack stack, PonderPalette color) {
+    private static void orbit(
+            SceneBuilder scene, SceneBuildingUtil util, BlockPos pos, ItemStack stack, PonderPalette color) {
         Vec3 center = util.vector().topOf(CENTER).add(0, .2, 0);
         Vec3 target = util.vector().topOf(pos).add(0, .2, 0);
         scene.overlay().showLine(color, center, target, 34);
@@ -276,15 +308,18 @@ public final class FinancePonderScenes {
         scene.idle(8);
     }
 
-    private static void connect(SceneBuilder scene, SceneBuildingUtil util, BlockPos from, BlockPos to,
-                                PonderPalette color) {
-        scene.overlay().showBigLine(color, util.vector().topOf(from), util.vector().topOf(to), 36);
+    private static void connect(
+            SceneBuilder scene, SceneBuildingUtil util, BlockPos from, BlockPos to, PonderPalette color) {
+        scene.overlay()
+                .showBigLine(color, util.vector().topOf(from), util.vector().topOf(to), 36);
         scene.idle(10);
     }
 
-    private static void outline(SceneBuilder scene, SceneBuildingUtil util, BlockPos pos,
-                                PonderPalette color, int ticks) {
-        scene.overlay().showOutline(color, "finance-" + pos + "-" + ticks, util.select().position(pos), ticks);
+    private static void outline(
+            SceneBuilder scene, SceneBuildingUtil util, BlockPos pos, PonderPalette color, int ticks) {
+        scene.overlay()
+                .showOutline(
+                        color, "finance-" + pos + "-" + ticks, util.select().position(pos), ticks);
     }
 
     private static void blocked(SceneBuilder scene, SceneBuildingUtil util, BlockPos pos) {
@@ -298,10 +333,14 @@ public final class FinancePonderScenes {
         scene.idle(6);
     }
 
-    private static void label(SceneBuilder scene, SceneBuildingUtil util, BlockPos pos, String text,
-                              PonderPalette color, int ticks) {
-        scene.overlay().showText(ticks).colored(color).text(text)
-                .pointAt(util.vector().topOf(pos)).placeNearTarget();
+    private static void label(
+            SceneBuilder scene, SceneBuildingUtil util, BlockPos pos, String text, PonderPalette color, int ticks) {
+        scene.overlay()
+                .showText(ticks)
+                .colored(color)
+                .text(text)
+                .pointAt(util.vector().topOf(pos))
+                .placeNearTarget();
         scene.idle(Math.min(12, ticks));
     }
 

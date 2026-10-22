@@ -1,13 +1,13 @@
 package finance.registry;
 
 import finance.FinanceMod;
-import finance.gui.FinanceMenu;
+import finance.gui.CompanyGameplayMenu;
 import finance.gui.FactoryMenu;
+import finance.gui.FinanceMenu;
 import finance.gui.MarketOverviewMenu;
+import finance.gui.SettlementMenu;
 import finance.gui.WalletMenu;
 import finance.gui.WarehouseMenu;
-import finance.gui.CompanyGameplayMenu;
-import finance.gui.SettlementMenu;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraftforge.common.extensions.IForgeMenuType;
 import net.minecraftforge.eventbus.api.IEventBus;

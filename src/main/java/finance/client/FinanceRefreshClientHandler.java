@@ -10,7 +10,8 @@ public final class FinanceRefreshClientHandler {
 
     public static void handle(int containerId, FinanceMenu snapshot) {
         Minecraft minecraft = Minecraft.getInstance();
-        if (snapshot == null || minecraft.player == null
+        if (snapshot == null
+                || minecraft.player == null
                 || !(minecraft.player.containerMenu instanceof FinanceMenu menu)
                 || menu.containerId != containerId) {
             return;

@@ -1,29 +1,28 @@
 package finance.gameplay.company;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import finance.account.AccountManager;
-import finance.company.Company;
-import finance.company.CompanyManager;
-import finance.company.CompanyType;
 import finance.commodity.Commodity;
 import finance.commodity.CommodityCategory;
 import finance.commodity.CommodityInventoryManager;
 import finance.commodity.CommodityRegistry;
+import finance.company.Company;
+import finance.company.CompanyManager;
+import finance.company.CompanyType;
 import finance.market.NpcMarketMaker;
 import finance.warehouse.WarehouseManager;
 import finance.warehouse.WarehousePermissionMode;
 import finance.warehouse.WarehouseRecord;
 import finance.warehouse.WarehouseStatus;
+import java.util.UUID;
 import net.minecraft.core.BlockPos;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class CompanyOperatingSnapshotServiceTest {
 
@@ -38,15 +37,23 @@ class CompanyOperatingSnapshotServiceTest {
         CommodityInventoryManager.clearInventoriesDirect();
         AccountManager.clearAccountsDirect();
         NpcMarketMaker.clearMarketPrices();
-        CommodityRegistry.register(new Commodity("iron", "minecraft:iron_ingot", "Iron",
-                CommodityCategory.RAW_MATERIALS, 10));
+        CommodityRegistry.register(
+                new Commodity("iron", "minecraft:iron_ingot", "Iron", CommodityCategory.RAW_MATERIALS, 10));
         UUID owner = UUID.randomUUID();
         company = new Company(UUID.randomUUID(), "SnapshotCo", CompanyType.RAW_MATERIALS, 50_000, owner);
         CompanyManager.registerDirect(company);
         profile = CompanyGameplayManager.createForNewCompany(company);
-        WarehouseRecord warehouse = new WarehouseRecord(UUID.randomUUID(), "minecraft:overworld",
-                BlockPos.ZERO, owner, company.getCompanyId(), 4096, WarehouseStatus.ACTIVE,
-                0, 0, WarehousePermissionMode.OWNER_ONLY);
+        WarehouseRecord warehouse = new WarehouseRecord(
+                UUID.randomUUID(),
+                "minecraft:overworld",
+                BlockPos.ZERO,
+                owner,
+                company.getCompanyId(),
+                4096,
+                WarehouseStatus.ACTIVE,
+                0,
+                0,
+                WarehousePermissionMode.OWNER_ONLY);
         WarehouseManager.restore(warehouse);
         profile.bindWarehouse(warehouse.warehouseId());
     }
@@ -129,10 +136,16 @@ class CompanyOperatingSnapshotServiceTest {
 
     @Test
     void snapshotBuildsFromPersistedRecordsWithoutLoadingBlocks() {
-        CompanyFacilityRecord facility = new CompanyFacilityRecord(UUID.randomUUID(),
-                company.getCompanyId(), "minecraft:overworld", new BlockPos(1000, 200, -1000),
-                CompanyFacilityType.FACTORY_CONTROLLER, 2, CompanyFacilityStatus.MISSING_INPUT,
-                3, null);
+        CompanyFacilityRecord facility = new CompanyFacilityRecord(
+                UUID.randomUUID(),
+                company.getCompanyId(),
+                "minecraft:overworld",
+                new BlockPos(1000, 200, -1000),
+                CompanyFacilityType.FACTORY_CONTROLLER,
+                2,
+                CompanyFacilityStatus.MISSING_INPUT,
+                3,
+                null);
         assertTrue(CompanyFacilityManager.restore(facility));
 
         CompanyOperatingSnapshot snapshot = CompanyOperatingSnapshotService.snapshot(company, 9);

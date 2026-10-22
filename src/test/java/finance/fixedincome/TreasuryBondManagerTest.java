@@ -1,23 +1,28 @@
 package finance.fixedincome;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import finance.account.AccountManager;
 import finance.account.TransactionType;
 import finance.data.EconomySavedData;
 import finance.market.CentralBank;
 import finance.policy.MonetaryPolicyService;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 class TreasuryBondManagerTest {
     private final UUID player = UUID.fromString("00000000-0000-0000-0000-000000004401");
     private final UUID player2 = UUID.fromString("00000000-0000-0000-0000-000000004402");
-    @BeforeEach void setup() { EconomySavedData.resetRuntimeState(); AccountManager.deposit(player, 5_000_000); }
 
-    @Test void termsWhitelistedAndYieldCurveOrdered() {
+    @BeforeEach
+    void setup() {
+        EconomySavedData.resetRuntimeState();
+        AccountManager.deposit(player, 5_000_000);
+    }
+
+    @Test
+    void termsWhitelistedAndYieldCurveOrdered() {
         assertTrue(YieldCurveService.treasuryYieldBasisPoints(30) > 0);
         assertTrue(YieldCurveService.treasuryYieldBasisPoints(30) < YieldCurveService.treasuryYieldBasisPoints(90));
         assertTrue(YieldCurveService.treasuryYieldBasisPoints(90) < YieldCurveService.treasuryYieldBasisPoints(180));
@@ -26,16 +31,19 @@ class TreasuryBondManagerTest {
         assertFalse(TreasuryBondManager.subscribe(player, 365, 10_000, 0).success());
     }
 
-    @Test void subscribeValidation() {
+    @Test
+    void subscribeValidation() {
         assertFalse(TreasuryBondManager.subscribe(null, 30, 10_000, 0).success());
-        assertFalse(TreasuryBondManager.subscribe(CentralBank.UUID, 30, 10_000, 0).success());
+        assertFalse(
+                TreasuryBondManager.subscribe(CentralBank.UUID, 30, 10_000, 0).success());
         assertFalse(TreasuryBondManager.subscribe(player, 30, 0, 0).success());
         assertFalse(TreasuryBondManager.subscribe(player, 30, 999, 0).success());
         assertFalse(TreasuryBondManager.subscribe(player, 30, 10_000, -1).success());
         assertTrue(TreasuryBondManager.subscribe(player, 30, 1_000, 0).success());
     }
 
-    @Test void rateLocksAtSubscription() {
+    @Test
+    void rateLocksAtSubscription() {
         var result = TreasuryBondManager.subscribe(player, 90, 10_000, 2);
         TreasuryBond bond = TreasuryBondManager.bonds().get(result.bondId());
         int locked = bond.annualRateBasisPoints();
@@ -44,7 +52,8 @@ class TreasuryBondManagerTest {
         assertTrue(YieldCurveService.treasuryYieldBasisPoints(90) > locked);
     }
 
-    @Test void maturityPaysPrincipalPlusInterestOnce() {
+    @Test
+    void maturityPaysPrincipalPlusInterestOnce() {
         var result = TreasuryBondManager.subscribe(player, 30, 100_000, 0);
         TreasuryBond bond = TreasuryBondManager.bonds().get(result.bondId());
         long due = TreasuryBondManager.expectedMaturityValue(bond, player);
@@ -58,11 +67,15 @@ class TreasuryBondManagerTest {
         assertEquals(before + due, AccountManager.getBalance(player));
         TreasuryBondManager.processDay(31);
         assertEquals(before + due, AccountManager.getBalance(player));
-        assertEquals(1, AccountManager.getTransactions().stream()
-                .filter(t -> t.getType() == TransactionType.TREASURY_BOND_MATURITY).count());
+        assertEquals(
+                1,
+                AccountManager.getTransactions().stream()
+                        .filter(t -> t.getType() == TransactionType.TREASURY_BOND_MATURITY)
+                        .count());
     }
 
-    @Test void earlyRedeemReturnsPrincipalOnly() {
+    @Test
+    void earlyRedeemReturnsPrincipalOnly() {
         var result = TreasuryBondManager.subscribe(player, 180, 50_000, 0);
         long before = AccountManager.getBalance(player);
         var redeem = TreasuryBondManager.earlyRedeem(player, result.bondId(), 10);
@@ -70,18 +83,23 @@ class TreasuryBondManagerTest {
         assertEquals(before + 50_000, AccountManager.getBalance(player));
         // 债券无持仓后被移除，二次赎回失败
         assertFalse(TreasuryBondManager.earlyRedeem(player, result.bondId(), 11).success());
-        assertEquals(1, AccountManager.getTransactions().stream()
-                .filter(t -> t.getType() == TransactionType.TREASURY_BOND_EARLY_REDEEM).count());
+        assertEquals(
+                1,
+                AccountManager.getTransactions().stream()
+                        .filter(t -> t.getType() == TransactionType.TREASURY_BOND_EARLY_REDEEM)
+                        .count());
     }
 
-    @Test void perPlayerCapEnforced() {
+    @Test
+    void perPlayerCapEnforced() {
         // 默认单人上限 2,000,000
         assertTrue(TreasuryBondManager.subscribe(player, 30, 1_500_000, 0).success());
         assertFalse(TreasuryBondManager.subscribe(player, 90, 600_000, 0).success());
         assertTrue(TreasuryBondManager.subscribe(player, 90, 500_000, 0).success());
     }
 
-    @Test void perTermIssuanceCapEnforced() {
+    @Test
+    void perTermIssuanceCapEnforced() {
         // 默认每期限档上限 10,000,000；用 5 个不同玩家绕开单人上限
         for (int i = 0; i < 5; i++) {
             UUID p = UUID.fromString("00000000-0000-0000-0000-0000000045" + String.format("%02d", 10 + i));
@@ -97,7 +115,8 @@ class TreasuryBondManagerTest {
 
     // ---- 攻击视角 ----
 
-    @Test void attack_hikeDoesNotRetroactivelyEnrich() {
+    @Test
+    void attack_hikeDoesNotRetroactivelyEnrich() {
         var result = TreasuryBondManager.subscribe(player, 180, 100_000, 0);
         TreasuryBond bond = TreasuryBondManager.bonds().get(result.bondId());
         long dueBefore = TreasuryBondManager.expectedMaturityValue(bond, player);
@@ -108,7 +127,8 @@ class TreasuryBondManagerTest {
         assertEquals(before + dueBefore, AccountManager.getBalance(player));
     }
 
-    @Test void attack_earlyRedeemCycleYieldsNothing() {
+    @Test
+    void attack_earlyRedeemCycleYieldsNothing() {
         long before = AccountManager.getBalance(player);
         for (int i = 0; i < 3; i++) {
             var r = TreasuryBondManager.subscribe(player, 30, 100_000, i);
@@ -118,7 +138,8 @@ class TreasuryBondManagerTest {
         assertEquals(before, AccountManager.getBalance(player));
     }
 
-    @Test void attack_subscribeRedeemSubscribeNoDoubleCount() {
+    @Test
+    void attack_subscribeRedeemSubscribeNoDoubleCount() {
         var r1 = TreasuryBondManager.subscribe(player, 30, 1_000_000, 0);
         assertTrue(TreasuryBondManager.earlyRedeem(player, r1.bondId(), 1).success());
         // 赎回后额度释放，可重新认购
@@ -128,7 +149,8 @@ class TreasuryBondManagerTest {
 
     // ---- bug-sweep 回归 ----
 
-    @Test void fix_p1_8_maturedBondRemovedFromRegistry() {
+    @Test
+    void fix_p1_8_maturedBondRemovedFromRegistry() {
         var result = TreasuryBondManager.subscribe(player, 30, 100_000, 0);
         UUID bondId = result.bondId();
         assertTrue(TreasuryBondManager.bonds().containsKey(bondId));
@@ -141,7 +163,8 @@ class TreasuryBondManagerTest {
         assertEquals(balance, AccountManager.getBalance(player));
     }
 
-    @Test void fix_settleSkipsUnpayableHolder() {
+    @Test
+    void fix_settleSkipsUnpayableHolder() {
         // 同日同期限认购并入同一只债券
         var r1 = TreasuryBondManager.subscribe(player, 30, 100_000, 0);
         UUID bondId = r1.bondId();
@@ -149,9 +172,15 @@ class TreasuryBondManagerTest {
         // （认购扣 10_000 后余额 = Long.MAX_VALUE - 10_052，应付 10_053 恰好溢出）
         AccountManager.deposit(player2, Long.MAX_VALUE - 1_052);
         assertTrue(TreasuryBondManager.subscribe(player2, 30, 10_000, 0).success());
-        assertEquals(bondId, TreasuryBondManager.bonds().keySet().stream()
-                .filter(id -> TreasuryBondManager.bonds().get(id).principalByPlayer().containsKey(player2))
-                .findFirst().orElseThrow());
+        assertEquals(
+                bondId,
+                TreasuryBondManager.bonds().keySet().stream()
+                        .filter(id -> TreasuryBondManager.bonds()
+                                .get(id)
+                                .principalByPlayer()
+                                .containsKey(player2))
+                        .findFirst()
+                        .orElseThrow());
 
         TreasuryBond bond = TreasuryBondManager.bonds().get(bondId);
         long before1 = AccountManager.getBalance(player);
@@ -173,9 +202,11 @@ class TreasuryBondManagerTest {
         assertFalse(TreasuryBondManager.bonds().containsKey(bondId));
     }
 
-    @Test void attack_overflowInputsRejected() {
+    @Test
+    void attack_overflowInputsRejected() {
         assertFalse(TreasuryBondManager.subscribe(player, 30, Long.MAX_VALUE, 0).success());
-        assertFalse(TreasuryBondManager.subscribe(player, 30, 10_000, Long.MAX_VALUE - 1).success());
+        assertFalse(TreasuryBondManager.subscribe(player, 30, 10_000, Long.MAX_VALUE - 1)
+                .success());
         assertFalse(TreasuryBondManager.earlyRedeem(player, null, 0).success());
         assertFalse(TreasuryBondManager.earlyRedeem(null, UUID.randomUUID(), 0).success());
     }

@@ -1,9 +1,9 @@
 package finance.testutil;
 
-import net.minecraft.server.Bootstrap;
 import net.minecraft.SharedConstants;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.Bootstrap;
 
 /** Initializes vanilla registries for plain JUnit tests that touch Items or Blocks. */
 public final class MinecraftTestBootstrap {

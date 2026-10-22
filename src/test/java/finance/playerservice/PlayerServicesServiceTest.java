@@ -1,5 +1,7 @@
 package finance.playerservice;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import finance.account.AccountManager;
 import finance.bank.BankingManager;
 import finance.company.Company;
@@ -14,14 +16,11 @@ import finance.stock.Stock;
 import finance.stock.StockMarketManager;
 import finance.stock.StockPortfolioManager;
 import io.netty.buffer.Unpooled;
+import java.util.UUID;
 import net.minecraft.network.FriendlyByteBuf;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 /** “更多操作”界面：每个动作都走与命令相同的服务方法，快照反映结果。 */
 class PlayerServicesServiceTest {
@@ -37,7 +36,8 @@ class PlayerServicesServiceTest {
         target = new Company(UUID.randomUUID(), "Target Corp", CompanyType.FOOD, 500_000, UUID.randomUUID());
         target.setPublic(true);
         CompanyManager.registerDirect(target);
-        StockMarketManager.putStockDirect(new Stock("TGTC", "Target Corp", target.getCompanyId(), 10_000, 10_000, 0, 10, 10));
+        StockMarketManager.putStockDirect(
+                new Stock("TGTC", "Target Corp", target.getCompanyId(), 10_000, 10_000, 0, 10, 10));
     }
 
     @AfterEach
@@ -54,14 +54,16 @@ class PlayerServicesServiceTest {
         return PlayerServicesService.snapshot(1, player, 1);
     }
 
-    @Test void marginDepositShowsInSnapshot() {
+    @Test
+    void marginDepositShowsInSnapshot() {
         var r = act(Action.MARGIN_DEPOSIT, "", 5_000, 0, 0, 0);
         assertTrue(r.success(), r.message());
         assertEquals(5_000, snapshot().margin().cash());
         assertFalse(act(Action.MARGIN_BUY, "", 10, 0, 0, 0).success(), "没有股票代码时拒绝");
     }
 
-    @Test void bankCharterNeedsCodeAndNameThenRatesAndDividendWork() {
+    @Test
+    void bankCharterNeedsCodeAndNameThenRatesAndDividendWork() {
         assertFalse(act(Action.BANK_CHARTER, "PBK", 10_000_000, 0, 0, 0).success());
         assertFalse(snapshot().bank().owned());
         var r = act(Action.BANK_CHARTER, "PBK Player Bank", 10_000_000, 0, 0, 0);
@@ -74,7 +76,8 @@ class PlayerServicesServiceTest {
         assertTrue(dividend.success(), dividend.message());
     }
 
-    @Test void tenderOfferByNameThenCancel() {
+    @Test
+    void tenderOfferByNameThenCancel() {
         assertTrue(StockPortfolioManager.addHolding(player, "TGTC", 3_000, 10)); // 30% 才能发起要约
         var r = act(Action.TENDER_OFFER, "Target Corp", 12, 2_100, 0, 7);
         assertTrue(r.success(), r.message());
@@ -90,7 +93,8 @@ class PlayerServicesServiceTest {
         assertFalse(act(Action.TENDER_OFFER, "Nobody Inc", 12, 100, 0, 7).success());
     }
 
-    @Test void squeezeListOnlyShowsNinetyPercentHolders() {
+    @Test
+    void squeezeListOnlyShowsNinetyPercentHolders() {
         assertTrue(StockPortfolioManager.addHolding(player, "TGTC", 8_000, 10));
         assertTrue(snapshot().squeezable().isEmpty());
         assertTrue(StockPortfolioManager.addHolding(player, "TGTC", 1_500, 10));
@@ -100,7 +104,8 @@ class PlayerServicesServiceTest {
         assertEquals(950, rows.get(0).percentX10());
     }
 
-    @Test void macroWageAndSelectionValidation() {
+    @Test
+    void macroWageAndSelectionValidation() {
         Company own = new Company(UUID.randomUUID(), "My Farm", CompanyType.FOOD, 100_000, player);
         CompanyManager.registerDirect(own);
         var r = act(Action.MACRO_WAGE, "", 9, 0, 0, 0);
@@ -111,9 +116,14 @@ class PlayerServicesServiceTest {
         assertEquals(9, macro.wage());
     }
 
-    @Test void centralBankBondSubscribeRedeemAndEarlyExit() {
+    @Test
+    void centralBankBondSubscribeRedeemAndEarlyExit() {
         var page = snapshot().centralBank();
-        assertEquals(java.util.List.of(30, 90, 180), page.offers().stream().map(PlayerServicesResponsePacket.BondOffer::termDays).toList());
+        assertEquals(
+                java.util.List.of(30, 90, 180),
+                page.offers().stream()
+                        .map(PlayerServicesResponsePacket.BondOffer::termDays)
+                        .toList());
         assertTrue(page.offers().stream().allMatch(o -> o.yieldBps() > 0));
         long amount = Math.max(page.bondMinAmount(), 10_000);
         var r = act(Action.CB_BOND_SUBSCRIBE, "", 90, amount, 0, 0);
@@ -125,11 +135,13 @@ class PlayerServicesServiceTest {
         var redeem = act(Action.CB_BOND_REDEEM, bonds.get(0).id().toString(), 0, 0, 0, 0);
         assertTrue(redeem.success(), redeem.message());
         assertTrue(snapshot().centralBank().bonds().isEmpty());
-        assertTrue(finance.macro.EconomyAchievements.pending(player).contains(finance.macro.EconomyAchievements.EARLY_EXIT));
+        assertTrue(finance.macro.EconomyAchievements.pending(player)
+                .contains(finance.macro.EconomyAchievements.EARLY_EXIT));
         assertFalse(act(Action.TIME_DEPOSIT_EARLY, "not-a-uuid", 0, 0, 0, 0).success());
     }
 
-    @Test void earningsReportIsKeptAsDetailUntilNextQuery() {
+    @Test
+    void earningsReportIsKeptAsDetailUntilNextQuery() {
         var r = act(Action.EARNINGS_REPORT, "tgtc", 0, 0, 0, 0);
         assertTrue(r.success(), r.message());
         assertTrue(snapshot().detailTitle().contains("TGTC"), snapshot().detailTitle());
@@ -137,7 +149,8 @@ class PlayerServicesServiceTest {
         assertFalse(snapshot().calendar().isEmpty());
     }
 
-    @Test void responseAndActionPacketsRoundTrip() {
+    @Test
+    void responseAndActionPacketsRoundTrip() {
         assertTrue(StockPortfolioManager.addHolding(player, "TGTC", 3_000, 10));
         act(Action.TENDER_OFFER, "Target Corp", 12, 2_100, 0, 7);
         act(Action.EARNINGS_REPORT, "TGTC", 0, 0, 0, 0);

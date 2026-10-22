@@ -1,20 +1,18 @@
 package finance.data.serializer;
 
 import finance.metrics.EconomyMetricsService;
+import java.util.ArrayList;
+import java.util.List;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
-
-import java.util.ArrayList;
-import java.util.List;
 
 /** Persists the in-progress daily counters and the rolling economy dashboard history. */
 public final class MetricsDataSerializer {
 
     private static final String ROOT_KEY = "EconomyMetrics";
 
-    private MetricsDataSerializer() {
-    }
+    private MetricsDataSerializer() {}
 
     public static void save(CompoundTag root) {
         CompoundTag metricsTag = new CompoundTag();

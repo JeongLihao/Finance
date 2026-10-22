@@ -2,21 +2,17 @@ package finance.gameplay;
 
 import net.minecraft.server.level.ServerPlayer;
 
-import java.util.UUID;
-
 /** Minecraft 世界入口与现有金融 GUI/内核之间的服务端桥梁。 */
 public final class FinanceGameplayService {
 
-    private FinanceGameplayService() {
-    }
+    private FinanceGameplayService() {}
 
     /**
      * 处理没有可信方块会话的客户端请求。目前只有受配置约束的旧快捷键可从这里打开界面。
      * 物理终端在完成注册后必须走带方块位置和方块类型复核的入口。
      */
-    public static GameplayActionResult openRemoteRequest(ServerPlayer player,
-                                                          FinanceTerminalType terminalType,
-                                                          FinanceScreenMode requestedMode) {
+    public static GameplayActionResult openRemoteRequest(
+            ServerPlayer player, FinanceTerminalType terminalType, FinanceScreenMode requestedMode) {
         if (player == null || terminalType == null || requestedMode == null) {
             return GameplayActionResult.failure("finance.access.invalid_request");
         }
@@ -36,5 +32,4 @@ public final class FinanceGameplayService {
         }
         return FinanceAccessService.authorize(context, FinanceAccessPolicy.current());
     }
-
 }

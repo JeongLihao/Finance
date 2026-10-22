@@ -1,22 +1,21 @@
 package finance.macro;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import finance.data.EconomySavedData;
 import finance.settlement.SettlementManager;
 import finance.settlement.SettlementRecord;
-import net.minecraft.core.BlockPos;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.*;
+import net.minecraft.core.BlockPos;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 /** 世界反馈：心情与抱怨的判定、状态翻转时的公告队列。粒子和音效需要真实世界，这里不测。 */
 class MacroWorldFeedbackTest {
@@ -25,7 +24,8 @@ class MacroWorldFeedbackTest {
     @BeforeEach
     void setup() {
         EconomySavedData.resetRuntimeState();
-        SettlementRecord s = SettlementManager.registerOrRecover(UUID.randomUUID(), "minecraft:overworld", new BlockPos(0, 64, 0), "alpha");
+        SettlementRecord s = SettlementManager.registerOrRecover(
+                UUID.randomUUID(), "minecraft:overworld", new BlockPos(0, 64, 0), "alpha");
         econ = MacroEconomyManager.getOrCreate(s.id());
         for (NeedCategory c : NeedCategory.values()) econ.lastFulfilment.put(c, 1.0);
     }
@@ -39,7 +39,8 @@ class MacroWorldFeedbackTest {
         return NewsService.pool().stream().map(NewsService.Item::headline).toList();
     }
 
-    @Test void moodAndComplaintFollowTheWorstNeed() {
+    @Test
+    void moodAndComplaintFollowTheWorstNeed() {
         econ.solBps = 5_000;
         assertEquals(MacroWorldFeedback.Mood.CALM, MacroWorldFeedback.mood(econ));
         assertNull(MacroWorldFeedback.complaintKey(econ), "过得一般时村民不说话");
@@ -54,13 +55,15 @@ class MacroWorldFeedbackTest {
         assertEquals("finance.macro.complaint.happy", MacroWorldFeedback.complaintKey(econ));
     }
 
-    @Test void firstDayAfterStartupOnlyRecordsTheBaseline() {
+    @Test
+    void firstDayAfterStartupOnlyRecordsTheBaseline() {
         econ.lastFulfilment.put(NeedCategory.FOOD, 0.2);
         MacroWorldFeedback.onDayClosed();
         assertTrue(NewsService.pool().isEmpty(), "重启前就在的饥荒不再上报");
     }
 
-    @Test void stateFlipsGoToTheNewsDeskOnce() {
+    @Test
+    void stateFlipsGoToTheNewsDeskOnce() {
         MacroWorldFeedback.onDayClosed();
         econ.lastFulfilment.put(NeedCategory.FOOD, 0.2);
         MacroWorldFeedback.onDayClosed();
@@ -73,18 +76,27 @@ class MacroWorldFeedbackTest {
         assertTrue(headlines().contains("alpha饥荒结束"));
     }
 
-    @Test void queueIsBounded() {
-        for (int i = 0; i < 200; i++) MacroWorldFeedback.announce("finance.macro.announce.strike_end", MacroWorldFeedback.Tone.GOOD);
+    @Test
+    void queueIsBounded() {
+        for (int i = 0; i < 200; i++)
+            MacroWorldFeedback.announce("finance.macro.announce.strike_end", MacroWorldFeedback.Tone.GOOD);
         assertEquals(MacroWorldFeedback.MAX_QUEUE, MacroWorldFeedback.queued().size());
     }
 
-    @Test void everyMessageKeyIsTranslated() throws Exception {
+    @Test
+    void everyMessageKeyIsTranslated() throws Exception {
         JsonObject zh = json("assets/finance/lang/zh_cn.json");
         JsonObject en = json("assets/finance/lang/en_us.json");
-        List<String> keys = new java.util.ArrayList<>(List.of("finance.macro.announce.brief", "finance.macro.announce.extra",
-                "finance.macro.announce.weekly", "finance.macro.news.claimed", "finance.macro.news.waiting",
-                "finance.macro.caravan_arrived", "finance.macro.complaint.happy"));
-        for (NeedCategory c : NeedCategory.values()) keys.add("finance.macro.complaint." + c.name().toLowerCase(java.util.Locale.ROOT));
+        List<String> keys = new java.util.ArrayList<>(List.of(
+                "finance.macro.announce.brief",
+                "finance.macro.announce.extra",
+                "finance.macro.announce.weekly",
+                "finance.macro.news.claimed",
+                "finance.macro.news.waiting",
+                "finance.macro.caravan_arrived",
+                "finance.macro.complaint.happy"));
+        for (NeedCategory c : NeedCategory.values())
+            keys.add("finance.macro.complaint." + c.name().toLowerCase(java.util.Locale.ROOT));
         for (String k : keys) {
             assertTrue(zh.has(k), k);
             assertTrue(en.has(k), k);
@@ -94,7 +106,8 @@ class MacroWorldFeedbackTest {
     private JsonObject json(String path) throws Exception {
         try (InputStream in = getClass().getClassLoader().getResourceAsStream(path)) {
             assertNotNull(in, path);
-            return JsonParser.parseReader(new InputStreamReader(in, StandardCharsets.UTF_8)).getAsJsonObject();
+            return JsonParser.parseReader(new InputStreamReader(in, StandardCharsets.UTF_8))
+                    .getAsJsonObject();
         }
     }
 }

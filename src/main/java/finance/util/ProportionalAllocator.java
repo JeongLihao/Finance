@@ -9,8 +9,7 @@ import java.util.UUID;
 
 public final class ProportionalAllocator {
 
-    private ProportionalAllocator() {
-    }
+    private ProportionalAllocator() {}
 
     /**
      * Allocates against the exact sum of valid weights. This overload is for
@@ -27,8 +26,8 @@ public final class ProportionalAllocator {
         return allocate(totalAmount, weights, BigInteger.valueOf(totalWeight));
     }
 
-    private static List<Allocation> allocate(long totalAmount, Map<UUID, Long> weights,
-                                             BigInteger requestedTotalWeight) {
+    private static List<Allocation> allocate(
+            long totalAmount, Map<UUID, Long> weights, BigInteger requestedTotalWeight) {
         List<Share> shares = new ArrayList<>();
         if (totalAmount <= 0 || weights == null || weights.isEmpty()) {
             return List.of();
@@ -54,9 +53,8 @@ public final class ProportionalAllocator {
         // mode distributes only the portion represented by actual ownership.
         // If corrupted data declares less than actual ownership, clamp the
         // denominator upward so the result can never exceed totalAmount.
-        BigInteger denominator = requestedTotalWeight == null
-                ? actualTotalWeight
-                : requestedTotalWeight.max(actualTotalWeight);
+        BigInteger denominator =
+                requestedTotalWeight == null ? actualTotalWeight : requestedTotalWeight.max(actualTotalWeight);
         BigInteger allocationTarget = requestedTotalWeight == null
                 ? total
                 : total.multiply(actualTotalWeight).divide(denominator);
@@ -69,17 +67,16 @@ public final class ProportionalAllocator {
                 continue;
             }
 
-            BigInteger[] divRem = allocationTarget.multiply(BigInteger.valueOf(weight))
-                    .divideAndRemainder(actualTotalWeight);
+            BigInteger[] divRem =
+                    allocationTarget.multiply(BigInteger.valueOf(weight)).divideAndRemainder(actualTotalWeight);
             long base = divRem[0].longValueExact();
             shares.add(new Share(id, weight, base, divRem[1]));
             allocated = allocated.add(divRem[0]);
         }
 
         BigInteger remaining = allocationTarget.subtract(allocated).max(BigInteger.ZERO);
-        shares.sort(Comparator
-                .comparing(Share::remainder).reversed()
-                .thenComparing(share -> share.id().toString()));
+        shares.sort(Comparator.comparing(Share::remainder).reversed().thenComparing(share -> share.id()
+                .toString()));
 
         List<Allocation> result = new ArrayList<>(shares.size());
         for (int i = 0; i < shares.size(); i++) {
@@ -90,9 +87,7 @@ public final class ProportionalAllocator {
         return result;
     }
 
-    private record Share(UUID id, long weight, long amount, BigInteger remainder) {
-    }
+    private record Share(UUID id, long weight, long amount, BigInteger remainder) {}
 
-    public record Allocation(UUID id, long weight, long amount) {
-    }
+    public record Allocation(UUID id, long weight, long amount) {}
 }

@@ -8,12 +8,11 @@ import finance.market.CentralBank;
 import finance.market.MarketPrice;
 import finance.market.NpcMarketMaker;
 import finance.util.MathUtil;
-import net.minecraft.nbt.CompoundTag;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import net.minecraft.nbt.CompoundTag;
 
 /**
  * 央行储备：市场上的货只有两个来源——央行按档投放的原材料，和玩家卖进来的货。
@@ -121,7 +120,8 @@ public final class ReserveService {
         } else {
             fromReserve = 0;
         }
-        if (qty > fromReserve) CommodityInventoryManager.addCommodity(NpcMarketMaker.NPC_UUID, commodityId, qty - fromReserve);
+        if (qty > fromReserve)
+            CommodityInventoryManager.addCommodity(NpcMarketMaker.NPC_UUID, commodityId, qty - fromReserve);
         return qty;
     }
 
@@ -162,12 +162,15 @@ public final class ReserveService {
         if (value > 0) tradedValue = MathUtil.saturatedAddNonNegative(tradedValue, value);
     }
 
-    public static long tradedValue() { return tradedValue; }
+    public static long tradedValue() {
+        return tradedValue;
+    }
 
     /** 某一档的商品名（经济天气里用）。 */
     public static List<String> namesOfTier(int tier) {
         List<String> out = new ArrayList<>();
-        for (Commodity c : CommodityRegistry.getAllCommodities()) if (c.getReserveTier() == tier) out.add(c.getDisplayName());
+        for (Commodity c : CommodityRegistry.getAllCommodities())
+            if (c.getReserveTier() == tier) out.add(c.getDisplayName());
         out.sort(String::compareTo);
         return out;
     }
@@ -191,7 +194,8 @@ public final class ReserveService {
                 CommodityInventoryManager.addCommodity(CentralBank.UUID, id, excess);
             }
             MarketPrice mp = NpcMarketMaker.getMarketPrice(id);
-            if (mp != null) mp.recomputePrice(CommodityInventoryManager.getCommodityAmount(NpcMarketMaker.NPC_UUID, id));
+            if (mp != null)
+                mp.recomputePrice(CommodityInventoryManager.getCommodityAmount(NpcMarketMaker.NPC_UUID, id));
         }
     }
 

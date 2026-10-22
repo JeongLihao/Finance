@@ -9,10 +9,9 @@ import finance.regional.RegionalCommodityMetricsService;
 import finance.settlement.SettlementRecord;
 import finance.settlement.SettlementStatus;
 import finance.util.MathUtil;
-import net.minecraft.core.BlockPos;
-
 import java.util.Random;
 import java.util.UUID;
+import net.minecraft.core.BlockPos;
 
 /**
  * 商队定价与风险纯函数（无世界写操作，可单测）。
@@ -23,7 +22,7 @@ import java.util.UUID;
  */
 public final class CaravanPricing {
 
-    private CaravanPricing() { }
+    private CaravanPricing() {}
 
     // ================================================================
     // 价格
@@ -45,8 +44,8 @@ public final class CaravanPricing {
             return 0;
         }
         // 宏观经济启用时，用本地供需价格系数代替区域报价修正
-        int mult = finance.macro.MacroEconomyService.caravanQuoteBps(source, commodityId,
-                RegionalCommodityMetricsService.quoteMultiplierBps(source, commodityId));
+        int mult = finance.macro.MacroEconomyService.caravanQuoteBps(
+                source, commodityId, RegionalCommodityMetricsService.quoteMultiplierBps(source, commodityId));
         long scaled = MathUtil.multiplyExactOrNegative1(mid, Math.max(1, mult));
         if (scaled <= 0) {
             return 0;
@@ -71,8 +70,8 @@ public final class CaravanPricing {
         if (mid <= 0) {
             return 0;
         }
-        int mult = finance.macro.MacroEconomyService.caravanQuoteBps(dest, commodityId,
-                RegionalCommodityMetricsService.quoteMultiplierBps(dest, commodityId));
+        int mult = finance.macro.MacroEconomyService.caravanQuoteBps(
+                dest, commodityId, RegionalCommodityMetricsService.quoteMultiplierBps(dest, commodityId));
         long scaled = MathUtil.multiplyExactOrNegative1(mid, Math.max(1, mult));
         if (scaled <= 0) {
             return 0;
@@ -136,8 +135,7 @@ public final class CaravanPricing {
      * 被劫概率（基点），钳制到 [minBps, maxBps]：
      * {@code base + distKm × perKm（上限） + raidAlertBonus − guardLevel × guardReduce}。
      */
-    public static int raidBps(SettlementRecord source, SettlementRecord dest,
-                              long distanceBlocks, int guardLevel) {
+    public static int raidBps(SettlementRecord source, SettlementRecord dest, long distanceBlocks, int guardLevel) {
         long risk = FinanceConfig.caravanRaidBaseBps();
         if (distanceBlocks >= 0) {
             long km = distanceBlocks / 1000;
@@ -183,10 +181,14 @@ public final class CaravanPricing {
     /** 保镖工资（每趟），按等级查表。 */
     public static long guardWage(int guardLevel) {
         switch (Math.max(0, Math.min(CaravanRoute.MAX_GUARD_LEVEL, guardLevel))) {
-            case 1: return Math.max(0L, FinanceConfig.caravanGuardWage1());
-            case 2: return Math.max(0L, FinanceConfig.caravanGuardWage2());
-            case 3: return Math.max(0L, FinanceConfig.caravanGuardWage3());
-            default: return 0L;
+            case 1:
+                return Math.max(0L, FinanceConfig.caravanGuardWage1());
+            case 2:
+                return Math.max(0L, FinanceConfig.caravanGuardWage2());
+            case 3:
+                return Math.max(0L, FinanceConfig.caravanGuardWage3());
+            default:
+                return 0L;
         }
     }
 
@@ -211,14 +213,14 @@ public final class CaravanPricing {
         }
         exposure = exposure / 10_000L;
         // × lossRatio × margin
-        long withLoss = MathUtil.multiplyExactOrNegative1(
-                exposure, Math.max(0, FinanceConfig.caravanRaidLossRatioBps()));
+        long withLoss =
+                MathUtil.multiplyExactOrNegative1(exposure, Math.max(0, FinanceConfig.caravanRaidLossRatioBps()));
         if (withLoss <= 0) {
             return 0;
         }
         withLoss = withLoss / 10_000L;
-        long premium = MathUtil.multiplyExactOrNegative1(
-                withLoss, Math.max(10_000, FinanceConfig.caravanInsureMarginBps()));
+        long premium =
+                MathUtil.multiplyExactOrNegative1(withLoss, Math.max(10_000, FinanceConfig.caravanInsureMarginBps()));
         if (premium <= 0) {
             return 0;
         }

@@ -19,11 +19,25 @@ public final class MarketIndexState {
         this.id = id;
     }
 
-    public String id() { return id; }
-    public BigDecimal divisor() { return divisor; }
-    public String constituentFingerprint() { return constituentFingerprint; }
-    public List<MarketIndexPoint> history() { return List.copyOf(history); }
-    public MarketIndexPoint latest() { return history.isEmpty() ? null : history.get(history.size() - 1); }
+    public String id() {
+        return id;
+    }
+
+    public BigDecimal divisor() {
+        return divisor;
+    }
+
+    public String constituentFingerprint() {
+        return constituentFingerprint;
+    }
+
+    public List<MarketIndexPoint> history() {
+        return List.copyOf(history);
+    }
+
+    public MarketIndexPoint latest() {
+        return history.isEmpty() ? null : history.get(history.size() - 1);
+    }
 
     public boolean close(long day, BigDecimal rawValue, String fingerprint) {
         if (day < 0 || rawValue == null || rawValue.signum() <= 0 || fingerprint == null || fingerprint.isBlank()) {
@@ -43,7 +57,8 @@ public final class MarketIndexState {
         if (!Double.isFinite(value) || value < 0) return false;
         constituentFingerprint = fingerprint;
         history.add(new MarketIndexPoint(day, value));
-        if (history.size() > MAX_HISTORY) history.subList(0, history.size() - MAX_HISTORY).clear();
+        if (history.size() > MAX_HISTORY)
+            history.subList(0, history.size() - MAX_HISTORY).clear();
         return true;
     }
 
@@ -52,12 +67,14 @@ public final class MarketIndexState {
         constituentFingerprint = fingerprint == null ? "" : fingerprint;
         history.clear();
         if (points != null) {
-            points.stream().filter(p -> p != null && p.mcDay() >= 0 && Double.isFinite(p.value()) && p.value() >= 0)
+            points.stream()
+                    .filter(p -> p != null && p.mcDay() >= 0 && Double.isFinite(p.value()) && p.value() >= 0)
                     .sorted(java.util.Comparator.comparingLong(MarketIndexPoint::mcDay))
                     .forEach(p -> {
                         if (history.isEmpty() || p.mcDay() > latest().mcDay()) history.add(p);
                     });
         }
-        if (history.size() > MAX_HISTORY) history.subList(0, history.size() - MAX_HISTORY).clear();
+        if (history.size() > MAX_HISTORY)
+            history.subList(0, history.size() - MAX_HISTORY).clear();
     }
 }

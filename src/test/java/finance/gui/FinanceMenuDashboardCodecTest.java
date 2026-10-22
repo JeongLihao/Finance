@@ -1,14 +1,13 @@
 package finance.gui;
 
-import io.netty.buffer.Unpooled;
-import net.minecraft.network.FriendlyByteBuf;
-import org.junit.jupiter.api.Test;
-
-import java.util.ArrayList;
-import java.util.List;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+
+import io.netty.buffer.Unpooled;
+import java.util.ArrayList;
+import java.util.List;
+import net.minecraft.network.FriendlyByteBuf;
+import org.junit.jupiter.api.Test;
 
 class FinanceMenuDashboardCodecTest {
 
@@ -18,8 +17,8 @@ class FinanceMenuDashboardCodecTest {
         for (int day = 1; day <= 35; day++) {
             trends.add(new FinanceMenu.EconomyTrendRow(day, day * 2L, day * 3L, 100.0 + day));
         }
-        FinanceMenu.EconomyDashboardRow expected = new FinanceMenu.EconomyDashboardRow(
-                1, 2, 3, 4, 5, 15, 6, 7, 101.5, 2, "stable", trends);
+        FinanceMenu.EconomyDashboardRow expected =
+                new FinanceMenu.EconomyDashboardRow(1, 2, 3, 4, 5, 15, 6, 7, 101.5, 2, "stable", trends);
         FriendlyByteBuf buffer = new FriendlyByteBuf(Unpooled.buffer());
 
         FinanceMenu.writeDashboard(buffer, expected);

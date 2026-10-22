@@ -1,7 +1,10 @@
 package finance.regional;
 
 public enum RegionalSupplyPressure {
-    SURPLUS, BALANCED, TIGHT, SHORTAGE;
+    SURPLUS,
+    BALANCED,
+    TIGHT,
+    SHORTAGE;
 
     public static RegionalSupplyPressure fromScore(int score) {
         if (score >= 7_500) return SHORTAGE;

@@ -1,7 +1,6 @@
 package finance.bank;
 
 import finance.config.FinanceConfig;
-
 import java.util.Random;
 
 /**
@@ -10,10 +9,10 @@ import java.util.Random;
  * 文案引用当日真实数值，不存在玩家可调用的制造入口。
  */
 public final class BankPanicService {
-    private BankPanicService() { }
+    private BankPanicService() {}
 
-    public record PanicInputs(double reserveRatio, int carBps, long dailyWithdrawn,
-                              long totalDeposits, boolean contagion) { }
+    public record PanicInputs(
+            double reserveRatio, int carBps, long dailyWithdrawn, long totalDeposits, boolean contagion) {}
 
     public static PanicInputs inputsOf(CommercialBank bank, long dailyWithdrawn, boolean contagion) {
         BankBalanceSheet s = bank.ledger().balanceSheet();
@@ -23,8 +22,12 @@ public final class BankPanicService {
         long effectiveReserves = s.reserves() - Math.max(0, s.centralBankBorrowing());
         double reserveRatio = required <= 0 ? 1.0 : (double) effectiveReserves / (double) required;
         long totalDeposits = safeAdd(s.demandDeposits(), s.timeDeposits());
-        return new PanicInputs(reserveRatio, BankRegulatoryService.capitalAdequacyBps(bank),
-                Math.max(0, dailyWithdrawn), Math.max(0, totalDeposits), contagion);
+        return new PanicInputs(
+                reserveRatio,
+                BankRegulatoryService.capitalAdequacyBps(bank),
+                Math.max(0, dailyWithdrawn),
+                Math.max(0, totalDeposits),
+                contagion);
     }
 
     /** 计算当日恐慌增量（不含谣言）；返回 >= 0 的 stress，调用方负责衰减与钳制。 */
@@ -59,7 +62,9 @@ public final class BankPanicService {
         if (text == null) return null; // 无真实风险：绝不造谣
         if (day <= state.rumorCooldownDay()) return null;
         // 确定性随机：同一银行同一天结果可重放，玩家无法操纵
-        long seed = bank.id().getMostSignificantBits() * 31L + bank.id().getLeastSignificantBits() + day * 0x9E3779B97F4A7C15L;
+        long seed = bank.id().getMostSignificantBits() * 31L
+                + bank.id().getLeastSignificantBits()
+                + day * 0x9E3779B97F4A7C15L;
         if (new Random(seed).nextDouble() >= FinanceConfig.bankRunRumorChance()) return null;
         int bump = Math.min(15, 4 + (int) (shortfall * 8));
         return new BankRumor(text, bump, day + FinanceConfig.bankRunRumorCooldownDays(), day);
@@ -83,5 +88,7 @@ public final class BankPanicService {
         }
     }
 
-    private static long safeAdd(long a, long b) { return a > Long.MAX_VALUE - b ? Long.MAX_VALUE : a + b; }
+    private static long safeAdd(long a, long b) {
+        return a > Long.MAX_VALUE - b ? Long.MAX_VALUE : a + b;
+    }
 }

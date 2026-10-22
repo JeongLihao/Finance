@@ -1,5 +1,7 @@
 package finance.gameplay.company.factory;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import finance.account.AccountManager;
 import finance.commodity.CommodityInventoryManager;
 import finance.company.Company;
@@ -7,15 +9,11 @@ import finance.company.CompanyManager;
 import finance.company.CompanyType;
 import finance.gameplay.company.*;
 import finance.warehouse.*;
-import net.minecraft.core.BlockPos;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-
 import java.util.Map;
 import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.*;
+import net.minecraft.core.BlockPos;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
 
 /** 厂房接入生产与雇工后的端到端行为（没有世界，设备快照直接写入）。 */
 class FactoryProductionTest {
@@ -34,12 +32,28 @@ class FactoryProductionTest {
         company = new Company(UUID.randomUUID(), "Works", type, 1_000_000, owner);
         CompanyManager.registerDirect(company);
         CompanyGameplayProfile profile = CompanyGameplayManager.createForNewCompany(company);
-        WarehouseRecord warehouse = new WarehouseRecord(UUID.randomUUID(), "minecraft:overworld", BlockPos.ZERO, owner,
-                company.getCompanyId(), 100_000, WarehouseStatus.ACTIVE, 0, 0, WarehousePermissionMode.OWNER_ONLY);
+        WarehouseRecord warehouse = new WarehouseRecord(
+                UUID.randomUUID(),
+                "minecraft:overworld",
+                BlockPos.ZERO,
+                owner,
+                company.getCompanyId(),
+                100_000,
+                WarehouseStatus.ACTIVE,
+                0,
+                0,
+                WarehousePermissionMode.OWNER_ONLY);
         WarehouseManager.restore(warehouse);
         profile.bindWarehouse(warehouse.warehouseId());
-        facility = new CompanyFacilityRecord(UUID.randomUUID(), company.getCompanyId(), "minecraft:overworld",
-                new BlockPos(1, 64, 1), CompanyFacilityType.FACTORY_CONTROLLER, level, CompanyFacilityStatus.ACTIVE, -1,
+        facility = new CompanyFacilityRecord(
+                UUID.randomUUID(),
+                company.getCompanyId(),
+                "minecraft:overworld",
+                new BlockPos(1, 64, 1),
+                CompanyFacilityType.FACTORY_CONTROLLER,
+                level,
+                CompanyFacilityStatus.ACTIVE,
+                -1,
                 warehouse.warehouseId());
         facility.factory().markNewBuild();
         CompanyFacilityManager.restore(facility);
@@ -56,11 +70,16 @@ class FactoryProductionTest {
         CompanyFacilityManager.clearDirect();
     }
 
-    private int stock(String id) { return CommodityInventoryManager.getCommodityAmount(custody, id); }
+    private int stock(String id) {
+        return CommodityInventoryManager.getCommodityAmount(custody, id);
+    }
 
-    private boolean produce(long day) { return CompanyProductionService.processFacility(company, facility, day); }
+    private boolean produce(long day) {
+        return CompanyProductionService.processFacility(company, facility, day);
+    }
 
-    @Test void newBuildWithoutEquipmentStopsWithoutTouchingInputs() {
+    @Test
+    void newBuildWithoutEquipmentStopsWithoutTouchingInputs() {
         setup(CompanyType.FOOD_PROCESSING, 1);
         CommodityInventoryManager.addCommodity(custody, "wheat", 100);
         long cash = company.getCash();
@@ -71,7 +90,8 @@ class FactoryProductionTest {
         assertEquals(0, FactoryService.jobs(facility));
     }
 
-    @Test void manualTierUsesItsOwnInputsAndOutputs() {
+    @Test
+    void manualTierUsesItsOwnInputsAndOutputs() {
         setup(CompanyType.RAW_MATERIALS, 1);
         FactoryService.recordBuiltEquipment(facility, ProductionTier.MANUAL, 1);
         CommodityInventoryManager.addCommodity(custody, "wood", 50);
@@ -81,15 +101,27 @@ class FactoryProductionTest {
         assertEquals(15, FactoryService.jobs(facility), "3 座熔炉 × 5 岗");
     }
 
-    @Test void industrialTierAtLevelThreeWithRetoolThenFullOutput() {
+    @Test
+    void industrialTierAtLevelThreeWithRetoolThenFullOutput() {
         setup(CompanyType.FOOD, 3);
         FactoryService.recordBuiltEquipment(facility, ProductionTier.MANUAL, 1);
         assertTrue(produce(1));
         int afterManual = stock("wheat");
         assertEquals(80 * 4, afterManual, "3 级吞吐 ×4");
         // 搭好机械农场并切换：次日生效，改造期产量减半
-        facility.factory().recordScan(Map.of(FactoryEquipment.COMPOSTER, 2, FactoryEquipment.PISTON, 4,
-                FactoryEquipment.OBSERVER, 2, FactoryEquipment.HOPPER, 2), 2, 16);
+        facility.factory()
+                .recordScan(
+                        Map.of(
+                                FactoryEquipment.COMPOSTER,
+                                2,
+                                FactoryEquipment.PISTON,
+                                4,
+                                FactoryEquipment.OBSERVER,
+                                2,
+                                FactoryEquipment.HOPPER,
+                                2),
+                        2,
+                        16);
         facility.factory().setTargetTier(ProductionTier.INDUSTRIAL);
         CommodityInventoryManager.addCommodity(custody, "iron", 1_000);
         CommodityInventoryManager.addCommodity(custody, "coal", 1_000);
@@ -104,16 +136,29 @@ class FactoryProductionTest {
         }
         facility.factory().recordScan(facility.factory().equipment(), 5, 16);
         int before = stock("wheat");
-        assertTrue(produce(5), () -> "status=" + facility.status() + " active=" + facility.factory().activeTier() + " scanDay=" + facility.factory().equipmentScanDay() + " eq=" + facility.factory().equipment());
+        assertTrue(
+                produce(5),
+                () -> "status=" + facility.status() + " active="
+                        + facility.factory().activeTier() + " scanDay="
+                        + facility.factory().equipmentScanDay() + " eq="
+                        + facility.factory().equipment());
         assertEquals(180 * 4, stock("wheat") - before);
         assertEquals(12, FactoryService.jobs(facility), "机械农场只认本档设备，漏斗不提供岗位：6 台 × 2 岗");
     }
 
-    @Test void legacyFacilityKeepsOldRulesDuringProvisionalWorkshop() {
+    @Test
+    void legacyFacilityKeepsOldRulesDuringProvisionalWorkshop() {
         setup(CompanyType.RAW_MATERIALS, 2);
-        CompanyFacilityRecord legacy = new CompanyFacilityRecord(UUID.randomUUID(), company.getCompanyId(),
-                "minecraft:overworld", new BlockPos(30, 64, 30), CompanyFacilityType.FACTORY_CONTROLLER, 2,
-                CompanyFacilityStatus.ACTIVE, -1, facility.boundWarehouseId());
+        CompanyFacilityRecord legacy = new CompanyFacilityRecord(
+                UUID.randomUUID(),
+                company.getCompanyId(),
+                "minecraft:overworld",
+                new BlockPos(30, 64, 30),
+                CompanyFacilityType.FACTORY_CONTROLLER,
+                2,
+                CompanyFacilityStatus.ACTIVE,
+                -1,
+                facility.boundWarehouseId());
         CompanyFacilityManager.disable(facility.facilityId());
         assertTrue(CompanyFacilityManager.restore(legacy));
         facility = legacy;
@@ -125,7 +170,8 @@ class FactoryProductionTest {
         assertEquals(CompanyFacilityStatus.EQUIPMENT_MISSING, facility.status());
     }
 
-    @Test void degradingKeepsProducingAtLowerTier() {
+    @Test
+    void degradingKeepsProducingAtLowerTier() {
         setup(CompanyType.BUILDING_BLOCKS, 2);
         FactoryService.recordBuiltEquipment(facility, ProductionTier.IMPROVED, 1);
         CommodityInventoryManager.addCommodity(custody, "iron", 100);

@@ -3,21 +3,19 @@ package finance.data.serializer;
 import finance.commodity.CommodityRegistry;
 import finance.company.*;
 import finance.earnings.QuarterlyEarningsReport;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.Tag;
-
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.Tag;
 
 /** Persists company state, financing subscriptions and shareholder proposals. */
 public final class CompanyDataSerializer {
 
-    private CompanyDataSerializer() {
-    }
+    private CompanyDataSerializer() {}
 
     public static void save(CompoundTag tag) {
         ListTag financingProjectsTag = new ListTag();
@@ -76,7 +74,8 @@ public final class CompanyDataSerializer {
             proposalTag.putString("Status", proposal.getStatus().name());
             proposalTag.putString("ResultSummary", proposal.getResultSummary());
             ListTag votesTag = new ListTag();
-            for (Map.Entry<UUID, CompanyProposal.VoteRecord> entry : proposal.getVotes().entrySet()) {
+            for (Map.Entry<UUID, CompanyProposal.VoteRecord> entry :
+                    proposal.getVotes().entrySet()) {
                 CompoundTag voteTag = new CompoundTag();
                 voteTag.putUUID("PlayerUUID", entry.getKey());
                 voteTag.putBoolean("Support", entry.getValue().support());
@@ -84,9 +83,14 @@ public final class CompanyDataSerializer {
                 votesTag.add(voteTag);
             }
             proposalTag.put("Votes", votesTag);
-            ListTag snapshotTag=new ListTag();
-            for(Map.Entry<UUID,Long> entry:proposal.getVotingPowerSnapshot().entrySet()){CompoundTag row=new CompoundTag();row.putUUID("HolderUUID",entry.getKey());row.putLong("Power",entry.getValue());snapshotTag.add(row);}
-            proposalTag.put("VotingPowerSnapshot",snapshotTag);
+            ListTag snapshotTag = new ListTag();
+            for (Map.Entry<UUID, Long> entry : proposal.getVotingPowerSnapshot().entrySet()) {
+                CompoundTag row = new CompoundTag();
+                row.putUUID("HolderUUID", entry.getKey());
+                row.putLong("Power", entry.getValue());
+                snapshotTag.add(row);
+            }
+            proposalTag.put("VotingPowerSnapshot", snapshotTag);
             proposalsTag.add(proposalTag);
         }
         tag.put("CompanyProposals", proposalsTag);
@@ -161,7 +165,8 @@ public final class CompanyDataSerializer {
 
             // 财报季：季度累加器 + 已发布季报历史
             companyTag.putLong("QuarterRevenue", company.getQuarterAccumulator().revenue());
-            companyTag.putLong("QuarterExpenses", company.getQuarterAccumulator().expenses());
+            companyTag.putLong(
+                    "QuarterExpenses", company.getQuarterAccumulator().expenses());
             companyTag.putInt("QuarterDays", company.getQuarterAccumulator().days());
             ListTag earningsHistoryTag = new ListTag();
             for (QuarterlyEarningsReport report : company.getEarningsHistory()) {
@@ -194,7 +199,6 @@ public final class CompanyDataSerializer {
         }
 
         tag.put("Companies", companiesTag);
-
     }
 
     public static void load(CompoundTag tag) {
@@ -238,8 +242,8 @@ public final class CompanyDataSerializer {
                 UUID companyId = NbtDataSupport.readUuidOrNull(row, "CompanyId");
                 long raised = row.getLong("Raised"), shares = row.getLong("Shares"), day = row.getLong("Day");
                 if (projectId != null && companyId != null && raised > 0 && shares > 0 && day >= 0) {
-                    CompanyFinancingManager.putFinalizedDirect(new CompanyFinancingManager.FinalizedFinancing(
-                            projectId, companyId, raised, shares, day));
+                    CompanyFinancingManager.putFinalizedDirect(
+                            new CompanyFinancingManager.FinalizedFinancing(projectId, companyId, raised, shares, day));
                 }
             }
         }
@@ -253,9 +257,10 @@ public final class CompanyDataSerializer {
                 UUID proposalId = NbtDataSupport.readUuidOrNull(proposalTag, "ProposalId");
                 UUID companyUUID = NbtDataSupport.readUuidOrNull(proposalTag, "CompanyUUID");
                 UUID creatorUUID = NbtDataSupport.readUuidOrNull(proposalTag, "CreatorUUID");
-                CompanyProposalType type = NbtDataSupport.safeEnum(CompanyProposalType.class, proposalTag.getString("Type"), null);
-                CompanyProposalStatus status = NbtDataSupport.safeEnum(CompanyProposalStatus.class,
-                        proposalTag.getString("Status"), CompanyProposalStatus.ACTIVE);
+                CompanyProposalType type =
+                        NbtDataSupport.safeEnum(CompanyProposalType.class, proposalTag.getString("Type"), null);
+                CompanyProposalStatus status = NbtDataSupport.safeEnum(
+                        CompanyProposalStatus.class, proposalTag.getString("Status"), CompanyProposalStatus.ACTIVE);
                 if (proposalId == null || companyUUID == null || creatorUUID == null || type == null) {
                     continue;
                 }
@@ -275,9 +280,7 @@ public final class CompanyDataSerializer {
                         proposalTag.contains("MinParticipationRatio")
                                 ? proposalTag.getDouble("MinParticipationRatio")
                                 : 0.0,
-                        proposalTag.contains("VotingSharesSnapshot")
-                                ? proposalTag.getLong("VotingSharesSnapshot")
-                                : 0,
+                        proposalTag.contains("VotingSharesSnapshot") ? proposalTag.getLong("VotingSharesSnapshot") : 0,
                         LocalDateTime.ofEpochSecond(proposalTag.getLong("CreatedAt"), 0, ZoneOffset.UTC),
                         status,
                         proposalTag.getString("ResultSummary"));
@@ -289,7 +292,12 @@ public final class CompanyDataSerializer {
                         proposal.addVote(playerUUID, voteTag.getBoolean("Support"), voteTag.getLong("Power"));
                     }
                 }
-                for(Tag snapshotRaw:proposalTag.getList("VotingPowerSnapshot",Tag.TAG_COMPOUND)){CompoundTag row=(CompoundTag)snapshotRaw;UUID holder=NbtDataSupport.readUuidOrNull(row,"HolderUUID");if(holder!=null&&row.getLong("Power")>0)proposal.restoreVotingPower(holder,row.getLong("Power"));}
+                for (Tag snapshotRaw : proposalTag.getList("VotingPowerSnapshot", Tag.TAG_COMPOUND)) {
+                    CompoundTag row = (CompoundTag) snapshotRaw;
+                    UUID holder = NbtDataSupport.readUuidOrNull(row, "HolderUUID");
+                    if (holder != null && row.getLong("Power") > 0)
+                        proposal.restoreVotingPower(holder, row.getLong("Power"));
+                }
                 CompanyProposalManager.addProposalDirect(proposal);
             }
         }
@@ -300,10 +308,7 @@ public final class CompanyDataSerializer {
         if (tag.contains("Companies")) {
             CompanyManager.clearCompaniesDirect();
 
-            ListTag companiesTag = tag.getList(
-                    "Companies",
-                    Tag.TAG_COMPOUND
-            );
+            ListTag companiesTag = tag.getList("Companies", Tag.TAG_COMPOUND);
 
             for (Tag rawTag : companiesTag) {
                 CompoundTag companyTag = (CompoundTag) rawTag;
@@ -386,8 +391,7 @@ public final class CompanyDataSerializer {
                     }
                 }
                 // 财报季：季度累加器 + 已发布季报历史（损坏条目跳过，不中断整档读档）
-                List<finance.earnings.QuarterlyEarningsReport> earningsHistory =
-                        new java.util.ArrayList<>();
+                List<finance.earnings.QuarterlyEarningsReport> earningsHistory = new java.util.ArrayList<>();
                 if (companyTag.contains("EarningsHistory")) {
                     ListTag earningsTag = companyTag.getList("EarningsHistory", Tag.TAG_COMPOUND);
                     for (Tag reportRaw : earningsTag) {
@@ -427,9 +431,10 @@ public final class CompanyDataSerializer {
                         earningsHistory);
                 company.restoreManagement(
                         companyTag.contains("Strategy")
-                                ? NbtDataSupport.safeEnum(finance.company.CompanyStrategy.class,
-                                companyTag.getString("Strategy"),
-                                finance.company.CompanyStrategy.STABLE)
+                                ? NbtDataSupport.safeEnum(
+                                        finance.company.CompanyStrategy.class,
+                                        companyTag.getString("Strategy"),
+                                        finance.company.CompanyStrategy.STABLE)
                                 : finance.company.CompanyStrategy.STABLE,
                         companyTag.getInt("ProductionLevel"),
                         companyTag.getInt("StorageLevel"),
@@ -437,8 +442,7 @@ public final class CompanyDataSerializer {
                         companyTag.contains("AutoSellRatio") ? companyTag.getDouble("AutoSellRatio") : 0.5);
                 if (companyTag.contains("BankruptcyRisk")) {
                     company.setBankruptcyRisk(
-                            companyTag.getBoolean("BankruptcyRisk"),
-                            companyTag.getLong("BankruptcyRiskStartDay"));
+                            companyTag.getBoolean("BankruptcyRisk"), companyTag.getLong("BankruptcyRiskStartDay"));
                 }
 
                 // P4：恢复上市状态

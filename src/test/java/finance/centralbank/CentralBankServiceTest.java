@@ -1,5 +1,7 @@
 package finance.centralbank;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import finance.account.AccountManager;
 import finance.account.TransactionType;
 import finance.bank.BankLedgerAccount;
@@ -19,14 +21,11 @@ import finance.market.CentralBank;
 import finance.market.MarketPrice;
 import finance.market.NpcMarketMaker;
 import finance.policy.PolicyRuleService;
+import java.util.UUID;
 import net.minecraft.nbt.CompoundTag;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 /** 中央银行：物价目标、准备金率、公开市场操作、商品平准、成就与存档。 */
 class CentralBankServiceTest {
@@ -50,29 +49,39 @@ class CentralBankServiceTest {
     }
 
     private static PolicyRuleService.Evaluation eval(double inflationPct, double slack) {
-        return new PolicyRuleService.Evaluation(500, inflationPct, slack, 500, 500, PolicyRuleService.Direction.HOLD, "test");
+        return new PolicyRuleService.Evaluation(
+                500, inflationPct, slack, 500, 500, PolicyRuleService.Direction.HOLD, "test");
     }
 
-    @Test void inflationTargetPullsTheRuleTowardsEasingWhenPricesAreFlat() {
+    @Test
+    void inflationTargetPullsTheRuleTowardsEasingWhenPricesAreFlat() {
         var flat = PolicyRuleService.evaluate(500, 100.0, 100.0, 0.0);
         int expected = (int) Math.round(FinanceConfig.policyNeutralRateBps()
                 - FinanceConfig.policyInflationResponse() * FinanceConfig.cbInflationTargetBps());
-        assertEquals(Math.max(FinanceConfig.minBenchmarkRateBasisPoints(), expected), flat.targetBps(),
+        assertEquals(
+                Math.max(FinanceConfig.minBenchmarkRateBasisPoints(), expected),
+                flat.targetBps(),
                 "物价不涨时通胀比 2% 目标低，规则建议降息");
         assertTrue(flat.explanation().contains("目标"));
     }
 
-    @Test void reserveRatioRuleMovesOneStepWithinBounds() {
+    @Test
+    void reserveRatioRuleMovesOneStepWithinBounds() {
         int band = FinanceConfig.cbInflationBandBps(), step = FinanceConfig.cbReserveStepBps();
         assertEquals(1_000 + step, CentralBankService.nextReserve(1_000, 2 * band + 1, 0));
         assertEquals(1_000 - step, CentralBankService.nextReserve(1_000, -2 * band - 1, 0));
         assertEquals(1_000 - step, CentralBankService.nextReserve(1_000, 0, 0.5), "经济疲软也降准");
         assertEquals(1_000, CentralBankService.nextReserve(1_000, band, 0), "区间内不动");
-        assertEquals(FinanceConfig.cbReserveMaxBps(), CentralBankService.nextReserve(FinanceConfig.cbReserveMaxBps(), 9_999, 0));
-        assertEquals(FinanceConfig.cbReserveMinBps(), CentralBankService.nextReserve(FinanceConfig.cbReserveMinBps(), -9_999, 0));
+        assertEquals(
+                FinanceConfig.cbReserveMaxBps(),
+                CentralBankService.nextReserve(FinanceConfig.cbReserveMaxBps(), 9_999, 0));
+        assertEquals(
+                FinanceConfig.cbReserveMinBps(),
+                CentralBankService.nextReserve(FinanceConfig.cbReserveMinBps(), -9_999, 0));
     }
 
-    @Test void meetingRaisesReserveRatioAndRequiredReservesFollow() {
+    @Test
+    void meetingRaisesReserveRatioAndRequiredReservesFollow() {
         CommercialBank bank = BankingManager.banks().values().iterator().next();
         assertTrue(BankingManager.depositPlayer(player, bank.id(), 1_000_000, 1).success());
         long before = BankRegulatoryService.requiredReserves(bank);
@@ -86,7 +95,8 @@ class CentralBankServiceTest {
         assertEquals(ratio + FinanceConfig.cbReserveStepBps(), CentralBankService.demandReserveBps(), "手动模式不自动调准备金率");
     }
 
-    @Test void reserveCutRewardsBankOwnersAndRateCutRewardsEarlyBondBuyers() {
+    @Test
+    void reserveCutRewardsBankOwnersAndRateCutRewardsEarlyBondBuyers() {
         var charter = PlayerBankService.charter(player, "PBK", "Player Bank", 10_000_000, 0);
         assertTrue(charter.success(), charter.message());
         long amount = Math.max(FinanceConfig.treasuryBondMinAmount(), 10_000);
@@ -96,7 +106,8 @@ class CentralBankServiceTest {
         assertTrue(EconomyAchievements.pending(player).contains(EconomyAchievements.RATE_CALL), "降息前一天认购债券");
     }
 
-    @Test void openMarketAbsorbsExcessReservesWhenInflationIsHighAndReleasesThemLater() {
+    @Test
+    void openMarketAbsorbsExcessReservesWhenInflationIsHighAndReleasesThemLater() {
         CommercialBank bank = BankingManager.banks().values().iterator().next();
         assertTrue(BankingManager.depositPlayer(player, bank.id(), 5_000_000, 1).success());
         long reserves = bank.ledger().balance(BankLedgerAccount.ASSET_RESERVE);
@@ -106,20 +117,29 @@ class CentralBankServiceTest {
         long position = CentralBankService.positions().getOrDefault(bank.id(), 0L);
         assertTrue(position > 0, "央行卖出票据吸收准备金");
         assertEquals(reserves - position, bank.ledger().balance(BankLedgerAccount.ASSET_RESERVE));
-        assertTrue(bank.ledger().balance(BankLedgerAccount.ASSET_RESERVE) >= BankRegulatoryService.requiredReserves(bank),
+        assertTrue(
+                bank.ledger().balance(BankLedgerAccount.ASSET_RESERVE) >= BankRegulatoryService.requiredReserves(bank),
                 "只吸收超额部分，不让银行跌破法定准备金");
         assertTrue(bank.ledger().balanceSheet().balanced());
         // 银行把剩下的超额准备金都放了贷款，再碰上通缩：央行买回票据投放准备金
-        long spare = bank.ledger().balance(BankLedgerAccount.ASSET_RESERVE) - BankRegulatoryService.requiredReserves(bank);
-        assertTrue(bank.ledger().post(2, UUID.randomUUID(), BankLedgerAccount.ASSET_COMPANY_LOAN, BankLedgerAccount.ASSET_RESERVE,
-                spare, finance.bank.BankLedgerReason.COMPANY_LOAN_ISSUE));
+        long spare =
+                bank.ledger().balance(BankLedgerAccount.ASSET_RESERVE) - BankRegulatoryService.requiredReserves(bank);
+        assertTrue(bank.ledger()
+                .post(
+                        2,
+                        UUID.randomUUID(),
+                        BankLedgerAccount.ASSET_COMPANY_LOAN,
+                        BankLedgerAccount.ASSET_RESERVE,
+                        spare,
+                        finance.bank.BankLedgerReason.COMPANY_LOAN_ISSUE));
         CentralBankService.openMarket(3, -2_000);
         assertTrue(CentralBankService.positions().getOrDefault(bank.id(), 0L) < position, "通缩时买回票据投放准备金");
         assertTrue(bank.ledger().balanceSheet().balanced());
         assertTrue(CentralBankService.absorbedTotal() > 0 && CentralBankService.injectedTotal() > 0);
     }
 
-    @Test void stabilizationSellsReservesWhenAConsumerGoodIsTooExpensive() {
+    @Test
+    void stabilizationSellsReservesWhenAConsumerGoodIsTooExpensive() {
         NpcMarketMaker.resetSeedState();
         NpcMarketMaker.seedNpcIfNeeded();
         CentralBank.seedIfNeeded();
@@ -135,13 +155,16 @@ class CentralBankServiceTest {
         int qty = actions.get(0).quantity();
         assertEquals(npcBefore + qty, CommodityInventoryManager.getCommodityAmount(NpcMarketMaker.NPC_UUID, "wheat"));
         assertEquals(cbBefore - qty, CommodityInventoryManager.getCommodityAmount(CentralBank.UUID, "wheat"));
-        assertTrue(qty <= CentralBankService.bps(MarketPrice.REFERENCE_STOCK, FinanceConfig.cbStabilizationMaxDailyBps()));
-        assertTrue(AccountManager.getTransactions().stream().anyMatch(t -> t.getType() == TransactionType.CENTRAL_BANK_STABILIZATION));
+        assertTrue(
+                qty <= CentralBankService.bps(MarketPrice.REFERENCE_STOCK, FinanceConfig.cbStabilizationMaxDailyBps()));
+        assertTrue(AccountManager.getTransactions().stream()
+                .anyMatch(t -> t.getType() == TransactionType.CENTRAL_BANK_STABILIZATION));
         assertTrue(PriceStabilizationService.isConsumerGood("wheat"));
         assertFalse(PriceStabilizationService.isConsumerGood("diamond"));
     }
 
-    @Test void legacyTreasuryCashMovesIntoTheCentralBankOnce() {
+    @Test
+    void legacyTreasuryCashMovesIntoTheCentralBankOnce() {
         AccountManager.getOrCreateSystemAccount(LegacyTreasuryMigration.LEGACY_TREASURY);
         AccountManager.deposit(LegacyTreasuryMigration.LEGACY_TREASURY, 12_345);
         AccountManager.getOrCreateSystemAccount(CentralBank.UUID);
@@ -152,7 +175,8 @@ class CentralBankServiceTest {
         assertEquals(0, LegacyTreasuryMigration.run(), "第二次什么也不做");
     }
 
-    @Test void stateSurvivesSaveLoad() {
+    @Test
+    void stateSurvivesSaveLoad() {
         CommercialBank bank = BankingManager.banks().values().iterator().next();
         assertTrue(BankingManager.depositPlayer(player, bank.id(), 5_000_000, 1).success());
         CentralBankService.onMeeting(30, eval(10.0, 0), 500, 600, false);

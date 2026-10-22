@@ -1,5 +1,11 @@
 package finance.market.liquidity;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import finance.account.AccountManager;
 import finance.commodity.Commodity;
 import finance.commodity.CommodityCategory;
@@ -14,19 +20,10 @@ import finance.market.MarketPrice;
 import finance.market.NpcMarketMaker;
 import finance.stock.Stock;
 import finance.stock.StockMarketManager;
-import finance.stock.StockOrderManager;
 import finance.stock.StockPortfolioManager;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
-import java.util.ArrayList;
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Phase 2 熔断与统一报价入口的集成测试（攻击视角）。
@@ -68,14 +65,13 @@ class MarketMakerCircuitBreakerTest {
         Company company = new Company(COMPANY_ID, "Halt Test Inc", CompanyType.RAW_MATERIALS, 10_000);
         company.setPublic(true);
         CompanyManager.registerDirect(company);
-        Stock stock = new Stock(SYMBOL, "Halt Test Inc", COMPANY_ID,
-                10_000, 10_000, 0, 100, 100);
+        Stock stock = new Stock(SYMBOL, "Halt Test Inc", COMPANY_ID, 10_000, 10_000, 0, 100, 100);
         StockMarketManager.putStockDirect(stock);
         AccountManager.getOrCreateSystemAccount(MM).deposit(10_000_000L);
         assertTrue(MarketMakerLedger.seedStockInventory(stock));
 
-        CommodityRegistry.register(new Commodity(COMMODITY_ID, "minecraft:copper_ingot", "Copper",
-                CommodityCategory.RAW_MATERIALS, 1_000));
+        CommodityRegistry.register(new Commodity(
+                COMMODITY_ID, "minecraft:copper_ingot", "Copper", CommodityCategory.RAW_MATERIALS, 1_000));
         NpcMarketMaker.putMarketPrice(COMMODITY_ID, new MarketPrice(COMMODITY_ID, 1_000, 0.05));
         CommodityInventoryManager.setCommodity(NpcMarketMaker.NPC_UUID, COMMODITY_ID, 100_000);
     }
@@ -155,7 +151,8 @@ class MarketMakerCircuitBreakerTest {
         // 动能衰减后自动恢复：0.36 → 0.18 < 0.30
         mp.tickMomentum();
         assertFalse(MarketMakerQuotes.isHalted("commodity", COMMODITY_ID));
-        long bidAfterRecovery = MarketMakerQuotes.getQuote("commodity", COMMODITY_ID).bid();
+        long bidAfterRecovery =
+                MarketMakerQuotes.getQuote("commodity", COMMODITY_ID).bid();
         assertTrue(bidAfterRecovery > 0);
         assertTrue(NpcMarketMaker.npcBuy(TRADER, COMMODITY_ID, 5));
         assertEquals(traderBefore + bidAfterRecovery * 5, AccountManager.getBalance(TRADER));

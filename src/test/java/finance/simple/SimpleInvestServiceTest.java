@@ -1,15 +1,14 @@
 package finance.simple;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import finance.bank.BankingManager;
 import finance.data.EconomySavedData;
 import finance.fund.FundManager;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-
 import java.util.List;
 import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 class SimpleInvestServiceTest {
 
@@ -20,9 +19,11 @@ class SimpleInvestServiceTest {
         FundManager.seedDefaultsIfNeeded();
     }
 
-    @Test void lockedPlayersSeeSteadyAndBalancedOnly() {
+    @Test
+    void lockedPlayersSeeSteadyAndBalancedOnly() {
         List<SimpleInvestService.Product> products = SimpleInvestService.products(name -> false);
-        List<String> keys = products.stream().map(SimpleInvestService.Product::key).toList();
+        List<String> keys =
+                products.stream().map(SimpleInvestService.Product::key).toList();
         assertEquals(List.of("tier:safe", "tier:balanced"), keys, "没解锁进取理财时只有两档");
         assertTrue(products.get(0).name().startsWith("稳健"), products.toString());
         assertTrue(products.get(1).name().startsWith("均衡"), products.toString());
@@ -35,8 +36,11 @@ class SimpleInvestServiceTest {
         }
     }
 
-    @Test void growthTierBuysAStockFundOnceUnlocked() {
-        List<String> keys = SimpleInvestService.products(name -> true).stream().map(SimpleInvestService.Product::key).toList();
+    @Test
+    void growthTierBuysAStockFundOnceUnlocked() {
+        List<String> keys = SimpleInvestService.products(name -> true).stream()
+                .map(SimpleInvestService.Product::key)
+                .toList();
         assertEquals(List.of("tier:safe", "tier:balanced", "tier:growth"), keys);
         String fund = SimpleInvestService.resolve("tier:growth", name -> true);
         assertNotNull(fund);
@@ -46,7 +50,8 @@ class SimpleInvestServiceTest {
         assertEquals("time:30", SimpleInvestService.resolve("time:30", name -> false), "旧界面直接买具体产品照样可以");
     }
 
-    @Test void newPlayerHasNoMarginPositions() {
+    @Test
+    void newPlayerHasNoMarginPositions() {
         SimpleInvestService.MarginInfo m = SimpleInvestService.marginInfo(UUID.randomUUID());
         assertEquals(0, m.collateral());
         assertTrue(m.levered().isEmpty());

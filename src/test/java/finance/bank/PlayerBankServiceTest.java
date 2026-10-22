@@ -1,5 +1,7 @@
 package finance.bank;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import finance.account.AccountManager;
 import finance.account.TransactionType;
 import finance.company.Company;
@@ -7,12 +9,9 @@ import finance.company.CompanyManager;
 import finance.company.CompanyType;
 import finance.data.EconomySavedData;
 import finance.debt.CompanyLoanManager;
+import java.util.UUID;
 import net.minecraft.nbt.CompoundTag;
 import org.junit.jupiter.api.*;
-
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * 玩家创建银行：牌照、关联交易防火墙、自定利率、监管罚款、分红、处置、持久化。
@@ -28,13 +27,16 @@ class PlayerBankServiceTest {
         EconomySavedData.resetRuntimeState();
         BankingManager.ensureDefaultBanks();
         CompanyManager.registerDirect(new Company(companyId, "OwnerCo", CompanyType.RAW_MATERIALS, 1_000_000, player));
-        CompanyManager.registerDirect(new Company(otherCompanyId, "OtherCo", CompanyType.RAW_MATERIALS, 1_000_000, other));
+        CompanyManager.registerDirect(
+                new Company(otherCompanyId, "OtherCo", CompanyType.RAW_MATERIALS, 1_000_000, other));
         AccountManager.deposit(player, 30_000_000);
         AccountManager.deposit(other, 30_000_000);
     }
 
     @AfterEach
-    void end() { EconomySavedData.resetRuntimeState(); }
+    void end() {
+        EconomySavedData.resetRuntimeState();
+    }
 
     private UUID charterPlayerBank() {
         var r = PlayerBankService.charter(player, "PBK", "Player Bank", 10_000_000, 0);
@@ -54,8 +56,10 @@ class PlayerBankServiceTest {
         assertEquals(10_000_000, bank.ledger().balance(BankLedgerAccount.ASSET_RESERVE));
         assertEquals(10_000_000, bank.ledger().balanceSheet().equity());
         assertEquals(BankStatus.ACTIVE, bank.status());
-        assertTrue(AccountManager.getTransactions().stream().anyMatch(t -> t.getType() == TransactionType.BANK_CHARTER_FEE));
-        assertTrue(AccountManager.getTransactions().stream().anyMatch(t -> t.getType() == TransactionType.BANK_CHARTER));
+        assertTrue(AccountManager.getTransactions().stream()
+                .anyMatch(t -> t.getType() == TransactionType.BANK_CHARTER_FEE));
+        assertTrue(
+                AccountManager.getTransactions().stream().anyMatch(t -> t.getType() == TransactionType.BANK_CHARTER));
     }
 
     @Test
@@ -83,7 +87,9 @@ class PlayerBankServiceTest {
         assertTrue(CompanyLoanManager.loans().isEmpty());
         // 同一家公司从 NPC 银行贷款：正常（防火墙只认自家银行）
         CommercialBank npc = BankingManager.banks().values().stream()
-                .filter(b -> !PlayerBankService.isPlayerBank(b.id())).findFirst().orElseThrow();
+                .filter(b -> !PlayerBankService.isPlayerBank(b.id()))
+                .findFirst()
+                .orElseThrow();
         var ok = CompanyLoanManager.applyCommercial(player, companyId, npc.id(), 100_000, 0, 10, 3);
         assertTrue(ok.success(), ok.message());
     }
@@ -122,7 +128,9 @@ class PlayerBankServiceTest {
         assertTrue(bank.ledger().balanceSheet().balanced());
         // NPC 银行不受玩家罚金影响
         CommercialBank npc = BankingManager.banks().values().stream()
-                .filter(b -> !PlayerBankService.isPlayerBank(b.id())).findFirst().orElseThrow();
+                .filter(b -> !PlayerBankService.isPlayerBank(b.id()))
+                .findFirst()
+                .orElseThrow();
         npc.setStatus(BankStatus.RESTRICTED);
         long npcReserve = npc.ledger().balance(BankLedgerAccount.ASSET_RESERVE);
         PlayerBankService.applyDailyFine(npc, 5);
@@ -136,7 +144,8 @@ class PlayerBankServiceTest {
         var ok = PlayerBankService.dividend(player, 1_000_000, 1);
         assertTrue(ok.success(), ok.message());
         assertEquals(walletBefore + 1_000_000, AccountManager.getBalance(player));
-        assertEquals(9_000_000, BankingManager.bank(bankId).ledger().balanceSheet().equity());
+        assertEquals(
+                9_000_000, BankingManager.bank(bankId).ledger().balanceSheet().equity());
         assertTrue(BankingManager.bank(bankId).ledger().balanceSheet().balanced());
         // 非 ACTIVE 不可分红
         BankingManager.bank(bankId).setStatus(BankStatus.WATCH);
@@ -158,7 +167,8 @@ class PlayerBankServiceTest {
         // 所有者股权清零：保险赔付上限内转入桥接银行，超额部分留在旧行残值
         long bridgeBalance = BankingManager.accounts().values().stream()
                 .filter(a -> a.ownerId().equals(player) && !a.bankId().equals(bankId))
-                .mapToLong(BankCustomerAccount::balance).sum();
+                .mapToLong(BankCustomerAccount::balance)
+                .sum();
         assertEquals(DepositInsuranceService.PER_CUSTOMER_LIMIT, bridgeBalance);
         assertEquals(0, BankingManager.bank(bankId).ledger().balanceSheet().equity());
     }
@@ -188,9 +198,11 @@ class PlayerBankServiceTest {
         long balance = AccountManager.getBalance(player);
         // 钱包刚好够一次：第二次因"已有银行"被拒，不会重复扣款
         AccountManager.withdraw(player, balance - 11_000_000);
-        assertTrue(PlayerBankService.charter(player, "PBK", "Player Bank", 10_000_000, 0).success());
+        assertTrue(PlayerBankService.charter(player, "PBK", "Player Bank", 10_000_000, 0)
+                .success());
         long afterFirst = AccountManager.getBalance(player);
-        assertFalse(PlayerBankService.charter(player, "PBK2", "Second", 10_000_000, 0).success());
+        assertFalse(PlayerBankService.charter(player, "PBK2", "Second", 10_000_000, 0)
+                .success());
         assertEquals(afterFirst, AccountManager.getBalance(player));
     }
 
@@ -212,8 +224,14 @@ class PlayerBankServiceTest {
         // P1-16：盈利后分红金额超过 PAID_IN 余额时，应从 INCOME 科目先行冲减，而非"银行账务失败"
         UUID bankId = charterPlayerBank();
         CommercialBank bank = BankingManager.bank(bankId);
-        assertTrue(bank.ledger().post(1, UUID.randomUUID(), BankLedgerAccount.ASSET_RESERVE,
-                BankLedgerAccount.INCOME_INTEREST, 2_000_000, BankLedgerReason.DEMAND_DEPOSIT_INTEREST));
+        assertTrue(bank.ledger()
+                .post(
+                        1,
+                        UUID.randomUUID(),
+                        BankLedgerAccount.ASSET_RESERVE,
+                        BankLedgerAccount.INCOME_INTEREST,
+                        2_000_000,
+                        BankLedgerReason.DEMAND_DEPOSIT_INTEREST));
         assertEquals(12_000_000, bank.ledger().balanceSheet().equity());
         long walletBefore = AccountManager.getBalance(player);
         var r = PlayerBankService.dividend(player, 11_000_000, 2);
@@ -239,7 +257,8 @@ class PlayerBankServiceTest {
         assertEquals(9_000_000, reloaded.paidInCapital());
         assertEquals(9_000_000, reloaded.ledger().balanceSheet().equity());
         BankingManager.closeDay(2);
-        assertEquals(0, reloaded.snapshots().get(reloaded.snapshots().size() - 1).dailyProfit());
+        assertEquals(
+                0, reloaded.snapshots().get(reloaded.snapshots().size() - 1).dailyProfit());
     }
 
     @Test
@@ -262,8 +281,14 @@ class PlayerBankServiceTest {
         // P2：validateCustomerLedgers 删银行时同步清理 owner，玩家不被永久锁死
         UUID bankId = charterPlayerBank();
         CommercialBank bank = BankingManager.bank(bankId);
-        assertTrue(bank.ledger().post(1, UUID.randomUUID(), BankLedgerAccount.ASSET_RESERVE,
-                BankLedgerAccount.LIABILITY_DEMAND_DEPOSIT, 100, BankLedgerReason.DEMAND_DEPOSIT));
+        assertTrue(bank.ledger()
+                .post(
+                        1,
+                        UUID.randomUUID(),
+                        BankLedgerAccount.ASSET_RESERVE,
+                        BankLedgerAccount.LIABILITY_DEMAND_DEPOSIT,
+                        100,
+                        BankLedgerReason.DEMAND_DEPOSIT));
         CompoundTag saved = new EconomySavedData().save(new CompoundTag());
         EconomySavedData.load(saved);
         assertNull(BankingManager.bank(bankId));
@@ -278,7 +303,9 @@ class PlayerBankServiceTest {
         // P2：牌照费被销毁，审计记录收款方记系统账户而非银行
         charterPlayerBank();
         var feeRecord = AccountManager.getTransactions().stream()
-                .filter(t -> t.getType() == TransactionType.BANK_CHARTER_FEE).findFirst().orElseThrow();
+                .filter(t -> t.getType() == TransactionType.BANK_CHARTER_FEE)
+                .findFirst()
+                .orElseThrow();
         assertEquals(new UUID(0L, 0L), feeRecord.getTo());
     }
 
@@ -298,14 +325,22 @@ class PlayerBankServiceTest {
     @Test
     void blankBankNameIsRejected() {
         // P2：空白银行名拒绝
-        assertFalse(PlayerBankService.charter(player, "PBK", "   ", 10_000_000, 0).success());
+        assertFalse(
+                PlayerBankService.charter(player, "PBK", "   ", 10_000_000, 0).success());
     }
 
     private UUID registerSecondBankDirect() {
         UUID bankId2 = UUID.fromString("00000000-0000-0000-0000-000000007021");
-        CommercialBank b2 = new CommercialBank(bankId2, "PBK2", "Second Bank", BankStatus.ACTIVE, 10_000_000, BankPolicy.standard());
-        assertTrue(b2.ledger().post(0, UUID.randomUUID(), BankLedgerAccount.ASSET_RESERVE, BankLedgerAccount.EQUITY_PAID_IN,
-                10_000_000, BankLedgerReason.CHARTER_CAPITAL));
+        CommercialBank b2 = new CommercialBank(
+                bankId2, "PBK2", "Second Bank", BankStatus.ACTIVE, 10_000_000, BankPolicy.standard());
+        assertTrue(b2.ledger()
+                .post(
+                        0,
+                        UUID.randomUUID(),
+                        BankLedgerAccount.ASSET_RESERVE,
+                        BankLedgerAccount.EQUITY_PAID_IN,
+                        10_000_000,
+                        BankLedgerReason.CHARTER_CAPITAL));
         BankingManager.putBankDirect(b2);
         PlayerBankService.putOwnerDirect(bankId2, player, 0);
         return bankId2;
@@ -332,9 +367,13 @@ class PlayerBankServiceTest {
         var rc = PlayerBankService.charter(other, "OTB", "Other Bank", 10_000_000, 0);
         assertTrue(rc.success(), rc.message());
         assertFalse(PlayerBankService.setSpreads(player, rc.id(), 0, 0, 0).success());
-        assertFalse(PlayerBankService.setSpreads(player, UUID.randomUUID(), 0, 0, 0).success());
+        assertFalse(
+                PlayerBankService.setSpreads(player, UUID.randomUUID(), 0, 0, 0).success());
         UUID npc = BankingManager.banks().values().stream()
-                .filter(b -> !PlayerBankService.isPlayerBank(b.id())).findFirst().orElseThrow().id();
+                .filter(b -> !PlayerBankService.isPlayerBank(b.id()))
+                .findFirst()
+                .orElseThrow()
+                .id();
         assertFalse(PlayerBankService.setSpreads(player, npc, 0, 0, 0).success());
     }
 
@@ -346,8 +385,10 @@ class PlayerBankServiceTest {
         var ok = PlayerBankService.dividend(player, second, 1_000_000, 1);
         assertTrue(ok.success(), ok.message());
         assertEquals(walletBefore + 1_000_000, AccountManager.getBalance(player));
-        assertEquals(9_000_000, BankingManager.bank(second).ledger().balanceSheet().equity());
-        assertEquals(10_000_000, BankingManager.bank(first).ledger().balanceSheet().equity());
+        assertEquals(
+                9_000_000, BankingManager.bank(second).ledger().balanceSheet().equity());
+        assertEquals(
+                10_000_000, BankingManager.bank(first).ledger().balanceSheet().equity());
         var rc = PlayerBankService.charter(other, "OTB", "Other Bank", 10_000_000, 0);
         assertTrue(rc.success(), rc.message());
         assertFalse(PlayerBankService.dividend(player, rc.id(), 100, 1).success());

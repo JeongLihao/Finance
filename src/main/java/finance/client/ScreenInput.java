@@ -1,11 +1,10 @@
 package finance.client;
 
+import java.util.OptionalLong;
+import java.util.UUID;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.events.GuiEventListener;
 import org.lwjgl.glfw.GLFW;
-
-import java.util.OptionalLong;
-import java.util.UUID;
 
 /** 各界面共用的输入框按键处理与发包前的客户端预校验。
  * 服务端解码器会把越界参数当作非法包直接断开连接，所以界面上能输入的值必须先在这里挡住。 */

@@ -1,18 +1,18 @@
 package finance.gameplay.company;
 
-import finance.company.Company;
-import finance.company.CompanyFinancialReport;
 import finance.commodity.CommodityInventory;
 import finance.commodity.CommodityInventoryManager;
+import finance.company.Company;
+import finance.company.CompanyFinancialReport;
 import finance.contract.ContractIssuerType;
 import finance.contract.ContractManager;
 import finance.contract.FinanceContract;
+import finance.debt.BondStatus;
+import finance.debt.CompanyLoan;
 import finance.debt.CompanyLoanManager;
 import finance.debt.CorporateBond;
 import finance.debt.CorporateBondManager;
-import finance.debt.BondStatus;
 import finance.debt.LoanStatus;
-import finance.debt.CompanyLoan;
 import finance.logistics.Shipment;
 import finance.logistics.ShipmentManager;
 import finance.logistics.ShipmentStatus;
@@ -23,7 +23,6 @@ import finance.stock.StockMarketManager;
 import finance.warehouse.WarehouseManager;
 import finance.warehouse.WarehouseRecord;
 import finance.warehouse.WarehouseStatus;
-
 import java.math.BigInteger;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -40,8 +39,7 @@ public final class CompanyOperatingSnapshotService {
 
     private static final int MAX_INVENTORY_LINES = 128;
 
-    private CompanyOperatingSnapshotService() {
-    }
+    private CompanyOperatingSnapshotService() {}
 
     public static CompanyOperatingSnapshot snapshot(Company company, long mcDay) {
         if (company == null) return null;
@@ -54,7 +52,8 @@ public final class CompanyOperatingSnapshotService {
         if (profile != null) {
             for (UUID warehouseId : profile.warehouseIds()) {
                 WarehouseRecord record = WarehouseManager.get(warehouseId);
-                if (record != null && companyId.equals(record.companyId())
+                if (record != null
+                        && companyId.equals(record.companyId())
                         && record.status() != WarehouseStatus.DISABLED
                         && record.status() != WarehouseStatus.ORPHANED) boundWarehouses++;
             }
@@ -82,8 +81,7 @@ public final class CompanyOperatingSnapshotService {
                 degraded = true;
                 continue;
             }
-            value = value.add(BigInteger.valueOf(price.getMidPrice())
-                    .multiply(BigInteger.valueOf(line.getValue())));
+            value = value.add(BigInteger.valueOf(price.getMidPrice()).multiply(BigInteger.valueOf(line.getValue())));
         }
 
         int openContracts = 0;
@@ -99,8 +97,8 @@ public final class CompanyOperatingSnapshotService {
         for (Shipment shipment : ShipmentManager.all().values()) {
             if (!companyId.equals(shipment.companyId()) || shipment.status().terminal()) continue;
             activeShipments++;
-            if (shipment.status() == ShipmentStatus.LOSS_PENDING
-                    || shipment.status() == ShipmentStatus.QUARANTINED) abnormalShipments++;
+            if (shipment.status() == ShipmentStatus.LOSS_PENDING || shipment.status() == ShipmentStatus.QUARANTINED)
+                abnormalShipments++;
             if (mcDay > shipment.deadlineDay()) delayedShipment = true;
         }
 
@@ -112,29 +110,53 @@ public final class CompanyOperatingSnapshotService {
         boolean listed = company.isPublic() && stock != null;
         long totalShares = listed ? stock.getTotalShares() : 0;
         long treasuryShares = listed ? stock.getTreasuryShares() : 0;
-        long marketCap = listed
-                ? CompanyOperatingSnapshot.saturateMultiply(stock.getLastPrice(), stock.getTotalShares())
-                : 0;
+        long marketCap =
+                listed ? CompanyOperatingSnapshot.saturateMultiply(stock.getLastPrice(), stock.getTotalShares()) : 0;
 
         long inventoryValue = CompanyOperatingSnapshot.saturate(value);
-        BigInteger debtPrincipal = BigInteger.valueOf(Math.max(0, loanPrincipal))
-                .add(BigInteger.valueOf(Math.max(0, bondPrincipal)));
-        CompanyOperatingHealth health = classify(company, used, capacity, materialShortage,
-                capacityBlocked, delayedShipment, debtPrincipal.signum() > 0, debtPrincipal);
+        BigInteger debtPrincipal =
+                BigInteger.valueOf(Math.max(0, loanPrincipal)).add(BigInteger.valueOf(Math.max(0, bondPrincipal)));
+        CompanyOperatingHealth health = classify(
+                company,
+                used,
+                capacity,
+                materialShortage,
+                capacityBlocked,
+                delayedShipment,
+                debtPrincipal.signum() > 0,
+                debtPrincipal);
 
         return new CompanyOperatingSnapshot(
-                companyId, Math.max(0, mcDay),
+                companyId,
+                Math.max(0, mcDay),
                 Math.max(0, company.getCash()),
                 Math.max(0, company.getSmoothedDailyProfit()),
                 Math.max(0, company.getRetainedEarnings()),
                 latestReportDay(company),
-                boundWarehouses, Math.max(0, capacity), Math.max(0, used), used > capacity,
-                facilityCount, highestLevel, lastProductionDay,
-                materialShortage, capacityBlocked, company.isBankruptcyRisk(),
-                inventory, degraded, inventoryValue,
-                openContracts, activeShipments, abnormalShipments,
-                Math.max(0, loanPrincipal), Math.max(0, bondPrincipal), dueSoon,
-                listed, totalShares, treasuryShares, marketCap, health);
+                boundWarehouses,
+                Math.max(0, capacity),
+                Math.max(0, used),
+                used > capacity,
+                facilityCount,
+                highestLevel,
+                lastProductionDay,
+                materialShortage,
+                capacityBlocked,
+                company.isBankruptcyRisk(),
+                inventory,
+                degraded,
+                inventoryValue,
+                openContracts,
+                activeShipments,
+                abnormalShipments,
+                Math.max(0, loanPrincipal),
+                Math.max(0, bondPrincipal),
+                dueSoon,
+                listed,
+                totalShares,
+                treasuryShares,
+                marketCap,
+                health);
     }
 
     private static Map<String, Long> aggregateInventory(Company company) {
@@ -185,18 +207,22 @@ public final class CompanyOperatingSnapshotService {
                         .multiply(BigInteger.valueOf(Math.max(0, bond.subscribedQuantity())))
                         .multiply(BigInteger.valueOf(bond.couponBasisPoints()))
                         .multiply(BigInteger.valueOf(days))
-                        .divide(BigInteger.valueOf(10_000L * Math.max(1,
-                                finance.config.FinanceConfig.annualMcDays())));
+                        .divide(BigInteger.valueOf(10_000L * Math.max(1, finance.config.FinanceConfig.annualMcDays())));
                 due = due.add(coupon);
             }
         }
         return CompanyOperatingSnapshot.saturate(due);
     }
 
-    private static CompanyOperatingHealth classify(Company company, long used, long capacity,
-                                                   boolean materialShortage, boolean capacityBlocked,
-                                                   boolean delayedShipment, boolean hasDebt,
-                                                   BigInteger debtPrincipal) {
+    private static CompanyOperatingHealth classify(
+            Company company,
+            long used,
+            long capacity,
+            boolean materialShortage,
+            boolean capacityBlocked,
+            boolean delayedShipment,
+            boolean hasDebt,
+            BigInteger debtPrincipal) {
         if (company.isBankruptcyRisk()) return CompanyOperatingHealth.BANKRUPTCY_RISK;
         if (hasDebt) {
             BigInteger assets = BigInteger.valueOf(Math.max(1, company.getReportBasedAssetValue()));

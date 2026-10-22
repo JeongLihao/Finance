@@ -4,8 +4,7 @@ import finance.data.EconomySavedData;
 
 /** Single entry point for moving available money between economic entities. */
 public final class MoneyTransferService {
-    private MoneyTransferService() {
-    }
+    private MoneyTransferService() {}
 
     public static MoneyTransferResult transfer(MoneyEndpoint from, MoneyEndpoint to, long amount) {
         if (from == null || to == null) {

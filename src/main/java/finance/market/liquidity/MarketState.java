@@ -25,9 +25,15 @@ public final class MarketState {
     private final double baseSpread;
     private final boolean halted;
 
-    public MarketState(long mid, long lastPrice, long referencePrice,
-                       long inventory, long targetInventory,
-                       double volatility, double baseSpread, boolean halted) {
+    public MarketState(
+            long mid,
+            long lastPrice,
+            long referencePrice,
+            long inventory,
+            long targetInventory,
+            double volatility,
+            double baseSpread,
+            boolean halted) {
         this.mid = mid;
         this.lastPrice = lastPrice;
         this.referencePrice = referencePrice;
@@ -46,11 +52,9 @@ public final class MarketState {
         return lastPrice;
     }
 
-
     public long getInventory() {
         return inventory;
     }
-
 
     public double getVolatility() {
         return volatility;

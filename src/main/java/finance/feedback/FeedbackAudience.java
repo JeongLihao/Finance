@@ -1,3 +1,8 @@
 package finance.feedback;
 
-public enum FeedbackAudience { LOCAL, PARTICIPANTS, GLOBAL, ADMIN }
+public enum FeedbackAudience {
+    LOCAL,
+    PARTICIPANTS,
+    GLOBAL,
+    ADMIN
+}

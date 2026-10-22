@@ -1,21 +1,21 @@
 package finance.network;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
 import finance.gameplay.FinanceScreenMode;
 import finance.gameplay.FinanceTerminalType;
 import io.netty.buffer.Unpooled;
 import net.minecraft.network.FriendlyByteBuf;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-
 class OpenFinanceGuiPacketTest {
 
     @Test
     void entryTypeAndRequestedModeRoundTrip() {
         FriendlyByteBuf buffer = new FriendlyByteBuf(Unpooled.buffer());
-        OpenFinanceGuiPacket.encode(new OpenFinanceGuiPacket(
-                FinanceTerminalType.SECURITIES_TERMINAL, FinanceScreenMode.ADVANCED), buffer);
+        OpenFinanceGuiPacket.encode(
+                new OpenFinanceGuiPacket(FinanceTerminalType.SECURITIES_TERMINAL, FinanceScreenMode.ADVANCED), buffer);
 
         OpenFinanceGuiPacket decoded = OpenFinanceGuiPacket.decode(buffer);
         assertEquals(FinanceTerminalType.SECURITIES_TERMINAL, decoded.terminalType());

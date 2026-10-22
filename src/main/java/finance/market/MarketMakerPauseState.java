@@ -1,7 +1,6 @@
 package finance.market;
 
 import finance.data.EconomySavedData;
-
 import java.util.Collections;
 import java.util.EnumMap;
 import java.util.Locale;
@@ -30,8 +29,7 @@ public final class MarketMakerPauseState {
         }
     }
 
-    private MarketMakerPauseState() {
-    }
+    private MarketMakerPauseState() {}
 
     /** 某市场做市商是否被管理员手动暂停。 */
     public static synchronized boolean isPaused(MarketMakerLedger.SubMarket market) {

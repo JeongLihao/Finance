@@ -11,13 +11,12 @@ import finance.market.OrderType;
 import finance.network.GuiFeedbackPacket;
 import finance.util.InventoryUtil;
 import finance.util.MoneyFormat;
+import java.util.ArrayList;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
-
-import java.util.ArrayList;
 
 /**
  * 让挂单在单人游戏里也能成交：市场（国际做市商）的收购价涨到卖单价格、或出售价跌到买单价格时，
@@ -34,7 +33,8 @@ public final class MarketOrderFiller {
     public static void onServerTick(TickEvent.ServerTickEvent event) {
         if (event.phase != TickEvent.Phase.END || event.getServer() == null) return;
         if (event.getServer().getTickCount() % PERIOD_TICKS != 0) return;
-        if (!finance.diagnostic.ModuleHealthRegistry.mayWrite(finance.diagnostic.ModuleHealthRegistry.Module.MARKET)) return;
+        if (!finance.diagnostic.ModuleHealthRegistry.mayWrite(finance.diagnostic.ModuleHealthRegistry.Module.MARKET))
+            return;
         fillCrossedOrders(event.getServer());
     }
 
@@ -59,7 +59,8 @@ public final class MarketOrderFiller {
 
     private static boolean fill(MinecraftServer server, Order order) {
         String id = order.getCommodityId();
-        if (order.getType() == OrderType.SELL ? NpcMarketMaker.npcBuyBlockReason(id) != null
+        if (order.getType() == OrderType.SELL
+                ? NpcMarketMaker.npcBuyBlockReason(id) != null
                 : NpcMarketMaker.npcSellBlockReason(id) != null) {
             return false;
         }
@@ -90,7 +91,9 @@ public final class MarketOrderFiller {
             message = "你的卖单成交了：卖出 " + done + " 个" + name + "，得 " + MoneyFormat.pounds(delta) + "。";
         } else {
             // 在线时直接放进背包
-            if (c != null && c.getItemId() != null && !c.getItemId().isEmpty()
+            if (c != null
+                    && c.getItemId() != null
+                    && !c.getItemId().isEmpty()
                     && CommodityInventoryManager.removeCommodity(order.getPlayerId(), order.getCommodityId(), done)) {
                 InventoryUtil.addToInventory(online, c.getItemId(), done);
             }
@@ -98,5 +101,4 @@ public final class MarketOrderFiller {
         }
         GuiFeedbackPacket.send(online, message, delta);
     }
-
 }

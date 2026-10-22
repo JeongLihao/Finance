@@ -1,9 +1,8 @@
 package finance.network;
 
 import finance.stock.StockMarketManager;
-import net.minecraft.resources.ResourceLocation;
-
 import java.util.Locale;
+import net.minecraft.resources.ResourceLocation;
 
 public final class NetworkValidation {
 
@@ -12,8 +11,7 @@ public final class NetworkValidation {
     public static final int MAX_DISPLAY_NAME_LENGTH = 64;
     public static final int MAX_SYMBOL_LENGTH = 16;
 
-    private NetworkValidation() {
-    }
+    private NetworkValidation() {}
 
     public static String normalizeCommodityId(String commodityId) {
         return commodityId == null ? "" : commodityId.trim().toLowerCase(Locale.ROOT);
@@ -36,16 +34,14 @@ public final class NetworkValidation {
     }
 
     public static boolean isValidDisplayName(String displayName) {
-        return displayName != null
-                && !displayName.trim().isEmpty()
-                && displayName.length() <= MAX_DISPLAY_NAME_LENGTH;
+        return displayName != null && !displayName.trim().isEmpty() && displayName.length() <= MAX_DISPLAY_NAME_LENGTH;
     }
 
     public static boolean isValidItemId(String itemId) {
         return itemId == null
                 || (!itemId.trim().isEmpty()
-                && itemId.length() <= MAX_ITEM_ID_LENGTH
-                && ResourceLocation.tryParse(itemId.trim()) != null);
+                        && itemId.length() <= MAX_ITEM_ID_LENGTH
+                        && ResourceLocation.tryParse(itemId.trim()) != null);
     }
 
     public static boolean isPositive(long value) {

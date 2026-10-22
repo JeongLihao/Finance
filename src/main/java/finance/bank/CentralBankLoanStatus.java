@@ -1,2 +1,7 @@
 package finance.bank;
-public enum CentralBankLoanStatus { ACTIVE, REPAID, DEFAULTED }
+
+public enum CentralBankLoanStatus {
+    ACTIVE,
+    REPAID,
+    DEFAULTED
+}

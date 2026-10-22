@@ -1,5 +1,10 @@
 package finance.data;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import finance.account.AccountManager;
 import finance.account.AssetSnapshotManager;
 import finance.account.TransactionRecord;
@@ -7,43 +12,37 @@ import finance.account.TransactionType;
 import finance.alert.PriceAlertDirection;
 import finance.alert.PriceAlertManager;
 import finance.alert.PriceAlertType;
+import finance.chart.CandlestickService;
+import finance.chart.MarketInstrumentType;
+import finance.commodity.Commodity;
+import finance.commodity.CommodityCategory;
+import finance.commodity.CommodityRegistry;
+import finance.company.CompanyFinancialReport;
 import finance.company.CompanyFinancingManager;
 import finance.company.CompanyFinancingProject;
-import finance.company.CompanyFinancialReport;
+import finance.company.CompanyManager;
 import finance.company.CompanyProposal;
 import finance.company.CompanyProposalManager;
 import finance.company.CompanyProposalStatus;
 import finance.company.CompanyProposalType;
-import finance.commodity.CommodityCategory;
-import finance.commodity.Commodity;
-import finance.commodity.CommodityRegistry;
-import finance.company.CompanyManager;
 import finance.company.CompanyStrategy;
 import finance.company.CompanyType;
 import finance.market.MarketManager;
-import finance.stock.StockMarketManager;
-import finance.stock.Stock;
+import finance.metrics.EconomyMetricsService;
 import finance.stock.ConditionalStockOrder;
 import finance.stock.ConditionalStockOrderManager;
 import finance.stock.ConditionalStockOrderType;
+import finance.stock.Stock;
+import finance.stock.StockMarketManager;
 import finance.stock.StockPriceEngine;
 import finance.stock.StockTrade;
-import finance.metrics.EconomyMetricsService;
-import finance.chart.CandlestickService;
-import finance.chart.MarketInstrumentType;
+import java.util.UUID;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class EconomySavedDataTest {
 
@@ -108,9 +107,11 @@ class EconomySavedDataTest {
         assertDoesNotThrow(() -> EconomySavedData.load(root));
 
         assertNotNull(CompanyManager.getCompany(COMPANY_ID));
-        assertEquals(CompanyStrategy.STABLE, CompanyManager.getCompany(COMPANY_ID).getStrategy());
+        assertEquals(
+                CompanyStrategy.STABLE, CompanyManager.getCompany(COMPANY_ID).getStrategy());
         assertNotNull(CommodityRegistry.getCommodity("bad_category_test"));
-        assertEquals(CommodityCategory.MISCELLANEOUS,
+        assertEquals(
+                CommodityCategory.MISCELLANEOUS,
                 CommodityRegistry.getCommodity("bad_category_test").getCategory());
     }
 
@@ -130,18 +131,43 @@ class EconomySavedDataTest {
         CompoundTag corrupt = new CompoundTag();
         corrupt.putLong("Day", -1);
         corrupt.putLong("Open", 0);
-        saved.getList("Candlesticks", Tag.TAG_COMPOUND).getCompound(0)
-                .getList("Bars", Tag.TAG_COMPOUND).add(corrupt);
+        saved.getList("Candlesticks", Tag.TAG_COMPOUND)
+                .getCompound(0)
+                .getList("Bars", Tag.TAG_COMPOUND)
+                .add(corrupt);
 
         EconomySavedData.load(saved);
 
-        assertEquals(1, CandlestickService.getBars(MarketInstrumentType.STOCK, "ABC", 30).size());
-        assertEquals(12, CandlestickService.getBars(MarketInstrumentType.STOCK, "ABC", 30).get(0).close());
-        assertEquals(5, CandlestickService.getBars(MarketInstrumentType.STOCK, "ABC", 30).get(0).volume());
-        assertEquals(7, CandlestickService.getBars(MarketInstrumentType.COMMODITY, "abc", 30).get(0).close());
+        assertEquals(
+                1,
+                CandlestickService.getBars(MarketInstrumentType.STOCK, "ABC", 30)
+                        .size());
+        assertEquals(
+                12,
+                CandlestickService.getBars(MarketInstrumentType.STOCK, "ABC", 30)
+                        .get(0)
+                        .close());
+        assertEquals(
+                5,
+                CandlestickService.getBars(MarketInstrumentType.STOCK, "ABC", 30)
+                        .get(0)
+                        .volume());
+        assertEquals(
+                7,
+                CandlestickService.getBars(MarketInstrumentType.COMMODITY, "abc", 30)
+                        .get(0)
+                        .close());
         CandlestickService.recordTrade(MarketInstrumentType.STOCK, "ABC", 4, 9, 4);
-        assertEquals(9, CandlestickService.getBars(MarketInstrumentType.STOCK, "ABC", 30).get(0).close());
-        assertEquals(9, CandlestickService.getBars(MarketInstrumentType.STOCK, "ABC", 30).get(0).volume());
+        assertEquals(
+                9,
+                CandlestickService.getBars(MarketInstrumentType.STOCK, "ABC", 30)
+                        .get(0)
+                        .close());
+        assertEquals(
+                9,
+                CandlestickService.getBars(MarketInstrumentType.STOCK, "ABC", 30)
+                        .get(0)
+                        .volume());
     }
 
     @Test
@@ -172,17 +198,9 @@ class EconomySavedDataTest {
     void loadRestoresCustomCommodityBeforeCompanyInventory() {
         String commodityId = "test_custom_company_inventory";
         CommodityRegistry.register(new Commodity(
-                commodityId,
-                "minecraft:diamond",
-                "Custom Company Input",
-                CommodityCategory.MISCELLANEOUS,
-                250));
+                commodityId, "minecraft:diamond", "Custom Company Input", CommodityCategory.MISCELLANEOUS, 250));
         finance.company.Company company = new finance.company.Company(
-                COMPANY_ID,
-                "Custom Inventory Company",
-                CompanyType.RAW_MATERIALS,
-                1_000,
-                PLAYER_ID);
+                COMPANY_ID, "Custom Inventory Company", CompanyType.RAW_MATERIALS, 1_000, PLAYER_ID);
         company.addInventory(commodityId, 37);
         CompanyManager.registerDirect(company);
 
@@ -202,17 +220,9 @@ class EconomySavedDataTest {
     void loadLegacySaveKeepsDefaultCommodityCompanyInventory() {
         String commodityId = "legacy_default_inventory_test";
         CommodityRegistry.registerDefault(new Commodity(
-                commodityId,
-                "minecraft:iron_ingot",
-                "Legacy Default Inventory",
-                CommodityCategory.RAW_MATERIALS,
-                10));
+                commodityId, "minecraft:iron_ingot", "Legacy Default Inventory", CommodityCategory.RAW_MATERIALS, 10));
         finance.company.Company company = new finance.company.Company(
-                COMPANY_ID,
-                "Default Inventory Company",
-                CompanyType.RAW_MATERIALS,
-                1_000,
-                PLAYER_ID);
+                COMPANY_ID, "Default Inventory Company", CompanyType.RAW_MATERIALS, 1_000, PLAYER_ID);
         company.addInventory(commodityId, 19);
         CompanyManager.registerDirect(company);
 
@@ -230,14 +240,8 @@ class EconomySavedDataTest {
 
     @Test
     void saveAndLoadPreservesDetailedTransactionRecordFields() {
-        AccountManager.addTransactionRecord(new TransactionRecord(
-                PLAYER_ID,
-                OTHER_PLAYER_ID,
-                250,
-                TransactionType.STOCK_BUY,
-                PLAYER_ID,
-                "ABC",
-                5));
+        AccountManager.addTransactionRecord(
+                new TransactionRecord(PLAYER_ID, OTHER_PLAYER_ID, 250, TransactionType.STOCK_BUY, PLAYER_ID, "ABC", 5));
 
         CompoundTag saved = new EconomySavedData().save(new CompoundTag());
 
@@ -255,18 +259,11 @@ class EconomySavedDataTest {
     @Test
     void saveAndLoadPreservesStockPriceSnapshots() {
         CompanyManager.registerDirect(new finance.company.Company(
-                COMPANY_ID,
-                "Snapshot Company",
-                CompanyType.RAW_MATERIALS,
-                1000,
-                PLAYER_ID));
+                COMPANY_ID, "Snapshot Company", CompanyType.RAW_MATERIALS, 1000, PLAYER_ID));
         CompanyManager.getCompany(COMPANY_ID).setPublic(true);
-        Stock stock = new Stock("SNAP", "Snapshot Company", COMPANY_ID,
-                1000, 1000, 0, 10, 10);
+        Stock stock = new Stock("SNAP", "Snapshot Company", COMPANY_ID, 1000, 1000, 0, 10, 10);
         stock.addSnapshotDirect(new StockPriceEngine.PriceSnapshot(
-                java.time.LocalDateTime.ofEpochSecond(10, 0, java.time.ZoneOffset.UTC),
-                12,
-                3));
+                java.time.LocalDateTime.ofEpochSecond(10, 0, java.time.ZoneOffset.UTC), 12, 3));
         StockMarketManager.putStockDirect(stock);
 
         CompoundTag saved = new EconomySavedData().save(new CompoundTag());
@@ -283,13 +280,9 @@ class EconomySavedDataTest {
     @Test
     void loadingStockTradeHistoryDoesNotCountItAsNewDailyVolume() {
         CompanyManager.registerDirect(new finance.company.Company(
-                COMPANY_ID,
-                "Historical Trade Company",
-                CompanyType.RAW_MATERIALS,
-                1_000,
-                PLAYER_ID));
-        StockMarketManager.putStockDirect(new Stock("HIST", "Historical Trade Company", COMPANY_ID,
-                1_000, 1_000, 0, 10, 10));
+                COMPANY_ID, "Historical Trade Company", CompanyType.RAW_MATERIALS, 1_000, PLAYER_ID));
+        StockMarketManager.putStockDirect(
+                new Stock("HIST", "Historical Trade Company", COMPANY_ID, 1_000, 1_000, 0, 10, 10));
         StockMarketManager.addStockTradeDirect(new StockTrade(PLAYER_ID, OTHER_PLAYER_ID, "HIST", 10, 6));
 
         CompoundTag saved = new EconomySavedData().save(new CompoundTag());
@@ -302,11 +295,7 @@ class EconomySavedDataTest {
     @Test
     void saveAndLoadPreservesDividendPolicyAndCompanyDividendFields() {
         finance.company.Company company = new finance.company.Company(
-                COMPANY_ID,
-                "Dividend Fields Company",
-                CompanyType.RAW_MATERIALS,
-                2000,
-                PLAYER_ID);
+                COMPANY_ID, "Dividend Fields Company", CompanyType.RAW_MATERIALS, 2000, PLAYER_ID);
         company.addDistributableProfit(700);
         company.addDividendRecord(12, 300, 3);
         CompanyManager.registerDirect(company);
@@ -328,8 +317,7 @@ class EconomySavedDataTest {
 
     @Test
     void saveAndLoadPreservesAssetSnapshots() {
-        AssetSnapshotManager.putSnapshotDirect(PLAYER_ID,
-                new AssetSnapshotManager.AssetSnapshot(4, 12_345));
+        AssetSnapshotManager.putSnapshotDirect(PLAYER_ID, new AssetSnapshotManager.AssetSnapshot(4, 12_345));
 
         CompoundTag saved = new EconomySavedData().save(new CompoundTag());
 
@@ -341,37 +329,32 @@ class EconomySavedDataTest {
 
     @Test
     void saveAndLoadPreservesPriceAlerts() {
-        PriceAlertManager.addAlertDirect(new finance.alert.PriceAlert(
-                PLAYER_ID,
-                PriceAlertType.STOCK,
-                "ABC",
-                PriceAlertDirection.BELOW,
-                88));
+        PriceAlertManager.addAlertDirect(
+                new finance.alert.PriceAlert(PLAYER_ID, PriceAlertType.STOCK, "ABC", PriceAlertDirection.BELOW, 88));
 
         CompoundTag saved = new EconomySavedData().save(new CompoundTag());
 
         EconomySavedData.load(saved);
 
         assertEquals(1, PriceAlertManager.getAlertsForPlayer(PLAYER_ID).size());
-        assertEquals("ABC", PriceAlertManager.getAlertsForPlayer(PLAYER_ID).get(0).getTargetId());
+        assertEquals(
+                "ABC", PriceAlertManager.getAlertsForPlayer(PLAYER_ID).get(0).getTargetId());
         assertEquals(88, PriceAlertManager.getAlertsForPlayer(PLAYER_ID).get(0).getTargetPrice());
     }
 
     @Test
     void saveAndLoadPreservesConditionalStockOrders() {
-        ConditionalStockOrderManager.addOrderDirect(new ConditionalStockOrder(
-                PLAYER_ID,
-                "ABC",
-                ConditionalStockOrderType.TAKE_PROFIT,
-                120,
-                4));
+        ConditionalStockOrderManager.addOrderDirect(
+                new ConditionalStockOrder(PLAYER_ID, "ABC", ConditionalStockOrderType.TAKE_PROFIT, 120, 4));
 
         CompoundTag saved = new EconomySavedData().save(new CompoundTag());
 
         EconomySavedData.load(saved);
 
-        assertEquals(1, ConditionalStockOrderManager.getOrdersForPlayer(PLAYER_ID).size());
-        ConditionalStockOrder loaded = ConditionalStockOrderManager.getOrdersForPlayer(PLAYER_ID).get(0);
+        assertEquals(
+                1, ConditionalStockOrderManager.getOrdersForPlayer(PLAYER_ID).size());
+        ConditionalStockOrder loaded =
+                ConditionalStockOrderManager.getOrdersForPlayer(PLAYER_ID).get(0);
         assertEquals("ABC", loaded.getSymbol());
         assertEquals(ConditionalStockOrderType.TAKE_PROFIT, loaded.getType());
         assertEquals(120, loaded.getTriggerPrice());
@@ -380,13 +363,7 @@ class EconomySavedDataTest {
 
     @Test
     void saveAndLoadPreservesCompanyFinancingProjects() {
-        CompanyFinancingProject project = new CompanyFinancingProject(
-                COMPANY_ID,
-                "ABC",
-                100,
-                10,
-                800,
-                12);
+        CompanyFinancingProject project = new CompanyFinancingProject(COMPANY_ID, "ABC", 100, 10, 800, 12);
         project.addSubscription(PLAYER_ID, 25);
         CompanyFinancingManager.addProjectDirect(project);
 
@@ -407,11 +384,7 @@ class EconomySavedDataTest {
     @Test
     void saveAndLoadPreservesCompanyFinancialReports() {
         finance.company.Company company = new finance.company.Company(
-                COMPANY_ID,
-                "Report Save Company",
-                CompanyType.RAW_MATERIALS,
-                1_000,
-                PLAYER_ID);
+                COMPANY_ID, "Report Save Company", CompanyType.RAW_MATERIALS, 1_000, PLAYER_ID);
         company.addFinancialReportDirect(new CompanyFinancialReport(
                 8,
                 300,
@@ -444,12 +417,8 @@ class EconomySavedDataTest {
 
     @Test
     void saveAndLoadPreservesCompanyBankruptcyRiskState() {
-        finance.company.Company company = new finance.company.Company(
-                COMPANY_ID,
-                "Risk Company",
-                CompanyType.RAW_MATERIALS,
-                100,
-                PLAYER_ID);
+        finance.company.Company company =
+                new finance.company.Company(COMPANY_ID, "Risk Company", CompanyType.RAW_MATERIALS, 100, PLAYER_ID);
         company.setBankruptcyRisk(true, 6);
         CompanyManager.registerDirect(company);
 
@@ -466,17 +435,7 @@ class EconomySavedDataTest {
     @Test
     void saveAndLoadPreservesCompanyProposalsAndVotes() {
         CompanyProposal proposal = new CompanyProposal(
-                COMPANY_ID,
-                PLAYER_ID,
-                CompanyProposalType.DIVIDEND,
-                "调整分红",
-                "",
-                35,
-                0,
-                0,
-                1,
-                4,
-                0.6);
+                COMPANY_ID, PLAYER_ID, CompanyProposalType.DIVIDEND, "调整分红", "", 35, 0, 0, 1, 4, 0.6);
         proposal.addVote(PLAYER_ID, true, 12);
         proposal.finish(CompanyProposalStatus.PASSED, "已通过");
         CompanyProposalManager.addProposalDirect(proposal);
@@ -485,8 +444,10 @@ class EconomySavedDataTest {
 
         EconomySavedData.load(saved);
 
-        assertEquals(1, CompanyProposalManager.getProposalsForCompany(COMPANY_ID).size());
-        CompanyProposal loaded = CompanyProposalManager.getProposalsForCompany(COMPANY_ID).get(0);
+        assertEquals(
+                1, CompanyProposalManager.getProposalsForCompany(COMPANY_ID).size());
+        CompanyProposal loaded =
+                CompanyProposalManager.getProposalsForCompany(COMPANY_ID).get(0);
         assertEquals(CompanyProposalType.DIVIDEND, loaded.getType());
         assertEquals(35, loaded.getValue1());
         assertEquals(12, loaded.getYesVotes());

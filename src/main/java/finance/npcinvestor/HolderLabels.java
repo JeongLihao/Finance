@@ -4,12 +4,11 @@ import finance.company.Company;
 import finance.company.CompanyManager;
 import finance.governance.ShareholderRegistryService;
 import finance.rival.RivalManager;
-
 import java.util.UUID;
 
 /** 股东列表的身份标签（服务端计算后同步给客户端）：NPC 原型、竞争公司、创始人、未流通残差。 */
 public final class HolderLabels {
-    private HolderLabels() { }
+    private HolderLabels() {}
 
     public static String label(UUID holder, Company company) {
         if (holder == null) return "";

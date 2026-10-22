@@ -1,12 +1,17 @@
 package finance.data;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import finance.account.AccountManager;
-import finance.company.Company;
-import finance.company.CompanyManager;
-import finance.company.CompanyType;
 import finance.commodity.Commodity;
 import finance.commodity.CommodityCategory;
 import finance.commodity.CommodityRegistry;
+import finance.company.Company;
+import finance.company.CompanyManager;
+import finance.company.CompanyType;
 import finance.contract.ContractIssuerType;
 import finance.contract.ContractManager;
 import finance.contract.ContractStatus;
@@ -23,19 +28,13 @@ import finance.warehouse.WarehouseManager;
 import finance.warehouse.WarehousePermissionMode;
 import finance.warehouse.WarehouseRecord;
 import finance.warehouse.WarehouseStatus;
+import java.util.UUID;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class Phase6MigrationAcceptanceTest {
     private static final UUID OWNER = UUID.fromString("00000000-0000-0000-0000-000000006001");
@@ -49,8 +48,8 @@ class Phase6MigrationAcceptanceTest {
     @BeforeEach
     void setup() {
         EconomySavedData.resetRuntimeState();
-        CommodityRegistry.register(new Commodity(COMMODITY, "minecraft:iron_ingot",
-                "Phase 6 Migration Iron", CommodityCategory.RAW_MATERIALS, 100));
+        CommodityRegistry.register(new Commodity(
+                COMMODITY, "minecraft:iron_ingot", "Phase 6 Migration Iron", CommodityCategory.RAW_MATERIALS, 100));
     }
 
     @AfterEach
@@ -66,16 +65,45 @@ class Phase6MigrationAcceptanceTest {
         Company company = new Company(COMPANY, "Phase 6 Migration", CompanyType.RAW_MATERIALS, 20_000, OWNER);
         CompanyManager.registerDirect(company);
         CompanyGameplayProfile profile = CompanyGameplayManager.createForNewCompany(company);
-        WarehouseRecord warehouse = new WarehouseRecord(WAREHOUSE, "minecraft:overworld", new BlockPos(4, 64, 4),
-                OWNER, COMPANY, 4_096, WarehouseStatus.ACTIVE, 2, 2, WarehousePermissionMode.OWNER_ONLY);
+        WarehouseRecord warehouse = new WarehouseRecord(
+                WAREHOUSE,
+                "minecraft:overworld",
+                new BlockPos(4, 64, 4),
+                OWNER,
+                COMPANY,
+                4_096,
+                WarehouseStatus.ACTIVE,
+                2,
+                2,
+                WarehousePermissionMode.OWNER_ONLY);
         assertTrue(WarehouseManager.restore(warehouse));
         profile.bindWarehouse(WAREHOUSE);
-        assertTrue(CompanyFacilityManager.restore(new CompanyFacilityRecord(FACILITY, COMPANY,
-                "minecraft:overworld", new BlockPos(5, 64, 4), CompanyFacilityType.FACTORY_CONTROLLER,
-                1, CompanyFacilityStatus.ACTIVE, 2, WAREHOUSE)));
-        assertTrue(ContractManager.restore(new FinanceContract(CONTRACT, ContractType.PROCUREMENT,
-                ContractIssuerType.NPC_MARKET, UUID.randomUUID(), COMMODITY, 5, 0, 500, ESCROW,
-                null, 2, 8, null, ContractStatus.OPEN, "")));
+        assertTrue(CompanyFacilityManager.restore(new CompanyFacilityRecord(
+                FACILITY,
+                COMPANY,
+                "minecraft:overworld",
+                new BlockPos(5, 64, 4),
+                CompanyFacilityType.FACTORY_CONTROLLER,
+                1,
+                CompanyFacilityStatus.ACTIVE,
+                2,
+                WAREHOUSE)));
+        assertTrue(ContractManager.restore(new FinanceContract(
+                CONTRACT,
+                ContractType.PROCUREMENT,
+                ContractIssuerType.NPC_MARKET,
+                UUID.randomUUID(),
+                COMMODITY,
+                5,
+                0,
+                500,
+                ESCROW,
+                null,
+                2,
+                8,
+                null,
+                ContractStatus.OPEN,
+                "")));
 
         CompoundTag fixture = new EconomySavedData().save(new CompoundTag());
         fixture.putInt("DataVersion", 27);
@@ -134,7 +162,9 @@ class Phase6MigrationAcceptanceTest {
         bad.putInt("Level", CompanyFacilityRecord.MAX_LEVEL + 1);
         bad.putString("Status", CompanyFacilityStatus.ACTIVE.name());
         bad.putLong("LastDay", 2);
-        root.getCompound("CompanyGameplay").getList("Facilities", Tag.TAG_COMPOUND).add(bad);
+        root.getCompound("CompanyGameplay")
+                .getList("Facilities", Tag.TAG_COMPOUND)
+                .add(bad);
         return id;
     }
 
@@ -153,7 +183,9 @@ class Phase6MigrationAcceptanceTest {
         bad.putLong("CreatedDay", 2);
         bad.putLong("DeadlineDay", 8);
         bad.putString("Status", ContractStatus.OPEN.name());
-        root.getCompound("FinanceContracts").getList("Records", Tag.TAG_COMPOUND).add(bad);
+        root.getCompound("FinanceContracts")
+                .getList("Records", Tag.TAG_COMPOUND)
+                .add(bad);
         return id;
     }
 

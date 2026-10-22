@@ -4,6 +4,7 @@ public record WarehouseActionResult(boolean success, String messageKey, int amou
     public static WarehouseActionResult success(String key, int amount) {
         return new WarehouseActionResult(true, key, amount);
     }
+
     public static WarehouseActionResult failure(String key) {
         return new WarehouseActionResult(false, key, 0);
     }

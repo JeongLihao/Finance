@@ -2,9 +2,9 @@ package finance.centralbank;
 
 import finance.bank.BankLedgerAccount;
 import finance.bank.BankLedgerReason;
+import finance.bank.BankRegulatoryService;
 import finance.bank.BankStatus;
 import finance.bank.BankingManager;
-import finance.bank.BankRegulatoryService;
 import finance.bank.CommercialBank;
 import finance.bank.PlayerBankService;
 import finance.bank.TimeDeposit;
@@ -16,7 +16,6 @@ import finance.macro.EconomyAchievements;
 import finance.policy.MonetaryPolicyService;
 import finance.policy.PolicyMeetingService;
 import finance.policy.PolicyRuleService;
-
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayDeque;
@@ -45,8 +44,14 @@ import java.util.UUID;
  */
 public final class CentralBankService {
     /** 一条议息记录（面板和周报用）。 */
-    public record Decision(long day, int rateBefore, int rateAfter, int reserveBefore, int reserveAfter,
-                           int inflationBps, String note) { }
+    public record Decision(
+            long day,
+            int rateBefore,
+            int rateAfter,
+            int reserveBefore,
+            int reserveAfter,
+            int inflationBps,
+            String note) {}
 
     public static final int MAX_DECISIONS = 24;
     public static final int MAX_POSITIONS = 1_024;
@@ -60,22 +65,27 @@ public final class CentralBankService {
     private static int demandReserveBps = -1;
     /** 银行 id → 公开市场操作头寸：正数 = 银行持有的央行票据（已吸收），负数 = 欠央行的回购款（已投放）。 */
     private static final Map<UUID, Long> POSITIONS = new LinkedHashMap<>();
+
     private static final ArrayDeque<Decision> DECISIONS = new ArrayDeque<>();
     private static long lastProcessedDay = Long.MIN_VALUE;
     private static long absorbedToday, injectedToday, absorbedTotal, injectedTotal;
     private static int stableStreak;
     private static boolean runaway;
 
-    private CentralBankService() { }
+    private CentralBankService() {}
 
     // ---------------------------------------------------------------- 查询
 
-    public static int inflationTargetBps() { return FinanceConfig.cbInflationTargetBps(); }
+    public static int inflationTargetBps() {
+        return FinanceConfig.cbInflationTargetBps();
+    }
 
     /** 当前年化通胀（基点）；没有足够数据时按 0。 */
     public static int inflationBps() {
         PolicyRuleService.Evaluation eval = PolicyMeetingService.currentEvaluation();
-        return eval == null ? 0 : (int) Math.max(-1_000_000, Math.min(1_000_000, Math.round(eval.annualizedInflationPct() * 100)));
+        return eval == null
+                ? 0
+                : (int) Math.max(-1_000_000, Math.min(1_000_000, Math.round(eval.annualizedInflationPct() * 100)));
     }
 
     /** 活期存款法定准备金率（基点）。未调过时等于配置的初始值。 */
@@ -85,19 +95,45 @@ public final class CentralBankService {
     }
 
     /** 定期存款准备金率：活期的一半（不超过配置的定期率上限之外的比例关系）。 */
-    public static int timeReserveBps() { return demandReserveBps() / 2; }
+    public static int timeReserveBps() {
+        return demandReserveBps() / 2;
+    }
 
-    public static Map<UUID, Long> positions() { return Collections.unmodifiableMap(POSITIONS); }
+    public static Map<UUID, Long> positions() {
+        return Collections.unmodifiableMap(POSITIONS);
+    }
 
-    public static List<Decision> decisions() { return new ArrayList<>(DECISIONS); }
+    public static List<Decision> decisions() {
+        return new ArrayList<>(DECISIONS);
+    }
 
-    public static long absorbedToday() { return absorbedToday; }
-    public static long injectedToday() { return injectedToday; }
-    public static long absorbedTotal() { return absorbedTotal; }
-    public static long injectedTotal() { return injectedTotal; }
-    public static int stableStreak() { return stableStreak; }
-    public static boolean runaway() { return runaway; }
-    public static long lastProcessedDay() { return lastProcessedDay; }
+    public static long absorbedToday() {
+        return absorbedToday;
+    }
+
+    public static long injectedToday() {
+        return injectedToday;
+    }
+
+    public static long absorbedTotal() {
+        return absorbedTotal;
+    }
+
+    public static long injectedTotal() {
+        return injectedTotal;
+    }
+
+    public static int stableStreak() {
+        return stableStreak;
+    }
+
+    public static boolean runaway() {
+        return runaway;
+    }
+
+    public static long lastProcessedDay() {
+        return lastProcessedDay;
+    }
 
     /** 银行持有的央行票据合计（公开市场操作吸收的准备金）。 */
     public static long outstandingAbsorbed() {
@@ -119,19 +155,22 @@ public final class CentralBankService {
      * 议息日调用（利率决议之后）：按通胀缺口调整准备金率，记录决议，发相关成就。
      * MANUAL 模式只记录，不自动调准备金率。
      */
-    public static void onMeeting(long day, PolicyRuleService.Evaluation eval, int rateBefore, int rateAfter, boolean manual) {
+    public static void onMeeting(
+            long day, PolicyRuleService.Evaluation eval, int rateBefore, int rateAfter, boolean manual) {
         int inflation = eval == null ? 0 : (int) Math.round(eval.annualizedInflationPct() * 100);
         double slack = eval == null ? 0 : eval.slackRatio();
         int reserveBefore = demandReserveBps();
         int reserveAfter = reserveBefore;
-        if (!manual && FinanceConfig.cbReserveAuto()) reserveAfter = nextReserve(reserveBefore, inflation - inflationTargetBps(), slack);
+        if (!manual && FinanceConfig.cbReserveAuto())
+            reserveAfter = nextReserve(reserveBefore, inflation - inflationTargetBps(), slack);
         if (reserveAfter != reserveBefore) demandReserveBps = reserveAfter;
         String note = eval == null ? "" : eval.explanation();
         DECISIONS.addLast(new Decision(day, rateBefore, rateAfter, reserveBefore, reserveAfter, inflation, note));
         while (DECISIONS.size() > MAX_DECISIONS) DECISIONS.removeFirst();
         if (rateAfter < rateBefore) awardRateCall(day);
         if (reserveAfter < reserveBefore) {
-            for (UUID owner : new HashSet<>(PlayerBankService.ownersView().values())) EconomyAchievements.award(owner, EconomyAchievements.RESERVE_CUT);
+            for (UUID owner : new HashSet<>(PlayerBankService.ownersView().values()))
+                EconomyAchievements.award(owner, EconomyAchievements.RESERVE_CUT);
         }
         EconomySavedData.markDirty();
     }
@@ -152,10 +191,12 @@ public final class CentralBankService {
         long from = day - Math.max(1, FinanceConfig.policyGuidanceLeadDays()) - 1;
         Set<UUID> players = new HashSet<>();
         for (TreasuryBond bond : TreasuryBondManager.bonds().values()) {
-            if (bond.issueDay() >= from && bond.issueDay() < day) players.addAll(bond.principalByPlayer().keySet());
+            if (bond.issueDay() >= from && bond.issueDay() < day)
+                players.addAll(bond.principalByPlayer().keySet());
         }
         for (TimeDeposit deposit : BankingManager.timeDeposits().values()) {
-            if (deposit.startDay() >= from && deposit.startDay() < day && deposit.ownerId() != null) players.add(deposit.ownerId());
+            if (deposit.startDay() >= from && deposit.startDay() < day && deposit.ownerId() != null)
+                players.add(deposit.ownerId());
         }
         for (UUID p : players) EconomyAchievements.award(p, EconomyAchievements.RATE_CALL);
     }
@@ -178,7 +219,8 @@ public final class CentralBankService {
     private static void trackStability(int gapBps) {
         int band = Math.max(0, FinanceConfig.cbInflationBandBps());
         stableStreak = Math.abs(gapBps) <= band ? stableStreak + 1 : 0;
-        if (stableStreak == STABLE_DAYS_FOR_ACHIEVEMENT) EconomyAchievements.awardOnline(EconomyAchievements.PRICE_STABILITY);
+        if (stableStreak == STABLE_DAYS_FOR_ACHIEVEMENT)
+            EconomyAchievements.awardOnline(EconomyAchievements.PRICE_STABILITY);
         boolean now = gapBps >= RUNAWAY_GAP_BPS;
         if (now && !runaway) EconomyAchievements.awardOnline(EconomyAchievements.RUNAWAY_INFLATION);
         runaway = now;
@@ -216,14 +258,29 @@ public final class CentralBankService {
         long done = 0;
         if (position < 0) {
             long repay = Math.min(amount, -position);
-            if (post(bank, day, "repo-repay", BankLedgerAccount.LIABILITY_CENTRAL_BANK, BankLedgerAccount.ASSET_RESERVE, repay, BankLedgerReason.OPEN_MARKET_REPO_REPAY)) {
+            if (post(
+                    bank,
+                    day,
+                    "repo-repay",
+                    BankLedgerAccount.LIABILITY_CENTRAL_BANK,
+                    BankLedgerAccount.ASSET_RESERVE,
+                    repay,
+                    BankLedgerReason.OPEN_MARKET_REPO_REPAY)) {
                 position += repay;
                 done += repay;
             }
         }
         long rest = amount - done;
-        if (rest > 0 && (POSITIONS.containsKey(bank.id()) || POSITIONS.size() < MAX_POSITIONS)
-                && post(bank, day, "absorb", BankLedgerAccount.ASSET_BOND, BankLedgerAccount.ASSET_RESERVE, rest, BankLedgerReason.OPEN_MARKET_ABSORB)) {
+        if (rest > 0
+                && (POSITIONS.containsKey(bank.id()) || POSITIONS.size() < MAX_POSITIONS)
+                && post(
+                        bank,
+                        day,
+                        "absorb",
+                        BankLedgerAccount.ASSET_BOND,
+                        BankLedgerAccount.ASSET_RESERVE,
+                        rest,
+                        BankLedgerReason.OPEN_MARKET_ABSORB)) {
             position += rest;
             done += rest;
         }
@@ -238,14 +295,30 @@ public final class CentralBankService {
         long done = 0;
         if (position > 0) {
             long redeem = Math.min(amount, position);
-            if (post(bank, day, "redeem", BankLedgerAccount.ASSET_RESERVE, BankLedgerAccount.ASSET_BOND, redeem, BankLedgerReason.OPEN_MARKET_REDEEM)) {
+            if (post(
+                    bank,
+                    day,
+                    "redeem",
+                    BankLedgerAccount.ASSET_RESERVE,
+                    BankLedgerAccount.ASSET_BOND,
+                    redeem,
+                    BankLedgerReason.OPEN_MARKET_REDEEM)) {
                 position -= redeem;
                 done += redeem;
             }
         }
         long rest = amount - done;
-        if (rest > 0 && bank.ledger().balanceSheet().equity() > 0 && (POSITIONS.containsKey(bank.id()) || POSITIONS.size() < MAX_POSITIONS)
-                && post(bank, day, "repo", BankLedgerAccount.ASSET_RESERVE, BankLedgerAccount.LIABILITY_CENTRAL_BANK, rest, BankLedgerReason.OPEN_MARKET_REPO)) {
+        if (rest > 0
+                && bank.ledger().balanceSheet().equity() > 0
+                && (POSITIONS.containsKey(bank.id()) || POSITIONS.size() < MAX_POSITIONS)
+                && post(
+                        bank,
+                        day,
+                        "repo",
+                        BankLedgerAccount.ASSET_RESERVE,
+                        BankLedgerAccount.LIABILITY_CENTRAL_BANK,
+                        rest,
+                        BankLedgerReason.OPEN_MARKET_REPO)) {
             position -= rest;
             done += rest;
         }
@@ -258,16 +331,40 @@ public final class CentralBankService {
     private static void payInterest(CommercialBank bank, long day, int rateBps) {
         long position = POSITIONS.getOrDefault(bank.id(), 0L);
         if (position == 0 || rateBps <= 0) return;
-        long interest = BigInteger.valueOf(Math.abs(position)).multiply(BigInteger.valueOf(rateBps))
+        long interest = BigInteger.valueOf(Math.abs(position))
+                .multiply(BigInteger.valueOf(rateBps))
                 .divide(BigInteger.valueOf((long) Math.max(1, FinanceConfig.annualMcDays()) * 10_000L))
-                .min(BigInteger.valueOf(Long.MAX_VALUE)).longValue();
+                .min(BigInteger.valueOf(Long.MAX_VALUE))
+                .longValue();
         if (interest <= 0) return;
-        if (position > 0) post(bank, day, "interest", BankLedgerAccount.ASSET_RESERVE, BankLedgerAccount.INCOME_INTEREST, interest, BankLedgerReason.OPEN_MARKET_INTEREST);
-        else post(bank, day, "interest", BankLedgerAccount.EXPENSE_INTEREST, BankLedgerAccount.ASSET_RESERVE, interest, BankLedgerReason.OPEN_MARKET_INTEREST);
+        if (position > 0)
+            post(
+                    bank,
+                    day,
+                    "interest",
+                    BankLedgerAccount.ASSET_RESERVE,
+                    BankLedgerAccount.INCOME_INTEREST,
+                    interest,
+                    BankLedgerReason.OPEN_MARKET_INTEREST);
+        else
+            post(
+                    bank,
+                    day,
+                    "interest",
+                    BankLedgerAccount.EXPENSE_INTEREST,
+                    BankLedgerAccount.ASSET_RESERVE,
+                    interest,
+                    BankLedgerReason.OPEN_MARKET_INTEREST);
     }
 
-    private static boolean post(CommercialBank bank, long day, String kind, BankLedgerAccount debit, BankLedgerAccount credit,
-                                long amount, BankLedgerReason reason) {
+    private static boolean post(
+            CommercialBank bank,
+            long day,
+            String kind,
+            BankLedgerAccount debit,
+            BankLedgerAccount credit,
+            long amount,
+            BankLedgerReason reason) {
         if (amount <= 0) return false;
         UUID ref = UUID.nameUUIDFromBytes((bank.id() + ":omo:" + kind + ":" + day).getBytes(StandardCharsets.UTF_8));
         return bank.ledger().post(day, ref, debit, credit, amount, reason);
@@ -280,14 +377,22 @@ public final class CentralBankService {
 
     // ---------------------------------------------------------------- 存档与隔离
 
-    public static void restore(int reserveBps, Map<UUID, Long> positions, List<Decision> decisions, long lastDay,
-                               long absorbed, long injected, int streak, boolean runawayNow) {
+    public static void restore(
+            int reserveBps,
+            Map<UUID, Long> positions,
+            List<Decision> decisions,
+            long lastDay,
+            long absorbed,
+            long injected,
+            int streak,
+            boolean runawayNow) {
         clearDirect();
         demandReserveBps = reserveBps < 0 ? -1 : Math.min(10_000, reserveBps);
         if (positions != null) {
             for (Map.Entry<UUID, Long> e : positions.entrySet()) {
                 if (POSITIONS.size() >= MAX_POSITIONS) break;
-                if (e.getKey() != null && e.getValue() != null && e.getValue() != 0) POSITIONS.put(e.getKey(), e.getValue());
+                if (e.getKey() != null && e.getValue() != null && e.getValue() != 0)
+                    POSITIONS.put(e.getKey(), e.getValue());
             }
         }
         if (decisions != null) {
@@ -302,7 +407,9 @@ public final class CentralBankService {
     }
 
     /** 存档里保存的准备金率原值（-1 = 未调过，跟随配置）。 */
-    public static int storedReserveBps() { return demandReserveBps; }
+    public static int storedReserveBps() {
+        return demandReserveBps;
+    }
 
     public static void clearDirect() {
         demandReserveBps = -1;
@@ -318,8 +425,11 @@ public final class CentralBankService {
 
     static long bps(long base, int bps) {
         if (base <= 0 || bps <= 0) return 0;
-        return BigInteger.valueOf(base).multiply(BigInteger.valueOf(bps)).divide(BigInteger.valueOf(10_000))
-                .min(BigInteger.valueOf(Long.MAX_VALUE)).longValue();
+        return BigInteger.valueOf(base)
+                .multiply(BigInteger.valueOf(bps))
+                .divide(BigInteger.valueOf(10_000))
+                .min(BigInteger.valueOf(Long.MAX_VALUE))
+                .longValue();
     }
 
     static long sat(long a, long b) {

@@ -38,15 +38,25 @@ public final class VillageStall {
         this.unitPrice = unitPrice;
     }
 
-    public UUID id() { return id; }
+    public UUID id() {
+        return id;
+    }
 
-    public UUID settlementId() { return settlementId; }
+    public UUID settlementId() {
+        return settlementId;
+    }
 
-    public UUID ownerId() { return ownerId; }
+    public UUID ownerId() {
+        return ownerId;
+    }
 
-    public String commodityId() { return commodityId; }
+    public String commodityId() {
+        return commodityId;
+    }
 
-    public long unitPrice() { return unitPrice; }
+    public long unitPrice() {
+        return unitPrice;
+    }
 
     /** 改价；{@code p < 1} 时抛 IllegalArgumentException。 */
     public void setUnitPrice(long p) {
@@ -54,7 +64,9 @@ public final class VillageStall {
         this.unitPrice = p;
     }
 
-    public int stock() { return stock; }
+    public int stock() {
+        return stock;
+    }
 
     /**
      * 入库；{@code n <= 0} 抛 IllegalArgumentException，int 溢出同样抛 IllegalArgumentException。

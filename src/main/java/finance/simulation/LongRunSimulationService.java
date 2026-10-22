@@ -14,27 +14,36 @@ import finance.diagnostic.EconomyConsistencyService;
 import finance.fund.FundManager;
 import finance.fund.FundType;
 import finance.metrics.EconomyMetricsService;
-import net.minecraft.nbt.CompoundTag;
-
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 import java.util.UUID;
+import net.minecraft.nbt.CompoundTag;
 
 /** Deterministic headless stability simulation using production managers and save/load paths. */
 public final class LongRunSimulationService {
     public static final int STANDARD_DAYS = 365;
     public static final int STRESS_DAYS = 1_000;
     public static final int MAX_DAILY = 1_000;
-    private LongRunSimulationService() { }
 
-    public record Daily(long day, long liquidMoney, long bankDeposits, long bankAssets,
-                        int issueCount, long durationNanos) { }
-    public record Result(long seed, int days, List<Daily> daily, DiagnosticReport finalReport,
-                         long restartCount, long durationNanos, boolean deterministic) {
-        public boolean healthy() { return finalReport.healthy() && daily.stream().noneMatch(d -> d.issueCount() > 0); }
+    private LongRunSimulationService() {}
+
+    public record Daily(
+            long day, long liquidMoney, long bankDeposits, long bankAssets, int issueCount, long durationNanos) {}
+
+    public record Result(
+            long seed,
+            int days,
+            List<Daily> daily,
+            DiagnosticReport finalReport,
+            long restartCount,
+            long durationNanos,
+            boolean deterministic) {
+        public boolean healthy() {
+            return finalReport.healthy() && daily.stream().noneMatch(d -> d.issueCount() > 0);
+        }
     }
 
     public static synchronized Result run(int days, long seed) {
@@ -45,8 +54,14 @@ public final class LongRunSimulationService {
             Result first = runOnce(days, seed);
             Result second = runOnce(days, seed);
             boolean same = fingerprint(first).equals(fingerprint(second));
-            return new Result(seed, days, first.daily(), first.finalReport(), first.restartCount(),
-                    System.nanoTime() - started, same);
+            return new Result(
+                    seed,
+                    days,
+                    first.daily(),
+                    first.finalReport(),
+                    first.restartCount(),
+                    System.nanoTime() - started,
+                    same);
         } finally {
             EconomySavedData.resetRuntimeState();
             EconomySavedData.load(original);
@@ -64,7 +79,8 @@ public final class LongRunSimulationService {
         }
         UUID owner = players.get(0);
         UUID companyId = UUID.nameUUIDFromBytes(("phase7-company-" + seed).getBytes(StandardCharsets.UTF_8));
-        CompanyManager.registerDirect(new Company(companyId, "SimulationCo", CompanyType.RAW_MATERIALS, 500_000, owner));
+        CompanyManager.registerDirect(
+                new Company(companyId, "SimulationCo", CompanyType.RAW_MATERIALS, 500_000, owner));
         BankingManager.ensureDefaultBanks();
         FundManager.seedDefaultsIfNeeded();
         FundManager.acknowledgeRisk(players.get(7), FundType.MONEY_MARKET);
@@ -78,9 +94,11 @@ public final class LongRunSimulationService {
             for (int i = 0; i < players.size(); i++) {
                 UUID player = players.get(i);
                 CommercialBank bank = banks.get((i + day) % banks.size());
-                if (random.nextInt(4) == 0) BankingManager.depositPlayer(player, bank.id(),
-                        Math.min(100, Math.max(1, AccountManager.getBalance(player) / 20)), day);
-                var account = BankingManager.demandAccount(bank.id(), player, finance.bank.CustomerType.PLAYER, day, false);
+                if (random.nextInt(4) == 0)
+                    BankingManager.depositPlayer(
+                            player, bank.id(), Math.min(100, Math.max(1, AccountManager.getBalance(player) / 20)), day);
+                var account =
+                        BankingManager.demandAccount(bank.id(), player, finance.bank.CustomerType.PLAYER, day, false);
                 if (account != null && account.available() > 20 && random.nextInt(7) == 0)
                     BankingManager.withdrawPlayer(player, account.id(), 10, day);
             }
@@ -95,11 +113,13 @@ public final class LongRunSimulationService {
             }
             DiagnosticReport report = EconomyConsistencyService.run(day);
             var money = EconomyMetricsService.getCurrentMetrics();
-            long deposits = BankingManager.banks().values().stream().map(CommercialBank::ledger)
+            long deposits = BankingManager.banks().values().stream()
+                    .map(CommercialBank::ledger)
                     .map(finance.bank.BankLedger::balanceSheet)
                     .mapToLong(s -> safeAdd(s.demandDeposits(), s.timeDeposits()))
                     .reduce(0, LongRunSimulationService::safeAdd);
-            long assets = BankingManager.banks().values().stream().map(CommercialBank::ledger)
+            long assets = BankingManager.banks().values().stream()
+                    .map(CommercialBank::ledger)
                     .map(finance.bank.BankLedger::balanceSheet)
                     .mapToLong(finance.bank.BankBalanceSheet::totalAssets)
                     .reduce(0, LongRunSimulationService::safeAdd);
@@ -108,16 +128,19 @@ public final class LongRunSimulationService {
             daily.add(new Daily(day, money.totalMoney(), deposits, assets, failures, System.nanoTime() - tick));
         }
         DiagnosticReport finalReport = EconomyConsistencyService.run(days - 1);
-        return new Result(seed, days, List.copyOf(daily), finalReport, restarts,
-                System.nanoTime() - started, true);
+        return new Result(seed, days, List.copyOf(daily), finalReport, restarts, System.nanoTime() - started, true);
     }
 
     private static String fingerprint(Result result) {
         Daily d = result.daily().get(result.daily().size() - 1);
-        return d.day() + ":" + d.liquidMoney() + ":" + d.bankDeposits() + ":" + d.bankAssets()
-                + ":" + result.restartCount() + ":" + result.finalReport().counts();
+        return d.day() + ":" + d.liquidMoney() + ":" + d.bankDeposits() + ":" + d.bankAssets() + ":"
+                + result.restartCount() + ":" + result.finalReport().counts();
     }
+
     private static long safeAdd(long a, long b) {
-        return BigInteger.valueOf(a).add(BigInteger.valueOf(b)).min(BigInteger.valueOf(Long.MAX_VALUE)).longValue();
+        return BigInteger.valueOf(a)
+                .add(BigInteger.valueOf(b))
+                .min(BigInteger.valueOf(Long.MAX_VALUE))
+                .longValue();
     }
 }

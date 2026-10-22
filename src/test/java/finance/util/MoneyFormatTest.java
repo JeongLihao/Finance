@@ -1,11 +1,12 @@
 package finance.util;
 
-import org.junit.jupiter.api.Test;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import org.junit.jupiter.api.Test;
+
 class MoneyFormatTest {
-    @Test void formatsPenceAsPoundsAndPence() {
+    @Test
+    void formatsPenceAsPoundsAndPence() {
         assertEquals("0 便士", MoneyFormat.pounds(0));
         assertEquals("40 便士", MoneyFormat.pounds(40));
         assertEquals("12 磅", MoneyFormat.pounds(1200));

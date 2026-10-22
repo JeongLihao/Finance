@@ -1,3 +1,6 @@
 package finance.exploration;
 
-public enum ExplorationTargetType { SETTLEMENT, WAREHOUSE }
+public enum ExplorationTargetType {
+    SETTLEMENT,
+    WAREHOUSE
+}

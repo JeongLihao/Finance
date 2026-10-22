@@ -1,9 +1,10 @@
 package finance.gui;
 
-import finance.registry.ModMenus;
 import finance.gameplay.FinanceGameplayOpener;
 import finance.gameplay.FinanceScreenMode;
 import finance.gameplay.FinanceTerminalType;
+import finance.registry.ModMenus;
+import java.util.*;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
@@ -11,8 +12,6 @@ import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.item.ItemStack;
-
-import java.util.*;
 
 /**
  * 统一金融 GUI 菜单 —— 承载市场、订单、库存、公司等全部数据。
@@ -39,94 +38,218 @@ public class FinanceMenu extends AbstractContainerMenu {
     // ---- 数据记录 ----
 
     /** hourBars：按游戏小时合成的 K 线，开高低收四个数一组（见 {@link finance.chart.HourBars}）。 */
-    public record MarketRow(String commodityId, long midPrice, long bidPrice, long askPrice,
-                            double dayChange, int dayVolume, int marketStock,
-                            long dayHigh, long dayLow, List<Long> priceHistory, List<Long> hourBars) {
-        public MarketRow(String commodityId, long midPrice, long bidPrice, long askPrice, double dayChange, int dayVolume,
-                         int marketStock, long dayHigh, long dayLow, List<Long> priceHistory) {
-            this(commodityId, midPrice, bidPrice, askPrice, dayChange, dayVolume, marketStock, dayHigh, dayLow, priceHistory, List.of());
+    public record MarketRow(
+            String commodityId,
+            long midPrice,
+            long bidPrice,
+            long askPrice,
+            double dayChange,
+            int dayVolume,
+            int marketStock,
+            long dayHigh,
+            long dayLow,
+            List<Long> priceHistory,
+            List<Long> hourBars) {
+        public MarketRow(
+                String commodityId,
+                long midPrice,
+                long bidPrice,
+                long askPrice,
+                double dayChange,
+                int dayVolume,
+                int marketStock,
+                long dayHigh,
+                long dayLow,
+                List<Long> priceHistory) {
+            this(
+                    commodityId,
+                    midPrice,
+                    bidPrice,
+                    askPrice,
+                    dayChange,
+                    dayVolume,
+                    marketStock,
+                    dayHigh,
+                    dayLow,
+                    priceHistory,
+                    List.of());
         }
     }
 
-    public record OrderRow(UUID orderId, String commodityId, String type, long price, int quantity, boolean ownedByPlayer) {}
+    public record OrderRow(
+            UUID orderId, String commodityId, String type, long price, int quantity, boolean ownedByPlayer) {}
 
-    public record CompanyInfo(UUID companyId, String name, String type, long cash, long inventoryValue,
-                               long totalValue, Map<String, Integer> inventory, boolean playerOwned,
-                               boolean isPublic, String strategy, int productionLevel,
-                               int storageLevel, int managementLevel, double autoSellRatio,
-                               long reportRevenue, long reportExpenses, long reportNetProfit,
-                               long reportAssets, long reportLiabilities, long reportCash,
-                               long reportProfitChange, long reportAssetChange, String reportSummary,
-                               boolean bankruptcyRisk, long bankruptcyRiskStartDay,
-                               int capitalProjectCount, long capitalCommitted,
-                               String capitalProjectSummary) {}
+    public record CompanyInfo(
+            UUID companyId,
+            String name,
+            String type,
+            long cash,
+            long inventoryValue,
+            long totalValue,
+            Map<String, Integer> inventory,
+            boolean playerOwned,
+            boolean isPublic,
+            String strategy,
+            int productionLevel,
+            int storageLevel,
+            int managementLevel,
+            double autoSellRatio,
+            long reportRevenue,
+            long reportExpenses,
+            long reportNetProfit,
+            long reportAssets,
+            long reportLiabilities,
+            long reportCash,
+            long reportProfitChange,
+            long reportAssetChange,
+            String reportSummary,
+            boolean bankruptcyRisk,
+            long bankruptcyRiskStartDay,
+            int capitalProjectCount,
+            long capitalCommitted,
+            String capitalProjectSummary) {}
 
-    public record StockRow(String symbol, String name, long lastPrice, double dayChange,
-                           long dayVolume, long availableShares, long fairValue,
-                           long dayHigh, long dayLow, List<Long> priceHistory,
-                           long expectedDividendPerShare, long lastDividendPerShare,
-                           long lastDividendTotal,
-                           // ---- Phase 4：做市商状态（服务端随菜单快照下发，客户端只展示） ----
-                           /** 做市商买价（无报价时为 0）。 */
-                           long mmBid,
-                           /** 做市商卖价（无报价时为 0）。 */
-                           long mmAsk,
-                           /** 做市商是否熔断暂停（Phase 2 熔断）。 */
-                           boolean mmHalted,
-                           /** 库存水位：0=充足，1=紧张，2=熔断。 */
-                           int mmLevel,
-                           /** 按游戏小时合成的 K 线，开高低收四个数一组。 */
-                           List<Long> hourBars) {
-        public StockRow(String symbol, String name, long lastPrice, double dayChange, long dayVolume, long availableShares,
-                        long fairValue, long dayHigh, long dayLow, List<Long> priceHistory, long expectedDividendPerShare,
-                        long lastDividendPerShare, long lastDividendTotal, long mmBid, long mmAsk, boolean mmHalted, int mmLevel) {
-            this(symbol, name, lastPrice, dayChange, dayVolume, availableShares, fairValue, dayHigh, dayLow, priceHistory,
-                    expectedDividendPerShare, lastDividendPerShare, lastDividendTotal, mmBid, mmAsk, mmHalted, mmLevel, List.of());
+    public record StockRow(
+            String symbol,
+            String name,
+            long lastPrice,
+            double dayChange,
+            long dayVolume,
+            long availableShares,
+            long fairValue,
+            long dayHigh,
+            long dayLow,
+            List<Long> priceHistory,
+            long expectedDividendPerShare,
+            long lastDividendPerShare,
+            long lastDividendTotal,
+            // ---- Phase 4：做市商状态（服务端随菜单快照下发，客户端只展示） ----
+            /** 做市商买价（无报价时为 0）。 */
+            long mmBid,
+            /** 做市商卖价（无报价时为 0）。 */
+            long mmAsk,
+            /** 做市商是否熔断暂停（Phase 2 熔断）。 */
+            boolean mmHalted,
+            /** 库存水位：0=充足，1=紧张，2=熔断。 */
+            int mmLevel,
+            /** 按游戏小时合成的 K 线，开高低收四个数一组。 */
+            List<Long> hourBars) {
+        public StockRow(
+                String symbol,
+                String name,
+                long lastPrice,
+                double dayChange,
+                long dayVolume,
+                long availableShares,
+                long fairValue,
+                long dayHigh,
+                long dayLow,
+                List<Long> priceHistory,
+                long expectedDividendPerShare,
+                long lastDividendPerShare,
+                long lastDividendTotal,
+                long mmBid,
+                long mmAsk,
+                boolean mmHalted,
+                int mmLevel) {
+            this(
+                    symbol,
+                    name,
+                    lastPrice,
+                    dayChange,
+                    dayVolume,
+                    availableShares,
+                    fairValue,
+                    dayHigh,
+                    dayLow,
+                    priceHistory,
+                    expectedDividendPerShare,
+                    lastDividendPerShare,
+                    lastDividendTotal,
+                    mmBid,
+                    mmAsk,
+                    mmHalted,
+                    mmLevel,
+                    List.of());
         }
     }
 
     public record StockHoldingRow(String symbol, long quantity, long averageCost) {}
 
-    public record StockOrderRow(UUID orderId, String symbol, String type, long price,
-                                int quantity, boolean ownedByPlayer) {}
+    public record StockOrderRow(
+            UUID orderId, String symbol, String type, long price, int quantity, boolean ownedByPlayer) {}
 
-    public record TransactionRow(long timestamp, UUID playerId, String type,
-                                 long amount, long quantity, String objectName) {}
+    public record TransactionRow(
+            long timestamp, UUID playerId, String type, long amount, long quantity, String objectName) {}
 
-    public record AssetSummary(long cash, long frozenCash, long commodityValue,
-                               long stockValue, long totalAsset, long todayProfit) {}
+    public record AssetSummary(
+            long cash, long frozenCash, long commodityValue, long stockValue, long totalAsset, long todayProfit) {}
 
-    public record AssetRow(String category, String name, long quantity, long value,
-                           double percent, long cost, long currentPrice, long floatingProfit) {}
+    public record AssetRow(
+            String category,
+            String name,
+            long quantity,
+            long value,
+            double percent,
+            long cost,
+            long currentPrice,
+            long floatingProfit) {}
 
-    public record PriceAlertRow(UUID alertId, String type, String targetId,
-                                String direction, long targetPrice) {}
+    public record PriceAlertRow(UUID alertId, String type, String targetId, String direction, long targetPrice) {}
 
-    public record ConditionalStockOrderRow(UUID orderId, String symbol, String type,
-                                           long triggerPrice, long quantity) {}
+    public record ConditionalStockOrderRow(
+            UUID orderId, String symbol, String type, long triggerPrice, long quantity) {}
 
-    public record CompanyFinancingRow(UUID projectId, UUID companyId, String companyName,
-                                      String symbol, long issueQuantity, long issuePrice,
-                                      long fundingTarget, long raisedAmount,
-                                      long subscribedShares, long playerSubscribedShares,
-                                      long deadlineMcDay) {}
+    public record CompanyFinancingRow(
+            UUID projectId,
+            UUID companyId,
+            String companyName,
+            String symbol,
+            long issueQuantity,
+            long issuePrice,
+            long fundingTarget,
+            long raisedAmount,
+            long subscribedShares,
+            long playerSubscribedShares,
+            long deadlineMcDay) {}
 
-    public record CompanyProposalRow(UUID proposalId, UUID companyId, String type, String title,
-                                     String textValue, long value1, long value2, long value3,
-                                     long startMcDay, long endMcDay, double passRatio,
-                                     long yesVotes, long noVotes, boolean playerVoted,
-                                     String status, String resultSummary, boolean playerCanExecute,
-                                     String npcSummary, int participationBps, int minParticipationBps) {}
+    public record CompanyProposalRow(
+            UUID proposalId,
+            UUID companyId,
+            String type,
+            String title,
+            String textValue,
+            long value1,
+            long value2,
+            long value3,
+            long startMcDay,
+            long endMcDay,
+            double passRatio,
+            long yesVotes,
+            long noVotes,
+            boolean playerVoted,
+            String status,
+            String resultSummary,
+            boolean playerCanExecute,
+            String npcSummary,
+            int participationBps,
+            int minParticipationBps) {}
 
-    public record EconomyTrendRow(long mcDay, long commodityVolume, long stockVolume,
-                                  double priceIndex) {}
+    public record EconomyTrendRow(long mcDay, long commodityVolume, long stockVolume, double priceIndex) {}
 
-    public record EconomyDashboardRow(long playerCash, long playerFrozenFunds,
-                                      long companyCash, long npcCash, long centralBankReserve,
-                                      long totalMoney, long dailyCommodityVolume,
-                                      long dailyStockVolume, double priceIndex,
-                                      int bankruptcyRiskCompanies, String centralBankSummary,
-                                      List<EconomyTrendRow> trends) {}
+    public record EconomyDashboardRow(
+            long playerCash,
+            long playerFrozenFunds,
+            long companyCash,
+            long npcCash,
+            long centralBankReserve,
+            long totalMoney,
+            long dailyCommodityVolume,
+            long dailyStockVolume,
+            double priceIndex,
+            int bankruptcyRiskCompanies,
+            String centralBankSummary,
+            List<EconomyTrendRow> trends) {}
 
     // ---- 字段 ----
     // 数据字段不是 final：界面开着时由 replaceData 换成服务端推来的新快照；入口信息（模式、来源方块）保持不变。
@@ -164,7 +287,8 @@ public class FinanceMenu extends AbstractContainerMenu {
 
     /** 从网络数据包反序列化 */
     public FinanceMenu(int containerId, Inventory inventory, FriendlyByteBuf buffer) {
-        this(containerId,
+        this(
+                containerId,
                 readMarketData(buffer),
                 readOrderRows(buffer),
                 buffer.readVarLong(),
@@ -190,46 +314,97 @@ public class FinanceMenu extends AbstractContainerMenu {
                 buffer.readEnum(FinanceTerminalType.class),
                 buffer.readUtf(128),
                 buffer.readBoolean() ? buffer.readBlockPos() : null,
-                buffer.readLong(), buffer.readLong(), buffer.readBoolean());
+                buffer.readLong(),
+                buffer.readLong(),
+                buffer.readBoolean());
     }
 
     /** 从服务端直接构造 */
-    public FinanceMenu(int containerId, List<MarketRow> marketData, List<OrderRow> playerOrders,
-                       long balance, long frozenBalance, Map<String, Integer> playerInventory,
-                       CompanyInfo playerCompany, List<CompanyInfo> allCompanies,
-                       List<StockRow> stocks, List<StockHoldingRow> stockHoldings,
-                       List<StockOrderRow> stockOrders, List<TransactionRow> transactions,
-                       AssetSummary assetSummary, List<AssetRow> assetRows,
-                       List<PriceAlertRow> priceAlerts,
-                       List<ConditionalStockOrderRow> conditionalStockOrders,
-                       List<CompanyFinancingRow> companyFinancingRows,
-                       List<CompanyProposalRow> companyProposalRows,
-                       EconomyDashboardRow dashboard,
-                       double dividendRatio, int dividendCycleDays,
-                       Map<String, Integer> mcInventory) {
-        this(containerId, marketData, playerOrders, balance, frozenBalance, playerInventory,
-                playerCompany, allCompanies, stocks, stockHoldings, stockOrders, transactions,
-                assetSummary, assetRows, priceAlerts, conditionalStockOrders, companyFinancingRows,
-                companyProposalRows, dashboard, dividendRatio, dividendCycleDays, mcInventory,
-                FinanceScreenMode.ADVANCED, FinanceTerminalType.LEGACY_FULL_SCREEN, "", null, 0, 0, false);
+    public FinanceMenu(
+            int containerId,
+            List<MarketRow> marketData,
+            List<OrderRow> playerOrders,
+            long balance,
+            long frozenBalance,
+            Map<String, Integer> playerInventory,
+            CompanyInfo playerCompany,
+            List<CompanyInfo> allCompanies,
+            List<StockRow> stocks,
+            List<StockHoldingRow> stockHoldings,
+            List<StockOrderRow> stockOrders,
+            List<TransactionRow> transactions,
+            AssetSummary assetSummary,
+            List<AssetRow> assetRows,
+            List<PriceAlertRow> priceAlerts,
+            List<ConditionalStockOrderRow> conditionalStockOrders,
+            List<CompanyFinancingRow> companyFinancingRows,
+            List<CompanyProposalRow> companyProposalRows,
+            EconomyDashboardRow dashboard,
+            double dividendRatio,
+            int dividendCycleDays,
+            Map<String, Integer> mcInventory) {
+        this(
+                containerId,
+                marketData,
+                playerOrders,
+                balance,
+                frozenBalance,
+                playerInventory,
+                playerCompany,
+                allCompanies,
+                stocks,
+                stockHoldings,
+                stockOrders,
+                transactions,
+                assetSummary,
+                assetRows,
+                priceAlerts,
+                conditionalStockOrders,
+                companyFinancingRows,
+                companyProposalRows,
+                dashboard,
+                dividendRatio,
+                dividendCycleDays,
+                mcInventory,
+                FinanceScreenMode.ADVANCED,
+                FinanceTerminalType.LEGACY_FULL_SCREEN,
+                "",
+                null,
+                0,
+                0,
+                false);
     }
 
-    public FinanceMenu(int containerId, List<MarketRow> marketData, List<OrderRow> playerOrders,
-                       long balance, long frozenBalance, Map<String, Integer> playerInventory,
-                       CompanyInfo playerCompany, List<CompanyInfo> allCompanies,
-                       List<StockRow> stocks, List<StockHoldingRow> stockHoldings,
-                       List<StockOrderRow> stockOrders, List<TransactionRow> transactions,
-                       AssetSummary assetSummary, List<AssetRow> assetRows,
-                       List<PriceAlertRow> priceAlerts,
-                       List<ConditionalStockOrderRow> conditionalStockOrders,
-                       List<CompanyFinancingRow> companyFinancingRows,
-                       List<CompanyProposalRow> companyProposalRows,
-                       EconomyDashboardRow dashboard,
-                       double dividendRatio, int dividendCycleDays,
-                       Map<String, Integer> mcInventory,
-                       FinanceScreenMode initialMode, FinanceTerminalType sourceType,
-                       String sourceDimension, BlockPos sourcePos,
-                       long warehouseUsed, long warehouseCapacity, boolean warehouseOverCapacity) {
+    public FinanceMenu(
+            int containerId,
+            List<MarketRow> marketData,
+            List<OrderRow> playerOrders,
+            long balance,
+            long frozenBalance,
+            Map<String, Integer> playerInventory,
+            CompanyInfo playerCompany,
+            List<CompanyInfo> allCompanies,
+            List<StockRow> stocks,
+            List<StockHoldingRow> stockHoldings,
+            List<StockOrderRow> stockOrders,
+            List<TransactionRow> transactions,
+            AssetSummary assetSummary,
+            List<AssetRow> assetRows,
+            List<PriceAlertRow> priceAlerts,
+            List<ConditionalStockOrderRow> conditionalStockOrders,
+            List<CompanyFinancingRow> companyFinancingRows,
+            List<CompanyProposalRow> companyProposalRows,
+            EconomyDashboardRow dashboard,
+            double dividendRatio,
+            int dividendCycleDays,
+            Map<String, Integer> mcInventory,
+            FinanceScreenMode initialMode,
+            FinanceTerminalType sourceType,
+            String sourceDimension,
+            BlockPos sourcePos,
+            long warehouseUsed,
+            long warehouseCapacity,
+            boolean warehouseOverCapacity) {
         super(ModMenus.FINANCE.get(), containerId);
         this.marketData = marketData;
         this.playerOrders = playerOrders;
@@ -263,33 +438,113 @@ public class FinanceMenu extends AbstractContainerMenu {
 
     // ---- getter ----
 
-    public List<MarketRow> getMarketData() { return marketData; }
-    public List<OrderRow> getPlayerOrders() { return playerOrders; }
-    public long getBalance() { return balance; }
-    public long getFrozenBalance() { return frozenBalance; }
-    public Map<String, Integer> getPlayerInventory() { return playerInventory; }
-    public CompanyInfo getPlayerCompany() { return playerCompany; }
-    public List<CompanyInfo> getAllCompanies() { return allCompanies; }
-    public List<StockRow> getStocks() { return stocks; }
-    public List<StockHoldingRow> getStockHoldings() { return stockHoldings; }
-    public List<StockOrderRow> getStockOrders() { return stockOrders; }
-    public List<TransactionRow> getTransactions() { return transactions; }
-    public AssetSummary getAssetSummary() { return assetSummary; }
-    public List<AssetRow> getAssetRows() { return assetRows; }
-    public List<PriceAlertRow> getPriceAlerts() { return priceAlerts; }
-    public List<ConditionalStockOrderRow> getConditionalStockOrders() { return conditionalStockOrders; }
-    public List<CompanyFinancingRow> getCompanyFinancingRows() { return companyFinancingRows; }
-    public List<CompanyProposalRow> getCompanyProposalRows() { return companyProposalRows; }
-    public EconomyDashboardRow getDashboard() { return dashboard; }
-    public double getDividendRatio() { return dividendRatio; }
-    public int getDividendCycleDays() { return dividendCycleDays; }
-    public Map<String, Integer> getMcInventory() { return mcInventory; }
-    public FinanceScreenMode getInitialMode() { return initialMode; }
-    public FinanceTerminalType getSourceType() { return sourceType; }
-    public BlockPos getSourcePos() { return sourcePos; }
-    public long getWarehouseUsed() { return warehouseUsed; }
-    public long getWarehouseCapacity() { return warehouseCapacity; }
-    public boolean isWarehouseOverCapacity() { return warehouseOverCapacity; }
+    public List<MarketRow> getMarketData() {
+        return marketData;
+    }
+
+    public List<OrderRow> getPlayerOrders() {
+        return playerOrders;
+    }
+
+    public long getBalance() {
+        return balance;
+    }
+
+    public long getFrozenBalance() {
+        return frozenBalance;
+    }
+
+    public Map<String, Integer> getPlayerInventory() {
+        return playerInventory;
+    }
+
+    public CompanyInfo getPlayerCompany() {
+        return playerCompany;
+    }
+
+    public List<CompanyInfo> getAllCompanies() {
+        return allCompanies;
+    }
+
+    public List<StockRow> getStocks() {
+        return stocks;
+    }
+
+    public List<StockHoldingRow> getStockHoldings() {
+        return stockHoldings;
+    }
+
+    public List<StockOrderRow> getStockOrders() {
+        return stockOrders;
+    }
+
+    public List<TransactionRow> getTransactions() {
+        return transactions;
+    }
+
+    public AssetSummary getAssetSummary() {
+        return assetSummary;
+    }
+
+    public List<AssetRow> getAssetRows() {
+        return assetRows;
+    }
+
+    public List<PriceAlertRow> getPriceAlerts() {
+        return priceAlerts;
+    }
+
+    public List<ConditionalStockOrderRow> getConditionalStockOrders() {
+        return conditionalStockOrders;
+    }
+
+    public List<CompanyFinancingRow> getCompanyFinancingRows() {
+        return companyFinancingRows;
+    }
+
+    public List<CompanyProposalRow> getCompanyProposalRows() {
+        return companyProposalRows;
+    }
+
+    public EconomyDashboardRow getDashboard() {
+        return dashboard;
+    }
+
+    public double getDividendRatio() {
+        return dividendRatio;
+    }
+
+    public int getDividendCycleDays() {
+        return dividendCycleDays;
+    }
+
+    public Map<String, Integer> getMcInventory() {
+        return mcInventory;
+    }
+
+    public FinanceScreenMode getInitialMode() {
+        return initialMode;
+    }
+
+    public FinanceTerminalType getSourceType() {
+        return sourceType;
+    }
+
+    public BlockPos getSourcePos() {
+        return sourcePos;
+    }
+
+    public long getWarehouseUsed() {
+        return warehouseUsed;
+    }
+
+    public long getWarehouseCapacity() {
+        return warehouseCapacity;
+    }
+
+    public boolean isWarehouseOverCapacity() {
+        return warehouseOverCapacity;
+    }
 
     /** 用新快照替换数据（服务端刷新和客户端收到刷新包时调用），不改入口模式与来源方块。 */
     public void replaceData(FinanceMenu fresh) {
@@ -326,48 +581,97 @@ public class FinanceMenu extends AbstractContainerMenu {
     }
 
     @Override
-    public ItemStack quickMoveStack(Player player, int index) { return ItemStack.EMPTY; }
+    public ItemStack quickMoveStack(Player player, int index) {
+        return ItemStack.EMPTY;
+    }
 
     // ---- 序列化 ----
 
-    public static void writeAll(FriendlyByteBuf buffer, List<MarketRow> marketData,
-                                 List<OrderRow> playerOrders, long balance, long frozenBalance,
-                                 Map<String, Integer> playerInventory, CompanyInfo playerCompany,
-                                 List<CompanyInfo> allCompanies,
-                                 List<StockRow> stocks, List<StockHoldingRow> stockHoldings,
-                                 List<StockOrderRow> stockOrders, List<TransactionRow> transactions,
-                                 AssetSummary assetSummary, List<AssetRow> assetRows,
-                                 List<PriceAlertRow> priceAlerts,
-                                 List<ConditionalStockOrderRow> conditionalStockOrders,
-                                 List<CompanyFinancingRow> companyFinancingRows,
-                                 List<CompanyProposalRow> companyProposalRows,
-                                 EconomyDashboardRow dashboard,
-                                 double dividendRatio, int dividendCycleDays,
-                                 Map<String, Integer> mcInventory) {
-        writeAll(buffer, marketData, playerOrders, balance, frozenBalance, playerInventory,
-                playerCompany, allCompanies, stocks, stockHoldings, stockOrders, transactions,
-                assetSummary, assetRows, priceAlerts, conditionalStockOrders, companyFinancingRows,
-                companyProposalRows, dashboard, dividendRatio, dividendCycleDays, mcInventory,
-                FinanceScreenMode.ADVANCED, FinanceTerminalType.LEGACY_FULL_SCREEN, "", null, 0, 0, false);
+    public static void writeAll(
+            FriendlyByteBuf buffer,
+            List<MarketRow> marketData,
+            List<OrderRow> playerOrders,
+            long balance,
+            long frozenBalance,
+            Map<String, Integer> playerInventory,
+            CompanyInfo playerCompany,
+            List<CompanyInfo> allCompanies,
+            List<StockRow> stocks,
+            List<StockHoldingRow> stockHoldings,
+            List<StockOrderRow> stockOrders,
+            List<TransactionRow> transactions,
+            AssetSummary assetSummary,
+            List<AssetRow> assetRows,
+            List<PriceAlertRow> priceAlerts,
+            List<ConditionalStockOrderRow> conditionalStockOrders,
+            List<CompanyFinancingRow> companyFinancingRows,
+            List<CompanyProposalRow> companyProposalRows,
+            EconomyDashboardRow dashboard,
+            double dividendRatio,
+            int dividendCycleDays,
+            Map<String, Integer> mcInventory) {
+        writeAll(
+                buffer,
+                marketData,
+                playerOrders,
+                balance,
+                frozenBalance,
+                playerInventory,
+                playerCompany,
+                allCompanies,
+                stocks,
+                stockHoldings,
+                stockOrders,
+                transactions,
+                assetSummary,
+                assetRows,
+                priceAlerts,
+                conditionalStockOrders,
+                companyFinancingRows,
+                companyProposalRows,
+                dashboard,
+                dividendRatio,
+                dividendCycleDays,
+                mcInventory,
+                FinanceScreenMode.ADVANCED,
+                FinanceTerminalType.LEGACY_FULL_SCREEN,
+                "",
+                null,
+                0,
+                0,
+                false);
     }
 
-    public static void writeAll(FriendlyByteBuf buffer, List<MarketRow> marketData,
-                                 List<OrderRow> playerOrders, long balance, long frozenBalance,
-                                 Map<String, Integer> playerInventory, CompanyInfo playerCompany,
-                                 List<CompanyInfo> allCompanies,
-                                 List<StockRow> stocks, List<StockHoldingRow> stockHoldings,
-                                 List<StockOrderRow> stockOrders, List<TransactionRow> transactions,
-                                 AssetSummary assetSummary, List<AssetRow> assetRows,
-                                 List<PriceAlertRow> priceAlerts,
-                                 List<ConditionalStockOrderRow> conditionalStockOrders,
-                                 List<CompanyFinancingRow> companyFinancingRows,
-                                 List<CompanyProposalRow> companyProposalRows,
-                                 EconomyDashboardRow dashboard,
-                                 double dividendRatio, int dividendCycleDays,
-                                 Map<String, Integer> mcInventory,
-                                 FinanceScreenMode initialMode, FinanceTerminalType sourceType,
-                                 String sourceDimension, BlockPos sourcePos,
-                                 long warehouseUsed, long warehouseCapacity, boolean warehouseOverCapacity) {
+    public static void writeAll(
+            FriendlyByteBuf buffer,
+            List<MarketRow> marketData,
+            List<OrderRow> playerOrders,
+            long balance,
+            long frozenBalance,
+            Map<String, Integer> playerInventory,
+            CompanyInfo playerCompany,
+            List<CompanyInfo> allCompanies,
+            List<StockRow> stocks,
+            List<StockHoldingRow> stockHoldings,
+            List<StockOrderRow> stockOrders,
+            List<TransactionRow> transactions,
+            AssetSummary assetSummary,
+            List<AssetRow> assetRows,
+            List<PriceAlertRow> priceAlerts,
+            List<ConditionalStockOrderRow> conditionalStockOrders,
+            List<CompanyFinancingRow> companyFinancingRows,
+            List<CompanyProposalRow> companyProposalRows,
+            EconomyDashboardRow dashboard,
+            double dividendRatio,
+            int dividendCycleDays,
+            Map<String, Integer> mcInventory,
+            FinanceScreenMode initialMode,
+            FinanceTerminalType sourceType,
+            String sourceDimension,
+            BlockPos sourcePos,
+            long warehouseUsed,
+            long warehouseCapacity,
+            boolean warehouseOverCapacity) {
         writeMarketData(buffer, marketData);
         writeOrderRows(buffer, playerOrders);
         buffer.writeVarLong(balance);
@@ -422,9 +726,17 @@ public class FinanceMenu extends AbstractContainerMenu {
         List<MarketRow> list = new ArrayList<>(size);
         for (int i = 0; i < size; i++) {
             list.add(new MarketRow(
-                    buffer.readUtf(64), buffer.readLong(), buffer.readLong(),
-                    buffer.readLong(), buffer.readDouble(), buffer.readVarInt(), buffer.readVarInt(),
-                    buffer.readLong(), buffer.readLong(), readLongList(buffer), readLongList(buffer)));
+                    buffer.readUtf(64),
+                    buffer.readLong(),
+                    buffer.readLong(),
+                    buffer.readLong(),
+                    buffer.readDouble(),
+                    buffer.readVarInt(),
+                    buffer.readVarInt(),
+                    buffer.readLong(),
+                    buffer.readLong(),
+                    readLongList(buffer),
+                    readLongList(buffer)));
         }
         return list;
     }
@@ -447,8 +759,12 @@ public class FinanceMenu extends AbstractContainerMenu {
         List<OrderRow> list = new ArrayList<>(size);
         for (int i = 0; i < size; i++) {
             list.add(new OrderRow(
-                    buffer.readUUID(), buffer.readUtf(64), buffer.readUtf(16),
-                    buffer.readLong(), buffer.readVarInt(), buffer.readBoolean()));
+                    buffer.readUUID(),
+                    buffer.readUtf(64),
+                    buffer.readUtf(16),
+                    buffer.readLong(),
+                    buffer.readVarInt(),
+                    buffer.readBoolean()));
         }
         return list;
     }
@@ -508,14 +824,34 @@ public class FinanceMenu extends AbstractContainerMenu {
     private static CompanyInfo readCompanyInfo(FriendlyByteBuf buffer) {
         if (!buffer.readBoolean()) return null;
         return new CompanyInfo(
-                buffer.readUUID(), buffer.readUtf(64), buffer.readUtf(32), buffer.readLong(),
-                buffer.readLong(), buffer.readLong(), readStringIntMap(buffer),
-                buffer.readBoolean(), buffer.readBoolean(), buffer.readUtf(32),
-                buffer.readVarInt(), buffer.readVarInt(), buffer.readVarInt(), buffer.readDouble(),
-                buffer.readLong(), buffer.readLong(), buffer.readLong(),
-                buffer.readLong(), buffer.readLong(), buffer.readLong(),
-                buffer.readLong(), buffer.readLong(), buffer.readUtf(128),
-                buffer.readBoolean(), buffer.readLong(), buffer.readVarInt(), buffer.readLong(), buffer.readUtf(128));
+                buffer.readUUID(),
+                buffer.readUtf(64),
+                buffer.readUtf(32),
+                buffer.readLong(),
+                buffer.readLong(),
+                buffer.readLong(),
+                readStringIntMap(buffer),
+                buffer.readBoolean(),
+                buffer.readBoolean(),
+                buffer.readUtf(32),
+                buffer.readVarInt(),
+                buffer.readVarInt(),
+                buffer.readVarInt(),
+                buffer.readDouble(),
+                buffer.readLong(),
+                buffer.readLong(),
+                buffer.readLong(),
+                buffer.readLong(),
+                buffer.readLong(),
+                buffer.readLong(),
+                buffer.readLong(),
+                buffer.readLong(),
+                buffer.readUtf(128),
+                buffer.readBoolean(),
+                buffer.readLong(),
+                buffer.readVarInt(),
+                buffer.readLong(),
+                buffer.readUtf(128));
     }
 
     private static void writeCompanyInfoList(FriendlyByteBuf buffer, List<CompanyInfo> companies) {
@@ -568,11 +904,24 @@ public class FinanceMenu extends AbstractContainerMenu {
         List<StockRow> rows = new ArrayList<>(size);
         for (int i = 0; i < size; i++) {
             rows.add(new StockRow(
-                    buffer.readUtf(16), buffer.readUtf(64), buffer.readLong(),
-                    buffer.readDouble(), buffer.readLong(), buffer.readLong(), buffer.readLong(),
-                    buffer.readLong(), buffer.readLong(), readLongList(buffer),
-                    buffer.readLong(), buffer.readLong(), buffer.readLong(),
-                    buffer.readLong(), buffer.readLong(), buffer.readBoolean(), buffer.readVarInt(), readLongList(buffer)));
+                    buffer.readUtf(16),
+                    buffer.readUtf(64),
+                    buffer.readLong(),
+                    buffer.readDouble(),
+                    buffer.readLong(),
+                    buffer.readLong(),
+                    buffer.readLong(),
+                    buffer.readLong(),
+                    buffer.readLong(),
+                    readLongList(buffer),
+                    buffer.readLong(),
+                    buffer.readLong(),
+                    buffer.readLong(),
+                    buffer.readLong(),
+                    buffer.readLong(),
+                    buffer.readBoolean(),
+                    buffer.readVarInt(),
+                    readLongList(buffer)));
         }
         return rows;
     }
@@ -631,8 +980,12 @@ public class FinanceMenu extends AbstractContainerMenu {
         List<StockOrderRow> rows = new ArrayList<>(size);
         for (int i = 0; i < size; i++) {
             rows.add(new StockOrderRow(
-                    buffer.readUUID(), buffer.readUtf(16), buffer.readUtf(16),
-                    buffer.readLong(), buffer.readVarInt(), buffer.readBoolean()));
+                    buffer.readUUID(),
+                    buffer.readUtf(16),
+                    buffer.readUtf(16),
+                    buffer.readLong(),
+                    buffer.readVarInt(),
+                    buffer.readBoolean()));
         }
         return rows;
     }
@@ -734,11 +1087,7 @@ public class FinanceMenu extends AbstractContainerMenu {
         List<PriceAlertRow> rows = new ArrayList<>(size);
         for (int i = 0; i < size; i++) {
             rows.add(new PriceAlertRow(
-                    buffer.readUUID(),
-                    buffer.readUtf(16),
-                    buffer.readUtf(64),
-                    buffer.readUtf(16),
-                    buffer.readLong()));
+                    buffer.readUUID(), buffer.readUtf(16), buffer.readUtf(64), buffer.readUtf(16), buffer.readLong()));
         }
         return rows;
     }
@@ -760,11 +1109,7 @@ public class FinanceMenu extends AbstractContainerMenu {
         List<ConditionalStockOrderRow> rows = new ArrayList<>(size);
         for (int i = 0; i < size; i++) {
             rows.add(new ConditionalStockOrderRow(
-                    buffer.readUUID(),
-                    buffer.readUtf(16),
-                    buffer.readUtf(16),
-                    buffer.readLong(),
-                    buffer.readLong()));
+                    buffer.readUUID(), buffer.readUtf(16), buffer.readUtf(16), buffer.readLong(), buffer.readLong()));
         }
         return rows;
     }
@@ -864,8 +1209,8 @@ public class FinanceMenu extends AbstractContainerMenu {
     }
 
     static void writeDashboard(FriendlyByteBuf buffer, EconomyDashboardRow row) {
-        EconomyDashboardRow safe = row != null ? row
-                : new EconomyDashboardRow(0, 0, 0, 0, 0, 0, 0, 0, 0.0, 0, "", List.of());
+        EconomyDashboardRow safe =
+                row != null ? row : new EconomyDashboardRow(0, 0, 0, 0, 0, 0, 0, 0, 0.0, 0, "", List.of());
         buffer.writeLong(safe.playerCash());
         buffer.writeLong(safe.playerFrozenFunds());
         buffer.writeLong(safe.companyCash());
@@ -913,8 +1258,8 @@ public class FinanceMenu extends AbstractContainerMenu {
         int retainedSize = Math.min(DASHBOARD_TREND_LIMIT, encodedSize);
         List<EconomyTrendRow> trends = new ArrayList<>(retainedSize);
         for (int index = 0; index < encodedSize; index++) {
-            EconomyTrendRow trend = new EconomyTrendRow(
-                    buffer.readLong(), buffer.readLong(), buffer.readLong(), buffer.readDouble());
+            EconomyTrendRow trend =
+                    new EconomyTrendRow(buffer.readLong(), buffer.readLong(), buffer.readLong(), buffer.readDouble());
             if (index >= encodedSize - retainedSize) {
                 trends.add(trend);
             }

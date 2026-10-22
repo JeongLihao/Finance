@@ -1,3 +1,10 @@
 package finance.bank;
 
-public enum BankStatus { ACTIVE, WATCH, RESTRICTED, RESOLUTION, FAILED, MERGED }
+public enum BankStatus {
+    ACTIVE,
+    WATCH,
+    RESTRICTED,
+    RESOLUTION,
+    FAILED,
+    MERGED
+}

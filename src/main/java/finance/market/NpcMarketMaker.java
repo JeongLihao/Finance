@@ -1,22 +1,19 @@
 package finance.market;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
 import finance.account.AccountManager;
 import finance.account.TransactionRecord;
 import finance.account.TransactionType;
+import finance.commodity.Commodity;
 import finance.commodity.CommodityInventoryManager;
 import finance.commodity.CommodityRegistry;
-import finance.commodity.Commodity;
 import finance.data.EconomySavedData;
+import finance.event.MarketEvent;
 import finance.market.liquidity.MarketMakerQuotes;
 import finance.market.liquidity.QuoteView;
-import finance.metrics.EconomyMetricsService;
-import finance.chart.CandlestickService;
-import finance.chart.MarketInstrumentType;
-import finance.event.MarketEvent;
 import finance.util.MathUtil;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
 
 /**
  * 国际市场引擎 —— 为所有注册商品提供双向报价，保证市场流动性。
@@ -136,13 +133,17 @@ public class NpcMarketMaker {
         }
 
         // 5. 记录流水
-        AccountManager.addTransactionRecord(
-                new TransactionRecord(NPC_UUID, playerId, totalPayment, TransactionType.COMMODITY_SELL,
-                        playerId, commodityId, acceptedQuantity)
-        );
+        AccountManager.addTransactionRecord(new TransactionRecord(
+                NPC_UUID,
+                playerId,
+                totalPayment,
+                TransactionType.COMMODITY_SELL,
+                playerId,
+                commodityId,
+                acceptedQuantity));
 
-        CommodityTradeRecorder.recordCompletedTrade(NPC_UUID, playerId, commodityId,
-                bidPrice, acceptedQuantity, CommodityTradeSource.PLAYER_NPC, true);
+        CommodityTradeRecorder.recordCompletedTrade(
+                NPC_UUID, playerId, commodityId, bidPrice, acceptedQuantity, CommodityTradeSource.PLAYER_NPC, true);
         if (floorQuota > 0) finance.centralbank.ReserveService.useFloorQuota(commodityId, day, acceptedQuantity);
 
         return acceptedQuantity;
@@ -206,13 +207,11 @@ public class NpcMarketMaker {
         }
 
         // 5. 记录流水
-        AccountManager.addTransactionRecord(
-                new TransactionRecord(playerId, NPC_UUID, totalCost, TransactionType.COMMODITY_BUY,
-                        playerId, commodityId, acceptedQuantity)
-        );
+        AccountManager.addTransactionRecord(new TransactionRecord(
+                playerId, NPC_UUID, totalCost, TransactionType.COMMODITY_BUY, playerId, commodityId, acceptedQuantity));
 
-        CommodityTradeRecorder.recordCompletedTrade(playerId, NPC_UUID, commodityId,
-                askPrice, acceptedQuantity, CommodityTradeSource.PLAYER_NPC, false);
+        CommodityTradeRecorder.recordCompletedTrade(
+                playerId, NPC_UUID, commodityId, askPrice, acceptedQuantity, CommodityTradeSource.PLAYER_NPC, false);
 
         return acceptedQuantity;
     }
@@ -229,8 +228,7 @@ public class NpcMarketMaker {
      * @param quantity     成交数量
      * @param tradePrice   成交单价
      */
-    public static void recordNpcTrade(String commodityId, boolean npcWasBuyer,
-                                       int quantity, long tradePrice) {
+    public static void recordNpcTrade(String commodityId, boolean npcWasBuyer, int quantity, long tradePrice) {
         long newNpcStock = CommodityInventoryManager.getCommodityAmount(NPC_UUID, commodityId);
         MarketPrice price = getMarketPrice(commodityId);
         if (price != null) {
@@ -353,8 +351,13 @@ public class NpcMarketMaker {
                 long target = finance.centralbank.ReserveService.target(commodityId);
                 long newStock = stock + finance.centralbank.ReserveService.restock(commodityId);
                 if (newStock > target) {
-                    int consume = (int) Math.min(newStock, Math.max(1, Math.round((newStock - target)
-                            * finance.config.FinanceConfig.reserveSurplusDemandBpsPerDay() / 10_000.0)));
+                    int consume = (int) Math.min(
+                            newStock,
+                            Math.max(
+                                    1,
+                                    Math.round((newStock - target)
+                                            * finance.config.FinanceConfig.reserveSurplusDemandBpsPerDay()
+                                            / 10_000.0)));
                     CommodityInventoryManager.removeCommodity(NPC_UUID, commodityId, consume);
                     newStock -= consume;
                 }

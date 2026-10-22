@@ -1,25 +1,32 @@
 package finance.index;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import finance.company.Company;
 import finance.company.CompanyManager;
 import finance.company.CompanyType;
 import finance.data.EconomySavedData;
 import finance.stock.Stock;
 import finance.stock.StockMarketManager;
+import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
 class MarketIndexServiceTest {
-    @BeforeEach void setup() { EconomySavedData.resetRuntimeState(); }
-    @AfterEach void cleanup() { EconomySavedData.resetRuntimeState(); }
+    @BeforeEach
+    void setup() {
+        EconomySavedData.resetRuntimeState();
+    }
 
-    @Test void sectorIndicesRemainIsolated() {
+    @AfterEach
+    void cleanup() {
+        EconomySavedData.resetRuntimeState();
+    }
+
+    @Test
+    void sectorIndicesRemainIsolated() {
         addListed("RAW", CompanyType.RAW_MATERIALS, 10);
         Stock food = addListed("FOOD", CompanyType.FOOD, 10);
         MarketIndexService.closeDay(0);

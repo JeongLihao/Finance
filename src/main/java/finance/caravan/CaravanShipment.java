@@ -25,6 +25,7 @@ public final class CaravanShipment {
     private final int qty;
     /** 买入单价（锁定，用于保险赔付基准）。 */
     private final long buyUnitPrice;
+
     private final long departDay;
     private final long arriveDay;
     private final int guardLevel;
@@ -39,14 +40,23 @@ public final class CaravanShipment {
     private final long insuredValuePerUnit;
     /** 发车时支付的总成本（货款＋保镖工资＋保费），用于盈亏核算。 */
     private final long dispatchCost;
+
     private Status status;
 
-    public CaravanShipment(UUID id, UUID routeId, UUID ownerId, String commodityId, int qty,
-                           long buyUnitPrice, long departDay, long arriveDay,
-                           int guardLevel, int raidBpsSnapshot,
-                           long insuredValuePerUnit, long dispatchCost) {
-        if (id == null || routeId == null || ownerId == null
-                || commodityId == null || commodityId.isBlank()) {
+    public CaravanShipment(
+            UUID id,
+            UUID routeId,
+            UUID ownerId,
+            String commodityId,
+            int qty,
+            long buyUnitPrice,
+            long departDay,
+            long arriveDay,
+            int guardLevel,
+            int raidBpsSnapshot,
+            long insuredValuePerUnit,
+            long dispatchCost) {
+        if (id == null || routeId == null || ownerId == null || commodityId == null || commodityId.isBlank()) {
             throw new IllegalArgumentException("货运 id/路线/所有者/商品不能为空");
         }
         if (qty <= 0 || buyUnitPrice <= 0) {
@@ -70,33 +80,63 @@ public final class CaravanShipment {
         this.status = Status.IN_TRANSIT;
     }
 
-    public UUID id() { return id; }
+    public UUID id() {
+        return id;
+    }
 
-    public UUID routeId() { return routeId; }
+    public UUID routeId() {
+        return routeId;
+    }
 
-    public UUID ownerId() { return ownerId; }
+    public UUID ownerId() {
+        return ownerId;
+    }
 
-    public String commodityId() { return commodityId; }
+    public String commodityId() {
+        return commodityId;
+    }
 
-    public int qty() { return qty; }
+    public int qty() {
+        return qty;
+    }
 
-    public long buyUnitPrice() { return buyUnitPrice; }
+    public long buyUnitPrice() {
+        return buyUnitPrice;
+    }
 
-    public long departDay() { return departDay; }
+    public long departDay() {
+        return departDay;
+    }
 
-    public long arriveDay() { return arriveDay; }
+    public long arriveDay() {
+        return arriveDay;
+    }
 
-    public int guardLevel() { return guardLevel; }
+    public int guardLevel() {
+        return guardLevel;
+    }
 
-    public int raidBpsSnapshot() { return raidBpsSnapshot; }
+    public int raidBpsSnapshot() {
+        return raidBpsSnapshot;
+    }
 
-    public long insuredValuePerUnit() { return insuredValuePerUnit; }
+    public long insuredValuePerUnit() {
+        return insuredValuePerUnit;
+    }
 
-    public boolean insured() { return insuredValuePerUnit > 0; }
+    public boolean insured() {
+        return insuredValuePerUnit > 0;
+    }
 
-    public long dispatchCost() { return dispatchCost; }
+    public long dispatchCost() {
+        return dispatchCost;
+    }
 
-    public Status status() { return status; }
+    public Status status() {
+        return status;
+    }
 
-    public void markArrived() { this.status = Status.ARRIVED; }
+    public void markArrived() {
+        this.status = Status.ARRIVED;
+    }
 }

@@ -15,14 +15,13 @@ import finance.stock.StockMarketManager;
 import finance.stock.StockOrder;
 import finance.stock.StockOrderType;
 import finance.stock.StockPortfolioManager;
-
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Map;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -37,14 +36,23 @@ public final class NpcInvestorService {
     /** 低于该差额（占有表决权股份的基点）不调仓，避免每天来回小额交易刷屏。 */
     static final int REBALANCE_THRESHOLD_BPS = 25;
 
-    private NpcInvestorService() { }
+    private NpcInvestorService() {}
 
     /** 每日参数。生产代码从配置读取，测试可以直接构造。 */
-    public record Settings(boolean enabled, long initialCapitalEach, long dailyBudget, long poolReserveFloor,
-                           int maxHoldingBpsEach, int maxCombinedBps, int maxFloatBpsPerDay) {
+    public record Settings(
+            boolean enabled,
+            long initialCapitalEach,
+            long dailyBudget,
+            long poolReserveFloor,
+            int maxHoldingBpsEach,
+            int maxCombinedBps,
+            int maxFloatBpsPerDay) {
         public static Settings fromConfig() {
-            return new Settings(FinanceConfig.npcInvestorsEnabled(), FinanceConfig.npcInitialCapitalEach(),
-                    FinanceConfig.npcDailyBudget(), FinanceConfig.npcPoolReserveFloor(),
+            return new Settings(
+                    FinanceConfig.npcInvestorsEnabled(),
+                    FinanceConfig.npcInitialCapitalEach(),
+                    FinanceConfig.npcDailyBudget(),
+                    FinanceConfig.npcPoolReserveFloor(),
                     FinanceConfig.npcMaxHoldingPercentEach() * 100,
                     FinanceConfig.npcMaxCombinedHoldingPercent() * 100,
                     FinanceConfig.npcMaxFloatPercentPerDay() * 100);
@@ -100,12 +108,18 @@ public final class NpcInvestorService {
         long pool = AccountManager.getBalance(NpcMarketMaker.NPC_UUID);
         if (pool - amount < settings.poolReserveFloor()) return;
         if (!AccountManager.moveFunds(NpcMarketMaker.NPC_UUID, account, amount)) return;
-        AccountManager.addTransactionRecord(new TransactionRecord(NpcMarketMaker.NPC_UUID, account, amount,
-                TransactionType.NPC_INVESTOR_FUNDING, account, archetype.name(), 0));
+        AccountManager.addTransactionRecord(new TransactionRecord(
+                NpcMarketMaker.NPC_UUID,
+                account,
+                amount,
+                TransactionType.NPC_INVESTOR_FUNDING,
+                account,
+                archetype.name(),
+                0));
         state.markInitialFunded();
         state.addContribution(amount);
-        NpcInvestorManager.addDecision(new NpcInvestorManager.Decision(day, archetype, null, "", "FUND",
-                0, amount, NpcReason.FUNDING));
+        NpcInvestorManager.addDecision(
+                new NpcInvestorManager.Decision(day, archetype, null, "", "FUND", 0, amount, NpcReason.FUNDING));
     }
 
     /** 撤掉 NPC 前一天没成交的挂单，冻结的资金和股份原路退回。 */
@@ -128,7 +142,8 @@ public final class NpcInvestorService {
         // 每只股票只取一次股东快照；之后按本轮各原型的成交量增减，结果与每次重算一致
         Map<UUID, Long> heldBy = new HashMap<>();
         long combined = 0;
-        for (ShareholderRegistryService.Holder holder : ShareholderRegistryService.snapshot(stock.getCompanyId(), day).holders()) {
+        for (ShareholderRegistryService.Holder holder :
+                ShareholderRegistryService.snapshot(stock.getCompanyId(), day).holders()) {
             if (NpcInvestorArchetype.isInvestorAccount(holder.id())) {
                 heldBy.put(holder.id(), holder.total());
                 combined += holder.total();
@@ -138,8 +153,8 @@ public final class NpcInvestorService {
         for (NpcInvestorArchetype archetype : rotation(day)) {
             NpcInvestorScoring.Score score = NpcInvestorScoring.score(archetype, profile);
             int target = NpcInvestorScoring.targetBps(archetype, score.value(), settings.maxHoldingBpsEach());
-            NpcInvestorManager.state(archetype).record(company.getCompanyId(),
-                    NpcInvestorScoring.sentiment(score.value()), target);
+            NpcInvestorManager.state(archetype)
+                    .record(company.getCompanyId(), NpcInvestorScoring.sentiment(score.value()), target);
             if (dayBudgetShares <= 0) continue;
 
             UUID account = archetype.accountId();
@@ -162,13 +177,15 @@ public final class NpcInvestorService {
                     dayBudgetShares -= fill.total();
                     combined += fill.total(); // 挂着的买单也算进合计上限，成交后不会超限
                     if (fill.filled() > 0) log(day, archetype, company, stock, "BUY", fill.filled(), score.reason());
-                    if (fill.resting() > 0) log(day, archetype, company, stock, "BUY_ORDER", fill.resting(), score.reason());
+                    if (fill.resting() > 0)
+                        log(day, archetype, company, stock, "BUY_ORDER", fill.resting(), score.reason());
                 } else {
                     log(day, archetype, company, stock, "HOLD", 0, NpcReason.NO_CASH);
                 }
             } else {
                 // held 含要约/回购锁定的股份，实际只能卖出持仓里的可用部分
-                long free = StockPortfolioManager.getHolding(account, stock.getSymbol()).getQuantity();
+                long free = StockPortfolioManager.getHolding(account, stock.getSymbol())
+                        .getQuantity();
                 long want = Math.min(Math.min(-delta, dayBudgetShares), free);
                 if (want <= 0) {
                     log(day, archetype, company, stock, "HOLD", 0, NpcReason.SHARES_LOCKED);
@@ -200,7 +217,9 @@ public final class NpcInvestorService {
     record Fill(long filled, long resting) {
         static final Fill NONE = new Fill(0, 0);
 
-        long total() { return filled + resting; }
+        long total() {
+            return filled + resting;
+        }
     }
 
     /** 先配售残差，再用普通买单补足。普通买单没撮合到对手盘的部分会挂进订单簿，单独计为 resting。 */
@@ -215,11 +234,14 @@ public final class NpcInvestorService {
         long filled = 0;
         long resting = 0;
         long fromResidual = Math.min(qty, residual);
-        if (fromResidual > 0 && NpcFloatPlacementService.place(account, stock.getSymbol(), fromResidual, day).success()) {
+        if (fromResidual > 0
+                && NpcFloatPlacementService.place(account, stock.getSymbol(), fromResidual, day)
+                        .success()) {
             filled = fromResidual;
         }
         long rest = qty - filled;
-        if (rest > 0 && rest <= Integer.MAX_VALUE
+        if (rest > 0
+                && rest <= Integer.MAX_VALUE
                 && StockMarketManager.buy(account, stock.getSymbol(), rest).success()) {
             resting = Math.min(rest, openOrderQuantity(account, stock.getSymbol(), StockOrderType.BUY));
             filled += rest - resting;
@@ -234,7 +256,8 @@ public final class NpcInvestorService {
     static long openOrderQuantity(UUID account, String symbol, StockOrderType type) {
         long total = 0;
         for (StockOrder order : StockMarketManager.getOrders()) {
-            if (order.getType() == type && account.equals(order.getPlayerId())
+            if (order.getType() == type
+                    && account.equals(order.getPlayerId())
                     && order.getSymbol().equalsIgnoreCase(symbol)) {
                 total += order.getQuantity();
             }
@@ -264,18 +287,33 @@ public final class NpcInvestorService {
                 dividendCount++;
             }
         }
-        return new NpcInvestorScoring.Profile(stock.getLastPrice(), fundamentalPerShare, stock.getDayChange(),
-                company.getRecentProfits(), dividendSum, dividendCount, company.isBankruptcyRisk());
+        return new NpcInvestorScoring.Profile(
+                stock.getLastPrice(),
+                fundamentalPerShare,
+                stock.getDayChange(),
+                company.getRecentProfits(),
+                dividendSum,
+                dividendCount,
+                company.isBankruptcyRisk());
     }
 
-    private static void log(long day, NpcInvestorArchetype archetype, Company company, Stock stock,
-                            String action, long qty, NpcReason reason) {
-        NpcInvestorManager.addDecision(new NpcInvestorManager.Decision(day, archetype, company.getCompanyId(),
-                stock.getSymbol(), action, qty, stock.getLastPrice(), reason));
+    private static void log(
+            long day,
+            NpcInvestorArchetype archetype,
+            Company company,
+            Stock stock,
+            String action,
+            long qty,
+            NpcReason reason) {
+        NpcInvestorManager.addDecision(new NpcInvestorManager.Decision(
+                day, archetype, company.getCompanyId(), stock.getSymbol(), action, qty, stock.getLastPrice(), reason));
     }
 
     static long bpsOf(long base, int bps) {
         if (base <= 0 || bps <= 0) return 0;
-        return BigInteger.valueOf(base).multiply(BigInteger.valueOf(bps)).divide(BigInteger.valueOf(10_000)).longValue();
+        return BigInteger.valueOf(base)
+                .multiply(BigInteger.valueOf(bps))
+                .divide(BigInteger.valueOf(10_000))
+                .longValue();
     }
 }

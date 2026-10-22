@@ -10,7 +10,11 @@ import finance.config.FinanceConfig;
  */
 public final class PolicyRuleService {
 
-    public enum Direction { HIKE, HOLD, CUT }
+    public enum Direction {
+        HIKE,
+        HOLD,
+        CUT
+    }
 
     public record Evaluation(
             int currentBps,
@@ -19,11 +23,9 @@ public final class PolicyRuleService {
             int targetBps,
             int recommendedBps,
             Direction direction,
-            String explanation) {
-    }
+            String explanation) {}
 
-    private PolicyRuleService() {
-    }
+    private PolicyRuleService() {}
 
     /**
      * 评估政策建议。
@@ -33,8 +35,7 @@ public final class PolicyRuleService {
      * @param priceIndexBase 对照期价格指数（约 30 天前；&le;0 表示无历史，按无通胀处理）
      * @param slackRatio     衰退指标 0..1（破产风险公司占比），越界按边界钳制
      */
-    public static Evaluation evaluate(int currentBps, double priceIndexNow,
-                                      double priceIndexBase, double slackRatio) {
+    public static Evaluation evaluate(int currentBps, double priceIndexNow, double priceIndexBase, double slackRatio) {
         double inflation = 0.0;
         if (priceIndexBase > 0 && priceIndexNow > 0) {
             inflation = (priceIndexNow - priceIndexBase) / priceIndexBase * (365.0 / 30.0) * 100.0;
@@ -62,15 +63,19 @@ public final class PolicyRuleService {
             direction = Direction.HOLD;
         } else {
             recommended = (int) Math.min(max, Math.max(min, (long) currentBps + stepped));
-            direction = recommended > currentBps ? Direction.HIKE
+            direction = recommended > currentBps
+                    ? Direction.HIKE
                     : recommended < currentBps ? Direction.CUT : Direction.HOLD;
         }
 
-        String explanation = String.format(java.util.Locale.ROOT,
-                "通胀%.2f%%（目标%.2f%%）/衰退%.1f%%/目标利率%d基点", inflation,
-                FinanceConfig.cbInflationTargetBps() / 100.0, slack * 100.0, targetClamped);
-        return new Evaluation(currentBps, inflation, slack, targetClamped,
-                recommended, direction, explanation);
+        String explanation = String.format(
+                java.util.Locale.ROOT,
+                "通胀%.2f%%（目标%.2f%%）/衰退%.1f%%/目标利率%d基点",
+                inflation,
+                FinanceConfig.cbInflationTargetBps() / 100.0,
+                slack * 100.0,
+                targetClamped);
+        return new Evaluation(currentBps, inflation, slack, targetClamped, recommended, direction, explanation);
     }
 
     /** 方向文案（中文，用于前瞻与公告）；null 视为未知，返回占位符而非 NPE。 */

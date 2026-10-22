@@ -3,6 +3,9 @@ package finance.client;
 import finance.FinanceMod;
 import finance.network.PriceTablePacket;
 import finance.util.MoneyFormat;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
@@ -11,10 +14,6 @@ import net.minecraftforge.event.entity.player.ItemTooltipEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.registries.ForgeRegistries;
-
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 
 /**
  * 客户端的商品价格表（服务端登录时和每分钟推一次），用来在物品悬停提示里写“能卖多少”。

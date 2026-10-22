@@ -18,8 +18,6 @@ public record Quote(double mid, double bid, double ask) {
         return new Quote(mid, mid * (1.0 - safeSpread), mid * (1.0 + safeSpread));
     }
 
-
-
     /**
      * 策略链之后强制"往返必亏"：ask - bid &gt; 0 恒成立。
      * 兜底最小价差 = max(1, mid × minSpreadRatio)，买入立刻卖回必亏，无刷钱循环。

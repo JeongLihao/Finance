@@ -20,11 +20,7 @@ import org.lwjgl.glfw.GLFW;
 public class FinanceKeyMappings {
 
     public static final KeyMapping OPEN_FINANCE = new KeyMapping(
-            "key.finance.open_gui",
-            InputConstants.Type.KEYSYM,
-            GLFW.GLFW_KEY_K,
-            "key.categories.finance"
-    );
+            "key.finance.open_gui", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_K, "key.categories.finance");
 
     @Mod.EventBusSubscriber(modid = FinanceMod.MOD_ID, bus = Mod.EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
     public static class ModBusEvents {
@@ -48,7 +44,8 @@ public class FinanceKeyMappings {
             while (OPEN_FINANCE.consumeClick()) {
                 // 手上拿着市场商品时，打开后直接显示这件东西的买卖详情
                 var commodity = finance.command.SellCommand.commodityOf(minecraft.player.getMainHandItem());
-                finance.client.simple.SimpleClientState.setPendingCommodity(commodity == null ? null : commodity.getId());
+                finance.client.simple.SimpleClientState.setPendingCommodity(
+                        commodity == null ? null : commodity.getId());
                 FinancePacketHandler.CHANNEL.sendToServer(new OpenFinanceGuiPacket());
             }
         }

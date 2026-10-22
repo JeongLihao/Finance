@@ -8,9 +8,7 @@ import finance.stock.Stock;
 import finance.stock.StockMarketManager;
 import finance.stock.StockPortfolioManager;
 import finance.util.MathUtil;
-
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -28,14 +26,12 @@ public final class CompanyFinancingManager {
      * reached the company. Capital projects rely on this record because
      * successful financing projects are removed from {@link #PROJECTS}.
      */
-    public record FinalizedFinancing(UUID projectId, UUID companyId, long raisedAmount,
-                                     long shares, long day) {}
+    public record FinalizedFinancing(UUID projectId, UUID companyId, long raisedAmount, long shares, long day) {}
 
-    private CompanyFinancingManager() {
-    }
+    private CompanyFinancingManager() {}
 
-    public static Result startProject(UUID ownerId, UUID companyId, long issueQuantity,
-                                      long issuePrice, long fundingTarget, long currentMcDay) {
+    public static Result startProject(
+            UUID ownerId, UUID companyId, long issueQuantity, long issuePrice, long fundingTarget, long currentMcDay) {
         Company company = CompanyManager.getCompany(companyId);
         if (ownerId == null || company == null) {
             return Result.fail("公司不存在。");
@@ -69,8 +65,13 @@ public final class CompanyFinancingManager {
                 fundingTarget,
                 currentMcDay + DEFAULT_DURATION_DAYS);
         PROJECTS.add(project);
-        addRecord(ownerId, companyId, TransactionType.COMPANY_FINANCING_START,
-                0, issueQuantity, company.getName() + "/" + stock.getSymbol());
+        addRecord(
+                ownerId,
+                companyId,
+                TransactionType.COMPANY_FINANCING_START,
+                0,
+                issueQuantity,
+                company.getName() + "/" + stock.getSymbol());
         EconomySavedData.markDirty();
         return Result.ok("融资项目已发起，期限 " + DEFAULT_DURATION_DAYS + " 天。");
     }
@@ -109,8 +110,13 @@ public final class CompanyFinancingManager {
             AccountManager.deposit(playerId, cost);
             return Result.fail("认购结算失败。");
         }
-        addRecord(playerId, project.getCompanyId(), TransactionType.COMPANY_FINANCING_SUBSCRIBE,
-                cost, acceptedShares, company.getName() + "/" + project.getSymbol());
+        addRecord(
+                playerId,
+                project.getCompanyId(),
+                TransactionType.COMPANY_FINANCING_SUBSCRIBE,
+                cost,
+                acceptedShares,
+                company.getName() + "/" + project.getSymbol());
         if (project.isFunded()) {
             if (!finalizeProject(project, Math.max(0, currentMcDay))) {
                 return Result.fail("融资结算待处理，未发生部分发行。");
@@ -158,7 +164,6 @@ public final class CompanyFinancingManager {
         return null;
     }
 
-
     public static List<CompanyFinancingProject> getProjects() {
         return PROJECTS;
     }
@@ -204,8 +209,9 @@ public final class CompanyFinancingManager {
         if (subscribedShares <= 0 || raised <= 0) {
             return false;
         }
-        boolean holdingsFit = project.getSubscriptions().entrySet().stream().allMatch(entry ->
-                StockPortfolioManager.canAddHolding(entry.getKey(), project.getSymbol(), entry.getValue()));
+        boolean holdingsFit = project.getSubscriptions().entrySet().stream()
+                .allMatch(entry ->
+                        StockPortfolioManager.canAddHolding(entry.getKey(), project.getSymbol(), entry.getValue()));
         if (!company.canDeposit(raised) || !stock.canIncreaseShares(subscribedShares) || !holdingsFit) {
             if (!refundProject(project)) return false;
             PROJECTS.remove(project);
@@ -223,10 +229,15 @@ public final class CompanyFinancingManager {
             company.withdraw(raised);
             return false;
         }
-        addFinalized(new FinalizedFinancing(project.getProjectId(), project.getCompanyId(),
-                raised, subscribedShares, currentMcDay));
-        addRecord(company.getOwnerId(), project.getCompanyId(), TransactionType.COMPANY_FINANCING_SUCCESS,
-                raised, subscribedShares, company.getName() + "/" + project.getSymbol());
+        addFinalized(new FinalizedFinancing(
+                project.getProjectId(), project.getCompanyId(), raised, subscribedShares, currentMcDay));
+        addRecord(
+                company.getOwnerId(),
+                project.getCompanyId(),
+                TransactionType.COMPANY_FINANCING_SUCCESS,
+                raised,
+                subscribedShares,
+                company.getName() + "/" + project.getSymbol());
         PROJECTS.remove(project);
         EconomySavedData.markDirty();
         return true;
@@ -269,8 +280,13 @@ public final class CompanyFinancingManager {
             long refund = MathUtil.multiplyExactOrNegative1(project.getIssuePrice(), safeInt(entry.getValue()));
             if (refund > 0) {
                 if (!AccountManager.deposit(entry.getKey(), refund)) return false;
-                addRecord(entry.getKey(), project.getCompanyId(), TransactionType.COMPANY_FINANCING_REFUND,
-                        refund, entry.getValue(), objectName);
+                addRecord(
+                        entry.getKey(),
+                        project.getCompanyId(),
+                        TransactionType.COMPANY_FINANCING_REFUND,
+                        refund,
+                        entry.getValue(),
+                        objectName);
             }
         }
         return true;
@@ -287,16 +303,10 @@ public final class CompanyFinancingManager {
         return value > Integer.MAX_VALUE ? -1 : (int) value;
     }
 
-    private static void addRecord(UUID playerId, UUID companyId, TransactionType type,
-                                  long amount, long quantity, String objectName) {
+    private static void addRecord(
+            UUID playerId, UUID companyId, TransactionType type, long amount, long quantity, String objectName) {
         AccountManager.addTransactionRecord(new TransactionRecord(
-                playerId != null ? playerId : companyId,
-                companyId,
-                amount,
-                type,
-                playerId,
-                objectName,
-                quantity));
+                playerId != null ? playerId : companyId, companyId, amount, type, playerId, objectName, quantity));
     }
 
     public record Result(boolean success, String message) {

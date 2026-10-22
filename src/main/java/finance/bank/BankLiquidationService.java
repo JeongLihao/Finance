@@ -4,7 +4,6 @@ import finance.account.AccountManager;
 import finance.company.Company;
 import finance.company.CompanyManager;
 import finance.data.EconomySavedData;
-
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -18,7 +17,7 @@ import java.util.UUID;
  * 全程复式平衡，不印钱。
  */
 public final class BankLiquidationService {
-    private BankLiquidationService() { }
+    private BankLiquidationService() {}
 
     public static synchronized void settleUninsured(UUID bankId, long day) {
         CommercialBank bank = BankingManager.bank(bankId);
@@ -30,7 +29,8 @@ public final class BankLiquidationService {
             if (a.ownerType() == CustomerType.NPC) npcAccounts.add(a);
             else claims.add(a);
         }
-        long totalClaims = claims.stream().mapToLong(BankCustomerAccount::balance).reduce(0L, BankLiquidationService::safeAdd);
+        long totalClaims =
+                claims.stream().mapToLong(BankCustomerAccount::balance).reduce(0L, BankLiquidationService::safeAdd);
         long reserves = bank.ledger().balance(BankLedgerAccount.ASSET_RESERVE);
         UUID ref = UUID.nameUUIDFromBytes(("finance-liquidation-" + bankId).getBytes(StandardCharsets.UTF_8));
         if (bank.ledger().hasReference(ref)) return;
@@ -39,30 +39,45 @@ public final class BankLiquidationService {
         for (BankCustomerAccount a : claims) {
             long balance = a.balance();
             // payout = balance × reserves / totalClaims（BigInteger 防溢出）
-            long payout = totalClaims <= 0 ? 0 : BigInteger.valueOf(balance).multiply(BigInteger.valueOf(reserves))
-                    .divide(BigInteger.valueOf(totalClaims)).min(BigInteger.valueOf(balance)).longValue();
+            long payout = totalClaims <= 0
+                    ? 0
+                    : BigInteger.valueOf(balance)
+                            .multiply(BigInteger.valueOf(reserves))
+                            .divide(BigInteger.valueOf(totalClaims))
+                            .min(BigInteger.valueOf(balance))
+                            .longValue();
             long haircut = balance - payout;
             BankLedgerAccount liability = a.type() == BankAccountType.TIME_DEPOSIT
-                    ? BankLedgerAccount.LIABILITY_TIME_DEPOSIT : BankLedgerAccount.LIABILITY_DEMAND_DEPOSIT;
-            if (payout > 0) drafts.add(new BankLedger.Draft(liability, BankLedgerAccount.ASSET_RESERVE,
-                    payout, BankLedgerReason.LIQUIDATION_PAYOUT));
-            if (haircut > 0) drafts.add(new BankLedger.Draft(liability, BankLedgerAccount.EQUITY_RETAINED,
-                    haircut, BankLedgerReason.LIQUIDATION_PAYOUT));
+                    ? BankLedgerAccount.LIABILITY_TIME_DEPOSIT
+                    : BankLedgerAccount.LIABILITY_DEMAND_DEPOSIT;
+            if (payout > 0)
+                drafts.add(new BankLedger.Draft(
+                        liability, BankLedgerAccount.ASSET_RESERVE, payout, BankLedgerReason.LIQUIDATION_PAYOUT));
+            if (haircut > 0)
+                drafts.add(new BankLedger.Draft(
+                        liability, BankLedgerAccount.EQUITY_RETAINED, haircut, BankLedgerReason.LIQUIDATION_PAYOUT));
             if (payout > 0) payouts.add(() -> payOut(a, payout, day));
         }
         // NPC 池：不承保，全额核销
         for (BankCustomerAccount a : npcAccounts) {
             BankLedgerAccount liability = a.type() == BankAccountType.TIME_DEPOSIT
-                    ? BankLedgerAccount.LIABILITY_TIME_DEPOSIT : BankLedgerAccount.LIABILITY_DEMAND_DEPOSIT;
-            drafts.add(new BankLedger.Draft(liability, BankLedgerAccount.EQUITY_RETAINED,
-                    a.balance(), BankLedgerReason.LIQUIDATION_PAYOUT));
+                    ? BankLedgerAccount.LIABILITY_TIME_DEPOSIT
+                    : BankLedgerAccount.LIABILITY_DEMAND_DEPOSIT;
+            drafts.add(new BankLedger.Draft(
+                    liability, BankLedgerAccount.EQUITY_RETAINED, a.balance(), BankLedgerReason.LIQUIDATION_PAYOUT));
         }
         if (!drafts.isEmpty()) {
             if (!bank.ledger().canPost(ref, drafts)) return;
             bank.ledger().postBatch(day, ref, drafts);
         }
-        for (BankCustomerAccount a : claims) { a.debit(a.available()); a.close(); }
-        for (BankCustomerAccount a : npcAccounts) { a.debit(a.available()); a.close(); }
+        for (BankCustomerAccount a : claims) {
+            a.debit(a.available());
+            a.close();
+        }
+        for (BankCustomerAccount a : npcAccounts) {
+            a.debit(a.available());
+            a.close();
+        }
         // 定期存款对象与账户解耦：账户已关，对应的 TimeDeposit 必须同步终结，
         // 否则 accrueTimeDeposits 会继续给已关闭账户计息（幻影利息）。
         markTimeDepositsRedeemed(bankId);
@@ -98,18 +113,22 @@ public final class BankLiquidationService {
 
     private static void suspensePayout(BankCustomerAccount a, long payout, long day) {
         CommercialBank bridge = DepositInsuranceService.bridgeBank();
-        BankCustomerAccount target = BankingManager.demandAccount(
-                bridge.id(), suspenseOwnerId(a.bankId()), CustomerType.PLAYER, day, true);
+        BankCustomerAccount target =
+                BankingManager.demandAccount(bridge.id(), suspenseOwnerId(a.bankId()), CustomerType.PLAYER, day, true);
         if (target == null || !target.canCredit(payout))
             throw new IllegalStateException("liquidation suspense account unavailable");
         UUID ref = UUID.nameUUIDFromBytes(("finance-liquidation-suspense-" + a.id()).getBytes(StandardCharsets.UTF_8));
         List<BankLedger.Draft> drafts = List.of(new BankLedger.Draft(
-                BankLedgerAccount.ASSET_RESERVE, BankLedgerAccount.LIABILITY_DEMAND_DEPOSIT,
-                payout, BankLedgerReason.LIQUIDATION_PAYOUT));
+                BankLedgerAccount.ASSET_RESERVE,
+                BankLedgerAccount.LIABILITY_DEMAND_DEPOSIT,
+                payout,
+                BankLedgerReason.LIQUIDATION_PAYOUT));
         if (!bridge.ledger().canPost(ref, drafts) || !bridge.ledger().postBatch(day, ref, drafts))
             throw new IllegalStateException("liquidation suspense post failed");
         if (!target.credit(payout)) throw new IllegalStateException("liquidation suspense credit failed");
     }
 
-    private static long safeAdd(long a, long b) { return a > Long.MAX_VALUE - b ? Long.MAX_VALUE : a + b; }
+    private static long safeAdd(long a, long b) {
+        return a > Long.MAX_VALUE - b ? Long.MAX_VALUE : a + b;
+    }
 }

@@ -1,18 +1,17 @@
 package finance.company;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import finance.account.AccountManager;
 import finance.account.TransactionType;
 import finance.data.EconomySavedData;
 import finance.stock.Stock;
 import finance.stock.StockMarketManager;
 import finance.stock.StockPortfolioManager;
+import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class CompanyDividendTest {
 
@@ -37,8 +36,7 @@ class CompanyDividendTest {
         company.setPublic(true);
         company.addDistributableProfit(1_000);
         CompanyManager.registerDirect(company);
-        StockMarketManager.putStockDirect(new Stock("DIV", "Dividend Co", COMPANY_ID,
-                1_000, 1_000, 0, 10, 10));
+        StockMarketManager.putStockDirect(new Stock("DIV", "Dividend Co", COMPANY_ID, 1_000, 1_000, 0, 10, 10));
         StockPortfolioManager.addHolding(PLAYER_A, "DIV", 250, 10);
         StockPortfolioManager.addHolding(PLAYER_B, "DIV", 750, 10);
         CompanyManager.setDividendPolicy(0.50, 1);
@@ -52,9 +50,11 @@ class CompanyDividendTest {
         assertEquals(500, company.getDistributableProfit());
         assertEquals(1, company.getDividendHistory().size());
         assertEquals(500, company.getDividendHistory().get(0).totalAmount());
-        assertEquals(2, AccountManager.getTransactions().stream()
-                .filter(record -> record.getType() == TransactionType.DIVIDEND)
-                .count());
+        assertEquals(
+                2,
+                AccountManager.getTransactions().stream()
+                        .filter(record -> record.getType() == TransactionType.DIVIDEND)
+                        .count());
     }
 
     @Test
@@ -63,8 +63,7 @@ class CompanyDividendTest {
         company.setPublic(true);
         company.addDistributableProfit(1_000);
         CompanyManager.registerDirect(company);
-        StockMarketManager.putStockDirect(new Stock("DIV", "Partial Dividend Co", COMPANY_ID,
-                1_000, 1_000, 0, 10, 10));
+        StockMarketManager.putStockDirect(new Stock("DIV", "Partial Dividend Co", COMPANY_ID, 1_000, 1_000, 0, 10, 10));
         StockPortfolioManager.addHolding(PLAYER_A, "DIV", 100, 10);
         CompanyManager.setDividendPolicy(0.50, 1);
 

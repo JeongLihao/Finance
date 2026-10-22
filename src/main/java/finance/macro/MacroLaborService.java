@@ -17,7 +17,6 @@ import finance.settlement.SettlementRecord;
 import finance.util.MathUtil;
 import finance.village.VillageManager;
 import finance.village.VillageRecord;
-
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
@@ -34,7 +33,7 @@ import java.util.UUID;
  * 产量按在岗比例缩放（见 {@link #staffingBps}）。传统自动经营的公司不参与。</p>
  */
 public final class MacroLaborService {
-    private MacroLaborService() { }
+    private MacroLaborService() {}
 
     public static boolean active() {
         return MacroEconomyService.active() && FinanceConfig.macroLaborEnabled();
@@ -58,7 +57,8 @@ public final class MacroLaborService {
     /** 所有者设定工资。 */
     public static boolean setWage(UUID actor, UUID companyId, long wage) {
         Company company = CompanyManager.getCompany(companyId);
-        if (company == null || actor == null || !actor.equals(company.getOwnerId()) || wage < 0 || wage > 1_000_000) return false;
+        if (company == null || actor == null || !actor.equals(company.getOwnerId()) || wage < 0 || wage > 1_000_000)
+            return false;
         if (!MacroEconomyManager.setWage(companyId, wage)) return false;
         EconomySavedData.markDirty();
         return true;
@@ -109,9 +109,11 @@ public final class MacroLaborService {
         Set<UUID> live = new HashSet<>();
         for (CompanyFacilityRecord facility : CompanyFacilityManager.all()) {
             Company company = CompanyManager.getCompany(facility.companyId());
-            if (company == null || facility.status() == CompanyFacilityStatus.DISABLED
+            if (company == null
+                    || facility.status() == CompanyFacilityStatus.DISABLED
                     || facility.status() == CompanyFacilityStatus.ORPHANED) continue;
-            if (CompanyGameplayManager.profileFor(company).operatingMode() == CompanyOperatingMode.LEGACY_AUTOMATIC) continue;
+            if (CompanyGameplayManager.profileFor(company).operatingMode() == CompanyOperatingMode.LEGACY_AUTOMATIC)
+                continue;
             live.add(facility.facilityId());
             // 岗位取决于当天的生产方式：先判定（幂等，日结里 FactoryService 已判定过时直接跳过）
             finance.gameplay.company.factory.FactoryService.prepare(facility, day);
@@ -140,7 +142,9 @@ public final class MacroLaborService {
                 long current = MacroEconomyManager.employment(facility.facilityId());
                 long target = wage < reservation || wage <= 0 ? 0 : Math.min(jobs, workforce);
                 long maxChange = Math.max(1, (jobs + 2) / 3);
-                long next = target > current ? Math.min(target, current + maxChange) : Math.max(target, current - maxChange);
+                long next = target > current
+                        ? Math.min(target, current + maxChange)
+                        : Math.max(target, current - maxChange);
                 next = Math.max(0, Math.min(next, workforce));
                 next = pay(facility, village, econ, next, wage);
                 MacroEconomyManager.setEmployment(facility.facilityId(), next, entry.getKey());
@@ -163,8 +167,8 @@ public final class MacroLaborService {
     }
 
     /** 发工资；现金不够时只保留付得起的人数。返回实际在岗人数。 */
-    private static long pay(CompanyFacilityRecord facility, VillageRecord village, SettlementEconomy econ,
-                            long workers, long wage) {
+    private static long pay(
+            CompanyFacilityRecord facility, VillageRecord village, SettlementEconomy econ, long workers, long wage) {
         if (workers <= 0 || wage <= 0) return 0;
         Company company = CompanyManager.getCompany(facility.companyId());
         UUID budget = village.budgetAccountId();
@@ -180,8 +184,14 @@ public final class MacroLaborService {
         }
         company.recordGameplayCost(amount);
         econ.addWages(amount);
-        AccountManager.addTransactionRecord(new TransactionRecord(company.getCompanyId(), budget, amount,
-                TransactionType.MACRO_WAGE, company.getOwnerId(), company.getName(), n));
+        AccountManager.addTransactionRecord(new TransactionRecord(
+                company.getCompanyId(),
+                budget,
+                amount,
+                TransactionType.MACRO_WAGE,
+                company.getOwnerId(),
+                company.getName(),
+                n));
         return n;
     }
 

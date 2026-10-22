@@ -18,8 +18,7 @@ public final class ExponentialMovingAverage {
         result[period - 1] = seed / period;
         double alpha = 2.0 / (period + 1.0);
         for (int i = period; i < values.length; i++) {
-            result[i] = Double.isFinite(values[i])
-                    ? alpha * values[i] + (1.0 - alpha) * result[i - 1] : result[i - 1];
+            result[i] = Double.isFinite(values[i]) ? alpha * values[i] + (1.0 - alpha) * result[i - 1] : result[i - 1];
         }
         return result;
     }

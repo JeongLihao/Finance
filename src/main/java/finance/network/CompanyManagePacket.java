@@ -6,11 +6,10 @@ import finance.company.CompanyManagementService;
 import finance.company.CompanyManager;
 import finance.company.CompanyStrategy;
 import finance.data.EconomySavedData;
+import java.util.function.Supplier;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.network.NetworkEvent;
-
-import java.util.function.Supplier;
 
 public class CompanyManagePacket {
 
@@ -66,12 +65,7 @@ public class CompanyManagePacket {
 
             Company company = CompanyManager.getCompanyByOwner(player.getUUID());
             CompanyManagementService.Result result = CompanyManagementService.apply(
-                    player.getUUID(),
-                    company,
-                    packet.action,
-                    packet.strategy,
-                    packet.amount,
-                    packet.ratio);
+                    player.getUUID(), company, packet.action, packet.strategy, packet.amount, packet.ratio);
 
             if (result.success()) {
                 EconomySavedData.markDirty();

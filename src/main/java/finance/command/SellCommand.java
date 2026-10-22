@@ -21,7 +21,7 @@ import net.minecraftforge.registries.ForgeRegistries;
  */
 public final class SellCommand {
 
-    private SellCommand() { }
+    private SellCommand() {}
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(Commands.literal("sell")

@@ -21,7 +21,16 @@ public final class GovernanceTaskClientState {
         if (success) SUCCEEDED.add(proposalId);
     }
 
-    public static synchronized boolean isPending(UUID proposalId) { return PENDING.contains(proposalId); }
-    public static synchronized boolean hasSucceeded(UUID proposalId) { return SUCCEEDED.contains(proposalId); }
-    public static synchronized void clear() { PENDING.clear(); SUCCEEDED.clear(); }
+    public static synchronized boolean isPending(UUID proposalId) {
+        return PENDING.contains(proposalId);
+    }
+
+    public static synchronized boolean hasSucceeded(UUID proposalId) {
+        return SUCCEEDED.contains(proposalId);
+    }
+
+    public static synchronized void clear() {
+        PENDING.clear();
+        SUCCEEDED.clear();
+    }
 }

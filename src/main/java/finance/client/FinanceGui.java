@@ -1,48 +1,24 @@
 package finance.client;
 
-import com.mojang.blaze3d.systems.RenderSystem;
 import finance.commodity.Commodity;
-import finance.commodity.CommodityCategory;
-import finance.commodity.CommodityRegistry;
-import finance.company.CompanyManagementAction;
-import finance.company.CompanyType;
-import finance.company.CompanyStrategy;
-import finance.alert.PriceAlertDirection;
-import finance.alert.PriceAlertType;
-import finance.company.CompanyProposalType;
-import finance.stock.ConditionalStockOrderType;
-import finance.gui.FinanceMenu;
-import finance.gameplay.FinanceScreenMode;
-import finance.market.NpcMarketMaker;
 import finance.network.*;
-import finance.util.FormatUtil;
-import finance.chart.MarketInstrumentType;
-import finance.chart.MarketSummary;
-import finance.client.chart.CandlestickChart;
-import finance.client.chart.CandlestickClientCache;
-import finance.client.chart.TechnicalIndicatorChart;
+import java.util.*;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.EditBox;
-import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 
-import java.util.*;
-
 /** 绘制基元与主题常量：从 FinanceScreen 抽取的无状态 GUI 工具类。
  * 颜色 / 布局常量集中在此，绘制方法均为静态，可被各页签复用。 */
-
 public final class FinanceGui {
     private FinanceGui() {}
 
     public static final int PANEL_WIDTH = 400;
     /** 面板高 232：原版“自动”界面尺寸下可用高度常为 240，留 8 像素边距后不必缩放，像素字体保持清晰。 */
     public static final int PANEL_HEIGHT = 232;
+
     public static final int ROW_HEIGHT = 16;
     public static final int TAB_X = 10;
     public static final int TAB_Y = 16;
@@ -53,26 +29,26 @@ public final class FinanceGui {
     public static final int CONTENT_SHIFT = 14;
     /** 页签内容坐标系下的可用高度（相当于原来的面板高）。 */
     public static final int LAYOUT_HEIGHT = PANEL_HEIGHT + CONTENT_SHIFT;
+
     public static final int CONTENT_Y = 46;
     public static final int MARKET_TRADE_Y = 166;
     public static final int STOCK_TRADE_Y = 116;
-    public static final int COL_BG          = 0xFFE7E2D3;
-    public static final int COL_TAB_BG      = 0xFFD6D0BE;
-    public static final int COL_ACCENT      = 0xFF3F3F3F;
-    public static final int COL_GOOD        = 0xFF2D7D32;
-    public static final int COL_BAD         = 0xFF9A2F2F;
-    public static final int COL_WARN        = 0xFF8A6500;
-    public static final int COL_TEXT        = 0xFF202020;
-    public static final int COL_TEXT_DIM    = 0xFF555555;
-    public static final int COL_ROW_EVEN    = 0xFFF1ECDD;
-    public static final int COL_ROW_ODD     = 0xFFE6E0CF;
-    public static final int COL_ROW_SELECT  = 0xFFD5E3C7;
+    public static final int COL_BG = 0xFFE7E2D3;
+    public static final int COL_TAB_BG = 0xFFD6D0BE;
+    public static final int COL_ACCENT = 0xFF3F3F3F;
+    public static final int COL_GOOD = 0xFF2D7D32;
+    public static final int COL_BAD = 0xFF9A2F2F;
+    public static final int COL_WARN = 0xFF8A6500;
+    public static final int COL_TEXT = 0xFF202020;
+    public static final int COL_TEXT_DIM = 0xFF555555;
+    public static final int COL_ROW_EVEN = 0xFFF1ECDD;
+    public static final int COL_ROW_ODD = 0xFFE6E0CF;
+    public static final int COL_ROW_SELECT = 0xFFD5E3C7;
     public static final int COL_PANEL_BORDER = 0xFF373737;
-    public static final int COL_BUTTON_BG   = 0xFFD0CAB8;
+    public static final int COL_BUTTON_BG = 0xFFD0CAB8;
     public static final int COL_DROPDOWN_BG = 0xFFF5F0E1;
     public static final int COL_DROPDOWN_HOVER = 0xFFD5E3C7;
-    public static final int COL_CATEGORY    = 0xFFB8B0A0;
-
+    public static final int COL_CATEGORY = 0xFFB8B0A0;
 
     /** 渲染物品图标（约 10x10，避免默认 16x16 压住表格文字） */
     public static void renderItemIcon(GuiGraphics g, Commodity commodity, int x, int y) {
@@ -82,7 +58,6 @@ public final class FinanceGui {
         Item item = BuiltInRegistries.ITEM.get(ResourceLocation.tryParse(itemId));
         FinanceGui.renderItemIcon(g, item, x, y);
     }
-
 
     /** 所有紧凑表格中的物品图标统一缩放为约 10×10。 */
     public static void renderItemIcon(GuiGraphics g, Item item, int x, int y) {
@@ -133,7 +108,8 @@ public final class FinanceGui {
         g.drawString(font, FinanceGui.clipText(font, text, maxWidth), x, y, color, false);
     }
 
-    public static void drawCenteredClippedString(Font font, GuiGraphics g, String text, int x, int y, int width, int color) {
+    public static void drawCenteredClippedString(
+            Font font, GuiGraphics g, String text, int x, int y, int width, int color) {
         String clipped = FinanceGui.clipText(font, text, width - 6);
         int textX = x + Math.max(3, (width - font.width(clipped)) / 2);
         g.drawString(font, clipped, textX, y, color, false);
@@ -201,7 +177,10 @@ public final class FinanceGui {
         float slot = (w - 4) / (float) Math.max(n, 8);
         int body = Math.max(1, Math.round(slot * 0.6F));
         for (int i = 0; i < n; i++) {
-            long open = bars.get(i * 4), high = bars.get(i * 4 + 1), low = bars.get(i * 4 + 2), close = bars.get(i * 4 + 3);
+            long open = bars.get(i * 4),
+                    high = bars.get(i * 4 + 1),
+                    low = bars.get(i * 4 + 2),
+                    close = bars.get(i * 4 + 3);
             int color = close >= open ? COL_GOOD : COL_BAD;
             int cx = x + 2 + Math.round(slot * i + slot / 2);
             int top = scaleGraphY(high, min, max, plotY, plotH), bottom = scaleGraphY(low, min, max, plotY, plotH);

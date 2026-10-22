@@ -9,7 +9,6 @@ import finance.market.MarketMakerLedger;
 import finance.stock.Stock;
 import finance.stock.StockMarketManager;
 import finance.stock.StockPortfolioManager;
-
 import java.util.UUID;
 
 /**
@@ -71,7 +70,9 @@ public class CompanyIPOService {
             return fail("公司已上市，无法重复 IPO。");
         }
 
-        if (requesterId == null || company.getOwnerId() == null || !company.getOwnerId().equals(requesterId)) {
+        if (requesterId == null
+                || company.getOwnerId() == null
+                || !company.getOwnerId().equals(requesterId)) {
             return fail("只有公司所有者可以发起 IPO。");
         }
 
@@ -133,11 +134,11 @@ public class CompanyIPOService {
                 company.getName(),
                 companyId,
                 totalShares,
-                issueQuantity,      // floatShares
-                ownerShares,         // ownerShares
-                issuePrice,          // currentPrice
-                issuePrice           // fairValue
-        );
+                issueQuantity, // floatShares
+                ownerShares, // ownerShares
+                issuePrice, // currentPrice
+                issuePrice // fairValue
+                );
 
         // 募集资金进公司现金
         // IPO capital is an explicit issuance source; it is not transferred from the listing fee.
@@ -167,23 +168,21 @@ public class CompanyIPOService {
         // 余额不足则跳过预留，不阻断 IPO。
         reserveForMarketMaker(company, stock, issuePrice, issueQuantity);
 
-        AccountManager.addTransactionRecord(
-                new TransactionRecord(
-                        requesterId,
-                        companyId,
-                        raisedCapital,
-                        TransactionType.COMPANY_IPO,
-                        requesterId,
-                        company.getName() + "/" + symbol,
-                        issueQuantity
-                )
-        );
+        AccountManager.addTransactionRecord(new TransactionRecord(
+                requesterId,
+                companyId,
+                raisedCapital,
+                TransactionType.COMPANY_IPO,
+                requesterId,
+                company.getName() + "/" + symbol,
+                issueQuantity));
 
         EconomySavedData.markDirty();
 
-        return new IPOResult(true,
+        return new IPOResult(
+                true,
                 "IPO 成功！募集资金 " + raisedCapital + "，发行 " + issueQuantity + " 股，创始人保留 " + ownerShares + " 股（"
-                + String.format("%.1f", (double) ownerShares / totalShares * 100) + "%）。",
+                        + String.format("%.1f", (double) ownerShares / totalShares * 100) + "%）。",
                 stock);
     }
 
@@ -217,13 +216,14 @@ public class CompanyIPOService {
         String symbol = generateUniqueSymbol(company.getName());
         // 投资账户先以系统账户建立：普通账户第一次被访问会领 1000 新手资金
         AccountManager.getOrCreateSystemAccount(founderAccount);
-        if (company.getCash() < ipoFee || !company.canDeposit(raisedCapital)
+        if (company.getCash() < ipoFee
+                || !company.canDeposit(raisedCapital)
                 || !StockPortfolioManager.canAddHolding(founderAccount, symbol, ownerShares)) {
             return fail("公司现金或持仓容量不足。");
         }
         if (!company.withdraw(ipoFee)) return fail("上市费用不足。");
-        Stock stock = new Stock(symbol, company.getName(), companyId, totalShares, issueQuantity, ownerShares,
-                issuePrice, issuePrice);
+        Stock stock = new Stock(
+                symbol, company.getName(), companyId, totalShares, issueQuantity, ownerShares, issuePrice, issuePrice);
         if (!company.deposit(raisedCapital)) {
             company.deposit(ipoFee);
             return fail("IPO 募资结算失败。");
@@ -238,8 +238,14 @@ public class CompanyIPOService {
         company.drainQuarter();
         StockMarketManager.putStockDirect(stock);
         reserveForMarketMaker(company, stock, issuePrice, issueQuantity);
-        AccountManager.addTransactionRecord(new TransactionRecord(founderAccount, companyId, raisedCapital,
-                TransactionType.COMPANY_IPO, founderAccount, company.getName() + "/" + symbol, issueQuantity));
+        AccountManager.addTransactionRecord(new TransactionRecord(
+                founderAccount,
+                companyId,
+                raisedCapital,
+                TransactionType.COMPANY_IPO,
+                founderAccount,
+                company.getName() + "/" + symbol,
+                issueQuantity));
         EconomySavedData.markDirty();
         return new IPOResult(true, "IPO 成功", stock);
     }
@@ -310,17 +316,14 @@ public class CompanyIPOService {
             return;
         }
         MarketMakerLedger.addInventory(MarketMakerLedger.SubMarket.STOCK, stock.getSymbol(), reserveQty);
-        AccountManager.addTransactionRecord(
-                new TransactionRecord(
-                        MarketMakerLedger.MASTER_UUID,
-                        company.getCompanyId(),
-                        reserveCost,
-                        TransactionType.MARKET_MAKER_BUY,
-                        MarketMakerLedger.MASTER_UUID,
-                        stock.getSymbol(),
-                        reserveQty
-                )
-        );
+        AccountManager.addTransactionRecord(new TransactionRecord(
+                MarketMakerLedger.MASTER_UUID,
+                company.getCompanyId(),
+                reserveCost,
+                TransactionType.MARKET_MAKER_BUY,
+                MarketMakerLedger.MASTER_UUID,
+                stock.getSymbol(),
+                reserveQty));
         EconomySavedData.markDirty();
     }
 

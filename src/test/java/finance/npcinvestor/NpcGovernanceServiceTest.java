@@ -1,5 +1,7 @@
 package finance.npcinvestor;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import finance.account.AccountManager;
 import finance.company.Company;
 import finance.company.CompanyManager;
@@ -14,16 +16,13 @@ import finance.governance.TakeoverService;
 import finance.stock.Stock;
 import finance.stock.StockMarketManager;
 import finance.stock.StockPortfolioManager;
+import java.util.EnumMap;
+import java.util.Map;
+import java.util.UUID;
 import net.minecraft.nbt.CompoundTag;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
-import java.util.EnumMap;
-import java.util.Map;
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 class NpcGovernanceServiceTest {
     private static final UUID OWNER = UUID.fromString("00000000-0000-0000-0000-00000000b001");
@@ -71,13 +70,15 @@ class NpcGovernanceServiceTest {
         return CompanyProposalManager.getProposalsForCompany(COMPANY_ID).get(0);
     }
 
-    @Test void npcShareholdersCanVetoAThirtyPercentPlayer() {
-        give(OWNER, 3_000);                           // 玩家 30%
+    @Test
+    void npcShareholdersCanVetoAThirtyPercentPlayer() {
+        give(OWNER, 3_000); // 玩家 30%
         give(NpcInvestorArchetype.DIVIDEND.accountId(), 2_000);
         give(NpcInvestorArchetype.VALUE.accountId(), 2_000);
         // 发行价 10 低于每股基本面 50
         CompanyProposal proposal = propose(CompanyProposalType.SHARE_ISSUE, "", 1_000, 10, 10_000);
-        assertTrue(CompanyProposalManager.vote(OWNER, proposal.getProposalId(), true, 1).success());
+        assertTrue(CompanyProposalManager.vote(OWNER, proposal.getProposalId(), true, 1)
+                .success());
 
         NpcGovernanceService.processDay(1, ON);
         CompanyProposalManager.tick(3);
@@ -92,19 +93,24 @@ class NpcGovernanceServiceTest {
         }
     }
 
-    @Test void abstentionLeavesPlayerInControlWhenParticipationSuffices() {
+    @Test
+    void abstentionLeavesPlayerInControlWhenParticipationSuffices() {
         give(OWNER, 3_000);
         give(NpcInvestorArchetype.VALUE.accountId(), 4_000);
         CompanyProposal proposal = propose(CompanyProposalType.RENAME, "New Name", 0, 0, 0);
-        assertTrue(CompanyProposalManager.vote(OWNER, proposal.getProposalId(), true, 1).success());
+        assertTrue(CompanyProposalManager.vote(OWNER, proposal.getProposalId(), true, 1)
+                .success());
         NpcGovernanceService.processDay(1, ON);
         CompanyProposalManager.tick(3);
         assertNotEquals(CompanyProposalStatus.FAILED, proposal.getStatus(), "NPC 弃权时，30%/70% 参与率仍高于 25%");
-        assertEquals(NpcVotingRules.Choice.ABSTAIN, NpcGovernanceManager.votesFor(proposal.getProposalId()).get(0).choice());
+        assertEquals(
+                NpcVotingRules.Choice.ABSTAIN,
+                NpcGovernanceManager.votesFor(proposal.getProposalId()).get(0).choice());
         assertFalse(proposal.getVotes().containsKey(NpcInvestorArchetype.VALUE.accountId()), "弃权不提交票");
     }
 
-    @Test void votingIsOncePerProposalAndIdempotentPerDay() {
+    @Test
+    void votingIsOncePerProposalAndIdempotentPerDay() {
         give(OWNER, 3_000);
         give(NpcInvestorArchetype.DIVIDEND.accountId(), 2_000);
         CompanyProposal proposal = propose(CompanyProposalType.DIVIDEND, "", 80, 0, 0);
@@ -112,10 +118,15 @@ class NpcGovernanceServiceTest {
         NpcGovernanceService.processDay(1, ON);
         NpcGovernanceService.processDay(2, ON);
         assertEquals(1, proposal.getVotes().size());
-        assertTrue(proposal.getVotes().get(NpcInvestorArchetype.DIVIDEND.accountId()).support(), "分红派赞成上调");
+        assertTrue(
+                proposal.getVotes()
+                        .get(NpcInvestorArchetype.DIVIDEND.accountId())
+                        .support(),
+                "分红派赞成上调");
     }
 
-    @Test void disabledSettingsAreNoOp() {
+    @Test
+    void disabledSettingsAreNoOp() {
         give(OWNER, 3_000);
         give(NpcInvestorArchetype.VALUE.accountId(), 4_000);
         CompanyProposal proposal = propose(CompanyProposalType.SHARE_ISSUE, "", 1_000, 10, 10_000);
@@ -125,7 +136,8 @@ class NpcGovernanceServiceTest {
         assertTrue(NpcGovernanceManager.votesFor(proposal.getProposalId()).isEmpty());
     }
 
-    @Test void tenderAcceptedOnlyAbovePremiumThreshold() {
+    @Test
+    void tenderAcceptedOnlyAbovePremiumThreshold() {
         // 系统公司（无主）上的要约：收购方先持有 30%
         Company system = new Company(UUID.randomUUID(), "Sys", CompanyType.FOOD, 100_000L);
         system.setPublic(true);
@@ -146,13 +158,17 @@ class NpcGovernanceServiceTest {
         assertEquals(1_000L, locked.getOrDefault(NpcInvestorArchetype.SPECULATOR.accountId(), 0L));
         assertEquals(0L, locked.getOrDefault(NpcInvestorArchetype.VALUE.accountId(), 0L));
         var responses = NpcGovernanceManager.tenderResponsesFor(offerId);
-        assertTrue(responses.stream().anyMatch(r -> r.archetype() == NpcInvestorArchetype.VALUE && !r.accepted() && r.thresholdPrice() == 13));
+        assertTrue(responses.stream()
+                .anyMatch(
+                        r -> r.archetype() == NpcInvestorArchetype.VALUE && !r.accepted() && r.thresholdPrice() == 13));
         // 第二天重复处理不会重复申报
         NpcGovernanceService.processDay(2, ON);
-        assertEquals(1_000L, CorporateActionManager.lockedShares("SYSX").get(NpcInvestorArchetype.SPECULATOR.accountId()));
+        assertEquals(
+                1_000L, CorporateActionManager.lockedShares("SYSX").get(NpcInvestorArchetype.SPECULATOR.accountId()));
     }
 
-    @Test void higherOfferWinsValueInvestors() {
+    @Test
+    void higherOfferWinsValueInvestors() {
         Company system = new Company(UUID.randomUUID(), "Sys2", CompanyType.FOOD, 100_000L);
         system.setPublic(true);
         CompanyManager.registerDirect(system);
@@ -160,12 +176,16 @@ class NpcGovernanceServiceTest {
         assertTrue(StockPortfolioManager.addHolding(BUYER, "SYSY", 3_000, 10L));
         assertTrue(StockPortfolioManager.addHolding(NpcInvestorArchetype.VALUE.accountId(), "SYSY", 2_000, 10L));
         AccountManager.deposit(BUYER, 1_000_000L);
-        assertTrue(TakeoverService.offerTender(BUYER, system.getCompanyId(), 13L, 3_000L, 100L, 5, 1L, "gov-t2").success());
+        assertTrue(TakeoverService.offerTender(BUYER, system.getCompanyId(), 13L, 3_000L, 100L, 5, 1L, "gov-t2")
+                .success());
         NpcGovernanceService.processDay(1, ON);
-        assertEquals(2_000L, CorporateActionManager.lockedShares("SYSY").getOrDefault(NpcInvestorArchetype.VALUE.accountId(), 0L));
+        assertEquals(
+                2_000L,
+                CorporateActionManager.lockedShares("SYSY").getOrDefault(NpcInvestorArchetype.VALUE.accountId(), 0L));
     }
 
-    @Test void governanceRecordsSurviveSaveLoad() {
+    @Test
+    void governanceRecordsSurviveSaveLoad() {
         give(OWNER, 3_000);
         give(NpcInvestorArchetype.DIVIDEND.accountId(), 2_000);
         CompanyProposal proposal = propose(CompanyProposalType.SHARE_ISSUE, "", 1_000, 10, 10_000);
@@ -175,6 +195,7 @@ class NpcGovernanceServiceTest {
         assertEquals(1, NpcGovernanceManager.lastProcessedDay());
         var votes = NpcGovernanceManager.votesFor(proposal.getProposalId());
         assertEquals(1, votes.size());
-        assertEquals(NpcVotingRules.VoteReason.ISSUE_BELOW_FUNDAMENTAL, votes.get(0).reason());
+        assertEquals(
+                NpcVotingRules.VoteReason.ISSUE_BELOW_FUNDAMENTAL, votes.get(0).reason());
     }
 }

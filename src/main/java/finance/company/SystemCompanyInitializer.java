@@ -1,7 +1,6 @@
 package finance.company;
 
 import finance.data.EconomySavedData;
-
 import java.util.UUID;
 
 /**
@@ -17,32 +16,17 @@ public class SystemCompanyInitializer {
             return;
         }
 
-        Company ironCompany = new Company(
-                UUID.randomUUID(),
-                "铁锭原料",
-                CompanyType.RAW_MATERIALS,
-                INITIAL_CASH
-        );
+        Company ironCompany = new Company(UUID.randomUUID(), "铁锭原料", CompanyType.RAW_MATERIALS, INITIAL_CASH);
         ironCompany.setPublic(true);
         ironCompany.addInventory("iron", INITIAL_STOCK);
         CompanyManager.registerDirect(ironCompany);
 
-        Company stoneCompany = new Company(
-                UUID.randomUUID(),
-                "石材工坊",
-                CompanyType.BUILDING_BLOCKS,
-                INITIAL_CASH
-        );
+        Company stoneCompany = new Company(UUID.randomUUID(), "石材工坊", CompanyType.BUILDING_BLOCKS, INITIAL_CASH);
         stoneCompany.setPublic(true);
         stoneCompany.addInventory("stone", INITIAL_STOCK);
         CompanyManager.registerDirect(stoneCompany);
 
-        Company wheatCompany = new Company(
-                UUID.randomUUID(),
-                "麦田农庄",
-                CompanyType.FOOD,
-                INITIAL_CASH
-        );
+        Company wheatCompany = new Company(UUID.randomUUID(), "麦田农庄", CompanyType.FOOD, INITIAL_CASH);
         wheatCompany.setPublic(true);
         wheatCompany.addInventory("wheat", INITIAL_STOCK);
         CompanyManager.registerDirect(wheatCompany);

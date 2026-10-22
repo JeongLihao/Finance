@@ -1,11 +1,11 @@
 package finance.account;
 
+import finance.data.EconomySavedData;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.ArrayList;
-import java.util.List;
-import finance.data.EconomySavedData;
 
 /**
  * 玩家账户管理器 —— 所有资金操作的入口。
@@ -91,14 +91,7 @@ public class AccountManager {
             return false;
         }
 
-        addTransactionRecord(
-                new TransactionRecord(
-                        from,
-                        to,
-                        amount,
-                        TransactionType.TRANSFER
-                )
-        );
+        addTransactionRecord(new TransactionRecord(from, to, amount, TransactionType.TRANSFER));
 
         return true;
     }
@@ -109,8 +102,8 @@ public class AccountManager {
             return false;
         }
         return finance.money.MoneyTransferService.transfer(
-                finance.money.MoneyEndpoints.account(from),
-                finance.money.MoneyEndpoints.account(to), amount).success();
+                        finance.money.MoneyEndpoints.account(from), finance.money.MoneyEndpoints.account(to), amount)
+                .success();
     }
 
     public static boolean canDeposit(UUID playerId, long amount) {
@@ -148,29 +141,26 @@ public class AccountManager {
         return success;
     }
 
-
     /** Atomically settles buyer frozen funds and credits the seller. */
-    public static synchronized boolean settleFrozenTransfer(UUID buyerId, UUID sellerId,
-                                               long reservedAmount, long paymentAmount) {
+    public static synchronized boolean settleFrozenTransfer(
+            UUID buyerId, UUID sellerId, long reservedAmount, long paymentAmount) {
         if (buyerId == null || sellerId == null || buyerId.equals(sellerId) || paymentAmount <= 0) {
             return false;
         }
         Account buyer = getAccount(buyerId);
         Account seller = getAccount(sellerId);
-        if (!buyer.canSettleFrozenFunds(reservedAmount, paymentAmount)
-                || !seller.canDeposit(paymentAmount)) {
+        if (!buyer.canSettleFrozenFunds(reservedAmount, paymentAmount) || !seller.canDeposit(paymentAmount)) {
             return false;
         }
-        if (!buyer.settleFrozenFunds(reservedAmount, paymentAmount)
-                || !seller.deposit(paymentAmount)) {
+        if (!buyer.settleFrozenFunds(reservedAmount, paymentAmount) || !seller.deposit(paymentAmount)) {
             return false;
         }
         EconomySavedData.markDirty();
         return true;
     }
 
-    public static boolean canSettleFrozenTransfer(UUID buyerId, UUID sellerId,
-                                                  long reservedAmount, long paymentAmount) {
+    public static boolean canSettleFrozenTransfer(
+            UUID buyerId, UUID sellerId, long reservedAmount, long paymentAmount) {
         if (buyerId == null || sellerId == null || buyerId.equals(sellerId) || paymentAmount <= 0) {
             return false;
         }
@@ -178,13 +168,13 @@ public class AccountManager {
                 && getAccount(sellerId).canDeposit(paymentAmount);
     }
 
-    public static synchronized boolean rollbackSettledFrozenTransfer(UUID buyerId, UUID sellerId,
-                                                        long reservedAmount, long paymentAmount) {
+    public static synchronized boolean rollbackSettledFrozenTransfer(
+            UUID buyerId, UUID sellerId, long reservedAmount, long paymentAmount) {
         if (buyerId == null || sellerId == null || reservedAmount <= 0 || paymentAmount <= 0) return false;
         Account buyer = getAccount(buyerId);
         Account seller = getAccount(sellerId);
-        if (seller.getBalance() < paymentAmount
-                || !buyer.canRollbackFrozenSettlement(reservedAmount, paymentAmount)) return false;
+        if (seller.getBalance() < paymentAmount || !buyer.canRollbackFrozenSettlement(reservedAmount, paymentAmount))
+            return false;
         if (!seller.withdraw(paymentAmount)) return false;
         if (!buyer.rollbackFrozenSettlement(reservedAmount, paymentAmount)) {
             if (!seller.deposit(paymentAmount)) throw new IllegalStateException("rollback compensation failed");
@@ -193,7 +183,6 @@ public class AccountManager {
         EconomySavedData.markDirty();
         return true;
     }
-
 
     // ================================================================
     // 交易记录管理

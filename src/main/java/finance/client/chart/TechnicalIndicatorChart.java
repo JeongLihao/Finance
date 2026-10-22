@@ -4,20 +4,22 @@ import finance.chart.Candlestick;
 import finance.chart.IndicatorService;
 import finance.chart.MacdIndicator;
 import finance.chart.RelativeStrengthIndex;
+import java.util.List;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
-
-import java.util.List;
 
 public final class TechnicalIndicatorChart {
     private TechnicalIndicatorChart() {}
 
-    public static void renderMacd(GuiGraphics g, Font font, List<Candlestick> bars,
-                                  int x, int y, int width, int height) {
+    public static void renderMacd(
+            GuiGraphics g, Font font, List<Candlestick> bars, int x, int y, int width, int height) {
         panel(g, x, y, width, height);
         MacdIndicator.Result value = MacdIndicator.calculate(IndicatorService.closes(bars));
         double range = maxAbs(value.dif(), value.dea(), value.histogram());
-        if (range <= 0) { g.drawCenteredString(font, "MACD 数据不足", x + width / 2, y + height / 2, 0xFF666666); return; }
+        if (range <= 0) {
+            g.drawCenteredString(font, "MACD 数据不足", x + width / 2, y + height / 2, 0xFF666666);
+            return;
+        }
         int zero = y + height / 2;
         g.fill(x + 2, zero, x + width - 2, zero + 1, 0xFFAAAAAA);
         double slot = (double) (width - 8) / Math.max(1, bars.size());
@@ -25,15 +27,20 @@ public final class TechnicalIndicatorChart {
             if (!Double.isFinite(value.histogram()[i])) continue;
             int px = x + 4 + (int) ((i + .5) * slot);
             int py = zero - (int) Math.round(value.histogram()[i] / range * (height / 2 - 7));
-            g.fill(px, Math.min(zero, py), px + 1, Math.max(zero + 1, py), value.histogram()[i] >= 0 ? 0xFF2D9A4B : 0xFFC44747);
+            g.fill(
+                    px,
+                    Math.min(zero, py),
+                    px + 1,
+                    Math.max(zero + 1, py),
+                    value.histogram()[i] >= 0 ? 0xFF2D9A4B : 0xFFC44747);
         }
         line(g, value.dif(), x, y, width, height, -range, range, 0xFFE19B32);
         line(g, value.dea(), x, y, width, height, -range, range, 0xFF4F78C4);
         g.drawString(font, "MACD  DIF / DEA", x + 5, y + 3, 0xFF555555, false);
     }
 
-    public static void renderRsi(GuiGraphics g, Font font, List<Candlestick> bars,
-                                 int x, int y, int width, int height) {
+    public static void renderRsi(
+            GuiGraphics g, Font font, List<Candlestick> bars, int x, int y, int width, int height) {
         panel(g, x, y, width, height);
         double[] rsi = RelativeStrengthIndex.calculate(IndicatorService.closes(bars), 14);
         int y70 = scale(70, y + 8, y + height - 8, 0, 100);
@@ -44,8 +51,8 @@ public final class TechnicalIndicatorChart {
         g.drawString(font, "RSI14   70 / 30", x + 5, y + 3, 0xFF555555, false);
     }
 
-    private static void line(GuiGraphics g, double[] values, int x, int y, int width, int height,
-                             double min, double max, int color) {
+    private static void line(
+            GuiGraphics g, double[] values, int x, int y, int width, int height, double min, double max, int color) {
         double slot = (double) (width - 8) / Math.max(1, values.length);
         Integer previousX = null, previousY = null;
         for (int i = 0; i < values.length; i++) {
@@ -53,7 +60,8 @@ public final class TechnicalIndicatorChart {
             int px = x + 4 + (int) ((i + .5) * slot);
             int py = scale(values[i], y + 8, y + height - 8, min, max);
             if (previousX != null) pixelLine(g, previousX, previousY, px, py, color);
-            previousX = px; previousY = py;
+            previousX = px;
+            previousY = py;
         }
     }
 
@@ -64,7 +72,8 @@ public final class TechnicalIndicatorChart {
 
     private static double maxAbs(double[]... arrays) {
         double max = 0;
-        for (double[] values : arrays) for (double value : values) if (Double.isFinite(value)) max = Math.max(max, Math.abs(value));
+        for (double[] values : arrays)
+            for (double value : values) if (Double.isFinite(value)) max = Math.max(max, Math.abs(value));
         return max;
     }
 

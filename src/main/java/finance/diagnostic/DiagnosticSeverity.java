@@ -1,5 +1,8 @@
 package finance.diagnostic;
 
 public enum DiagnosticSeverity {
-    INFO, WARN, ERROR, FATAL
+    INFO,
+    WARN,
+    ERROR,
+    FATAL
 }

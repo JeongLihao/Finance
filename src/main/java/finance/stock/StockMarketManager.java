@@ -1,14 +1,9 @@
 package finance.stock;
 
-import finance.account.AccountManager;
 import finance.company.Company;
 import finance.company.CompanyManager;
 import finance.company.CompanyType;
 import finance.data.EconomySavedData;
-import finance.market.MarketPrice;
-import finance.market.NpcMarketMaker;
-import finance.util.MathUtil;
-
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -38,16 +33,18 @@ public class StockMarketManager {
             }
             long price = Math.max(1, company.getEstimatedValue() / DEFAULT_TOTAL_SHARES);
             // 用完整构造：symbol, name, companyId, totalShares, floatShares, ownerShares, currentPrice, fairValue
-            STOCKS.put(symbol, new Stock(
+            STOCKS.put(
                     symbol,
-                    company.getName(),
-                    company.getCompanyId(),
-                    DEFAULT_TOTAL_SHARES,
-                    DEFAULT_TOTAL_SHARES,    // floatShares = totalShares（初始全流通）
-                    0,                        // ownerShares = 0（系统不持有）
-                    price,                    // currentPrice
-                    price                     // fairValue（初始等于 currentPrice）
-            ));
+                    new Stock(
+                            symbol,
+                            company.getName(),
+                            company.getCompanyId(),
+                            DEFAULT_TOTAL_SHARES,
+                            DEFAULT_TOTAL_SHARES, // floatShares = totalShares（初始全流通）
+                            0, // ownerShares = 0（系统不持有）
+                            price, // currentPrice
+                            price // fairValue（初始等于 currentPrice）
+                            ));
         }
         EconomySavedData.markDirty();
     }
@@ -274,7 +271,8 @@ public class StockMarketManager {
         // 按做市商买价一步到位成交；熔断时不能买卖
         if (stock.isBreakerHalted()) return TradeResult.fail("熔断中：股价 5 分钟内跌超 15%，暂停交易 1 分钟。");
         long price = marketOrderPrice(stock, false);
-        StockOrderManager.OrderResult result = StockOrderManager.placeSellOrder(playerId, symbol, price, (int) quantity);
+        StockOrderManager.OrderResult result =
+                StockOrderManager.placeSellOrder(playerId, symbol, price, (int) quantity);
         return new TradeResult(result.success(), result.message());
     }
 
@@ -284,7 +282,8 @@ public class StockMarketManager {
         if (quantity > Integer.MAX_VALUE) {
             return TradeResult.fail("数量过大。");
         }
-        StockOrderManager.OrderResult result = StockOrderManager.placeSellOrder(playerId, symbol, price, (int) quantity);
+        StockOrderManager.OrderResult result =
+                StockOrderManager.placeSellOrder(playerId, symbol, price, (int) quantity);
         return new TradeResult(result.success(), result.message());
     }
 
@@ -304,7 +303,9 @@ public class StockMarketManager {
         if (!cleaned.isEmpty()) {
             return cleaned;
         }
-        return company.getType().name().substring(0, Math.min(5, company.getType().name().length()));
+        return company.getType()
+                .name()
+                .substring(0, Math.min(5, company.getType().name().length()));
     }
 
     private static String symbolForType(CompanyType type) {
@@ -318,7 +319,6 @@ public class StockMarketManager {
             case TEXTILE -> "羊毛";
         };
     }
-
 
     // ================================================================
     // 股票订单簿（P2）

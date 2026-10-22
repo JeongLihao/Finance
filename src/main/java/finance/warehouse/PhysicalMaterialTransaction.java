@@ -1,23 +1,22 @@
 package finance.warehouse;
 
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.item.Item;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.item.Item;
 
 /** Plans and commits several real inventory removals as one compensatable operation. */
 public final class PhysicalMaterialTransaction {
     private PhysicalMaterialTransaction() {}
 
-    public static List<InventoryTransactionService.RemovalPlan> plan(ServerPlayer player,
-                                                                     Map<Item, Integer> requirements) {
+    public static List<InventoryTransactionService.RemovalPlan> plan(
+            ServerPlayer player, Map<Item, Integer> requirements) {
         if (player == null || requirements == null || requirements.isEmpty()) return null;
         List<InventoryTransactionService.RemovalPlan> plans = new ArrayList<>();
         for (Map.Entry<Item, Integer> entry : requirements.entrySet()) {
-            InventoryTransactionService.RemovalPlan plan = InventoryTransactionService.planRemoval(
-                    player.getInventory(), entry.getKey(), entry.getValue());
+            InventoryTransactionService.RemovalPlan plan =
+                    InventoryTransactionService.planRemoval(player.getInventory(), entry.getKey(), entry.getValue());
             if (plan == null) return null;
             plans.add(plan);
         }

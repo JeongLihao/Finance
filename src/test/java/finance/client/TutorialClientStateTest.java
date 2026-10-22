@@ -1,12 +1,12 @@
 package finance.client;
 
-import finance.tutorial.TutorialStage;
-import finance.tutorial.TutorialOptionalGoal;
-import org.junit.jupiter.api.Test;
-
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.assertEquals;
+
+import finance.tutorial.TutorialOptionalGoal;
+import finance.tutorial.TutorialStage;
+import org.junit.jupiter.api.Test;
 
 class TutorialClientStateTest {
     @Test
@@ -24,8 +24,7 @@ class TutorialClientStateTest {
         TutorialClientState.update(TutorialStage.COMPLETE, TutorialOptionalGoal.LOGISTICS.bit());
         assertTrue(TutorialClientState.optionalComplete(TutorialOptionalGoal.LOGISTICS));
         assertEquals(TutorialOptionalGoal.SETTLEMENT, TutorialClientState.nextOptionalGoal());
-        assertEquals("finance.tutorial.optional.settlement",
-                TutorialClientState.objectiveTranslationBase());
+        assertEquals("finance.tutorial.optional.settlement", TutorialClientState.objectiveTranslationBase());
         TutorialClientState.clear();
     }
 
@@ -38,7 +37,9 @@ class TutorialClientStateTest {
         assertEquals(TutorialOptionalGoal.EXPLORATION, TutorialClientState.nextOptionalGoal());
 
         TutorialClientState.trackOptionalGoal(TutorialOptionalGoal.LOGISTICS);
-        assertEquals(TutorialOptionalGoal.EXPLORATION, TutorialClientState.nextOptionalGoal(),
+        assertEquals(
+                TutorialOptionalGoal.EXPLORATION,
+                TutorialClientState.nextOptionalGoal(),
                 "completed routes cannot replace the tracked objective");
         TutorialClientState.clear();
     }

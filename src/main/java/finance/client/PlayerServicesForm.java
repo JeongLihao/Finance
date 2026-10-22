@@ -1,7 +1,6 @@
 package finance.client;
 
 import finance.network.PlayerServicesResponsePacket;
-
 import java.util.Arrays;
 
 /**
@@ -9,37 +8,50 @@ import java.util.Arrays;
  */
 public final class PlayerServicesForm {
     public enum Page {
-        MARGIN("融资融券"), BANK("我的银行"), TENDER("要约收购"), CENTRAL_BANK("中央银行"), MACRO("宏观行动"), RESEARCH("财报商情"), CASH("现金兑换");
+        MARGIN("融资融券"),
+        BANK("我的银行"),
+        TENDER("要约收购"),
+        CENTRAL_BANK("中央银行"),
+        MACRO("宏观行动"),
+        RESEARCH("财报商情"),
+        CASH("现金兑换");
 
         final String label;
 
-        Page(String label) { this.label = label; }
+        Page(String label) {
+            this.label = label;
+        }
 
-        public String label() { return label; }
+        public String label() {
+            return label;
+        }
     }
 
     /** 输入有误：消息直接显示在状态栏，不发包。 */
     public static final class InvalidInput extends RuntimeException {
-        public InvalidInput(String message) { super(message, null, false, false); }
+        public InvalidInput(String message) {
+            super(message, null, false, false);
+        }
     }
 
     static final int BOXES = 4;
 
-    private PlayerServicesForm() { }
+    private PlayerServicesForm() {}
 
     /** 该页四个输入框的标签；null 表示这个框不显示。 */
     public static String[] labels(Page page, PlayerServicesResponsePacket data) {
-        String[] l = switch (page) {
-            case MARGIN -> new String[]{"股票代码", "数量", "金额", null};
-            case BANK -> data != null && data.bank().owned()
-                    ? new String[]{"活期点差 bps", "定期点差 bps", "贷款点差 bps", "分红金额"}
-                    : new String[]{"代码 名称", "资本金", null, null};
-            case TENDER -> new String[]{"公司名称", "价格", "股数", "天数"};
-            case CENTRAL_BANK -> new String[]{"期限 30/90/180", "认购金额", null, null};
-            case MACRO -> new String[]{"日工资", null, null, null};
-            case RESEARCH -> new String[]{"股票代码", null, null, null};
-            case CASH -> new String[]{"金额", "绿宝石数量", null, null};
-        };
+        String[] l =
+                switch (page) {
+                    case MARGIN -> new String[] {"股票代码", "数量", "金额", null};
+                    case BANK -> data != null && data.bank().owned()
+                            ? new String[] {"活期点差 bps", "定期点差 bps", "贷款点差 bps", "分红金额"}
+                            : new String[] {"代码 名称", "资本金", null, null};
+                    case TENDER -> new String[] {"公司名称", "价格", "股数", "天数"};
+                    case CENTRAL_BANK -> new String[] {"期限 30/90/180", "认购金额", null, null};
+                    case MACRO -> new String[] {"日工资", null, null, null};
+                    case RESEARCH -> new String[] {"股票代码", null, null, null};
+                    case CASH -> new String[] {"金额", "绿宝石数量", null, null};
+                };
         return Arrays.copyOf(l, BOXES);
     }
 

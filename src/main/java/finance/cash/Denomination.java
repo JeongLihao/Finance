@@ -18,8 +18,12 @@ public enum Denomination {
     }
 
     /** 物品注册名（不含 finance: 前缀）。 */
-    public String itemId() { return itemId; }
+    public String itemId() {
+        return itemId;
+    }
 
     /** 面值，单位便士。 */
-    public long value() { return value; }
+    public long value() {
+        return value;
+    }
 }

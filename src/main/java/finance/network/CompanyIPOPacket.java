@@ -1,12 +1,11 @@
 package finance.network;
 
 import finance.company.CompanyIPOService;
+import java.util.UUID;
+import java.util.function.Supplier;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.network.NetworkEvent;
-
-import java.util.UUID;
-import java.util.function.Supplier;
 
 /**
  * 公司 IPO 数据包（P4）—— 玩家公司上市。
@@ -38,9 +37,8 @@ public class CompanyIPOPacket {
             ServerPlayer player = ctx.get().getSender();
             if (player == null) return;
 
-            CompanyIPOService.IPOResult result = CompanyIPOService.ipo(
-                    player.getUUID(), packet.companyId, packet.issuePrice, packet.issueQuantity);
-
+            CompanyIPOService.IPOResult result =
+                    CompanyIPOService.ipo(player.getUUID(), packet.companyId, packet.issuePrice, packet.issueQuantity);
 
             GuiFeedbackPacket.send(player, result.message());
         });

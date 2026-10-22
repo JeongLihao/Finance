@@ -1,15 +1,19 @@
 package finance.policy;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import finance.data.EconomySavedData;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.*;
-
 class MonetaryPolicyServiceTest {
-    @AfterEach void cleanup() { EconomySavedData.resetRuntimeState(); }
+    @AfterEach
+    void cleanup() {
+        EconomySavedData.resetRuntimeState();
+    }
 
-    @Test void rateChangeIsBoundedAndOnlyOneChangePerDayIsAllowed() {
+    @Test
+    void rateChangeIsBoundedAndOnlyOneChangePerDayIsAllowed() {
         int initial = MonetaryPolicyService.benchmarkRateBasisPoints();
         assertTrue(MonetaryPolicyService.setBenchmarkRate(1, initial + 25, "test"));
         assertFalse(MonetaryPolicyService.setBenchmarkRate(1, initial + 50, "second"));

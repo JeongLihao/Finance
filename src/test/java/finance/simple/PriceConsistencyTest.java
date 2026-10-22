@@ -1,5 +1,7 @@
 package finance.simple;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import finance.account.AccountManager;
 import finance.commodity.Commodity;
 import finance.commodity.CommodityCategory;
@@ -8,12 +10,9 @@ import finance.commodity.CommodityRegistry;
 import finance.data.EconomySavedData;
 import finance.market.MarketPrice;
 import finance.market.NpcMarketMaker;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 /** 界面上显示的买卖价，必须就是下一笔实际成交的价。 */
 class PriceConsistencyTest {
@@ -25,13 +24,15 @@ class PriceConsistencyTest {
         EconomySavedData.resetRuntimeState();
         CommodityInventoryManager.clearInventoriesDirect();
         CommodityRegistry.resetToDefaults();
-        CommodityRegistry.register(new Commodity("iron", "minecraft:iron_ingot", "Iron", CommodityCategory.RAW_MATERIALS, 10));
+        CommodityRegistry.register(
+                new Commodity("iron", "minecraft:iron_ingot", "Iron", CommodityCategory.RAW_MATERIALS, 10));
         NpcMarketMaker.putMarketPrice("iron", new MarketPrice("iron", 1_000, 0.05));
         AccountManager.getAccount(NpcMarketMaker.NPC_UUID).setBalance(10_000_000);
         CommodityInventoryManager.setCommodity(NpcMarketMaker.NPC_UUID, "iron", 1_000);
     }
 
-    @Test void shownBidIsWhatThePlayerGets() {
+    @Test
+    void shownBidIsWhatThePlayerGets() {
         MarketPrice mp = NpcMarketMaker.getMarketPrice("iron");
         long shown = mp.getBidPrice();
         CommodityInventoryManager.setCommodity(PLAYER, "iron", 1);
@@ -40,7 +41,8 @@ class PriceConsistencyTest {
         assertEquals(shown, AccountManager.getBalance(PLAYER) - before);
     }
 
-    @Test void shownAskIsWhatThePlayerPays() {
+    @Test
+    void shownAskIsWhatThePlayerPays() {
         MarketPrice mp = NpcMarketMaker.getMarketPrice("iron");
         long shown = mp.getAskPrice();
         AccountManager.getAccount(PLAYER).setBalance(1_000_000);
@@ -48,7 +50,8 @@ class PriceConsistencyTest {
         assertEquals(shown, 1_000_000 - AccountManager.getBalance(PLAYER));
     }
 
-    @Test void periodicSnapshotsOnlyRecordChanges() {
+    @Test
+    void periodicSnapshotsOnlyRecordChanges() {
         MarketPrice mp = new MarketPrice("x", 100, 0.05);
         mp.recordPeriodicSnapshot();
         mp.recordPeriodicSnapshot();

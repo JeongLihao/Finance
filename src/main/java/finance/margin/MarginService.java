@@ -6,7 +6,6 @@ import finance.data.EconomySavedData;
 import finance.stock.Stock;
 import finance.stock.StockMarketManager;
 import finance.stock.StockPortfolioManager;
-
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
@@ -29,12 +28,16 @@ import java.util.UUID;
  */
 public final class MarginService {
 
-    private MarginService() {
-    }
+    private MarginService() {}
 
     public record Result(boolean success, String message) {
-        public static Result ok(String m) { return new Result(true, m); }
-        public static Result fail(String m) { return new Result(false, m); }
+        public static Result ok(String m) {
+            return new Result(true, m);
+        }
+
+        public static Result fail(String m) {
+            return new Result(false, m);
+        }
     }
 
     // ================================================================
@@ -111,9 +114,7 @@ public final class MarginService {
         if (acct.hasOpenPositions()) {
             double ratioAfter = ratioWithCollateralDelta(acct, -amount);
             if (ratioAfter < warningRatio()) {
-                return Result.fail(String.format(
-                        "提取后维持保证金率 %.1f%% 将低于预警线 %.1f%%，拒绝。",
-                        ratioAfter, warningRatio()));
+                return Result.fail(String.format("提取后维持保证金率 %.1f%% 将低于预警线 %.1f%%，拒绝。", ratioAfter, warningRatio()));
             }
         }
         if (!acct.reduceCashCollateral(amount)) {
@@ -167,9 +168,7 @@ public final class MarginService {
         long downPayment = (totalCost + 1) / 2;
         long brokerLoan = totalCost - downPayment;
         if (acct.getCashCollateral() < downPayment) {
-            return Result.fail(String.format(
-                    "现金保证金不足，需首付 %d（2x 杠杆），当前保证金 %d。",
-                    downPayment, acct.getCashCollateral()));
+            return Result.fail(String.format("现金保证金不足，需首付 %d（2x 杠杆），当前保证金 %d。", downPayment, acct.getCashCollateral()));
         }
 
         // 执行：扣保证金 → 记负债 → 记融资股
@@ -181,8 +180,7 @@ public final class MarginService {
         stock.recordTrade(price, qty, true);
         EconomySavedData.markDirty();
         return Result.ok(String.format(
-                "融资买入 %d 股 %s @%d，共 %d（首付 %d，券商垫付 %d）。",
-                qty, key, price, totalCost, downPayment, brokerLoan));
+                "融资买入 %d 股 %s @%d，共 %d（首付 %d，券商垫付 %d）。", qty, key, price, totalCost, downPayment, brokerLoan));
     }
 
     /**
@@ -209,9 +207,11 @@ public final class MarginService {
         EconomySavedData.markDirty();
 
         // 本息全清 → 融资股转普通持仓
-        if (acct.getFinancedDebt() == 0 && acct.getFinancedInterestOwed() == 0
+        if (acct.getFinancedDebt() == 0
+                && acct.getFinancedInterestOwed() == 0
                 && !acct.getFinancedShares().isEmpty()) {
-            for (Map.Entry<String, Long> e : new ArrayList<>(acct.getFinancedShares().entrySet())) {
+            for (Map.Entry<String, Long> e :
+                    new ArrayList<>(acct.getFinancedShares().entrySet())) {
                 Stock stock = StockMarketManager.getStock(e.getKey());
                 long px = stock == null ? 0 : stock.getFairValue();
                 if (!StockPortfolioManager.addHolding(playerId, e.getKey(), e.getValue(), px)) {
@@ -223,9 +223,9 @@ public final class MarginService {
             EconomySavedData.markDirty();
             return Result.ok(String.format("已还清融资负债 %d，融资股已转为普通持仓。", pay));
         }
-        return Result.ok(String.format("已还款 %d（利息 %d，本金 %d），剩余负债 %d。",
-                pay, interestPay, pay - interestPay,
-                acct.getFinancedDebt() + acct.getFinancedInterestOwed()));
+        return Result.ok(String.format(
+                "已还款 %d（利息 %d，本金 %d），剩余负债 %d。",
+                pay, interestPay, pay - interestPay, acct.getFinancedDebt() + acct.getFinancedInterestOwed()));
     }
 
     // ================================================================
@@ -267,19 +267,15 @@ public final class MarginService {
         long requiredMargin = (notional + 1) / 2;
         if (acct.getCashCollateral() < requiredMargin) {
             return Result.fail(String.format(
-                    "现金保证金不足，需 %d（名义金额 %d 的 50%%），当前 %d。",
-                    requiredMargin, notional, acct.getCashCollateral()));
+                    "现金保证金不足，需 %d（名义金额 %d 的 50%%），当前 %d。", requiredMargin, notional, acct.getCashCollateral()));
         }
         // 券池检查（P0-2 教训：系统出借必须有硬上限）
         long perPlayerCap = MarginPoolManager.perPlayerBorrowCap(key);
         if (acct.shortPositionOf(key) + qty > perPlayerCap) {
-            return Result.fail(String.format(
-                    "单人借券上限 %d 股（已借 %d），拒绝。",
-                    perPlayerCap, acct.shortPositionOf(key)));
+            return Result.fail(String.format("单人借券上限 %d 股（已借 %d），拒绝。", perPlayerCap, acct.shortPositionOf(key)));
         }
         if (!MarginPoolManager.borrow(key, qty)) {
-            return Result.fail(String.format(
-                    "券池余量不足（剩余 %d 股），拒绝。", MarginPoolManager.poolAvailable(key)));
+            return Result.fail(String.format("券池余量不足（剩余 %d 股），拒绝。", MarginPoolManager.poolAvailable(key)));
         }
 
         // 执行：卖出所得冻结
@@ -288,9 +284,7 @@ public final class MarginService {
         acct.setShortSellPrice(key, price);
         stock.recordTrade(price, qty, false);
         EconomySavedData.markDirty();
-        return Result.ok(String.format(
-                "融券卖出 %d 股 %s @%d，所得 %d 已冻结（仅可用于买回还券）。",
-                qty, key, price, notional));
+        return Result.ok(String.format("融券卖出 %d 股 %s @%d，所得 %d 已冻结（仅可用于买回还券）。", qty, key, price, notional));
     }
 
     /**
@@ -352,9 +346,9 @@ public final class MarginService {
         }
         EconomySavedData.markDirty();
 
-        String msg = String.format("已买回 %d 股 %s @%d，成本 %d（含利息 %d）%s。",
-                closeQty, key, price, totalOwed, interestShare,
-                rest > 0 ? "，缺口 " + rest + " 已记为不良债务" : "");
+        String msg = String.format(
+                "已买回 %d 股 %s @%d，成本 %d（含利息 %d）%s。",
+                closeQty, key, price, totalOwed, interestShare, rest > 0 ? "，缺口 " + rest + " 已记为不良债务" : "");
         if (stock != null) stock.recordTrade(price, closeQty, true); // 买回推高股价
         return Result.ok(msg);
     }
@@ -425,11 +419,12 @@ public final class MarginService {
      * 所以最弱的先卖、卖完重新检查，直到没人跌破或熔断为止——这就是连环踩踏。
      */
     public static synchronized List<String> checkLiquidations() {
-        return checkLiquidations(l -> { });
+        return checkLiquidations(l -> {});
     }
 
     /** 一笔强制平仓：谁的、哪只股票、看跌（融券）还是看涨（融资）、多少股、成交价、退回自由账户多少。 */
-    public record Liquidation(UUID player, String symbol, boolean shortSide, long quantity, long price, long returned) {}
+    public record Liquidation(
+            UUID player, String symbol, boolean shortSide, long quantity, long price, long returned) {}
 
     /** 同 {@link #checkLiquidations()}，每笔强平再交给 sink（通知玩家、记战绩）。 */
     public static synchronized List<String> checkLiquidations(java.util.function.Consumer<Liquidation> sink) {
@@ -525,7 +520,7 @@ public final class MarginService {
      * @return 强平记录（供日志/通知）
      */
     public static synchronized List<String> processDay(long day) {
-        return processDay(day, l -> { });
+        return processDay(day, l -> {});
     }
 
     public static synchronized List<String> processDay(long day, java.util.function.Consumer<Liquidation> sink) {
@@ -644,7 +639,6 @@ public final class MarginService {
         return acct.financedSharesOf(norm(symbol));
     }
 
-
     /**
      * 偿还不良债务（自由资金）。还清前冻结新开仓。
      */
@@ -680,7 +674,6 @@ public final class MarginService {
     private static long multiplyCap(long a, long b) {
         if (a <= 0 || b <= 0) return 0;
         BigInteger r = BigInteger.valueOf(a).multiply(BigInteger.valueOf(b));
-        return r.compareTo(BigInteger.valueOf(Long.MAX_VALUE)) > 0
-                ? Long.MAX_VALUE : r.longValue();
+        return r.compareTo(BigInteger.valueOf(Long.MAX_VALUE)) > 0 ? Long.MAX_VALUE : r.longValue();
     }
 }

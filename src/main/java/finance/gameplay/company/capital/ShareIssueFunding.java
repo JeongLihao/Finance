@@ -3,7 +3,6 @@ package finance.gameplay.company.capital;
 import finance.company.Company;
 import finance.company.CompanyFinancingManager;
 import finance.company.CompanyFinancingProject;
-
 import java.util.UUID;
 
 /**
@@ -16,12 +15,10 @@ final class ShareIssueFunding implements CapitalFundingAdapter {
 
     static final ShareIssueFunding INSTANCE = new ShareIssueFunding();
 
-    private ShareIssueFunding() {
-    }
+    private ShareIssueFunding() {}
 
     @Override
-    public CapitalProjectActionResult initiate(WorldCapitalProject project, Company company,
-                                               UUID bankId, long day) {
+    public CapitalProjectActionResult initiate(WorldCapitalProject project, Company company, UUID bankId, long day) {
         CompanyFinancingProject financing = CompanyFinancingManager.getProjectByCompany(company.getCompanyId());
         if (financing == null) {
             return CapitalProjectActionResult.fail("finance.capital_project.share_issue_missing");

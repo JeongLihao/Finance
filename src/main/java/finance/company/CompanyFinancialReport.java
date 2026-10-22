@@ -13,5 +13,4 @@ public record CompanyFinancialReport(
         long assetChange,
         long profitChange,
         String summary,
-        LocalDateTime createdAt) {
-}
+        LocalDateTime createdAt) {}

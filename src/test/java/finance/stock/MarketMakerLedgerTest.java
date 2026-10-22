@@ -1,5 +1,9 @@
 package finance.stock;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import finance.account.AccountManager;
 import finance.account.TransactionType;
 import finance.company.Company;
@@ -7,14 +11,9 @@ import finance.company.CompanyIPOService;
 import finance.company.CompanyManager;
 import finance.company.CompanyType;
 import finance.market.MarketMakerLedger;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Phase 1（股票做市商资金/库存正规化）的攻击视角回归测试。
@@ -44,7 +43,7 @@ class MarketMakerLedgerTest {
     private static final String SYMBOL = "MMT";
 
     private static final long FAIR_VALUE = 100L;
-    private static final long BID = 98L;  // fairValue × (1 - 2%)
+    private static final long BID = 98L; // fairValue × (1 - 2%)
     private static final long ASK = 102L; // fairValue × (1 + 2%)
 
     private static final long TARGET_INVENTORY = 500L;
@@ -66,8 +65,7 @@ class MarketMakerLedgerTest {
         Company company = new Company(COMPANY_ID, "Market Maker Test Inc", CompanyType.RAW_MATERIALS, 10_000);
         company.setPublic(true);
         CompanyManager.registerDirect(company);
-        Stock stock = new Stock(SYMBOL, "Market Maker Test Inc", COMPANY_ID,
-                10_000, 10_000, 0, FAIR_VALUE, FAIR_VALUE);
+        Stock stock = new Stock(SYMBOL, "Market Maker Test Inc", COMPANY_ID, 10_000, 10_000, 0, FAIR_VALUE, FAIR_VALUE);
         StockMarketManager.putStockDirect(stock);
 
         // 做市商总账户注资并建仓至目标库存（500 股 × 100 = 50_000）
@@ -133,7 +131,8 @@ class MarketMakerLedgerTest {
         // Phase 2 动态报价：买入 10 股后做市商库存 490/500，skew = 0.5×(0.98-1) = -0.01，
         // 卖回价 bid = 100×(1-0.02+0.01) = 99（波动率/均值回归此时无作用）
         long sellBackPrice = 99L;
-        assertTrue(StockOrderManager.placeSellOrder(TRADER, SYMBOL, sellBackPrice, 10).success());
+        assertTrue(StockOrderManager.placeSellOrder(TRADER, SYMBOL, sellBackPrice, 10)
+                .success());
 
         // 买入立刻卖回：支付 10×102，收回 10×99，净亏 10×3，无免费午餐
         long expectedLoss = 10 * (ASK - sellBackPrice);
@@ -226,17 +225,22 @@ class MarketMakerLedgerTest {
         // Phase 2 skew = 0.5×(1.2-1) = 0.10 → ask = 100×(1+0.02-0.10) = 92
         // 做市商按市价报价：刚卖出的 100 股把市价压低了一点，所以按当时的报价算
         long dynamicAsk = finance.market.liquidity.MarketMakerQuotes.getQuote(
-                finance.market.liquidity.MarketMakerQuotes.MARKET_STOCK, SYMBOL).ask();
+                        finance.market.liquidity.MarketMakerQuotes.MARKET_STOCK, SYMBOL)
+                .ask();
         AccountManager.deposit(TRADER, 1_000_000L);
         long traderMid = AccountManager.getBalance(TRADER);
         StockOrderManager.OrderResult buyResult = StockOrderManager.placeBuyOrder(TRADER, SYMBOL, ASK, 500);
 
         assertTrue(buyResult.success());
-        assertEquals(SINGLE_TRADE_CAP, StockPortfolioManager.getHolding(TRADER, SYMBOL).getQuantity());
+        assertEquals(
+                SINGLE_TRADE_CAP,
+                StockPortfolioManager.getHolding(TRADER, SYMBOL).getQuantity());
         // 100 股以动态 ask(92)成交，剩余 400 股挂订单簿并冻结 400×102；
         // 账面可用余额 = traderMid - 9200 - 40800
-        assertEquals(traderMid - SINGLE_TRADE_CAP * dynamicAsk - 400 * ASK,
-                AccountManager.getBalance(TRADER), "400股挂单应冻结 400×102");
+        assertEquals(
+                traderMid - SINGLE_TRADE_CAP * dynamicAsk - 400 * ASK,
+                AccountManager.getBalance(TRADER),
+                "400股挂单应冻结 400×102");
         assertEquals(TARGET_INVENTORY, MarketMakerLedger.getStockInventory(SYMBOL));
         assertEquals(2, StockOrderManager.getOrders().size());
     }

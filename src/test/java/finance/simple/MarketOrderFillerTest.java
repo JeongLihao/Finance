@@ -1,5 +1,7 @@
 package finance.simple;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import finance.account.AccountManager;
 import finance.commodity.Commodity;
 import finance.commodity.CommodityCategory;
@@ -12,12 +14,9 @@ import finance.market.NpcMarketMaker;
 import finance.market.Order;
 import finance.market.OrderType;
 import finance.market.liquidity.MarketMakerQuotes;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 /** 单人游戏里挂单也要能成交：市场报价到了玩家定的价，就由市场吃下挂单。 */
 class MarketOrderFillerTest {
@@ -29,21 +28,25 @@ class MarketOrderFillerTest {
         EconomySavedData.resetRuntimeState();
         CommodityInventoryManager.clearInventoriesDirect();
         CommodityRegistry.resetToDefaults();
-        CommodityRegistry.register(new Commodity("iron", "minecraft:iron_ingot", "Iron", CommodityCategory.RAW_MATERIALS, 10));
+        CommodityRegistry.register(
+                new Commodity("iron", "minecraft:iron_ingot", "Iron", CommodityCategory.RAW_MATERIALS, 10));
         NpcMarketMaker.putMarketPrice("iron", new MarketPrice("iron", 10, 0.05));
         AccountManager.getAccount(NpcMarketMaker.NPC_UUID).setBalance(100_000);
         CommodityInventoryManager.setCommodity(NpcMarketMaker.NPC_UUID, "iron", 1_000);
     }
 
     private static long bid() {
-        return MarketMakerQuotes.getQuote(MarketMakerQuotes.MARKET_COMMODITY, "iron").bid();
+        return MarketMakerQuotes.getQuote(MarketMakerQuotes.MARKET_COMMODITY, "iron")
+                .bid();
     }
 
     private static long ask() {
-        return MarketMakerQuotes.getQuote(MarketMakerQuotes.MARKET_COMMODITY, "iron").ask();
+        return MarketMakerQuotes.getQuote(MarketMakerQuotes.MARKET_COMMODITY, "iron")
+                .ask();
     }
 
-    @Test void sellOrderAtOrBelowTheMarketBidIsFilledAtTheBid() {
+    @Test
+    void sellOrderAtOrBelowTheMarketBidIsFilledAtTheBid() {
         CommodityInventoryManager.setCommodity(PLAYER, "iron", 10);
         long limit = bid();
         assertTrue(MarketManager.placeOrder(new Order(PLAYER, "iron", OrderType.SELL, limit, 10)));
@@ -56,7 +59,8 @@ class MarketOrderFillerTest {
         assertTrue(earned >= limit * 10L, "不低于挂单价成交，实际得到 " + earned + "，挂单价 " + limit);
     }
 
-    @Test void sellOrderAboveTheMarketWaits() {
+    @Test
+    void sellOrderAboveTheMarketWaits() {
         CommodityInventoryManager.setCommodity(PLAYER, "iron", 10);
         assertTrue(MarketManager.placeOrder(new Order(PLAYER, "iron", OrderType.SELL, bid() + 50, 10)));
 
@@ -66,7 +70,8 @@ class MarketOrderFillerTest {
         assertEquals(0, CommodityInventoryManager.getCommodityAmount(PLAYER, "iron"), "货仍然冻结在挂单里");
     }
 
-    @Test void buyOrderAtOrAboveTheMarketAskIsFilledAndUnusedMoneyUnfrozen() {
+    @Test
+    void buyOrderAtOrAboveTheMarketAskIsFilledAndUnusedMoneyUnfrozen() {
         AccountManager.getAccount(PLAYER).setBalance(10_000);
         long ask = ask(), limit = ask + 5;
         assertTrue(MarketManager.placeOrder(new Order(PLAYER, "iron", OrderType.BUY, limit, 4)));

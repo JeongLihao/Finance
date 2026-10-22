@@ -4,15 +4,14 @@ import finance.account.AccountManager;
 import finance.account.TransactionRecord;
 import finance.account.TransactionType;
 import finance.data.EconomySavedData;
-import net.minecraft.server.level.ServerPlayer;
-
 import java.util.UUID;
+import net.minecraft.server.level.ServerPlayer;
 
 public final class WarehouseUpgradeService {
     private WarehouseUpgradeService() {}
 
-    public static synchronized WarehouseActionResult upgrade(ServerPlayer player, UUID warehouseId,
-                                                              String operationKey) {
+    public static synchronized WarehouseActionResult upgrade(
+            ServerPlayer player, UUID warehouseId, String operationKey) {
         WarehouseRecord record = WarehouseService.validRecord(player, warehouseId, true);
         if (record == null) return WarehouseActionResult.failure("finance.warehouse.invalid_session");
         if (operationKey == null || operationKey.isBlank() || operationKey.length() > 64)
@@ -44,12 +43,19 @@ public final class WarehouseUpgradeService {
         }
         record.recordOperation(key);
         WarehouseManager.refreshOwnerStatus(WarehouseService.custodyOwner(record));
-        finance.block.WarehouseControllerBlock.updateIndicator(player.serverLevel(), record.blockPos(), record.warehouseId());
-        AccountManager.addTransactionRecord(new TransactionRecord(player.getUUID(), record.warehouseId(),
-                requirement.cash(), TransactionType.FACILITY_UPGRADE, player.getUUID(),
-                "warehouse-tier-" + record.tier().level(), record.tier().level()));
+        finance.block.WarehouseControllerBlock.updateIndicator(
+                player.serverLevel(), record.blockPos(), record.warehouseId());
+        AccountManager.addTransactionRecord(new TransactionRecord(
+                player.getUUID(),
+                record.warehouseId(),
+                requirement.cash(),
+                TransactionType.FACILITY_UPGRADE,
+                player.getUUID(),
+                "warehouse-tier-" + record.tier().level(),
+                record.tier().level()));
         EconomySavedData.markDirty();
-        return WarehouseActionResult.success("finance.warehouse.upgrade_success", record.tier().level());
+        return WarehouseActionResult.success(
+                "finance.warehouse.upgrade_success", record.tier().level());
     }
 
     /**
@@ -57,30 +63,39 @@ public final class WarehouseUpgradeService {
      * capital project. Money and materials are owned by the capital-project
      * transaction and must already have been committed by its service.
      */
-    public static synchronized boolean commitCapitalUpgrade(ServerPlayer player, UUID warehouseId,
-                                                             UUID companyId, int targetLevel,
-                                                             String operationKey) {
+    public static synchronized boolean commitCapitalUpgrade(
+            ServerPlayer player, UUID warehouseId, UUID companyId, int targetLevel, String operationKey) {
         WarehouseRecord record = validCapitalTarget(player, warehouseId, companyId, targetLevel);
-        if (record == null || operationKey == null || operationKey.isBlank()
-                || operationKey.length() > 96 || record.hasOperation(operationKey)) return false;
+        if (record == null
+                || operationKey == null
+                || operationKey.isBlank()
+                || operationKey.length() > 96
+                || record.hasOperation(operationKey)) return false;
         WarehouseUpgradeRequirementService.Requirement requirement =
                 WarehouseUpgradeRequirementService.requirement(record.tier());
-        if (requirement == null || requirement.targetTier().level() != targetLevel
-                || !record.upgrade(requirement.targetTier(), requirement.targetTier().capacity())) return false;
+        if (requirement == null
+                || requirement.targetTier().level() != targetLevel
+                || !record.upgrade(
+                        requirement.targetTier(), requirement.targetTier().capacity())) return false;
         record.recordOperation(operationKey);
         WarehouseManager.refreshOwnerStatus(WarehouseService.custodyOwner(record));
-        finance.block.WarehouseControllerBlock.updateIndicator(player.serverLevel(), record.blockPos(), record.warehouseId());
+        finance.block.WarehouseControllerBlock.updateIndicator(
+                player.serverLevel(), record.blockPos(), record.warehouseId());
         EconomySavedData.markDirty();
         return true;
     }
 
-    public static WarehouseRecord validCapitalTarget(ServerPlayer player, UUID warehouseId,
-                                                      UUID companyId, int targetLevel) {
+    public static WarehouseRecord validCapitalTarget(
+            ServerPlayer player, UUID warehouseId, UUID companyId, int targetLevel) {
         WarehouseRecord record = WarehouseService.validRecord(player, warehouseId, true);
-        if (record == null || companyId == null || !companyId.equals(record.companyId())
-                || record.status() == WarehouseStatus.DISABLED || record.status() == WarehouseStatus.ORPHANED
-                || !finance.gameplay.company.CompanyMembershipService.hasPermission(companyId, player.getUUID(),
-                finance.gameplay.company.CompanyPermission.MANAGE_PRODUCTION)) return null;
+        if (record == null
+                || companyId == null
+                || !companyId.equals(record.companyId())
+                || record.status() == WarehouseStatus.DISABLED
+                || record.status() == WarehouseStatus.ORPHANED
+                || !finance.gameplay.company.CompanyMembershipService.hasPermission(
+                        companyId, player.getUUID(), finance.gameplay.company.CompanyPermission.MANAGE_PRODUCTION))
+            return null;
         WarehouseUpgradeRequirementService.Requirement requirement =
                 WarehouseUpgradeRequirementService.requirement(record.tier());
         return requirement != null && requirement.targetTier().level() == targetLevel ? record : null;

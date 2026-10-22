@@ -16,15 +16,25 @@ public enum WarehouseTier {
         this.facilitySlots = facilitySlots;
     }
 
-    public int level() { return level; }
-    public int facilitySlots() { return facilitySlots; }
-    public int capacity() { return FinanceConfig.warehouseCapacity(level); }
-    public int transferLimit() { return FinanceConfig.warehouseTransferLimit(level); }
+    public int level() {
+        return level;
+    }
+
+    public int facilitySlots() {
+        return facilitySlots;
+    }
+
+    public int capacity() {
+        return FinanceConfig.warehouseCapacity(level);
+    }
+
+    public int transferLimit() {
+        return FinanceConfig.warehouseTransferLimit(level);
+    }
 
     public WarehouseTier next() {
         return this == BASIC ? REINFORCED : this == REINFORCED ? INDUSTRIAL : null;
     }
-
 
     public static WarehouseTier fromLegacyCapacity(int capacity) {
         if (capacity > FinanceConfig.warehouseCapacity(2)) return INDUSTRIAL;

@@ -1,2 +1,10 @@
 package finance.governance;
-public enum CapitalActionStatus { OPEN, SETTLING, COMPLETED, FAILED, CANCELLED, EXPIRED }
+
+public enum CapitalActionStatus {
+    OPEN,
+    SETTLING,
+    COMPLETED,
+    FAILED,
+    CANCELLED,
+    EXPIRED
+}

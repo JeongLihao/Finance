@@ -23,13 +23,6 @@ import finance.stock.StockHolding;
 import finance.stock.StockMarketManager;
 import finance.stock.StockPortfolioManager;
 import finance.util.MoneyFormat;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.Tag;
-import net.minecraft.network.chat.Component;
-import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.level.ServerPlayer;
-
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -37,6 +30,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.Tag;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerPlayer;
 
 /**
  * 身家：钱包、存款、债券、基金、股票、押注加起来值多少。
@@ -54,35 +53,43 @@ public final class SimpleWealthService {
         var account = AccountManager.getAccounts().get(id);
         if (account != null) total = add(total, account.getFrozenBalance());
         for (BankCustomerAccount a : BankingManager.accounts().values()) {
-            if (id.equals(a.ownerId()) && a.ownerType() == CustomerType.PLAYER && a.type() == BankAccountType.DEMAND_DEPOSIT
+            if (id.equals(a.ownerId())
+                    && a.ownerType() == CustomerType.PLAYER
+                    && a.type() == BankAccountType.DEMAND_DEPOSIT
                     && a.status() != BankAccountStatus.CLOSED) total = add(total, a.balance());
         }
         for (TimeDeposit t : BankingManager.timeDeposits().values()) {
-            if (id.equals(t.ownerId()) && (t.status() == TimeDepositStatus.ACTIVE || t.status() == TimeDepositStatus.MATURED)) {
+            if (id.equals(t.ownerId())
+                    && (t.status() == TimeDepositStatus.ACTIVE || t.status() == TimeDepositStatus.MATURED)) {
                 total = add(total, t.principal());
             }
         }
         for (TreasuryBond b : TreasuryBondManager.bonds().values()) {
-            if (b.status() == TreasuryBondStatus.ACTIVE) total = add(total, b.principalByPlayer().getOrDefault(id, 0L));
+            if (b.status() == TreasuryBondStatus.ACTIVE)
+                total = add(total, b.principalByPlayer().getOrDefault(id, 0L));
         }
         Map<String, PlayerFundPosition> funds = FundManager.positions().get(id);
         if (funds != null) {
             Map<String, FundState> states = FundManager.states();
             for (Map.Entry<String, PlayerFundPosition> e : funds.entrySet()) {
                 FundState s = states.get(e.getKey());
-                if (s != null) total = add(total, multiply(e.getValue().shareUnits(), s.currentNav()) / FundManager.SHARE_SCALE);
+                if (s != null)
+                    total = add(total, multiply(e.getValue().shareUnits(), s.currentNav()) / FundManager.SHARE_SCALE);
             }
         }
-        for (Map.Entry<String, StockHolding> e : StockPortfolioManager.getPortfolio(id).entrySet()) {
+        for (Map.Entry<String, StockHolding> e :
+                StockPortfolioManager.getPortfolio(id).entrySet()) {
             Stock stock = StockMarketManager.getStock(e.getKey());
             if (stock != null) total = add(total, multiply(e.getValue().getQuantity(), stock.getAnchorPrice()));
         }
         MarginAccount m = MarginPoolManager.accounts().get(id);
         if (m != null) {
             long equity = m.getCashCollateral() - m.getFinancedDebt() - m.getFinancedInterestOwed() - m.getBadDebt();
-            for (Map.Entry<String, Long> e : m.getFinancedShares().entrySet()) equity += multiply(e.getValue(), price(e.getKey()));
+            for (Map.Entry<String, Long> e : m.getFinancedShares().entrySet())
+                equity += multiply(e.getValue(), price(e.getKey()));
             for (long proceeds : m.getShortProceeds().values()) equity += proceeds;
-            for (Map.Entry<String, Long> e : m.getShortPositions().entrySet()) equity -= multiply(e.getValue(), price(e.getKey()));
+            for (Map.Entry<String, Long> e : m.getShortPositions().entrySet())
+                equity -= multiply(e.getValue(), price(e.getKey()));
             for (long interest : m.getShortInterestOwed().values()) equity -= interest;
             total = Math.max(0, total + equity);
         }
@@ -101,9 +108,9 @@ public final class SimpleWealthService {
         List<long[]> points = new ArrayList<>();
         for (int i = 0; i < list.size(); i++) {
             CompoundTag t = list.getCompound(i);
-            if (t.getLong("d") != day) points.add(new long[]{t.getLong("d"), t.getLong("v")});
+            if (t.getLong("d") != day) points.add(new long[] {t.getLong("d"), t.getLong("v")});
         }
-        points.add(new long[]{day, worth});
+        points.add(new long[] {day, worth});
         points.sort(Comparator.comparingLong(p -> p[0]));
         while (points.size() > HISTORY_DAYS) points.remove(0);
         ListTag out = new ListTag();
@@ -153,13 +160,15 @@ public final class SimpleWealthService {
         List<Rank> ranks = ranks(server);
         for (int i = 0; i < ranks.size(); i++) {
             Rank r = ranks.get(i);
-            out.add((i + 1) + ". " + r.name() + "  " + MoneyFormat.pounds(r.worth()) + (r.id().equals(viewer) ? "（你）" : ""));
+            out.add((i + 1) + ". " + r.name() + "  " + MoneyFormat.pounds(r.worth())
+                    + (r.id().equals(viewer) ? "（你）" : ""));
         }
         return out;
     }
 
     /** 上周初每个人的身家，用来算“本周涨得最多”；服务器重启后从下一周重新算。 */
     private static final Map<UUID, Long> WEEK_START = new HashMap<>();
+
     private static long lastWeekly = -1;
 
     /** 每 7 个 MC 日在聊天栏播报一次身家榜和本周涨得最多的人（配置 simpleCenter.weeklyLeaderboard）。 */
@@ -172,7 +181,8 @@ public final class SimpleWealthService {
             List<String> lines = new ArrayList<>();
             lines.add("§6[金融周榜] 第 " + (day / 7) + " 周身家排行：");
             for (int i = 0; i < Math.min(5, all.size()); i++) {
-                lines.add("  " + (i + 1) + ". " + all.get(i).name() + "  " + MoneyFormat.pounds(all.get(i).worth()));
+                lines.add("  " + (i + 1) + ". " + all.get(i).name() + "  "
+                        + MoneyFormat.pounds(all.get(i).worth()));
             }
             Rank riser = null;
             long best = 0;

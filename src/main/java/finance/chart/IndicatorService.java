@@ -9,5 +9,4 @@ public final class IndicatorService {
         if (bars == null) return new double[0];
         return bars.stream().mapToDouble(Candlestick::close).toArray();
     }
-
 }

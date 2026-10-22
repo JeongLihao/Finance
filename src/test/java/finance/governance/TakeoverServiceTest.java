@@ -1,5 +1,7 @@
 package finance.governance;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import finance.account.AccountManager;
 import finance.company.Company;
 import finance.company.CompanyManager;
@@ -9,13 +11,10 @@ import finance.stock.Stock;
 import finance.stock.StockMarketManager;
 import finance.stock.StockOrderManager;
 import finance.stock.StockPortfolioManager;
+import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * 要约收购（TakeoverService）回归测试 —— 覆盖设计文档 §8 的 11 个用例。
@@ -73,11 +72,17 @@ class TakeoverServiceTest {
         giveShares(BUYER, 40L);
         giveShares(SELLER_A, 60L);
         // fairValue=100 → 允许区间 [80, 150]
-        assertFalse(TakeoverService.offerTender(BUYER, COMPANY_ID, 79L, 10L, 5L, 5, 0L, "k-p1").success(),
+        assertFalse(
+                TakeoverService.offerTender(BUYER, COMPANY_ID, 79L, 10L, 5L, 5, 0L, "k-p1")
+                        .success(),
                 "0.79x fairValue 应被拒绝");
-        assertFalse(TakeoverService.offerTender(BUYER, COMPANY_ID, 151L, 10L, 5L, 5, 0L, "k-p2").success(),
+        assertFalse(
+                TakeoverService.offerTender(BUYER, COMPANY_ID, 151L, 10L, 5L, 5, 0L, "k-p2")
+                        .success(),
                 "1.51x fairValue 应被拒绝");
-        assertTrue(TakeoverService.offerTender(BUYER, COMPANY_ID, 100L, 10L, 5L, 5, 0L, "k-p3").success(),
+        assertTrue(
+                TakeoverService.offerTender(BUYER, COMPANY_ID, 100L, 10L, 5L, 5, 0L, "k-p3")
+                        .success(),
                 "1.0x fairValue 应通过");
     }
 
@@ -105,8 +110,10 @@ class TakeoverServiceTest {
         long sellerBBefore = AccountManager.getBalance(SELLER_B);
         var opened = TakeoverService.offerTender(BUYER, COMPANY_ID, 100L, 40L, 10L, 3, 0L, "k-pro");
         assertTrue(opened.success(), opened.message());
-        assertTrue(TakeoverService.acceptTender(SELLER_A, opened.id(), 40L, 0L, "k-pro-a").success());
-        assertTrue(TakeoverService.acceptTender(SELLER_B, opened.id(), 25L, 0L, "k-pro-b").success());
+        assertTrue(TakeoverService.acceptTender(SELLER_A, opened.id(), 40L, 0L, "k-pro-a")
+                .success());
+        assertTrue(TakeoverService.acceptTender(SELLER_B, opened.id(), 25L, 0L, "k-pro-b")
+                .success());
         CorporateActionManager.processDay(3);
         TenderOffer offer = CorporateActionManager.tenders().get(opened.id());
         assertEquals(CapitalActionStatus.COMPLETED, offer.status());
@@ -115,8 +122,7 @@ class TakeoverServiceTest {
         // 卖方按分配比例收到款项：A 得 40/65×40×100，B 得 25/65×40×100
         long paidA = AccountManager.getBalance(SELLER_A) - sellerABefore;
         long paidB = AccountManager.getBalance(SELLER_B) - sellerBBefore;
-        assertTrue(paidA > paidB && paidA + paidB == 4_000L,
-                "卖方应按比例收款，A=" + paidA + " B=" + paidB);
+        assertTrue(paidA > paidB && paidA + paidB == 4_000L, "卖方应按比例收款，A=" + paidA + " B=" + paidB);
         // escrow 已清空
         assertEquals(0L, AccountManager.getBalance(offer.escrowId()));
     }
@@ -128,7 +134,8 @@ class TakeoverServiceTest {
         long buyerBefore = AccountManager.getBalance(BUYER);
         var opened = TakeoverService.offerTender(BUYER, COMPANY_ID, 100L, 60L, 50L, 3, 0L, "k-min");
         assertTrue(opened.success(), opened.message());
-        assertTrue(TakeoverService.acceptTender(SELLER_A, opened.id(), 10L, 0L, "k-min-a").success());
+        assertTrue(TakeoverService.acceptTender(SELLER_A, opened.id(), 10L, 0L, "k-min-a")
+                .success());
         CorporateActionManager.processDay(3);
         TenderOffer offer = CorporateActionManager.tenders().get(opened.id());
         assertEquals(CapitalActionStatus.FAILED, offer.status());
@@ -155,7 +162,8 @@ class TakeoverServiceTest {
         assertFalse(sellResult.success());
         assertTrue(sellResult.message().contains("停牌"));
         // 撤销后复牌
-        assertTrue(TakeoverService.cancelTender(BUYER, opened.id(), 1L, "k-halt-c").success());
+        assertTrue(
+                TakeoverService.cancelTender(BUYER, opened.id(), 1L, "k-halt-c").success());
         assertFalse(stock.isTradingHalted(), "撤销后应复牌");
     }
 
@@ -186,7 +194,8 @@ class TakeoverServiceTest {
         long buyerBefore = AccountManager.getBalance(BUYER);
         var opened = TakeoverService.offerTender(BUYER, COMPANY_ID, 100L, 20L, 10L, 5, 0L, "k-br");
         assertTrue(opened.success(), opened.message());
-        assertTrue(TakeoverService.acceptTender(SELLER_A, opened.id(), 20L, 0L, "k-br-a").success());
+        assertTrue(TakeoverService.acceptTender(SELLER_A, opened.id(), 20L, 0L, "k-br-a")
+                .success());
         assertTrue(CorporateActionManager.cancelForBankruptcy(COMPANY_ID, 1L));
         TenderOffer offer = CorporateActionManager.tenders().get(opened.id());
         assertEquals(CapitalActionStatus.CANCELLED, offer.status());
@@ -201,7 +210,8 @@ class TakeoverServiceTest {
         giveShares(SELLER_A, 60L);
         var opened = TakeoverService.offerTender(BUYER, COMPANY_ID, 100L, 20L, 10L, 5, 0L, "k-div");
         assertTrue(opened.success(), opened.message());
-        assertTrue(TakeoverService.acceptTender(SELLER_A, opened.id(), 30L, 0L, "k-div-a").success());
+        assertTrue(TakeoverService.acceptTender(SELLER_A, opened.id(), 30L, 0L, "k-div-a")
+                .success());
         TenderOffer offer = CorporateActionManager.tenders().get(opened.id());
 
         // 分红：100 股 × 每股 100 = 10_000；SELLER_A 自由 30 股 / 锁定 30 股 / BUYER 40 股
@@ -219,7 +229,8 @@ class TakeoverServiceTest {
         assertEquals(2_000L + 3_000L, AccountManager.getBalance(offer.escrowId()));
 
         // 撤销要约 → 锁定分红原路返还股东，收购方拿回全额托管金（2_000）+ 自己的分红（4_000）
-        assertTrue(TakeoverService.cancelTender(BUYER, opened.id(), 1L, "k-div-c").success());
+        assertTrue(
+                TakeoverService.cancelTender(BUYER, opened.id(), 1L, "k-div-c").success());
         assertEquals(sellerBefore + 6_000L, AccountManager.getBalance(SELLER_A));
         assertEquals(buyerBefore + 6_000L, AccountManager.getBalance(BUYER));
     }

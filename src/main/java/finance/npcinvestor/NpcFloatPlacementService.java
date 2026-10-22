@@ -8,7 +8,6 @@ import finance.governance.ShareholderRegistryService;
 import finance.stock.Stock;
 import finance.stock.StockMarketManager;
 import finance.stock.StockPortfolioManager;
-
 import java.util.UUID;
 
 /**
@@ -25,10 +24,12 @@ public final class NpcFloatPlacementService {
     public static final UUID PLACEMENT_SINK = UUID.nameUUIDFromBytes(
             "finance-npc-float-placement-sink".getBytes(java.nio.charset.StandardCharsets.UTF_8));
 
-    private NpcFloatPlacementService() { }
+    private NpcFloatPlacementService() {}
 
     public record Result(boolean success, long quantity, long price, long cost, String message) {
-        static Result fail(String message) { return new Result(false, 0, 0, 0, message); }
+        static Result fail(String message) {
+            return new Result(false, 0, 0, 0, message);
+        }
     }
 
     /** 配售价 = max(现价, 公允价)，避免 NPC 低价吸筹。 */
@@ -75,8 +76,13 @@ public final class NpcFloatPlacementService {
             return Result.fail("持仓结算失败。");
         }
         AccountManager.addTransactionRecord(new TransactionRecord(
-                investor, PLACEMENT_SINK, cost, TransactionType.NPC_FLOAT_PLACEMENT,
-                investor, stock.getSymbol(), quantity));
+                investor,
+                PLACEMENT_SINK,
+                cost,
+                TransactionType.NPC_FLOAT_PLACEMENT,
+                investor,
+                stock.getSymbol(),
+                quantity));
         EconomySavedData.markDirty();
         return new Result(true, quantity, price, cost, "配售成功");
     }

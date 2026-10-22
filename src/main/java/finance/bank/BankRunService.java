@@ -3,7 +3,6 @@ package finance.bank;
 import finance.config.FinanceConfig;
 import finance.data.EconomySavedData;
 import finance.diagnostic.ModuleHealthRegistry;
-
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -21,12 +20,13 @@ import java.util.UUID;
 public final class BankRunService {
     /** 恐慌度达到此值时 NPC 零售池开始净流出；同时是 BankPanicTier.UNEASY 档位下限。 */
     public static final int PANIC_NPC_OUTFLOW_THRESHOLD = 30;
+
     private static final Map<UUID, BankRunState> STATES = new LinkedHashMap<>();
     private static final java.util.Set<UUID> KNOWN_FAILED = new java.util.HashSet<>();
     private static long lastProcessedDay = -1;
     private static long lastFailureDay = Long.MIN_VALUE / 4;
 
-    private BankRunService() { }
+    private BankRunService() {}
 
     // ---------------- 查询 ----------------
 
@@ -63,7 +63,9 @@ public final class BankRunService {
     /** 记录玩家当日提现/转出（恐慌信号源之一）。 */
     public static void recordPlayerWithdrawal(UUID bankId, long amount) {
         if (!active() || bankId == null || amount <= 0) return;
-        synchronized (BankRunService.class) { stateOf(bankId).addWithdrawn(amount); }
+        synchronized (BankRunService.class) {
+            stateOf(bankId).addWithdrawn(amount);
+        }
     }
 
     /**
@@ -94,8 +96,10 @@ public final class BankRunService {
         if (bank == null) return 0;
         BankBalanceSheet s = bank.ledger().balanceSheet();
         long deposits = safeAdd(s.demandDeposits(), s.timeDeposits());
-        return BigInteger.valueOf(deposits).multiply(BigInteger.valueOf(FinanceConfig.bankRunDailyCapBps()))
-                .divide(BigInteger.valueOf(10_000)).longValue();
+        return BigInteger.valueOf(deposits)
+                .multiply(BigInteger.valueOf(FinanceConfig.bankRunDailyCapBps()))
+                .divide(BigInteger.valueOf(10_000))
+                .longValue();
     }
 
     // ---------------- 日终主流程 ----------------
@@ -151,7 +155,8 @@ public final class BankRunService {
     }
 
     private static boolean operable(CommercialBank b) {
-        return b.status() != BankStatus.FAILED && b.status() != BankStatus.MERGED
+        return b.status() != BankStatus.FAILED
+                && b.status() != BankStatus.MERGED
                 && b.status() != BankStatus.RESOLUTION;
     }
 
@@ -160,8 +165,7 @@ public final class BankRunService {
     }
 
     private static boolean active() {
-        return FinanceConfig.bankRunEnabled()
-                && ModuleHealthRegistry.mayWrite(ModuleHealthRegistry.Module.BANK_RUN);
+        return FinanceConfig.bankRunEnabled() && ModuleHealthRegistry.mayWrite(ModuleHealthRegistry.Module.BANK_RUN);
     }
 
     /** 日终前确保所有银行的 NPC 零售池已播种（幂等）。 */
@@ -177,7 +181,8 @@ public final class BankRunService {
     static BankCustomerAccount npcAccount(UUID bankId, UUID owner, BankAccountType type) {
         for (BankCustomerAccount a : BankingManager.accountsOfBank(bankId)) {
             if (a.ownerId().equals(owner)
-                    && a.ownerType() == CustomerType.NPC && a.type() == type
+                    && a.ownerType() == CustomerType.NPC
+                    && a.type() == type
                     && a.status() != BankAccountStatus.CLOSED) return a;
         }
         return null;
@@ -199,29 +204,50 @@ public final class BankRunService {
         if (state.npcLoanBook() > 0) return; // 已播种（持久化）
         long seed = BigInteger.valueOf(FinanceConfig.bankInitialCapital())
                 .multiply(BigInteger.valueOf(FinanceConfig.bankRunNpcSeedBps()))
-                .divide(BigInteger.valueOf(10_000)).longValue();
+                .divide(BigInteger.valueOf(10_000))
+                .longValue();
         if (seed <= 0) return;
-        long timePart = BigInteger.valueOf(seed).multiply(BigInteger.valueOf(FinanceConfig.bankRunNpcTimeShareBps()))
-                .divide(BigInteger.valueOf(10_000)).longValue();
+        long timePart = BigInteger.valueOf(seed)
+                .multiply(BigInteger.valueOf(FinanceConfig.bankRunNpcTimeShareBps()))
+                .divide(BigInteger.valueOf(10_000))
+                .longValue();
         UUID owner = npcOwnerId(bank);
         BankCustomerAccount demand = npcAccount(bank.id(), owner, BankAccountType.DEMAND_DEPOSIT);
         BankCustomerAccount time = npcAccount(bank.id(), owner, BankAccountType.TIME_DEPOSIT);
         if (demand == null) {
-            demand = new BankCustomerAccount(UUID.randomUUID(), bank.id(), owner, CustomerType.NPC,
-                    BankAccountType.DEMAND_DEPOSIT, 0, 0, Math.max(0, day), BankAccountStatus.ACTIVE);
+            demand = new BankCustomerAccount(
+                    UUID.randomUUID(),
+                    bank.id(),
+                    owner,
+                    CustomerType.NPC,
+                    BankAccountType.DEMAND_DEPOSIT,
+                    0,
+                    0,
+                    Math.max(0, day),
+                    BankAccountStatus.ACTIVE);
             BankingManager.putAccountDirect(demand);
         }
         if (time == null) {
-            time = new BankCustomerAccount(UUID.randomUUID(), bank.id(), owner, CustomerType.NPC,
-                    BankAccountType.TIME_DEPOSIT, 0, 0, Math.max(0, day), BankAccountStatus.ACTIVE);
+            time = new BankCustomerAccount(
+                    UUID.randomUUID(),
+                    bank.id(),
+                    owner,
+                    CustomerType.NPC,
+                    BankAccountType.TIME_DEPOSIT,
+                    0,
+                    0,
+                    Math.max(0, day),
+                    BankAccountStatus.ACTIVE);
             BankingManager.putAccountDirect(time);
         }
         // 贷款创造存款：Dr 贷款资产 / Cr 活期负债（复式平衡，不印钱）
         UUID ref = UUID.nameUUIDFromBytes(("finance-npc-seed-" + bank.id()).getBytes(StandardCharsets.UTF_8));
         if (!bank.ledger().hasReference(ref)) {
             List<BankLedger.Draft> drafts = List.of(new BankLedger.Draft(
-                    BankLedgerAccount.ASSET_COMPANY_LOAN, BankLedgerAccount.LIABILITY_DEMAND_DEPOSIT,
-                    seed, BankLedgerReason.COMPANY_LOAN_ISSUE));
+                    BankLedgerAccount.ASSET_COMPANY_LOAN,
+                    BankLedgerAccount.LIABILITY_DEMAND_DEPOSIT,
+                    seed,
+                    BankLedgerReason.COMPANY_LOAN_ISSUE));
             if (!bank.ledger().canPost(ref, drafts)) return;
             bank.ledger().postBatch(day, ref, drafts);
             if (!demand.credit(seed)) throw new IllegalStateException("npc seed credit failed");
@@ -232,8 +258,10 @@ public final class BankRunService {
             UUID ref2 = UUID.nameUUIDFromBytes(("finance-npc-seed-time-" + bank.id()).getBytes(StandardCharsets.UTF_8));
             if (!bank.ledger().hasReference(ref2)) {
                 List<BankLedger.Draft> move = List.of(new BankLedger.Draft(
-                        BankLedgerAccount.LIABILITY_DEMAND_DEPOSIT, BankLedgerAccount.LIABILITY_TIME_DEPOSIT,
-                        timePart, BankLedgerReason.TIME_DEPOSIT_OPEN));
+                        BankLedgerAccount.LIABILITY_DEMAND_DEPOSIT,
+                        BankLedgerAccount.LIABILITY_TIME_DEPOSIT,
+                        timePart,
+                        BankLedgerReason.TIME_DEPOSIT_OPEN));
                 if (bank.ledger().canPost(ref2, move) && demand.debit(timePart)) {
                     bank.ledger().postBatch(day, ref2, move);
                     if (!time.credit(timePart)) throw new IllegalStateException("npc time seed credit failed");
@@ -252,9 +280,11 @@ public final class BankRunService {
         long npcDemand = demand == null ? 0 : demand.available();
         long npcTime = time == null ? 0 : time.available();
         long pool = safeAdd(npcDemand, npcTime);
-        long desired = BigInteger.valueOf(pool).multiply(BigInteger.valueOf(state.panic()))
+        long desired = BigInteger.valueOf(pool)
+                .multiply(BigInteger.valueOf(state.panic()))
                 .multiply(BigInteger.valueOf(FinanceConfig.bankRunMaxDailyShareBps()))
-                .divide(BigInteger.valueOf(100L * 10_000L)).longValue();
+                .divide(BigInteger.valueOf(100L * 10_000L))
+                .longValue();
         long total = safeAdd(desired, state.queued());
         if (total <= 0) return;
         // 限提预算（玩家已消耗部分优先）
@@ -269,14 +299,25 @@ public final class BankRunService {
         long actual = Math.min(payable, reserves);
         long fromDemand = Math.min(actual, npcDemand);
         long fromTime = actual - fromDemand;
-        UUID ref = UUID.nameUUIDFromBytes(("finance-bank-run-" + bank.id() + "-" + day).getBytes(StandardCharsets.UTF_8));
+        UUID ref =
+                UUID.nameUUIDFromBytes(("finance-bank-run-" + bank.id() + "-" + day).getBytes(StandardCharsets.UTF_8));
         List<BankLedger.Draft> drafts = new ArrayList<>();
-        if (fromDemand > 0) drafts.add(new BankLedger.Draft(BankLedgerAccount.LIABILITY_DEMAND_DEPOSIT,
-                BankLedgerAccount.ASSET_RESERVE, fromDemand, BankLedgerReason.BANK_RUN_WITHDRAWAL));
-        if (fromTime > 0) drafts.add(new BankLedger.Draft(BankLedgerAccount.LIABILITY_TIME_DEPOSIT,
-                BankLedgerAccount.ASSET_RESERVE, fromTime, BankLedgerReason.TIME_DEPOSIT_EARLY_REDEEM));
+        if (fromDemand > 0)
+            drafts.add(new BankLedger.Draft(
+                    BankLedgerAccount.LIABILITY_DEMAND_DEPOSIT,
+                    BankLedgerAccount.ASSET_RESERVE,
+                    fromDemand,
+                    BankLedgerReason.BANK_RUN_WITHDRAWAL));
+        if (fromTime > 0)
+            drafts.add(new BankLedger.Draft(
+                    BankLedgerAccount.LIABILITY_TIME_DEPOSIT,
+                    BankLedgerAccount.ASSET_RESERVE,
+                    fromTime,
+                    BankLedgerReason.TIME_DEPOSIT_EARLY_REDEEM));
         boolean posted = false;
-        if (!drafts.isEmpty() && !bank.ledger().hasReference(ref) && bank.ledger().canPost(ref, drafts)) {
+        if (!drafts.isEmpty()
+                && !bank.ledger().hasReference(ref)
+                && bank.ledger().canPost(ref, drafts)) {
             boolean ok = (fromDemand == 0 || demand.debit(fromDemand)) && (fromTime == 0 || time.debit(fromTime));
             if (ok && bank.ledger().postBatch(day, ref, drafts)) posted = true;
             else { // 回滚账户（账本未动）
@@ -299,8 +340,12 @@ public final class BankRunService {
             // 挤兑未满足 → 恐慌加剧
             BankBalanceSheet s = bank.ledger().balanceSheet();
             long deposits = Math.max(1, safeAdd(s.demandDeposits(), s.timeDeposits()));
-            int bump = (int) Math.min(10, BigInteger.valueOf(unpaid).multiply(BigInteger.valueOf(200))
-                    .divide(BigInteger.valueOf(deposits)).longValue());
+            int bump = (int) Math.min(
+                    10,
+                    BigInteger.valueOf(unpaid)
+                            .multiply(BigInteger.valueOf(200))
+                            .divide(BigInteger.valueOf(deposits))
+                            .longValue());
             state.setPanic(state.panic() + bump, day);
         }
         EconomySavedData.markDirty();
@@ -319,16 +364,22 @@ public final class BankRunService {
         long book = Math.min(state.npcLoanBook(), bank.ledger().balance(BankLedgerAccount.ASSET_COMPANY_LOAN));
         if (book <= 0) return;
         // 日违约 = book × (panic/100)² × defaultBps/10000
-        long defaulted = BigInteger.valueOf(book).multiply(BigInteger.valueOf(state.panic()))
+        long defaulted = BigInteger.valueOf(book)
+                .multiply(BigInteger.valueOf(state.panic()))
                 .multiply(BigInteger.valueOf(state.panic()))
                 .multiply(BigInteger.valueOf(FinanceConfig.bankRunNpcDefaultBps()))
-                .divide(BigInteger.valueOf(100L * 100L * 10_000L)).longValue();
+                .divide(BigInteger.valueOf(100L * 100L * 10_000L))
+                .longValue();
         defaulted = Math.min(defaulted, book);
         if (defaulted <= 0) return;
-        UUID ref = UUID.nameUUIDFromBytes(("finance-npc-default-" + bank.id() + "-" + day).getBytes(StandardCharsets.UTF_8));
+        UUID ref = UUID.nameUUIDFromBytes(
+                ("finance-npc-default-" + bank.id() + "-" + day).getBytes(StandardCharsets.UTF_8));
         if (bank.ledger().hasReference(ref)) return;
-        List<BankLedger.Draft> drafts = List.of(new BankLedger.Draft(BankLedgerAccount.EXPENSE_CREDIT_LOSS,
-                BankLedgerAccount.ASSET_COMPANY_LOAN, defaulted, BankLedgerReason.NPC_LOAN_DEFAULT));
+        List<BankLedger.Draft> drafts = List.of(new BankLedger.Draft(
+                BankLedgerAccount.EXPENSE_CREDIT_LOSS,
+                BankLedgerAccount.ASSET_COMPANY_LOAN,
+                defaulted,
+                BankLedgerReason.NPC_LOAN_DEFAULT));
         if (bank.ledger().canPost(ref, drafts) && bank.ledger().postBatch(day, ref, drafts)) {
             state.reduceNpcLoanBook(defaulted);
             BankRegulatoryService.evaluate(bank);
@@ -341,8 +392,8 @@ public final class BankRunService {
     private static void checkIlliquidityDeath(CommercialBank bank, BankRunState state, long day) {
         long required = BankRegulatoryService.requiredReserves(bank);
         long reserves = bank.ledger().balance(BankLedgerAccount.ASSET_RESERVE);
-        boolean illiquid = reserves < required && state.queued() > 0
-                && state.panic() >= FinanceConfig.bankRunFailPanicThreshold();
+        boolean illiquid =
+                reserves < required && state.queued() > 0 && state.panic() >= FinanceConfig.bankRunFailPanicThreshold();
         state.setIlliquidDays(illiquid ? state.illiquidDays() + 1 : 0);
         if (state.illiquidDays() >= FinanceConfig.bankRunIlliquidDays()) {
             bank.setStatus(BankStatus.RESOLUTION);
@@ -368,21 +419,56 @@ public final class BankRunService {
 
     // ---------------- 持久化 ----------------
 
-    public static Map<UUID, BankRunState> states() { return Collections.unmodifiableMap(STATES); }
-    public static long lastProcessedDay() { return lastProcessedDay; }
-    public static long lastFailureDay() { return lastFailureDay; }
-
-    public static synchronized void restoreState(UUID bankId, int panic, long lastPanicDay, long queued,
-            int illiquidDays, long rumorCooldownDay, int peakPanic, long cumulativeOutflow,
-            long lastRumorDay, String lastRumorText, long budgetDay, long budgetUsed, long npcLoanBook) {
-        stateOf(bankId).restore(panic, lastPanicDay, queued, illiquidDays, rumorCooldownDay, peakPanic,
-                cumulativeOutflow, lastRumorDay, lastRumorText, budgetDay, budgetUsed, npcLoanBook);
+    public static Map<UUID, BankRunState> states() {
+        return Collections.unmodifiableMap(STATES);
     }
 
-    public static synchronized void restoreFailureDay(long day) { lastFailureDay = day; }
+    public static long lastProcessedDay() {
+        return lastProcessedDay;
+    }
+
+    public static long lastFailureDay() {
+        return lastFailureDay;
+    }
+
+    public static synchronized void restoreState(
+            UUID bankId,
+            int panic,
+            long lastPanicDay,
+            long queued,
+            int illiquidDays,
+            long rumorCooldownDay,
+            int peakPanic,
+            long cumulativeOutflow,
+            long lastRumorDay,
+            String lastRumorText,
+            long budgetDay,
+            long budgetUsed,
+            long npcLoanBook) {
+        stateOf(bankId)
+                .restore(
+                        panic,
+                        lastPanicDay,
+                        queued,
+                        illiquidDays,
+                        rumorCooldownDay,
+                        peakPanic,
+                        cumulativeOutflow,
+                        lastRumorDay,
+                        lastRumorText,
+                        budgetDay,
+                        budgetUsed,
+                        npcLoanBook);
+    }
+
+    public static synchronized void restoreFailureDay(long day) {
+        lastFailureDay = day;
+    }
 
     /** 持久化恢复：上次处理到的日终天数（仿 InterbankMarketService.restoreDay）。 */
-    public static synchronized void restoreRunDay(long day) { lastProcessedDay = Math.max(-1, day); }
+    public static synchronized void restoreRunDay(long day) {
+        lastProcessedDay = Math.max(-1, day);
+    }
 
     /** 重启恢复：存档中已处于 FAILED 的银行视为已知倒闭，避免重启当日被误判为"新倒闭"而延长传染窗口。 */
     public static synchronized void markFailureKnown(UUID bankId) {
@@ -396,5 +482,7 @@ public final class BankRunService {
         lastFailureDay = Long.MIN_VALUE / 4;
     }
 
-    private static long safeAdd(long a, long b) { return a > Long.MAX_VALUE - b ? Long.MAX_VALUE : a + b; }
+    private static long safeAdd(long a, long b) {
+        return a > Long.MAX_VALUE - b ? Long.MAX_VALUE : a + b;
+    }
 }

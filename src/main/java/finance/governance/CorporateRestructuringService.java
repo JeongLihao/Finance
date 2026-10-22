@@ -9,7 +9,6 @@ import finance.company.CompanyProposal;
 import finance.company.CompanyProposalManager;
 import finance.company.CompanyProposalType;
 import finance.data.EconomySavedData;
-
 import java.util.UUID;
 
 /** Transactional execution layer used after governance approval. */
@@ -17,21 +16,27 @@ public final class CorporateRestructuringService {
     private CorporateRestructuringService() {}
 
     public static boolean canExecute(UUID actor, CompanyProposal proposal) {
-        if (actor == null || proposal == null || proposal.getStatus() != finance.company.CompanyProposalStatus.PASSED) return false;
+        if (actor == null || proposal == null || proposal.getStatus() != finance.company.CompanyProposalStatus.PASSED)
+            return false;
         if (proposal.getType() == CompanyProposalType.EMERGENCY_RECAPITALIZATION) {
-            Company company=CompanyManager.getCompany(proposal.getCompanyId());
-            return company!=null&&company.isBankruptcyRisk()&&proposal.getValue1()>0;
+            Company company = CompanyManager.getCompany(proposal.getCompanyId());
+            return company != null && company.isBankruptcyRisk() && proposal.getValue1() > 0;
         }
         if (proposal.getType() != CompanyProposalType.MAJOR_ASSET_PURCHASE) return false;
         String text = proposal.getTextValue();
         int separator = text == null ? -1 : text.indexOf('|');
         if (separator <= 0) return false;
         try {
-            UUID sellerId=UUID.fromString(text.substring(0,separator));
-            Company buyer=CompanyManager.getCompany(proposal.getCompanyId()),seller=CompanyManager.getCompany(sellerId);
-            return buyer!=null&&seller!=null&&buyer!=seller&&GovernanceAuthorizationService.mayManage(actor,sellerId);
+            UUID sellerId = UUID.fromString(text.substring(0, separator));
+            Company buyer = CompanyManager.getCompany(proposal.getCompanyId()),
+                    seller = CompanyManager.getCompany(sellerId);
+            return buyer != null
+                    && seller != null
+                    && buyer != seller
+                    && GovernanceAuthorizationService.mayManage(actor, sellerId);
+        } catch (IllegalArgumentException ignored) {
+            return false;
         }
-        catch (IllegalArgumentException ignored) { return false; }
     }
 
     public static synchronized CorporateActionManager.Result emergencyContribution(
@@ -41,15 +46,21 @@ public final class CorporateRestructuringService {
         long amount = proposal == null ? 0 : proposal.getValue1();
         Company company = CompanyManager.getCompany(companyId);
         String key = "recap:" + operationKey;
-        if (investor == null || proposal == null
+        if (investor == null
+                || proposal == null
                 || !proposal.isExecutableAuthorization(CompanyProposalType.EMERGENCY_RECAPITALIZATION, companyId)
-                || company == null || !company.isBankruptcyRisk() || amount <= 0
-                || operationKey == null || operationKey.isBlank() || operationKey.length() > 96
+                || company == null
+                || !company.isBankruptcyRisk()
+                || amount <= 0
+                || operationKey == null
+                || operationKey.isBlank()
+                || operationKey.length() > 96
                 || CorporateActionManager.keys().contains(key)) {
             return CorporateActionManager.Result.fail("无效的紧急注资请求");
         }
         String riskKey = "recap-risk:" + companyId + ":" + company.getBankruptcyRiskStartDay();
-        if (CorporateActionManager.keys().contains(riskKey) || !company.canDeposit(amount)
+        if (CorporateActionManager.keys().contains(riskKey)
+                || !company.canDeposit(amount)
                 || !AccountManager.withdraw(investor, amount)) {
             return CorporateActionManager.Result.fail("暂不可注资或资金不足");
         }
@@ -59,11 +70,16 @@ public final class CorporateRestructuringService {
         }
         CorporateActionManager.putKeyDirect(key);
         CorporateActionManager.putKeyDirect(riskKey);
-        CorporateActionManager.putAnnouncementDirect(new CorporateAnnouncement(UUID.randomUUID(), companyId,
-                CorporateAnnouncement.Type.RECAPITALIZATION, day, UUID.nameUUIDFromBytes(key.getBytes()),
-                "recapitalization.completed", "investor=" + investor + ",amount=" + amount));
-        AccountManager.addTransactionRecord(new TransactionRecord(investor, companyId, amount,
-                TransactionType.COMPANY_RECAPITALIZATION, investor, company.getName(), 0));
+        CorporateActionManager.putAnnouncementDirect(new CorporateAnnouncement(
+                UUID.randomUUID(),
+                companyId,
+                CorporateAnnouncement.Type.RECAPITALIZATION,
+                day,
+                UUID.nameUUIDFromBytes(key.getBytes()),
+                "recapitalization.completed",
+                "investor=" + investor + ",amount=" + amount));
+        AccountManager.addTransactionRecord(new TransactionRecord(
+                investor, companyId, amount, TransactionType.COMPANY_RECAPITALIZATION, investor, company.getName(), 0));
         if (!CompanyProposalManager.markExecuted(proposalId, "紧急再融资已完成")) {
             throw new IllegalStateException("validated recapitalization authorization could not be consumed");
         }
@@ -76,10 +92,14 @@ public final class CorporateRestructuringService {
         CompanyProposal proposal = CompanyProposalManager.getProposal(proposalId);
         UUID buyerCompanyId = proposal == null ? null : proposal.getCompanyId();
         String[] asset = proposal == null || proposal.getTextValue() == null
-                ? new String[0] : proposal.getTextValue().split("\\|", 2);
+                ? new String[0]
+                : proposal.getTextValue().split("\\|", 2);
         UUID sellerCompanyId;
-        try { sellerCompanyId = asset.length == 2 ? UUID.fromString(asset[0]) : null; }
-        catch (IllegalArgumentException ignored) { sellerCompanyId = null; }
+        try {
+            sellerCompanyId = asset.length == 2 ? UUID.fromString(asset[0]) : null;
+        } catch (IllegalArgumentException ignored) {
+            sellerCompanyId = null;
+        }
         String commodityId = asset.length == 2 ? asset[1] : "";
         long quantityLong = proposal == null ? 0 : proposal.getValue2();
         int quantity = quantityLong > Integer.MAX_VALUE ? -1 : (int) quantityLong;
@@ -89,12 +109,23 @@ public final class CorporateRestructuringService {
         String key = "asset-purchase:" + operationKey;
         if (proposal == null
                 || !proposal.isExecutableAuthorization(CompanyProposalType.MAJOR_ASSET_PURCHASE, buyerCompanyId)
-                || buyer == null || seller == null || buyer == seller || commodityId == null || commodityId.isBlank()
-                || commodityId.length() > 64 || quantity <= 0 || price <= 0 || operationKey == null
-                || operationKey.isBlank() || operationKey.length() > 96 || CorporateActionManager.keys().contains(key)
+                || buyer == null
+                || seller == null
+                || buyer == seller
+                || commodityId == null
+                || commodityId.isBlank()
+                || commodityId.length() > 64
+                || quantity <= 0
+                || price <= 0
+                || operationKey == null
+                || operationKey.isBlank()
+                || operationKey.length() > 96
+                || CorporateActionManager.keys().contains(key)
                 || !GovernanceAuthorizationService.mayManage(sellerApprover, sellerCompanyId)
-                || buyer.getCash() < price || !seller.canDeposit(price)
-                || seller.getInventoryAmount(commodityId) < quantity || !buyer.canAddInventory(commodityId, quantity)) {
+                || buyer.getCash() < price
+                || !seller.canDeposit(price)
+                || seller.getInventoryAmount(commodityId) < quantity
+                || !buyer.canAddInventory(commodityId, quantity)) {
             return CorporateActionManager.Result.fail("资产收购请求无效或未获授权");
         }
         if (!buyer.withdraw(price) || !seller.removeInventory(commodityId, quantity)) {
@@ -107,12 +138,22 @@ public final class CorporateRestructuringService {
             return CorporateActionManager.Result.fail("资产交割失败");
         }
         CorporateActionManager.putKeyDirect(key);
-        CorporateActionManager.putAnnouncementDirect(new CorporateAnnouncement(UUID.randomUUID(), buyerCompanyId,
-                CorporateAnnouncement.Type.ASSET_SALE, day, UUID.nameUUIDFromBytes(key.getBytes()),
-                "asset.purchase.completed", "seller=" + sellerCompanyId + ",item=" + commodityId
-                + ",quantity=" + quantity + ",price=" + price));
-        AccountManager.addTransactionRecord(new TransactionRecord(buyerCompanyId, sellerCompanyId, price,
-                TransactionType.COMPANY_ASSET_TRANSFER, proposal.getCreatorId(), commodityId, quantity));
+        CorporateActionManager.putAnnouncementDirect(new CorporateAnnouncement(
+                UUID.randomUUID(),
+                buyerCompanyId,
+                CorporateAnnouncement.Type.ASSET_SALE,
+                day,
+                UUID.nameUUIDFromBytes(key.getBytes()),
+                "asset.purchase.completed",
+                "seller=" + sellerCompanyId + ",item=" + commodityId + ",quantity=" + quantity + ",price=" + price));
+        AccountManager.addTransactionRecord(new TransactionRecord(
+                buyerCompanyId,
+                sellerCompanyId,
+                price,
+                TransactionType.COMPANY_ASSET_TRANSFER,
+                proposal.getCreatorId(),
+                commodityId,
+                quantity));
         if (!CompanyProposalManager.markExecuted(proposalId, "重大资产交易已完成")) {
             throw new IllegalStateException("validated asset-purchase authorization could not be consumed");
         }

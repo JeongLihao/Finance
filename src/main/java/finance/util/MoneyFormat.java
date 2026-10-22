@@ -19,7 +19,8 @@ public final class MoneyFormat {
     public static String compact(long pence) {
         if (Math.abs(pence) < 100) return pence + "便士";
         long abs = Math.abs(pence);
-        String text = abs % 100 == 0 ? Long.toString(abs / 100)
+        String text = abs % 100 == 0
+                ? Long.toString(abs / 100)
                 : String.format(java.util.Locale.ROOT, "%d.%02d", abs / 100, abs % 100);
         return (pence < 0 ? "-" : "") + text + "磅";
     }

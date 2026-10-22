@@ -1,28 +1,28 @@
 package finance.warehouse;
 
 import com.mojang.logging.LogUtils;
+import java.util.ArrayList;
+import java.util.List;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import org.slf4j.Logger;
 
-import java.util.ArrayList;
-import java.util.List;
-
 public final class InventoryTransactionService {
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final int MAIN_INVENTORY_SLOTS = 36;
 
     public record SlotMutation(int slot, ItemStack expectedBefore, int amount) {}
+
     public record RemovalPlan(Item item, int total, List<SlotMutation> mutations) {}
+
     public record InsertionPlan(Item item, int total, List<SlotMutation> mutations) {}
 
     private InventoryTransactionService() {}
 
     public static boolean eligible(ItemStack stack, Item item) {
-        return stack != null && !stack.isEmpty() && stack.is(item) && !stack.hasTag()
-                && !stack.isDamageableItem();
+        return stack != null && !stack.isEmpty() && stack.is(item) && !stack.hasTag() && !stack.isDamageableItem();
     }
 
     public static int countEligible(Inventory inventory, Item item) {
@@ -41,8 +41,10 @@ public final class InventoryTransactionService {
         List<InventorySlotPlanner.SlotState> states = slotStates(inventory, item, slots);
         List<InventorySlotPlanner.Allocation> allocations = InventorySlotPlanner.removal(states, amount);
         if (allocations == null) return null;
-        List<SlotMutation> mutations = allocations.stream().map(allocation ->
-                new SlotMutation(allocation.slot(), inventory.getItem(allocation.slot()).copy(), allocation.amount())).toList();
+        List<SlotMutation> mutations = allocations.stream()
+                .map(allocation -> new SlotMutation(
+                        allocation.slot(), inventory.getItem(allocation.slot()).copy(), allocation.amount()))
+                .toList();
         return new RemovalPlan(item, amount, mutations);
     }
 
@@ -51,7 +53,8 @@ public final class InventoryTransactionService {
         for (SlotMutation mutation : plan.mutations()) {
             if (!sameExact(inventory.getItem(mutation.slot()), mutation.expectedBefore())) return false;
         }
-        for (SlotMutation mutation : plan.mutations()) inventory.getItem(mutation.slot()).shrink(mutation.amount());
+        for (SlotMutation mutation : plan.mutations())
+            inventory.getItem(mutation.slot()).shrink(mutation.amount());
         inventory.setChanged();
         return true;
     }
@@ -72,7 +75,10 @@ public final class InventoryTransactionService {
                 inventory.add(recovery);
                 if (!recovery.isEmpty()) {
                     player.drop(recovery, false);
-                    LOGGER.error("Warehouse rollback dropped {} recovered items for {}", recovery.getCount(), player.getUUID());
+                    LOGGER.error(
+                            "Warehouse rollback dropped {} recovered items for {}",
+                            recovery.getCount(),
+                            player.getUUID());
                 }
             }
         }
@@ -87,8 +93,10 @@ public final class InventoryTransactionService {
         int maxStack = item.getMaxStackSize();
         List<InventorySlotPlanner.Allocation> allocations = InventorySlotPlanner.insertion(states, amount, maxStack);
         if (allocations == null) return null;
-        List<SlotMutation> mutations = allocations.stream().map(allocation ->
-                new SlotMutation(allocation.slot(), inventory.getItem(allocation.slot()).copy(), allocation.amount())).toList();
+        List<SlotMutation> mutations = allocations.stream()
+                .map(allocation -> new SlotMutation(
+                        allocation.slot(), inventory.getItem(allocation.slot()).copy(), allocation.amount()))
+                .toList();
         return new InsertionPlan(item, amount, mutations);
     }
 
@@ -106,7 +114,6 @@ public final class InventoryTransactionService {
         return true;
     }
 
-
     private static boolean sameExact(ItemStack first, ItemStack second) {
         if (first.isEmpty() || second.isEmpty()) return first.isEmpty() && second.isEmpty();
         return first.getCount() == second.getCount() && sameItemTags(first, second);
@@ -122,8 +129,11 @@ public final class InventoryTransactionService {
             ItemStack stack = inventory.getItem(slot);
             boolean empty = stack.isEmpty();
             boolean same = !empty && stack.is(item) && !stack.hasTag();
-            states.add(new InventorySlotPlanner.SlotState(empty ? 0 : stack.getCount(),
-                    empty ? item.getMaxStackSize() : stack.getMaxStackSize(), same, empty,
+            states.add(new InventorySlotPlanner.SlotState(
+                    empty ? 0 : stack.getCount(),
+                    empty ? item.getMaxStackSize() : stack.getMaxStackSize(),
+                    same,
+                    empty,
                     empty || eligible(stack, item)));
         }
         return states;

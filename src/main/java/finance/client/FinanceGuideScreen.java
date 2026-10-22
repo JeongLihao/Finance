@@ -1,15 +1,14 @@
 package finance.client;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Predicate;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
 import org.lwjgl.glfw.GLFW;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.function.Predicate;
 
 /** 金融手册：替代原版书本界面，沿用金融中心的米色面板风格。
  * 左侧目录、右侧正文（超长时滚轮滚动），底部翻页；从教程中心打开时关闭后回到教程中心。 */
@@ -63,8 +62,10 @@ public final class FinanceGuideScreen extends Screen {
     static String[] splitPage(String raw) {
         String text = raw == null ? "" : raw.replace("\r", "").strip();
         int newline = text.indexOf('\n');
-        if (newline < 0) return new String[]{text, ""};
-        return new String[]{text.substring(0, newline).strip(), text.substring(newline + 1).strip()};
+        if (newline < 0) return new String[] {text, ""};
+        return new String[] {
+            text.substring(0, newline).strip(), text.substring(newline + 1).strip()
+        };
     }
 
     static int clamp(int value, int min, int max) {
@@ -81,8 +82,7 @@ public final class FinanceGuideScreen extends Screen {
 
     private void layoutBody() {
         bodyScroll = 0;
-        bodyLines = pages.isEmpty() ? List.of()
-                : font.split(Component.literal(pages.get(page)[1]), BODY_W);
+        bodyLines = pages.isEmpty() ? List.of() : font.split(Component.literal(pages.get(page)[1]), BODY_W);
         // 目录跟随当前页
         int rows = tocRows();
         if (page < tocScroll) tocScroll = page;
@@ -110,7 +110,8 @@ public final class FinanceGuideScreen extends Screen {
         g.fill(1, TITLE_H - 1, PANEL_WIDTH - 1, TITLE_H, FinanceGui.COL_PANEL_BORDER);
         FinanceGui.drawClippedString(font, g, title.getString(), 10, 7, 200, FinanceGui.COL_TEXT);
         if (!pages.isEmpty()) {
-            String indicator = Component.translatable("screen.finance.guide.page", page + 1, pages.size()).getString();
+            String indicator = Component.translatable("screen.finance.guide.page", page + 1, pages.size())
+                    .getString();
             g.drawString(font, indicator, PANEL_WIDTH - 10 - font.width(indicator), 7, FinanceGui.COL_TEXT_DIM, false);
         }
 
@@ -126,21 +127,34 @@ public final class FinanceGuideScreen extends Screen {
             if (current) g.fill(TOC_X - 1, y, TOC_X + TOC_W + 1, y + TOC_ROW, FinanceGui.COL_ROW_SELECT);
             else if (hovered) g.fill(TOC_X - 1, y, TOC_X + TOC_W + 1, y + TOC_ROW, FinanceGui.COL_ROW_ODD);
             if (current) g.fill(TOC_X - 1, y, TOC_X + 1, y + TOC_ROW, FinanceGui.COL_ACCENT);
-            FinanceGui.drawClippedString(font, g, (index + 1) + ". " + pages.get(index)[0], TOC_X + 3, y + 2,
-                    TOC_W - 4, current ? FinanceGui.COL_TEXT : FinanceGui.COL_TEXT_DIM);
+            FinanceGui.drawClippedString(
+                    font,
+                    g,
+                    (index + 1) + ". " + pages.get(index)[0],
+                    TOC_X + 3,
+                    y + 2,
+                    TOC_W - 4,
+                    current ? FinanceGui.COL_TEXT : FinanceGui.COL_TEXT_DIM);
         }
 
         // 正文
         if (pages.isEmpty()) {
-            FinanceGui.drawClippedString(font, g, Component.translatable("screen.finance.guide.empty").getString(),
-                    BODY_X, CONTENT_Y, BODY_W, FinanceGui.COL_TEXT_DIM);
+            FinanceGui.drawClippedString(
+                    font,
+                    g,
+                    Component.translatable("screen.finance.guide.empty").getString(),
+                    BODY_X,
+                    CONTENT_Y,
+                    BODY_W,
+                    FinanceGui.COL_TEXT_DIM);
         } else {
             FinanceGui.drawClippedString(font, g, pages.get(page)[0], BODY_X, CONTENT_Y, BODY_W, FinanceGui.COL_TEXT);
             FinanceGui.drawSimpleSeparator(g, BODY_X, CONTENT_Y + 11, BODY_W);
             int bodyTop = CONTENT_Y + 16;
             int visible = bodyRows();
             for (int i = 0; i < visible && bodyScroll + i < bodyLines.size(); i++) {
-                g.drawString(font, bodyLines.get(bodyScroll + i), BODY_X, bodyTop + i * LINE_H, FinanceGui.COL_TEXT, false);
+                g.drawString(
+                        font, bodyLines.get(bodyScroll + i), BODY_X, bodyTop + i * LINE_H, FinanceGui.COL_TEXT, false);
             }
             if (bodyLines.size() > visible) {
                 String hint = (bodyScroll > 0 ? "▲" : "") + (bodyScroll + visible < bodyLines.size() ? "▼" : "");
@@ -150,15 +164,39 @@ public final class FinanceGuideScreen extends Screen {
 
         // 底部按钮
         FinanceGui.drawSimpleSeparator(g, 1, FOOTER_Y - 4, PANEL_WIDTH - 2);
-        FinanceGui.drawButton(font, g, Component.translatable("screen.finance.guide.prev").getString(),
-                PREV_X, FOOTER_Y, BUTTON_W, page > 0 && hit(mx, my, PREV_X));
-        FinanceGui.drawButton(font, g, Component.translatable("screen.finance.guide.next").getString(),
-                NEXT_X, FOOTER_Y, BUTTON_W, page < pages.size() - 1 && hit(mx, my, NEXT_X));
-        FinanceGui.drawButton(font, g, Component.translatable(parent == null
-                        ? "screen.finance.guide.close" : "screen.finance.guide.back").getString(),
-                CLOSE_X, FOOTER_Y, BUTTON_W, hit(mx, my, CLOSE_X));
-        FinanceGui.drawClippedString(font, g, Component.translatable("screen.finance.guide.keys").getString(),
-                TOC_X, FOOTER_Y + 3, TOC_W, FinanceGui.COL_TEXT_DIM);
+        FinanceGui.drawButton(
+                font,
+                g,
+                Component.translatable("screen.finance.guide.prev").getString(),
+                PREV_X,
+                FOOTER_Y,
+                BUTTON_W,
+                page > 0 && hit(mx, my, PREV_X));
+        FinanceGui.drawButton(
+                font,
+                g,
+                Component.translatable("screen.finance.guide.next").getString(),
+                NEXT_X,
+                FOOTER_Y,
+                BUTTON_W,
+                page < pages.size() - 1 && hit(mx, my, NEXT_X));
+        FinanceGui.drawButton(
+                font,
+                g,
+                Component.translatable(parent == null ? "screen.finance.guide.close" : "screen.finance.guide.back")
+                        .getString(),
+                CLOSE_X,
+                FOOTER_Y,
+                BUTTON_W,
+                hit(mx, my, CLOSE_X));
+        FinanceGui.drawClippedString(
+                font,
+                g,
+                Component.translatable("screen.finance.guide.keys").getString(),
+                TOC_X,
+                FOOTER_Y + 3,
+                TOC_W,
+                FinanceGui.COL_TEXT_DIM);
 
         g.pose().popPose();
         super.render(g, mouseX, mouseY, partialTick);
@@ -172,9 +210,18 @@ public final class FinanceGuideScreen extends Screen {
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         int mx = (int) mouseX - left, my = (int) mouseY - top;
         if (button == 0) {
-            if (hit(mx, my, PREV_X)) { goTo(page - 1); return true; }
-            if (hit(mx, my, NEXT_X)) { goTo(page + 1); return true; }
-            if (hit(mx, my, CLOSE_X)) { onClose(); return true; }
+            if (hit(mx, my, PREV_X)) {
+                goTo(page - 1);
+                return true;
+            }
+            if (hit(mx, my, NEXT_X)) {
+                goTo(page + 1);
+                return true;
+            }
+            if (hit(mx, my, CLOSE_X)) {
+                onClose();
+                return true;
+            }
             if (mx >= TOC_X && mx < TOC_X + TOC_W && my >= CONTENT_Y && my < CONTENT_Y + tocRows() * TOC_ROW) {
                 int index = tocScroll + (my - CONTENT_Y) / TOC_ROW;
                 if (index < pages.size()) goTo(index);
@@ -200,13 +247,33 @@ public final class FinanceGuideScreen extends Screen {
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
         switch (keyCode) {
-            case GLFW.GLFW_KEY_LEFT, GLFW.GLFW_KEY_PAGE_UP -> { goTo(page - 1); return true; }
-            case GLFW.GLFW_KEY_RIGHT, GLFW.GLFW_KEY_PAGE_DOWN -> { goTo(page + 1); return true; }
-            case GLFW.GLFW_KEY_HOME -> { goTo(0); return true; }
-            case GLFW.GLFW_KEY_END -> { goTo(pages.size() - 1); return true; }
-            case GLFW.GLFW_KEY_UP -> { bodyScroll = clamp(bodyScroll - 1, 0, Math.max(0, bodyLines.size() - bodyRows())); return true; }
-            case GLFW.GLFW_KEY_DOWN -> { bodyScroll = clamp(bodyScroll + 1, 0, Math.max(0, bodyLines.size() - bodyRows())); return true; }
-            default -> { return super.keyPressed(keyCode, scanCode, modifiers); }
+            case GLFW.GLFW_KEY_LEFT, GLFW.GLFW_KEY_PAGE_UP -> {
+                goTo(page - 1);
+                return true;
+            }
+            case GLFW.GLFW_KEY_RIGHT, GLFW.GLFW_KEY_PAGE_DOWN -> {
+                goTo(page + 1);
+                return true;
+            }
+            case GLFW.GLFW_KEY_HOME -> {
+                goTo(0);
+                return true;
+            }
+            case GLFW.GLFW_KEY_END -> {
+                goTo(pages.size() - 1);
+                return true;
+            }
+            case GLFW.GLFW_KEY_UP -> {
+                bodyScroll = clamp(bodyScroll - 1, 0, Math.max(0, bodyLines.size() - bodyRows()));
+                return true;
+            }
+            case GLFW.GLFW_KEY_DOWN -> {
+                bodyScroll = clamp(bodyScroll + 1, 0, Math.max(0, bodyLines.size() - bodyRows()));
+                return true;
+            }
+            default -> {
+                return super.keyPressed(keyCode, scanCode, modifiers);
+            }
         }
     }
 

@@ -4,6 +4,9 @@ import finance.commodity.Commodity;
 import finance.commodity.CommodityRegistry;
 import finance.market.MarketPrice;
 import finance.market.NpcMarketMaker;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Supplier;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
@@ -11,10 +14,6 @@ import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.fml.DistExecutor;
 import net.minecraftforge.network.NetworkEvent;
 import net.minecraftforge.network.PacketDistributor;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.function.Supplier;
 
 /**
  * 服务端 → 客户端：每种有对应物品的商品现在卖得多少、买要多少。
@@ -33,7 +32,9 @@ public record PriceTablePacket(List<Row> rows) {
     public static List<Row> snapshot() {
         List<Row> rows = new ArrayList<>();
         for (Commodity c : CommodityRegistry.getAllCommodities()) {
-            if (c.getItemId() == null || c.getItemId().isEmpty() || c.getItemId().length() > MAX_ID) continue;
+            if (c.getItemId() == null
+                    || c.getItemId().isEmpty()
+                    || c.getItemId().length() > MAX_ID) continue;
             MarketPrice price = NpcMarketMaker.getMarketPrice(c.getId());
             if (price == null || price.getBidPrice() <= 0) continue;
             rows.add(new Row(c.getItemId(), price.getBidPrice(), Math.max(0, price.getAskPrice())));
@@ -43,7 +44,8 @@ public record PriceTablePacket(List<Row> rows) {
     }
 
     public static void send(ServerPlayer player) {
-        FinancePacketHandler.CHANNEL.send(PacketDistributor.PLAYER.with(() -> player), new PriceTablePacket(snapshot()));
+        FinancePacketHandler.CHANNEL.send(
+                PacketDistributor.PLAYER.with(() -> player), new PriceTablePacket(snapshot()));
     }
 
     public static void broadcast(MinecraftServer server) {
@@ -70,8 +72,9 @@ public record PriceTablePacket(List<Row> rows) {
     }
 
     public static void handle(PriceTablePacket p, Supplier<NetworkEvent.Context> ctx) {
-        ctx.get().enqueueWork(() -> DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () ->
-                finance.client.ClientPriceCache.accept(p.rows)));
+        ctx.get()
+                .enqueueWork(() -> DistExecutor.unsafeRunWhenOn(
+                        Dist.CLIENT, () -> () -> finance.client.ClientPriceCache.accept(p.rows)));
         ctx.get().setPacketHandled(true);
     }
 }

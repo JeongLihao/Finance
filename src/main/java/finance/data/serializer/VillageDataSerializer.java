@@ -7,13 +7,12 @@ import finance.village.VillageManager;
 import finance.village.VillageProfession;
 import finance.village.VillageRecord;
 import finance.village.VillageStall;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.Tag;
-
 import java.util.EnumMap;
 import java.util.Map;
 import java.util.UUID;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.Tag;
 
 /**
  * 村庄经济持久化：VillageRecord（含好感度）与 VillageStall 的存取。
@@ -96,30 +95,40 @@ public final class VillageDataSerializer {
                 long mixSum = 0;
                 boolean mixOk = true;
                 for (VillageProfession p : VillageProfession.values()) {
-                    if (!mixTag.contains(p.name(), Tag.TAG_INT)) { mixOk = false; break; }
+                    if (!mixTag.contains(p.name(), Tag.TAG_INT)) {
+                        mixOk = false;
+                        break;
+                    }
                     int count = mixTag.getInt(p.name());
-                    if (count < 0 || count > VillageRecord.MAX_POPULATION) { mixOk = false; break; }
+                    if (count < 0 || count > VillageRecord.MAX_POPULATION) {
+                        mixOk = false;
+                        break;
+                    }
                     mix.put(p, count);
                     mixSum += count;
                 }
                 long lastMarketDay = t.getLong("LastMarketDay");
-                if (id == null || budget == null
-                        || population < VillageRecord.MIN_POPULATION || population > VillageRecord.MAX_POPULATION
-                        || !mixOk || mixSum != population || lastMarketDay < -1) {
+                if (id == null
+                        || budget == null
+                        || population < VillageRecord.MIN_POPULATION
+                        || population > VillageRecord.MAX_POPULATION
+                        || !mixOk
+                        || mixSum != population
+                        || lastMarketDay < -1) {
                     invalid = true;
                     continue;
                 }
                 // 行商撤退字段钳制到合法范围（防手改存档：负数→0；撤退日不超过上次结算日+30 天，
                 // 正常写入恒为结算日+7，超大值会导致行商"永久消失"）
                 long retreatUntil = t.getLong("CaravanRetreatUntilDay");
-                long maxRetreat = lastMarketDay < 0 ? 0
+                long maxRetreat = lastMarketDay < 0
+                        ? 0
                         : (lastMarketDay > Long.MAX_VALUE - MAX_RETREAT_FUTURE_DAYS
-                                ? Long.MAX_VALUE : lastMarketDay + MAX_RETREAT_FUTURE_DAYS);
+                                ? Long.MAX_VALUE
+                                : lastMarketDay + MAX_RETREAT_FUTURE_DAYS);
                 retreatUntil = Math.max(0, Math.min(retreatUntil, maxRetreat));
-                int zeroSaleDays = Math.max(0,
-                        Math.min(t.getInt("CaravanZeroSaleDays"), MAX_CARAVAN_ZERO_SALE_DAYS));
-                VillageRecord v = new VillageRecord(id, population, mix, budget,
-                        retreatUntil, zeroSaleDays);
+                int zeroSaleDays = Math.max(0, Math.min(t.getInt("CaravanZeroSaleDays"), MAX_CARAVAN_ZERO_SALE_DAYS));
+                VillageRecord v = new VillageRecord(id, population, mix, budget, retreatUntil, zeroSaleDays);
                 v.markMarketDay(lastMarketDay); // 恢复结算日（已校验 ≥ -1；幂等推进，精确还原）
                 ListTag favor = t.getList("Favor", Tag.TAG_COMPOUND);
                 if (favor.size() > MAX_FAVOR_ENTRIES) invalid = true;
@@ -127,8 +136,10 @@ public final class VillageDataSerializer {
                     CompoundTag ft = favor.getCompound(f);
                     UUID player = NbtDataSupport.readUuidOrNull(ft, "Player");
                     int points = ft.getInt("Points");
-                    if (player == null || points == 0
-                            || points < VillageRecord.MIN_FAVOR || points > VillageRecord.MAX_FAVOR) {
+                    if (player == null
+                            || points == 0
+                            || points < VillageRecord.MIN_FAVOR
+                            || points > VillageRecord.MAX_FAVOR) {
                         invalid = true;
                         continue;
                     }
@@ -149,10 +160,14 @@ public final class VillageDataSerializer {
                 String commodity = t.getString("Commodity");
                 long unitPrice = t.getLong("UnitPrice");
                 int stock = t.getInt("Stock");
-                if (id == null || settlement == null || owner == null
-                        || commodity.isBlank() || commodity.length() > 64
+                if (id == null
+                        || settlement == null
+                        || owner == null
+                        || commodity.isBlank()
+                        || commodity.length() > 64
                         || CommodityRegistry.getCommodity(commodity) == null
-                        || unitPrice < 1 || stock < 0) {
+                        || unitPrice < 1
+                        || stock < 0) {
                     invalid = true;
                     continue;
                 }
@@ -164,7 +179,11 @@ public final class VillageDataSerializer {
             }
         }
         if (villages.size() > VillageManager.MAX_VILLAGES || stalls.size() > VillageManager.MAX_STALLS) invalid = true;
-        if (invalid) ModuleHealthRegistry.restrict(ModuleHealthRegistry.Module.VILLAGE_ECONOMY,
-                ModuleRunState.PAUSED, "village economy save invariant failed", 0);
+        if (invalid)
+            ModuleHealthRegistry.restrict(
+                    ModuleHealthRegistry.Module.VILLAGE_ECONOMY,
+                    ModuleRunState.PAUSED,
+                    "village economy save invariant failed",
+                    0);
     }
 }

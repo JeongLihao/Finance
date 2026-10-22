@@ -6,6 +6,13 @@ import finance.gameplay.company.CompanyFacilityRecord;
 import finance.gameplay.company.CompanyFacilityStatus;
 import finance.settlement.SettlementManager;
 import finance.settlement.SettlementRecord;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
@@ -24,14 +31,6 @@ import net.minecraft.world.entity.projectile.FireworkRocketEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-
 /**
  * 让宏观经济“看得见”：只做粒子、音效、烟花和消息，不改任何经济数值。
  *
@@ -48,15 +47,20 @@ public final class MacroWorldFeedback {
     static final double NEAR = 24.0;
     /** 同一玩家在同一聚落听到抱怨的最短间隔（tick）。 */
     static final long COMPLAINT_COOLDOWN = 1_200;
+
     static final double FAMINE_LINE = 0.5;
     static final int HAPPY_SOL = 7_000;
     static final int MAX_QUEUE = 64;
 
     /** 公告的音效基调。 */
-    public enum Tone { GOOD, BAD, NEUTRAL }
+    public enum Tone {
+        GOOD,
+        BAD,
+        NEUTRAL
+    }
 
     /** 一条待发公告。 */
-    public record Announcement(String key, List<String> args, Tone tone) { }
+    public record Announcement(String key, List<String> args, Tone tone) {}
 
     private static final ArrayDeque<Announcement> QUEUE = new ArrayDeque<>();
     private static final LinkedHashMap<String, Long> COMPLAINTS = new LinkedHashMap<>();
@@ -64,7 +68,7 @@ public final class MacroWorldFeedback {
     /** 开服后的第一次日结只记基线、不发公告，避免把重启前就存在的饥荒再公告一遍。 */
     private static boolean primed;
 
-    private MacroWorldFeedback() { }
+    private MacroWorldFeedback() {}
 
     static boolean enabled() {
         return FinanceConfig.macroWorldFeedback() && MacroEconomyService.active();
@@ -78,8 +82,9 @@ public final class MacroWorldFeedback {
         QUEUE.addLast(new Announcement(key, List.of(args), tone == null ? Tone.NEUTRAL : tone));
     }
 
-    public static List<Announcement> queued() { return new ArrayList<>(QUEUE); }
-
+    public static List<Announcement> queued() {
+        return new ArrayList<>(QUEUE);
+    }
 
     /** 宏观日结末尾调用：比较昨天和今天，状态翻转时发公告。 */
     static void onDayClosed() {
@@ -93,8 +98,8 @@ public final class MacroWorldFeedback {
             boolean before = FAMINE.getOrDefault(econ.settlementId, false);
             SettlementRecord s = SettlementManager.get(econ.settlementId);
             String name = s == null ? "?" : s.displayName();
-            if (speak && famine && !before) news(90, name + "闹饥荒", String.format("%s的粮食只够 %d%%，村民在挨饿。谁能运来粮食？",
-                    name, Math.round(food * 100)), true);
+            if (speak && famine && !before)
+                news(90, name + "闹饥荒", String.format("%s的粮食只够 %d%%，村民在挨饿。谁能运来粮食？", name, Math.round(food * 100)), true);
             if (speak && !famine && before) news(40, name + "饥荒结束", name + "的粮仓重新满了。", false);
             FAMINE.put(econ.settlementId, famine);
         }
@@ -115,12 +120,13 @@ public final class MacroWorldFeedback {
     // ================================================================ 商队
 
     /** 商队到货（CaravanService 调用）：目的地放烟花、敲钟，主人收到盈亏消息。 */
-    public static void onCaravanArrived(MinecraftServer server, UUID owner, SettlementRecord dest, String commodityName,
-                                        int soldQty, long profit) {
+    public static void onCaravanArrived(
+            MinecraftServer server, UUID owner, SettlementRecord dest, String commodityName, int soldQty, long profit) {
         if (dest == null) return;
         // 个人新闻属于报社，不受视觉反馈开关影响
         if (NewsService.enabled()) {
-            NewsService.recordPersonal(owner, String.format("商队抵达%s，卖出%s ×%d，盈亏 %+d", dest.displayName(), commodityName, soldQty, profit));
+            NewsService.recordPersonal(
+                    owner, String.format("商队抵达%s，卖出%s ×%d，盈亏 %+d", dest.displayName(), commodityName, soldQty, profit));
         }
         if (server == null || !enabled()) return;
         ServerLevel level = level(server, dest.dimensionId());
@@ -130,20 +136,25 @@ public final class MacroWorldFeedback {
             CompoundTag fireworks = new CompoundTag();
             CompoundTag explosion = new CompoundTag();
             explosion.putByte("Type", (byte) 1);
-            explosion.putIntArray("Colors", new int[]{profit >= 0 ? 0xFFD700 : 0xC0392B});
+            explosion.putIntArray("Colors", new int[] {profit >= 0 ? 0xFFD700 : 0xC0392B});
             explosion.putBoolean("Flicker", true);
             ListTag explosions = new ListTag();
             explosions.add(explosion);
             fireworks.put("Explosions", explosions);
             fireworks.putByte("Flight", (byte) 1);
             rocket.getOrCreateTag().put("Fireworks", fireworks);
-            level.addFreshEntity(new FireworkRocketEntity(level, pos.getX() + .5, pos.getY() + 1.2, pos.getZ() + .5, rocket));
+            level.addFreshEntity(
+                    new FireworkRocketEntity(level, pos.getX() + .5, pos.getY() + 1.2, pos.getZ() + .5, rocket));
             level.playSound(null, pos, SoundEvents.BELL_BLOCK, SoundSource.BLOCKS, 1.0f, 1.0f);
         }
         ServerPlayer player = owner == null ? null : server.getPlayerList().getPlayer(owner);
         if (player != null) {
-            player.sendSystemMessage(Component.translatable("finance.macro.caravan_arrived", dest.displayName(), commodityName,
-                    String.valueOf(soldQty), (profit >= 0 ? "+" : "") + profit));
+            player.sendSystemMessage(Component.translatable(
+                    "finance.macro.caravan_arrived",
+                    dest.displayName(),
+                    commodityName,
+                    String.valueOf(soldQty),
+                    (profit >= 0 ? "+" : "") + profit));
         }
     }
 
@@ -164,11 +175,12 @@ public final class MacroWorldFeedback {
         while (!QUEUE.isEmpty()) {
             Announcement a = QUEUE.removeFirst();
             Component message = Component.translatable(a.key(), a.args().toArray());
-            SoundEvent sound = switch (a.tone()) {
-                case GOOD -> SoundEvents.BELL_BLOCK;
-                case BAD -> SoundEvents.BELL_RESONATE;
-                case NEUTRAL -> SoundEvents.VILLAGER_WORK_LIBRARIAN;
-            };
+            SoundEvent sound =
+                    switch (a.tone()) {
+                        case GOOD -> SoundEvents.BELL_BLOCK;
+                        case BAD -> SoundEvents.BELL_RESONATE;
+                        case NEUTRAL -> SoundEvents.VILLAGER_WORK_LIBRARIAN;
+                    };
             for (ServerPlayer p : server.getPlayerList().getPlayers()) {
                 p.sendSystemMessage(message);
                 p.playNotifySound(sound, SoundSource.MASTER, 0.8f, 1.0f);
@@ -193,7 +205,8 @@ public final class MacroWorldFeedback {
             Long last = COMPLAINTS.get(key);
             if (last != null && time - last < COMPLAINT_COOLDOWN) continue;
             COMPLAINTS.put(key, time);
-            while (COMPLAINTS.size() > 1_024) COMPLAINTS.remove(COMPLAINTS.keySet().iterator().next());
+            while (COMPLAINTS.size() > 1_024)
+                COMPLAINTS.remove(COMPLAINTS.keySet().iterator().next());
             p.displayClientMessage(Component.translatable(complaint, s.displayName()), true);
             if (mood == Mood.ANGRY) p.playNotifySound(SoundEvents.VILLAGER_NO, SoundSource.NEUTRAL, 0.6f, 1.0f);
             else if (mood == Mood.HAPPY) p.playNotifySound(SoundEvents.VILLAGER_YES, SoundSource.NEUTRAL, 0.5f, 1.0f);
@@ -208,7 +221,9 @@ public final class MacroWorldFeedback {
             // 运转表现：生产中的工厂，厂区里被计入的设备偶尔冒工作粒子
             if (facility.status() == CompanyFacilityStatus.ACTIVE) {
                 ServerLevel level = level(server, facility.dimensionId());
-                if (level != null && level.isLoaded(facility.blockPos()) && anyPlayerNear(level, facility.blockPos(), NEAR)) {
+                if (level != null
+                        && level.isLoaded(facility.blockPos())
+                        && anyPlayerNear(level, facility.blockPos(), NEAR)) {
                     finance.gameplay.company.factory.FactoryService.workParticles(level, facility);
                 }
             }
@@ -222,7 +237,11 @@ public final class MacroWorldFeedback {
 
     // ================================================================ 判定（纯函数，便于测试）
 
-    enum Mood { HAPPY, CALM, ANGRY }
+    enum Mood {
+        HAPPY,
+        CALM,
+        ANGRY
+    }
 
     static Mood mood(SettlementEconomy econ) {
         if (econ == null) return Mood.CALM;
@@ -252,7 +271,9 @@ public final class MacroWorldFeedback {
 
     private static ServerLevel level(MinecraftServer server, String dimensionId) {
         ResourceLocation id = ResourceLocation.tryParse(dimensionId);
-        return id == null ? null : server.getLevel(ResourceKey.create(net.minecraft.core.registries.Registries.DIMENSION, id));
+        return id == null
+                ? null
+                : server.getLevel(ResourceKey.create(net.minecraft.core.registries.Registries.DIMENSION, id));
     }
 
     private static boolean anyPlayerNear(ServerLevel level, BlockPos pos, double radius) {

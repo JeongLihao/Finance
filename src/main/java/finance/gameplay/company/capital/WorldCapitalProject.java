@@ -1,7 +1,5 @@
 package finance.gameplay.company.capital;
 
-import net.minecraft.world.item.Item;
-
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -9,6 +7,7 @@ import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import net.minecraft.world.item.Item;
 
 /**
  * A capital project that turns real financing into a physical facility upgrade.
@@ -44,15 +43,33 @@ public final class WorldCapitalProject {
     private String failureKey;
     private final LinkedHashSet<String> operationKeys = new LinkedHashSet<>();
 
-    public WorldCapitalProject(UUID projectId, UUID companyId, WorldCapitalProjectType type,
-                               UUID targetId, UUID creatorId, long createdDay, long deadlineDay,
-                               int targetLevel, CapitalFundingSource fundingSource, long budget,
-                               Map<Item, Integer> materials, boolean governanceRequired,
-                               CapitalProjectStatus status, long lastStatusChangeDay) {
-        if (projectId == null || companyId == null || type == null || targetId == null
-                || creatorId == null || fundingSource == null || materials == null
-                || materials.isEmpty() || status == null
-                || createdDay < 0 || deadlineDay <= createdDay || targetLevel < 1
+    public WorldCapitalProject(
+            UUID projectId,
+            UUID companyId,
+            WorldCapitalProjectType type,
+            UUID targetId,
+            UUID creatorId,
+            long createdDay,
+            long deadlineDay,
+            int targetLevel,
+            CapitalFundingSource fundingSource,
+            long budget,
+            Map<Item, Integer> materials,
+            boolean governanceRequired,
+            CapitalProjectStatus status,
+            long lastStatusChangeDay) {
+        if (projectId == null
+                || companyId == null
+                || type == null
+                || targetId == null
+                || creatorId == null
+                || fundingSource == null
+                || materials == null
+                || materials.isEmpty()
+                || status == null
+                || createdDay < 0
+                || deadlineDay <= createdDay
+                || targetLevel < 1
                 || budget <= 0) {
             throw new IllegalArgumentException("invalid capital project");
         }
@@ -78,36 +95,106 @@ public final class WorldCapitalProject {
         this.failureKey = "";
     }
 
-    public UUID projectId() { return projectId; }
-    public UUID companyId() { return companyId; }
-    public WorldCapitalProjectType type() { return type; }
-    public UUID targetId() { return targetId; }
-    public UUID creatorId() { return creatorId; }
-    public long createdDay() { return createdDay; }
-    public long deadlineDay() { return deadlineDay; }
-    public int targetLevel() { return targetLevel; }
-    public CapitalFundingSource fundingSource() { return fundingSource; }
-    public long budget() { return budget; }
-    public Map<Item, Integer> materials() { return Collections.unmodifiableMap(materials); }
-    public boolean governanceRequired() { return governanceRequired; }
-    public long fundedAmount() { return fundedAmount; }
-    public UUID proposalId() { return proposalId; }
-    public UUID loanId() { return loanId; }
-    public UUID bankId() { return bankId; }
-    public UUID bondId() { return bondId; }
-    public UUID financingProjectId() { return financingProjectId; }
-    public boolean fundingSettled() { return fundingSettled; }
-    public CapitalProjectStatus status() { return status; }
-    public long lastStatusChangeDay() { return lastStatusChangeDay; }
-    public String failureKey() { return failureKey; }
-    public Set<String> operationKeys() { return Set.copyOf(operationKeys); }
+    public UUID projectId() {
+        return projectId;
+    }
+
+    public UUID companyId() {
+        return companyId;
+    }
+
+    public WorldCapitalProjectType type() {
+        return type;
+    }
+
+    public UUID targetId() {
+        return targetId;
+    }
+
+    public UUID creatorId() {
+        return creatorId;
+    }
+
+    public long createdDay() {
+        return createdDay;
+    }
+
+    public long deadlineDay() {
+        return deadlineDay;
+    }
+
+    public int targetLevel() {
+        return targetLevel;
+    }
+
+    public CapitalFundingSource fundingSource() {
+        return fundingSource;
+    }
+
+    public long budget() {
+        return budget;
+    }
+
+    public Map<Item, Integer> materials() {
+        return Collections.unmodifiableMap(materials);
+    }
+
+    public boolean governanceRequired() {
+        return governanceRequired;
+    }
+
+    public long fundedAmount() {
+        return fundedAmount;
+    }
+
+    public UUID proposalId() {
+        return proposalId;
+    }
+
+    public UUID loanId() {
+        return loanId;
+    }
+
+    public UUID bankId() {
+        return bankId;
+    }
+
+    public UUID bondId() {
+        return bondId;
+    }
+
+    public UUID financingProjectId() {
+        return financingProjectId;
+    }
+
+    public boolean fundingSettled() {
+        return fundingSettled;
+    }
+
+    public CapitalProjectStatus status() {
+        return status;
+    }
+
+    public long lastStatusChangeDay() {
+        return lastStatusChangeDay;
+    }
+
+    public String failureKey() {
+        return failureKey;
+    }
+
+    public Set<String> operationKeys() {
+        return Set.copyOf(operationKeys);
+    }
 
     /** Deterministic escrow account for this project's budget. */
     public UUID escrowAccountId() {
         return UUID.nameUUIDFromBytes(("capital-project-escrow:" + projectId).getBytes(StandardCharsets.UTF_8));
     }
 
-    public boolean hasOperation(String key) { return key != null && operationKeys.contains(key); }
+    public boolean hasOperation(String key) {
+        return key != null && operationKeys.contains(key);
+    }
 
     public void recordOperation(String key) {
         if (key == null || key.isBlank() || key.length() > 96) return;
@@ -123,21 +210,52 @@ public final class WorldCapitalProject {
         this.lastStatusChangeDay = Math.max(0, day);
     }
 
-    void setFailureKey(String key) { this.failureKey = key == null ? "" : key.substring(0, Math.min(96, key.length())); }
-    void setFundedAmount(long amount) { this.fundedAmount = Math.max(0, amount); }
-    void setProposalId(UUID id) { this.proposalId = id; }
-    void setLoanId(UUID id) { this.loanId = id; }
-    void setBankId(UUID id) { this.bankId = id; }
-    void setBondId(UUID id) { this.bondId = id; }
-    void setFinancingProjectId(UUID id) { this.financingProjectId = id; }
-    void setFundingSettled(boolean value) { this.fundingSettled = value; }
+    void setFailureKey(String key) {
+        this.failureKey = key == null ? "" : key.substring(0, Math.min(96, key.length()));
+    }
 
-    public void restoreOperation(String key) { recordOperation(key); }
+    void setFundedAmount(long amount) {
+        this.fundedAmount = Math.max(0, amount);
+    }
+
+    void setProposalId(UUID id) {
+        this.proposalId = id;
+    }
+
+    void setLoanId(UUID id) {
+        this.loanId = id;
+    }
+
+    void setBankId(UUID id) {
+        this.bankId = id;
+    }
+
+    void setBondId(UUID id) {
+        this.bondId = id;
+    }
+
+    void setFinancingProjectId(UUID id) {
+        this.financingProjectId = id;
+    }
+
+    void setFundingSettled(boolean value) {
+        this.fundingSettled = value;
+    }
+
+    public void restoreOperation(String key) {
+        recordOperation(key);
+    }
 
     /** Serializer-only state restoration after constructor invariants have been checked. */
-    public void restoreReferences(long fundedAmount, UUID proposalId, UUID loanId, UUID bankId,
-                                  UUID bondId, UUID financingProjectId, boolean fundingSettled,
-                                  String failureKey) {
+    public void restoreReferences(
+            long fundedAmount,
+            UUID proposalId,
+            UUID loanId,
+            UUID bankId,
+            UUID bondId,
+            UUID financingProjectId,
+            boolean fundingSettled,
+            String failureKey) {
         this.fundedAmount = Math.max(0, fundedAmount);
         this.proposalId = proposalId;
         this.loanId = loanId;

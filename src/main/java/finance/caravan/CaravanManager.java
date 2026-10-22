@@ -16,7 +16,7 @@ public final class CaravanManager {
     private static final Map<UUID, CaravanRoute> ROUTES = new LinkedHashMap<>();
     private static final Map<UUID, CaravanShipment> SHIPMENTS = new LinkedHashMap<>();
 
-    private CaravanManager() { }
+    private CaravanManager() {}
 
     // ================================================================
     // 路线
@@ -51,8 +51,7 @@ public final class CaravanManager {
     public static int activeRouteCountForOwner(UUID ownerId) {
         int n = 0;
         for (CaravanRoute r : ROUTES.values()) {
-            if (ownerId != null && ownerId.equals(r.ownerId())
-                    && r.status() == CaravanRoute.Status.ACTIVE) {
+            if (ownerId != null && ownerId.equals(r.ownerId()) && r.status() == CaravanRoute.Status.ACTIVE) {
                 n++;
             }
         }

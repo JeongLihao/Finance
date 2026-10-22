@@ -67,8 +67,7 @@ public record CompanyOperatingSnapshot(
      * unknown price never inflates or silently zeroes the figure.
      */
     public long displayAssetValue() {
-        return saturate(BigInteger.valueOf(Math.max(0, cash))
-                .add(BigInteger.valueOf(Math.max(0, inventoryValue))));
+        return saturate(BigInteger.valueOf(Math.max(0, cash)).add(BigInteger.valueOf(Math.max(0, inventoryValue))));
     }
 
     static long saturate(BigInteger value) {

@@ -1,18 +1,193 @@
 package finance.bank;
 
-import finance.data.EconomySavedData;import finance.config.FinanceConfig;import java.math.BigInteger;import java.nio.charset.StandardCharsets;import java.util.*;
-public final class DepositInsuranceService {public static final long PER_CUSTOMER_LIMIT=100_000,INITIAL_FUND=2_000_000;private static long fund=INITIAL_FUND,lastPremiumDay=-1;private static final Set<UUID>RESOLVED=new HashSet<>();private static final org.slf4j.Logger LOGGER=org.slf4j.LoggerFactory.getLogger(DepositInsuranceService.class);private DepositInsuranceService(){}
-    public static synchronized void processDay(long day){if(day<=lastPremiumDay)return;for(CommercialBank b:BankingManager.banks().values()){if(!b.acceptsNewBusiness())continue;long deposits=safeAdd(b.ledger().balance(BankLedgerAccount.LIABILITY_DEMAND_DEPOSIT),b.ledger().balance(BankLedgerAccount.LIABILITY_TIME_DEPOSIT));deposits=Math.max(0,deposits-BankRunService.npcPoolDeposits(b.id()));long premium=BigInteger.valueOf(deposits).multiply(BigInteger.valueOf(FinanceConfig.bankInsuranceFeeBps())).divide(BigInteger.valueOf(10_000)).longValue();if(premium>0&&b.ledger().balance(BankLedgerAccount.ASSET_RESERVE)>=premium){UUID ref=UUID.nameUUIDFromBytes((b.id()+":insurance:"+day).getBytes(StandardCharsets.UTF_8));if(b.ledger().post(day,ref,BankLedgerAccount.EXPENSE_INTEREST,BankLedgerAccount.ASSET_RESERVE,premium,BankLedgerReason.INSURANCE_PREMIUM))fund=safeAdd(fund,premium);}}lastPremiumDay=day;EconomySavedData.markDirty();}
-    public static synchronized boolean resolve(UUID bankId,long day){CommercialBank source=BankingManager.bank(bankId);if(source==null||source.status()!=BankStatus.RESOLUTION||RESOLVED.contains(bankId))return false;CommercialBank bridge=bridgeBank();Map<UUID,Long>remaining=new LinkedHashMap<>();long customerLimit=FinanceConfig.bankInsuranceLimit();for(BankCustomerAccount a:BankingManager.accounts().values())if(a.bankId().equals(bankId)&&a.ownerType()==CustomerType.PLAYER&&a.status()==BankAccountStatus.ACTIVE)remaining.putIfAbsent(a.ownerId(),customerLimit);List<Move>moves=new ArrayList<>();long total=0;for(BankCustomerAccount a:BankingManager.accounts().values())if(a.bankId().equals(bankId)&&a.ownerType()==CustomerType.PLAYER&&a.status()==BankAccountStatus.ACTIVE){long insured=Math.min(a.balance(),remaining.getOrDefault(a.ownerId(),0L));if(insured>0){moves.add(new Move(a,insured));remaining.put(a.ownerId(),remaining.get(a.ownerId())-insured);total=safeAdd(total,insured);}}long sourceReserve=source.ledger().balance(BankLedgerAccount.ASSET_RESERVE),fromSource=Math.min(sourceReserve,total),fromFund=total-fromSource;if(fromFund>fund)return false;UUID ref=UUID.randomUUID();List<BankLedger.Draft>sourceDrafts=new ArrayList<>();long reserveLeft=fromSource;for(Move move:moves){BankLedgerAccount liability=move.account.type()==BankAccountType.TIME_DEPOSIT?BankLedgerAccount.LIABILITY_TIME_DEPOSIT:BankLedgerAccount.LIABILITY_DEMAND_DEPOSIT;long backed=Math.min(reserveLeft,move.amount);if(backed>0){sourceDrafts.add(new BankLedger.Draft(liability,BankLedgerAccount.ASSET_RESERVE,backed,BankLedgerReason.RESOLUTION_TRANSFER));reserveLeft-=backed;}long insured=move.amount-backed;if(insured>0)sourceDrafts.add(new BankLedger.Draft(liability,BankLedgerAccount.INCOME_FEE,insured,BankLedgerReason.RESOLUTION_TRANSFER));}List<BankLedger.Draft>bridgeDrafts=List.of(new BankLedger.Draft(BankLedgerAccount.ASSET_RESERVE,BankLedgerAccount.LIABILITY_DEMAND_DEPOSIT,total,BankLedgerReason.RESOLUTION_TRANSFER));if(total<=0){source.setStatus(BankStatus.FAILED);wipePlayerEquity(source,day);RESOLVED.add(bankId);BankLiquidationService.markTimeDepositsRedeemed(bankId);EconomySavedData.markDirty();return true;}if(!source.ledger().canPost(ref,sourceDrafts)||!bridge.ledger().canPost(ref,bridgeDrafts))return false;for(Move m:moves){BankCustomerAccount target=BankingManager.demandAccount(bridge.id(),m.account.ownerId(),CustomerType.PLAYER,day,true);if(target==null||!target.canCredit(m.amount))return false;}for(Move m:moves){m.account.debit(m.amount);BankingManager.demandAccount(bridge.id(),m.account.ownerId(),CustomerType.PLAYER,day,true).credit(m.amount);}source.ledger().postBatch(day,ref,sourceDrafts);bridge.ledger().postBatch(day,ref,bridgeDrafts);fund-=fromFund;source.setStatus(BankStatus.FAILED);wipePlayerEquity(source,day);RESOLVED.add(bankId);BankLiquidationService.markTimeDepositsRedeemed(bankId);EconomySavedData.markDirty();return true;}
+import finance.config.FinanceConfig;
+import finance.data.EconomySavedData;
+import java.math.BigInteger;
+import java.nio.charset.StandardCharsets;
+import java.util.*;
+
+public final class DepositInsuranceService {
+    public static final long PER_CUSTOMER_LIMIT = 100_000, INITIAL_FUND = 2_000_000;
+    private static long fund = INITIAL_FUND, lastPremiumDay = -1;
+    private static final Set<UUID> RESOLVED = new HashSet<>();
+    private static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger(DepositInsuranceService.class);
+
+    private DepositInsuranceService() {}
+
+    public static synchronized void processDay(long day) {
+        if (day <= lastPremiumDay) return;
+        for (CommercialBank b : BankingManager.banks().values()) {
+            if (!b.acceptsNewBusiness()) continue;
+            long deposits = safeAdd(
+                    b.ledger().balance(BankLedgerAccount.LIABILITY_DEMAND_DEPOSIT),
+                    b.ledger().balance(BankLedgerAccount.LIABILITY_TIME_DEPOSIT));
+            deposits = Math.max(0, deposits - BankRunService.npcPoolDeposits(b.id()));
+            long premium = BigInteger.valueOf(deposits)
+                    .multiply(BigInteger.valueOf(FinanceConfig.bankInsuranceFeeBps()))
+                    .divide(BigInteger.valueOf(10_000))
+                    .longValue();
+            if (premium > 0 && b.ledger().balance(BankLedgerAccount.ASSET_RESERVE) >= premium) {
+                UUID ref = UUID.nameUUIDFromBytes((b.id() + ":insurance:" + day).getBytes(StandardCharsets.UTF_8));
+                if (b.ledger()
+                        .post(
+                                day,
+                                ref,
+                                BankLedgerAccount.EXPENSE_INTEREST,
+                                BankLedgerAccount.ASSET_RESERVE,
+                                premium,
+                                BankLedgerReason.INSURANCE_PREMIUM)) fund = safeAdd(fund, premium);
+            }
+        }
+        lastPremiumDay = day;
+        EconomySavedData.markDirty();
+    }
+
+    public static synchronized boolean resolve(UUID bankId, long day) {
+        CommercialBank source = BankingManager.bank(bankId);
+        if (source == null || source.status() != BankStatus.RESOLUTION || RESOLVED.contains(bankId)) return false;
+        CommercialBank bridge = bridgeBank();
+        Map<UUID, Long> remaining = new LinkedHashMap<>();
+        long customerLimit = FinanceConfig.bankInsuranceLimit();
+        for (BankCustomerAccount a : BankingManager.accounts().values())
+            if (a.bankId().equals(bankId)
+                    && a.ownerType() == CustomerType.PLAYER
+                    && a.status() == BankAccountStatus.ACTIVE) remaining.putIfAbsent(a.ownerId(), customerLimit);
+        List<Move> moves = new ArrayList<>();
+        long total = 0;
+        for (BankCustomerAccount a : BankingManager.accounts().values())
+            if (a.bankId().equals(bankId)
+                    && a.ownerType() == CustomerType.PLAYER
+                    && a.status() == BankAccountStatus.ACTIVE) {
+                long insured = Math.min(a.balance(), remaining.getOrDefault(a.ownerId(), 0L));
+                if (insured > 0) {
+                    moves.add(new Move(a, insured));
+                    remaining.put(a.ownerId(), remaining.get(a.ownerId()) - insured);
+                    total = safeAdd(total, insured);
+                }
+            }
+        long sourceReserve = source.ledger().balance(BankLedgerAccount.ASSET_RESERVE),
+                fromSource = Math.min(sourceReserve, total),
+                fromFund = total - fromSource;
+        if (fromFund > fund) return false;
+        UUID ref = UUID.randomUUID();
+        List<BankLedger.Draft> sourceDrafts = new ArrayList<>();
+        long reserveLeft = fromSource;
+        for (Move move : moves) {
+            BankLedgerAccount liability = move.account.type() == BankAccountType.TIME_DEPOSIT
+                    ? BankLedgerAccount.LIABILITY_TIME_DEPOSIT
+                    : BankLedgerAccount.LIABILITY_DEMAND_DEPOSIT;
+            long backed = Math.min(reserveLeft, move.amount);
+            if (backed > 0) {
+                sourceDrafts.add(new BankLedger.Draft(
+                        liability, BankLedgerAccount.ASSET_RESERVE, backed, BankLedgerReason.RESOLUTION_TRANSFER));
+                reserveLeft -= backed;
+            }
+            long insured = move.amount - backed;
+            if (insured > 0)
+                sourceDrafts.add(new BankLedger.Draft(
+                        liability, BankLedgerAccount.INCOME_FEE, insured, BankLedgerReason.RESOLUTION_TRANSFER));
+        }
+        List<BankLedger.Draft> bridgeDrafts = List.of(new BankLedger.Draft(
+                BankLedgerAccount.ASSET_RESERVE,
+                BankLedgerAccount.LIABILITY_DEMAND_DEPOSIT,
+                total,
+                BankLedgerReason.RESOLUTION_TRANSFER));
+        if (total <= 0) {
+            source.setStatus(BankStatus.FAILED);
+            wipePlayerEquity(source, day);
+            RESOLVED.add(bankId);
+            BankLiquidationService.markTimeDepositsRedeemed(bankId);
+            EconomySavedData.markDirty();
+            return true;
+        }
+        if (!source.ledger().canPost(ref, sourceDrafts) || !bridge.ledger().canPost(ref, bridgeDrafts)) return false;
+        for (Move m : moves) {
+            BankCustomerAccount target =
+                    BankingManager.demandAccount(bridge.id(), m.account.ownerId(), CustomerType.PLAYER, day, true);
+            if (target == null || !target.canCredit(m.amount)) return false;
+        }
+        for (Move m : moves) {
+            m.account.debit(m.amount);
+            BankingManager.demandAccount(bridge.id(), m.account.ownerId(), CustomerType.PLAYER, day, true)
+                    .credit(m.amount);
+        }
+        source.ledger().postBatch(day, ref, sourceDrafts);
+        bridge.ledger().postBatch(day, ref, bridgeDrafts);
+        fund -= fromFund;
+        source.setStatus(BankStatus.FAILED);
+        wipePlayerEquity(source, day);
+        RESOLVED.add(bankId);
+        BankLiquidationService.markTimeDepositsRedeemed(bankId);
+        EconomySavedData.markDirty();
+        return true;
+    }
     /** 玩家银行破产：核销所有者剩余股权（血本无归）。NPC 银行保持原行为。
      *  这是亏损核销不是减资，故不调 {@link CommercialBank#adjustPaidInCapital}（P1-17）。 */
-    private static void wipePlayerEquity(CommercialBank source,long day){
-        if(source==null||PlayerBankService.ownerOf(source.id())==null||day<0)return;
-        long wipe=Math.max(0,Math.min(source.ledger().balanceSheet().equity(),source.ledger().balance(BankLedgerAccount.ASSET_RESERVE)));
-        if(wipe<=0)return;
-        if(!source.ledger().post(day,UUID.randomUUID(),BankLedgerAccount.EXPENSE_CREDIT_LOSS,BankLedgerAccount.ASSET_RESERVE,wipe,BankLedgerReason.EQUITY_WIPE)){
-            LOGGER.error("[Finance] wipePlayerEquity 失败：银行 {} 股权 {} 未能清零",source.id(),wipe);
-        }}
-    static CommercialBank bridgeBank(){UUID id=UUID.nameUUIDFromBytes("finance-bridge-bank".getBytes(StandardCharsets.UTF_8));CommercialBank b=BankingManager.bank(id);if(b!=null)return b;b=new CommercialBank(id,"BRIDGE","System Bridge Bank",BankStatus.ACTIVE,1,BankPolicy.standard());b.ledger().post(0,UUID.nameUUIDFromBytes("finance-bridge-capital".getBytes(StandardCharsets.UTF_8)),BankLedgerAccount.ASSET_RESERVE,BankLedgerAccount.EQUITY_PAID_IN,1,BankLedgerReason.INITIAL_CAPITAL);BankingManager.putBankDirect(b);return b;}
-    public static long fund(){return fund;}public static long lastPremiumDay(){return lastPremiumDay;}public static Set<UUID>resolvedBanks(){return Set.copyOf(RESOLVED);}public static void restore(long f,long day,Collection<UUID>ids){fund=Math.max(0,f);lastPremiumDay=Math.max(-1,day);RESOLVED.clear();if(ids!=null)RESOLVED.addAll(ids);}public static void clearDirect(){fund=INITIAL_FUND;lastPremiumDay=-1;RESOLVED.clear();}private static long safeAdd(long a,long b){return a>Long.MAX_VALUE-b?Long.MAX_VALUE:a+b;}private record Move(BankCustomerAccount account,long amount){}
+    private static void wipePlayerEquity(CommercialBank source, long day) {
+        if (source == null || PlayerBankService.ownerOf(source.id()) == null || day < 0) return;
+        long wipe = Math.max(
+                0,
+                Math.min(
+                        source.ledger().balanceSheet().equity(),
+                        source.ledger().balance(BankLedgerAccount.ASSET_RESERVE)));
+        if (wipe <= 0) return;
+        if (!source.ledger()
+                .post(
+                        day,
+                        UUID.randomUUID(),
+                        BankLedgerAccount.EXPENSE_CREDIT_LOSS,
+                        BankLedgerAccount.ASSET_RESERVE,
+                        wipe,
+                        BankLedgerReason.EQUITY_WIPE)) {
+            LOGGER.error("[Finance] wipePlayerEquity 失败：银行 {} 股权 {} 未能清零", source.id(), wipe);
+        }
+    }
+
+    static CommercialBank bridgeBank() {
+        UUID id = UUID.nameUUIDFromBytes("finance-bridge-bank".getBytes(StandardCharsets.UTF_8));
+        CommercialBank b = BankingManager.bank(id);
+        if (b != null) return b;
+        b = new CommercialBank(id, "BRIDGE", "System Bridge Bank", BankStatus.ACTIVE, 1, BankPolicy.standard());
+        b.ledger()
+                .post(
+                        0,
+                        UUID.nameUUIDFromBytes("finance-bridge-capital".getBytes(StandardCharsets.UTF_8)),
+                        BankLedgerAccount.ASSET_RESERVE,
+                        BankLedgerAccount.EQUITY_PAID_IN,
+                        1,
+                        BankLedgerReason.INITIAL_CAPITAL);
+        BankingManager.putBankDirect(b);
+        return b;
+    }
+
+    public static long fund() {
+        return fund;
+    }
+
+    public static long lastPremiumDay() {
+        return lastPremiumDay;
+    }
+
+    public static Set<UUID> resolvedBanks() {
+        return Set.copyOf(RESOLVED);
+    }
+
+    public static void restore(long f, long day, Collection<UUID> ids) {
+        fund = Math.max(0, f);
+        lastPremiumDay = Math.max(-1, day);
+        RESOLVED.clear();
+        if (ids != null) RESOLVED.addAll(ids);
+    }
+
+    public static void clearDirect() {
+        fund = INITIAL_FUND;
+        lastPremiumDay = -1;
+        RESOLVED.clear();
+    }
+
+    private static long safeAdd(long a, long b) {
+        return a > Long.MAX_VALUE - b ? Long.MAX_VALUE : a + b;
+    }
+
+    private record Move(BankCustomerAccount account, long amount) {}
 }

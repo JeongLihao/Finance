@@ -1,5 +1,7 @@
 package finance.data;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import finance.account.AccountManager;
 import finance.caravan.CaravanManager;
 import finance.caravan.CaravanRoute;
@@ -13,14 +15,11 @@ import finance.contract.*;
 import finance.event.EventManager;
 import finance.gameplay.company.*;
 import finance.warehouse.*;
+import java.util.UUID;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
-
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 class WorldLifecycleIsolationTest {
     private static final String COMMODITY = "phase5_lifecycle_iron";
@@ -40,22 +39,51 @@ class WorldLifecycleIsolationTest {
         UUID contractId = UUID.randomUUID();
         UUID escrowId = UUID.randomUUID();
 
-        CommodityRegistry.register(new Commodity(COMMODITY, "minecraft:iron_ingot",
-                "Lifecycle Iron", CommodityCategory.RAW_MATERIALS, 100));
+        CommodityRegistry.register(new Commodity(
+                COMMODITY, "minecraft:iron_ingot", "Lifecycle Iron", CommodityCategory.RAW_MATERIALS, 100));
         Company company = new Company(companyId, "World A Company", CompanyType.RAW_MATERIALS, 10_000, owner);
         CompanyManager.registerDirect(company);
         CompanyGameplayProfile profile = CompanyGameplayManager.createForNewCompany(company);
-        WarehouseRecord warehouse = new WarehouseRecord(warehouseId, "minecraft:overworld", new BlockPos(4, 64, 8),
-                owner, companyId, 4_096, WarehouseStatus.ACTIVE, 2, 2, WarehousePermissionMode.OWNER_ONLY);
+        WarehouseRecord warehouse = new WarehouseRecord(
+                warehouseId,
+                "minecraft:overworld",
+                new BlockPos(4, 64, 8),
+                owner,
+                companyId,
+                4_096,
+                WarehouseStatus.ACTIVE,
+                2,
+                2,
+                WarehousePermissionMode.OWNER_ONLY);
         assertTrue(WarehouseManager.restore(warehouse));
         profile.bindWarehouse(warehouseId);
-        assertTrue(CompanyFacilityManager.restore(new CompanyFacilityRecord(facilityId, companyId,
-                "minecraft:overworld", new BlockPos(5, 64, 8), CompanyFacilityType.FACTORY_CONTROLLER,
-                1, CompanyFacilityStatus.ACTIVE, 2, warehouseId)));
+        assertTrue(CompanyFacilityManager.restore(new CompanyFacilityRecord(
+                facilityId,
+                companyId,
+                "minecraft:overworld",
+                new BlockPos(5, 64, 8),
+                CompanyFacilityType.FACTORY_CONTROLLER,
+                1,
+                CompanyFacilityStatus.ACTIVE,
+                2,
+                warehouseId)));
         assertTrue(AccountManager.getOrCreateSystemAccount(escrowId).deposit(500));
-        assertTrue(ContractManager.restore(new FinanceContract(contractId, ContractType.PROCUREMENT,
-                ContractIssuerType.NPC_MARKET, UUID.randomUUID(), COMMODITY, 5, 0, 500,
-                escrowId, null, 2, 7, null, ContractStatus.OPEN, "")));
+        assertTrue(ContractManager.restore(new FinanceContract(
+                contractId,
+                ContractType.PROCUREMENT,
+                ContractIssuerType.NPC_MARKET,
+                UUID.randomUUID(),
+                COMMODITY,
+                5,
+                0,
+                500,
+                escrowId,
+                null,
+                2,
+                7,
+                null,
+                ContractStatus.OPEN,
+                "")));
 
         CompoundTag worldA = new EconomySavedData().save(new CompoundTag());
 
@@ -84,8 +112,16 @@ class WorldLifecycleIsolationTest {
 
     @Test
     void worldSwitchClearsCaravansAndEventTimers() {
-        CaravanManager.putRouteDirect(new CaravanRoute(UUID.randomUUID(), UUID.randomUUID(),
-                UUID.randomUUID(), UUID.randomUUID(), "wheat", 8, CaravanRoute.MIN_GUARD_LEVEL, false, 1));
+        CaravanManager.putRouteDirect(new CaravanRoute(
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                "wheat",
+                8,
+                CaravanRoute.MIN_GUARD_LEVEL,
+                false,
+                1));
         EventManager.setTimers(5, 30, 200);
         assertFalse(CaravanManager.routes().isEmpty());
 

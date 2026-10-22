@@ -1,2 +1,7 @@
 package finance.bank;
-public enum CustomerType { PLAYER, COMPANY, NPC }
+
+public enum CustomerType {
+    PLAYER,
+    COMPANY,
+    NPC
+}

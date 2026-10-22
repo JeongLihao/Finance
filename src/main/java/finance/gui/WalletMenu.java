@@ -1,14 +1,13 @@
 package finance.gui;
 
 import finance.registry.ModMenus;
+import java.util.ArrayList;
+import java.util.List;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.item.ItemStack;
-
-import java.util.ArrayList;
-import java.util.List;
 
 public final class WalletMenu extends AbstractContainerMenu {
     public static final int MAX_TRANSACTIONS = 10;
@@ -24,22 +23,40 @@ public final class WalletMenu extends AbstractContainerMenu {
     private final List<WalletTransaction> transactions;
 
     public WalletMenu(int containerId, Inventory inventory, FriendlyByteBuf buffer) {
-        this(containerId, buffer.readLong(), buffer.readLong(), buffer.readLong(), buffer.readLong(), readTransactions(buffer));
+        this(
+                containerId,
+                buffer.readLong(),
+                buffer.readLong(),
+                buffer.readLong(),
+                buffer.readLong(),
+                readTransactions(buffer));
     }
 
-    public WalletMenu(int containerId, long balance, long frozenBalance, long totalAsset,
-                      long mcDay, List<WalletTransaction> transactions) {
+    public WalletMenu(
+            int containerId,
+            long balance,
+            long frozenBalance,
+            long totalAsset,
+            long mcDay,
+            List<WalletTransaction> transactions) {
         super(ModMenus.WALLET.get(), containerId);
         this.balance = Math.max(0, balance);
         this.frozenBalance = Math.max(0, frozenBalance);
         this.totalAsset = Math.max(0, totalAsset);
         this.mcDay = Math.max(0, mcDay);
-        this.transactions = List.copyOf(transactions == null ? List.of()
-                : transactions.subList(0, Math.min(MAX_TRANSACTIONS, transactions.size())));
+        this.transactions = List.copyOf(
+                transactions == null
+                        ? List.of()
+                        : transactions.subList(0, Math.min(MAX_TRANSACTIONS, transactions.size())));
     }
 
-    public static void write(FriendlyByteBuf buffer, long balance, long frozenBalance,
-                             long totalAsset, long mcDay, List<WalletTransaction> transactions) {
+    public static void write(
+            FriendlyByteBuf buffer,
+            long balance,
+            long frozenBalance,
+            long totalAsset,
+            long mcDay,
+            List<WalletTransaction> transactions) {
         buffer.writeLong(Math.max(0, balance));
         buffer.writeLong(Math.max(0, frozenBalance));
         buffer.writeLong(Math.max(0, totalAsset));
@@ -64,8 +81,12 @@ public final class WalletMenu extends AbstractContainerMenu {
         }
         List<WalletTransaction> rows = new ArrayList<>(size);
         for (int i = 0; i < size; i++) {
-            rows.add(new WalletTransaction(buffer.readLong(), buffer.readUtf(MAX_TYPE_LENGTH),
-                    buffer.readLong(), buffer.readLong(), buffer.readUtf(MAX_OBJECT_LENGTH)));
+            rows.add(new WalletTransaction(
+                    buffer.readLong(),
+                    buffer.readUtf(MAX_TYPE_LENGTH),
+                    buffer.readLong(),
+                    buffer.readLong(),
+                    buffer.readUtf(MAX_OBJECT_LENGTH)));
         }
         return rows;
     }
@@ -75,11 +96,25 @@ public final class WalletMenu extends AbstractContainerMenu {
         return safe.length() <= max ? safe : safe.substring(0, max);
     }
 
-    public long balance() { return balance; }
-    public long frozenBalance() { return frozenBalance; }
-    public long totalAsset() { return totalAsset; }
-    public long mcDay() { return mcDay; }
-    public List<WalletTransaction> transactions() { return transactions; }
+    public long balance() {
+        return balance;
+    }
+
+    public long frozenBalance() {
+        return frozenBalance;
+    }
+
+    public long totalAsset() {
+        return totalAsset;
+    }
+
+    public long mcDay() {
+        return mcDay;
+    }
+
+    public List<WalletTransaction> transactions() {
+        return transactions;
+    }
 
     @Override
     public boolean stillValid(Player player) {

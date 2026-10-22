@@ -1,41 +1,18 @@
 package finance.client;
 
-import com.mojang.blaze3d.systems.RenderSystem;
+import finance.chart.MarketInstrumentType;
 import finance.commodity.Commodity;
 import finance.commodity.CommodityCategory;
 import finance.commodity.CommodityRegistry;
-import finance.company.CompanyManagementAction;
-import finance.company.CompanyType;
-import finance.company.CompanyStrategy;
-import finance.alert.PriceAlertDirection;
-import finance.alert.PriceAlertType;
-import finance.company.CompanyProposalType;
-import finance.stock.ConditionalStockOrderType;
 import finance.gui.FinanceMenu;
-import finance.gameplay.FinanceScreenMode;
 import finance.market.NpcMarketMaker;
 import finance.network.*;
 import finance.util.FormatUtil;
-import finance.chart.MarketInstrumentType;
-import finance.chart.MarketSummary;
-import finance.client.chart.CandlestickChart;
-import finance.client.chart.CandlestickClientCache;
-import finance.client.chart.TechnicalIndicatorChart;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.EditBox;
-import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.entity.player.Inventory;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-
 import java.util.*;
+import net.minecraft.client.gui.GuiGraphics;
 
 /** 行情 / 交易 / 商品下拉（含行情缓存与下拉状态）：从 FinanceScreen 抽取的页签行为类。
  * 通过 screen 反向引用共享界面状态；未来做跨模组页签注册表时，此类即天然的注册单元。 */
-
 public final class MarketTabs {
     private final FinanceScreen screen;
 
@@ -52,8 +29,13 @@ public final class MarketTabs {
         screen.refreshSelectedRow();
 
         if (screen.commodityChartVisible) {
-            screen.stockTabs.renderCandlestickView(g, MarketInstrumentType.COMMODITY, screen.selectedCommodity,
-                    FinanceFormat.commodityDisplayName(screen.selectedCommodity), mouseX, mouseY);
+            screen.stockTabs.renderCandlestickView(
+                    g,
+                    MarketInstrumentType.COMMODITY,
+                    screen.selectedCommodity,
+                    FinanceFormat.commodityDisplayName(screen.selectedCommodity),
+                    mouseX,
+                    mouseY);
             return;
         }
 
@@ -80,8 +62,14 @@ public final class MarketTabs {
         FinanceGui.drawHeader(screen.font(), g, "库存", 326, headerY);
         if (size > visibleRows) {
             // 商品多于可见行：右上角提示可滚动
-            FinanceGui.drawClippedString(screen.font(), g, (scroll > 0 ? "▲" : "") + (scroll + visibleRows < size ? "▼" : "")
-                    + "滚轮", 352, headerY, 40, FinanceGui.COL_TEXT_DIM);
+            FinanceGui.drawClippedString(
+                    screen.font(),
+                    g,
+                    (scroll > 0 ? "▲" : "") + (scroll + visibleRows < size ? "▼" : "") + "滚轮",
+                    352,
+                    headerY,
+                    40,
+                    FinanceGui.COL_TEXT_DIM);
         }
 
         g.fill(tableX + 1, headerY + 11, tableX + tableW - 1, headerY + 12, FinanceGui.COL_PANEL_BORDER);
@@ -96,7 +84,9 @@ public final class MarketTabs {
             int y = rowY + i * FinanceGui.ROW_HEIGHT;
             boolean selected = row.commodityId().equals(screen.selectedCommodity);
 
-            int bg = selected ? FinanceGui.COL_ROW_SELECT : ((i % 2 == 0) ? FinanceGui.COL_ROW_EVEN : FinanceGui.COL_ROW_ODD);
+            int bg = selected
+                    ? FinanceGui.COL_ROW_SELECT
+                    : ((i % 2 == 0) ? FinanceGui.COL_ROW_EVEN : FinanceGui.COL_ROW_ODD);
             g.fill(tableX + 1, y, tableX + tableW - 1, y + FinanceGui.ROW_HEIGHT, bg);
             if (selected) {
                 g.fill(tableX + 1, y, tableX + 3, y + FinanceGui.ROW_HEIGHT, FinanceGui.COL_ACCENT);
@@ -106,13 +96,32 @@ public final class MarketTabs {
             Commodity commodity = CommodityRegistry.getCommodity(row.commodityId());
             FinanceGui.renderItemIcon(g, commodity, 14, y + 4);
 
-            FinanceGui.drawClippedString(screen.font(), g, FinanceFormat.commodityDisplayName(row.commodityId()), 30, y + 5, 40, selected ? FinanceGui.COL_ACCENT : FinanceGui.COL_TEXT);
-            FinanceGui.drawClippedString(screen.font(), g, Long.toString(row.midPrice()), 74, y + 5, 46, FinanceGui.COL_TEXT);
-            FinanceGui.drawClippedString(screen.font(), g, Long.toString(row.bidPrice()), 126, y + 5, 46, FinanceGui.COL_GOOD);
-            FinanceGui.drawClippedString(screen.font(), g, Long.toString(row.askPrice()), 178, y + 5, 46, FinanceGui.COL_WARN);
-            FinanceGui.drawClippedString(screen.font(), g, FormatUtil.formatPercent(row.dayChange()), 230, y + 5, 46, FinanceGui.changeColor(row.dayChange()));
-            FinanceGui.drawClippedString(screen.font(), g, Integer.toString(row.dayVolume()), 282, y + 5, 38, FinanceGui.COL_TEXT_DIM);
-            FinanceGui.drawClippedString(screen.font(), g, Integer.toString(row.marketStock()), 326, y + 5, 62, FinanceGui.COL_TEXT_DIM);
+            FinanceGui.drawClippedString(
+                    screen.font(),
+                    g,
+                    FinanceFormat.commodityDisplayName(row.commodityId()),
+                    30,
+                    y + 5,
+                    40,
+                    selected ? FinanceGui.COL_ACCENT : FinanceGui.COL_TEXT);
+            FinanceGui.drawClippedString(
+                    screen.font(), g, Long.toString(row.midPrice()), 74, y + 5, 46, FinanceGui.COL_TEXT);
+            FinanceGui.drawClippedString(
+                    screen.font(), g, Long.toString(row.bidPrice()), 126, y + 5, 46, FinanceGui.COL_GOOD);
+            FinanceGui.drawClippedString(
+                    screen.font(), g, Long.toString(row.askPrice()), 178, y + 5, 46, FinanceGui.COL_WARN);
+            FinanceGui.drawClippedString(
+                    screen.font(),
+                    g,
+                    FormatUtil.formatPercent(row.dayChange()),
+                    230,
+                    y + 5,
+                    46,
+                    FinanceGui.changeColor(row.dayChange()));
+            FinanceGui.drawClippedString(
+                    screen.font(), g, Integer.toString(row.dayVolume()), 282, y + 5, 38, FinanceGui.COL_TEXT_DIM);
+            FinanceGui.drawClippedString(
+                    screen.font(), g, Integer.toString(row.marketStock()), 326, y + 5, 62, FinanceGui.COL_TEXT_DIM);
         }
 
         // ---- 国际交易区域 ----
@@ -126,16 +135,57 @@ public final class MarketTabs {
 
         // 信息行
         if (screen.cachedSelectedRow != null) {
-            FinanceGui.drawClippedString(screen.font(), g, "市场收购: " + screen.cachedSelectedRow.bidPrice(), 10, tradeY + 18, 120, FinanceGui.COL_GOOD);
-            FinanceGui.drawClippedString(screen.font(), g, "市场出售: " + screen.cachedSelectedRow.askPrice(), 140, tradeY + 18, 120, FinanceGui.COL_WARN);
-            FinanceGui.drawTrendGraph(g, screen.cachedSelectedRow.priceHistory(), 260, tradeY + 1, 108, 14, FinanceGui.changeColor(screen.cachedSelectedRow.dayChange()));
-            FinanceGui.drawClippedString(screen.font(), g, "高 " + screen.cachedSelectedRow.dayHigh() + " 低 " + screen.cachedSelectedRow.dayLow(),
-                    10, tradeY + 44, 150, FinanceGui.COL_TEXT_DIM);
-            FinanceGui.drawClippedString(screen.font(), g, "量 " + screen.cachedSelectedRow.dayVolume(), 170, tradeY + 44, 70, FinanceGui.COL_TEXT_DIM);
+            FinanceGui.drawClippedString(
+                    screen.font(),
+                    g,
+                    "市场收购: " + screen.cachedSelectedRow.bidPrice(),
+                    10,
+                    tradeY + 18,
+                    120,
+                    FinanceGui.COL_GOOD);
+            FinanceGui.drawClippedString(
+                    screen.font(),
+                    g,
+                    "市场出售: " + screen.cachedSelectedRow.askPrice(),
+                    140,
+                    tradeY + 18,
+                    120,
+                    FinanceGui.COL_WARN);
+            FinanceGui.drawTrendGraph(
+                    g,
+                    screen.cachedSelectedRow.priceHistory(),
+                    260,
+                    tradeY + 1,
+                    108,
+                    14,
+                    FinanceGui.changeColor(screen.cachedSelectedRow.dayChange()));
+            FinanceGui.drawClippedString(
+                    screen.font(),
+                    g,
+                    "高 " + screen.cachedSelectedRow.dayHigh() + " 低 " + screen.cachedSelectedRow.dayLow(),
+                    10,
+                    tradeY + 44,
+                    150,
+                    FinanceGui.COL_TEXT_DIM);
+            FinanceGui.drawClippedString(
+                    screen.font(),
+                    g,
+                    "量 " + screen.cachedSelectedRow.dayVolume(),
+                    170,
+                    tradeY + 44,
+                    70,
+                    FinanceGui.COL_TEXT_DIM);
         }
-        FinanceGui.drawClippedString(screen.font(), g, "余额: " + screen.menu().getBalance(), 260, tradeY + 18, 110, FinanceGui.COL_TEXT);
-        FinanceGui.drawClippedString(screen.font(), g, "仓储 " + screen.menu().getWarehouseUsed() + "/" + screen.menu().getWarehouseCapacity()
-                + (screen.menu().isWarehouseOverCapacity() ? " 超量" : ""), 260, tradeY + 44, 120,
+        FinanceGui.drawClippedString(
+                screen.font(), g, "余额: " + screen.menu().getBalance(), 260, tradeY + 18, 110, FinanceGui.COL_TEXT);
+        FinanceGui.drawClippedString(
+                screen.font(),
+                g,
+                "仓储 " + screen.menu().getWarehouseUsed() + "/" + screen.menu().getWarehouseCapacity()
+                        + (screen.menu().isWarehouseOverCapacity() ? " 超量" : ""),
+                260,
+                tradeY + 44,
+                120,
                 screen.menu().isWarehouseOverCapacity() ? FinanceGui.COL_BAD : FinanceGui.COL_TEXT_DIM);
         int owned = screen.menu().getPlayerInventory().getOrDefault(screen.selectedCommodity, 0);
         FinanceGui.drawClippedString(screen.font(), g, "持有: " + owned, 10, tradeY + 32, 130, FinanceGui.COL_TEXT_DIM);
@@ -143,8 +193,10 @@ public final class MarketTabs {
         if (screen.cachedSelectedRow != null) {
             long buyTotal = FinanceFormat.safeMultiply(screen.cachedSelectedRow.askPrice(), intlQty);
             long sellTotal = FinanceFormat.safeMultiply(screen.cachedSelectedRow.bidPrice(), intlQty);
-            FinanceGui.drawClippedString(screen.font(), g, "买入总价: " + buyTotal, 130, tradeY + 32, 112, FinanceGui.COL_GOOD);
-            FinanceGui.drawClippedString(screen.font(), g, "卖出总价: " + sellTotal, 250, tradeY + 32, 112, FinanceGui.COL_WARN);
+            FinanceGui.drawClippedString(
+                    screen.font(), g, "买入总价: " + buyTotal, 130, tradeY + 32, 112, FinanceGui.COL_GOOD);
+            FinanceGui.drawClippedString(
+                    screen.font(), g, "卖出总价: " + sellTotal, 250, tradeY + 32, 112, FinanceGui.COL_WARN);
         }
 
         // 数量 + 买卖按钮
@@ -192,16 +244,34 @@ public final class MarketTabs {
 
         int infoY = cardY + cardH + 6;
         if (screen.cachedSelectedRow != null) {
-            FinanceGui.drawClippedString(screen.font(), g, "市场收购: " + screen.cachedSelectedRow.bidPrice(), 10, infoY, 126, FinanceGui.COL_GOOD);
-            FinanceGui.drawClippedString(screen.font(), g, "市场出售: " + screen.cachedSelectedRow.askPrice(), 146, infoY, 126, FinanceGui.COL_WARN);
+            FinanceGui.drawClippedString(
+                    screen.font(),
+                    g,
+                    "市场收购: " + screen.cachedSelectedRow.bidPrice(),
+                    10,
+                    infoY,
+                    126,
+                    FinanceGui.COL_GOOD);
+            FinanceGui.drawClippedString(
+                    screen.font(),
+                    g,
+                    "市场出售: " + screen.cachedSelectedRow.askPrice(),
+                    146,
+                    infoY,
+                    126,
+                    FinanceGui.COL_WARN);
         } else {
             FinanceGui.drawClippedString(screen.font(), g, "该商品未接入国际市场，仅支持玩家间交易", 10, infoY, 260, FinanceGui.COL_WARN);
         }
-        FinanceGui.drawClippedString(screen.font(), g, "余额: " + screen.menu().getBalance(), 10, infoY + 16, 180, FinanceGui.COL_TEXT);
+        FinanceGui.drawClippedString(
+                screen.font(), g, "余额: " + screen.menu().getBalance(), 10, infoY + 16, 180, FinanceGui.COL_TEXT);
         int owned = screen.menu().getPlayerInventory().getOrDefault(screen.selectedCommodity, 0);
         FinanceGui.drawClippedString(screen.font(), g, "持有: " + owned, 210, infoY + 16, 150, FinanceGui.COL_TEXT_DIM);
-        long orderTotal = FinanceFormat.safeMultiply(FinanceFormat.parseLong(screen.priceBox.getValue()), Math.max(1, FinanceFormat.parseInt(screen.quantityBox.getValue())));
-        FinanceGui.drawClippedString(screen.font(), g, "订单总价: " + orderTotal, 210, infoY + 30, 150, FinanceGui.COL_ACCENT);
+        long orderTotal = FinanceFormat.safeMultiply(
+                FinanceFormat.parseLong(screen.priceBox.getValue()),
+                Math.max(1, FinanceFormat.parseInt(screen.quantityBox.getValue())));
+        FinanceGui.drawClippedString(
+                screen.font(), g, "订单总价: " + orderTotal, 210, infoY + 30, 150, FinanceGui.COL_ACCENT);
 
         FinanceGui.drawFilledButton(screen.font(), g, "提交买单", 10, 186, 84, FinanceGui.COL_ACCENT);
         FinanceGui.drawFilledButton(screen.font(), g, "提交卖单", 102, 186, 84, FinanceGui.COL_BAD);
@@ -231,8 +301,11 @@ public final class MarketTabs {
         FinanceGui.drawSimpleBorder(g, ddX, ddY, ddW, ddH, FinanceGui.COL_PANEL_BORDER);
         // 裁剪框不受 pose 平移影响，要手动扣掉内容上移量
         int shift = FinanceGui.CONTENT_SHIFT;
-        g.enableScissor(screen.toScreen(ddX + 2), screen.toScreen(ddY + 2 - shift),
-                screen.toScreen(ddX + ddW - 2), screen.toScreen(ddY + ddH - 2 - shift));
+        g.enableScissor(
+                screen.toScreen(ddX + 2),
+                screen.toScreen(ddY + 2 - shift),
+                screen.toScreen(ddX + ddW - 2),
+                screen.toScreen(ddY + ddH - 2 - shift));
 
         int localMx = mouseX - ddX;
         int localMy = mouseY - ddY;
@@ -246,7 +319,8 @@ public final class MarketTabs {
             // 分类标题
             if (y + 12 > 0 && y < maxY) {
                 g.fill(ddX + 2, ddY + y, ddX + ddW - 2, ddY + y + 12, FinanceGui.COL_CATEGORY);
-                g.drawString(screen.font(), "▸ " + cat.getDisplayName(), ddX + 6, ddY + y + 2, FinanceGui.COL_TEXT, false);
+                g.drawString(
+                        screen.font(), "▸ " + cat.getDisplayName(), ddX + 6, ddY + y + 2, FinanceGui.COL_TEXT, false);
             }
             y += 14;
 
@@ -259,8 +333,16 @@ public final class MarketTabs {
                             g.fill(ddX + 2, ddY + y, ddX + ddW - 2, ddY + y + 14, FinanceGui.COL_DROPDOWN_HOVER);
                         }
                         FinanceGui.renderItemIcon(g, c, ddX + 8, ddY + y + 1);
-                        FinanceGui.drawClippedString(screen.font(), g, c.getDisplayName(), ddX + 26, ddY + y + 3, 100, FinanceGui.COL_TEXT);
-                        FinanceGui.drawClippedString(screen.font(), g, Long.toString(c.getBasePrice()), ddX + 140, ddY + y + 3, 50, FinanceGui.COL_GOOD);
+                        FinanceGui.drawClippedString(
+                                screen.font(), g, c.getDisplayName(), ddX + 26, ddY + y + 3, 100, FinanceGui.COL_TEXT);
+                        FinanceGui.drawClippedString(
+                                screen.font(),
+                                g,
+                                Long.toString(c.getBasePrice()),
+                                ddX + 140,
+                                ddY + y + 3,
+                                50,
+                                FinanceGui.COL_GOOD);
                     }
                     y += 14;
                 }
@@ -272,10 +354,11 @@ public final class MarketTabs {
         int totalHeight = calcDropdownTotalHeight();
         if (totalHeight > ddH) {
             int barH = Math.max(10, ddH * ddH / totalHeight);
-            int barY = (int)((long) screen.dropdownScroll * (ddH - barH) / (totalHeight - ddH));
+            int barY = (int) ((long) screen.dropdownScroll * (ddH - barH) / (totalHeight - ddH));
             g.fill(ddX + ddW - 5, ddY + barY, ddX + ddW - 2, ddY + barY + barH, FinanceGui.COL_PANEL_BORDER);
         }
     }
+
     public int calcDropdownTotalHeight() {
         Map<CommodityCategory, List<Commodity>> activeMap =
                 (screen.currentTab == 1) ? screen.inventoryCategorizedCommodities : screen.categorizedCommodities;
@@ -334,7 +417,8 @@ public final class MarketTabs {
                             screen.selectedCommodity = c.getId();
                             screen.rememberUiState();
                             if (screen.currentTab == 1) {
-                                finance.market.MarketPrice mp = NpcMarketMaker.getAllMarketPrices().get(c.getId());
+                                finance.market.MarketPrice mp =
+                                        NpcMarketMaker.getAllMarketPrices().get(c.getId());
                                 if (mp != null) screen.priceBox.setValue(Long.toString(mp.getMidPrice()));
                             }
                             screen.dropdownOpen = false;
@@ -364,7 +448,8 @@ public final class MarketTabs {
 
     public boolean handleMarketClick(int mx, int my) {
         if (screen.commodityChartVisible) {
-            return screen.stockTabs.handleCandlestickControls(mx, my, MarketInstrumentType.COMMODITY, screen.selectedCommodity);
+            return screen.stockTabs.handleCandlestickControls(
+                    mx, my, MarketInstrumentType.COMMODITY, screen.selectedCommodity);
         }
         int headerY = FinanceGui.CONTENT_Y;
         int rowY = headerY + 16;
@@ -373,7 +458,8 @@ public final class MarketTabs {
         for (int i = 0; i < maxRows; i++) {
             int y = rowY + i * FinanceGui.ROW_HEIGHT;
             if (my >= y && my < y + FinanceGui.ROW_HEIGHT && mx >= 8 && mx < screen.imageWidth() - 8) {
-                screen.selectedCommodity = screen.cachedMarketData.get(i + scroll).commodityId();
+                screen.selectedCommodity =
+                        screen.cachedMarketData.get(i + scroll).commodityId();
                 screen.refreshSelectedRow();
                 screen.rememberUiState();
                 return true;
@@ -426,8 +512,8 @@ public final class MarketTabs {
             }
             if (mx >= 300 && mx < 368) {
                 screen.setStatus("已提交国际市场卖出");
-                FinancePacketHandler.CHANNEL.sendToServer(
-                        new TradeActionPacket(TradeActionPacket.ActionType.INTL_SELL, screen.selectedCommodity, 0, qty));
+                FinancePacketHandler.CHANNEL.sendToServer(new TradeActionPacket(
+                        TradeActionPacket.ActionType.INTL_SELL, screen.selectedCommodity, 0, qty));
                 return true;
             }
         }
@@ -494,14 +580,14 @@ public final class MarketTabs {
             int qty = screen.requireInt(screen.quantityBox, "数量", 1, Integer.MAX_VALUE);
             if (mx >= 10 && mx < 94) {
                 screen.setStatus("已提交玩家买单");
-                FinancePacketHandler.CHANNEL.sendToServer(
-                        new TradeActionPacket(TradeActionPacket.ActionType.P2P_BUY, screen.selectedCommodity, price, qty));
+                FinancePacketHandler.CHANNEL.sendToServer(new TradeActionPacket(
+                        TradeActionPacket.ActionType.P2P_BUY, screen.selectedCommodity, price, qty));
                 return true;
             }
             if (mx >= 102 && mx < 186) {
                 screen.setStatus("已提交玩家卖单");
-                FinancePacketHandler.CHANNEL.sendToServer(
-                        new TradeActionPacket(TradeActionPacket.ActionType.P2P_SELL, screen.selectedCommodity, price, qty));
+                FinancePacketHandler.CHANNEL.sendToServer(new TradeActionPacket(
+                        TradeActionPacket.ActionType.P2P_SELL, screen.selectedCommodity, price, qty));
                 return true;
             }
         }

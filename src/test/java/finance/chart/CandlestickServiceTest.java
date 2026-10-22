@@ -1,13 +1,12 @@
 package finance.chart;
 
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Test;
-
-import java.util.List;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.List;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
 
 class CandlestickServiceTest {
 
@@ -22,7 +21,8 @@ class CandlestickServiceTest {
         assertTrue(CandlestickService.recordTrade(MarketInstrumentType.COMMODITY, "iron", 3, 15, 4));
         assertTrue(CandlestickService.recordTrade(MarketInstrumentType.COMMODITY, "iron", 3, 8, 1));
 
-        Candlestick bar = CandlestickService.getBars(MarketInstrumentType.COMMODITY, "iron", 30).get(0);
+        Candlestick bar = CandlestickService.getBars(MarketInstrumentType.COMMODITY, "iron", 30)
+                .get(0);
         assertEquals(10, bar.open());
         assertEquals(15, bar.high());
         assertEquals(8, bar.low());
@@ -33,7 +33,8 @@ class CandlestickServiceTest {
     @Test
     void carriesPreviousCloseAcrossNoTradeDaysButNeverInventsInitialPrice() {
         CandlestickService.closeDay(4);
-        assertTrue(CandlestickService.getBars(MarketInstrumentType.STOCK, "ABC", 30).isEmpty());
+        assertTrue(CandlestickService.getBars(MarketInstrumentType.STOCK, "ABC", 30)
+                .isEmpty());
 
         CandlestickService.recordTrade(MarketInstrumentType.STOCK, "abc", 2, 20, 3);
         CandlestickService.closeDay(4);
@@ -62,7 +63,10 @@ class CandlestickServiceTest {
         CandlestickService.recordTrade(MarketInstrumentType.STOCK, "ABC", 1, 10, Long.MAX_VALUE);
         CandlestickService.recordTrade(MarketInstrumentType.STOCK, "ABC", 1, 11, 2);
 
-        assertEquals(Long.MAX_VALUE,
-                CandlestickService.getBars(MarketInstrumentType.STOCK, "ABC", 1).get(0).volume());
+        assertEquals(
+                Long.MAX_VALUE,
+                CandlestickService.getBars(MarketInstrumentType.STOCK, "ABC", 1)
+                        .get(0)
+                        .volume());
     }
 }

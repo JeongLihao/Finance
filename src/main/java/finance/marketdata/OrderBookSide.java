@@ -1,3 +1,6 @@
 package finance.marketdata;
 
-public enum OrderBookSide { BUY, SELL }
+public enum OrderBookSide {
+    BUY,
+    SELL
+}

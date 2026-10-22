@@ -1,11 +1,10 @@
 package finance.network;
 
 import finance.stock.StockMarketManager;
+import java.util.function.Supplier;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.network.NetworkEvent;
-
-import java.util.function.Supplier;
 
 /**
  * 股票订单操作数据包（P2）—— 支持挂买单、挂卖单、取消订单。
@@ -13,9 +12,9 @@ import java.util.function.Supplier;
 public class StockOrderPacket {
 
     public enum ActionType {
-        PLACE_BUY,      // 挂买单
-        PLACE_SELL,     // 挂卖单
-        CANCEL          // 取消订单
+        PLACE_BUY, // 挂买单
+        PLACE_SELL, // 挂卖单
+        CANCEL // 取消订单
     }
 
     private final ActionType actionType;
@@ -56,7 +55,11 @@ public class StockOrderPacket {
         if (actionType == ActionType.CANCEL) {
             return new StockOrderPacket(actionType, buffer.readUUID());
         } else {
-            return new StockOrderPacket(actionType, buffer.readUtf(NetworkValidation.MAX_SYMBOL_LENGTH), buffer.readLong(), buffer.readLong());
+            return new StockOrderPacket(
+                    actionType,
+                    buffer.readUtf(NetworkValidation.MAX_SYMBOL_LENGTH),
+                    buffer.readLong(),
+                    buffer.readLong());
         }
     }
 
@@ -64,11 +67,15 @@ public class StockOrderPacket {
         ctx.get().enqueueWork(() -> {
             ServerPlayer player = ctx.get().getSender();
             if (player == null) return;
-            if (!finance.diagnostic.ModuleHealthRegistry.mayWrite(finance.diagnostic.ModuleHealthRegistry.Module.STOCK)) {
-                GuiFeedbackPacket.send(player, "股票市场已因一致性问题暂停。"); return;
+            if (!finance.diagnostic.ModuleHealthRegistry.mayWrite(
+                    finance.diagnostic.ModuleHealthRegistry.Module.STOCK)) {
+                GuiFeedbackPacket.send(player, "股票市场已因一致性问题暂停。");
+                return;
             }
-            if (!MarketDataRequestLimiter.allow(player.getUUID(), player.server.getTickCount(), "stock-order:" + packet.actionType)) {
-                GuiFeedbackPacket.send(player, "操作过于频繁。"); return;
+            if (!MarketDataRequestLimiter.allow(
+                    player.getUUID(), player.server.getTickCount(), "stock-order:" + packet.actionType)) {
+                GuiFeedbackPacket.send(player, "操作过于频繁。");
+                return;
             }
             if (packet.actionType == null || !isValidRequest(packet)) {
                 GuiFeedbackPacket.send(player, "股票订单请求参数无效。");
@@ -87,8 +94,7 @@ public class StockOrderPacket {
                     break;
                 case CANCEL:
                     boolean success = StockMarketManager.cancelStockOrder(packet.orderId, player.getUUID());
-                    result = new StockMarketManager.TradeResult(success,
-                            success ? "订单已取消。" : "取消失败，请检查是否是你的订单。");
+                    result = new StockMarketManager.TradeResult(success, success ? "订单已取消。" : "取消失败，请检查是否是你的订单。");
                     break;
             }
 

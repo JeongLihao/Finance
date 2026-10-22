@@ -11,7 +11,6 @@ import finance.settlement.SettlementManager;
 import finance.settlement.SettlementRecord;
 import finance.village.VillageManager;
 import finance.village.VillageRecord;
-
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -27,11 +26,12 @@ public final class NewsWriter {
     static final int PAGE_LINES = 12;
     static final int PAGE_CHARS = 200;
 
-    private NewsWriter() { }
+    private NewsWriter() {}
 
     // ================================================================ 周刊
 
-    static NewsService.Issue weekly(int number, long day, List<NewsService.Item> pool, Map<UUID, List<String>> personal) {
+    static NewsService.Issue weekly(
+            int number, long day, List<NewsService.Item> pool, Map<UUID, List<String>> personal) {
         int interval = Math.max(1, FinanceConfig.macroNewsIntervalDays());
         List<Mover> movers = movers(interval);
         NewsService.Item lead = pool.isEmpty() ? null : pool.get(0);
@@ -55,7 +55,8 @@ public final class NewsWriter {
         pages.addAll(paginate(centralBankPage(interval)));
         if (pool.size() > 1) {
             StringBuilder more = new StringBuilder("【本周其他新闻】\n");
-            for (int i = 1; i < Math.min(pool.size(), 6); i++) more.append("· ").append(pool.get(i).headline()).append('\n');
+            for (int i = 1; i < Math.min(pool.size(), 6); i++)
+                more.append("· ").append(pool.get(i).headline()).append('\n');
             pages.addAll(paginate(more.toString()));
         }
         pages.addAll(paginate(opportunityPage(day)));
@@ -65,8 +66,8 @@ public final class NewsWriter {
     // ================================================================ 号外
 
     static NewsService.Issue extra(int number, long day, NewsService.Item item) {
-        List<String> pages = new ArrayList<>(paginate("【号外】第 " + number + " 期\n第 " + day + " 天\n\n" + item.headline()
-                + "\n\n" + item.body()));
+        List<String> pages = new ArrayList<>(
+                paginate("【号外】第 " + number + " 期\n第 " + day + " 天\n\n" + item.headline() + "\n\n" + item.body()));
         pages.addAll(paginate(societyPage(Math.max(1, FinanceConfig.macroNewsIntervalDays()))));
         pages.addAll(paginate(centralBankPage(Math.max(1, FinanceConfig.macroNewsIntervalDays()))));
         return new NewsService.Issue(number, day, true, item.headline(), List.copyOf(pages), Map.of());
@@ -76,8 +77,9 @@ public final class NewsWriter {
 
     record Mover(String settlement, String commodity, int deltaBps, boolean shortage, long localPrice) {
         String describe() {
-            return String.format("%s的%s本地价 %+d%%，现价 %d（%s）。", settlement, commodity, deltaBps / 100, localPrice,
-                    shortage ? "供不应求" : "供过于求");
+            return String.format(
+                    "%s的%s本地价 %+d%%，现价 %d（%s）。",
+                    settlement, commodity, deltaBps / 100, localPrice, shortage ? "供不应求" : "供过于求");
         }
     }
 
@@ -94,7 +96,11 @@ public final class NewsWriter {
                 GoodBook.Point then = h.get(Math.max(0, h.size() - 1 - days));
                 int delta = now.factorBps() - then.factorBps();
                 if (Math.abs(delta) < 500) continue;
-                out.add(new Mover(s.displayName(), MacroRadar.name(e.getKey()), delta, now.supply() < now.demand(),
+                out.add(new Mover(
+                        s.displayName(),
+                        MacroRadar.name(e.getKey()),
+                        delta,
+                        now.supply() < now.demand(),
                         MacroEconomyService.localPrice(econ, e.getKey())));
             }
         }
@@ -125,9 +131,12 @@ public final class NewsWriter {
             VillageRecord v = VillageManager.get(econ.settlementId);
             if (s == null || v == null) continue;
             List<SettlementEconomy.Point> h = econ.history();
-            int before = h.isEmpty() ? v.population() : h.get(Math.max(0, h.size() - 1 - days)).population();
+            int before = h.isEmpty()
+                    ? v.population()
+                    : h.get(Math.max(0, h.size() - 1 - days)).population();
             int delta = v.population() - before;
-            b.append(String.format("· %s %d 人（%+d），生活 %d%%\n", s.displayName(), v.population(), delta, econ.solBps / 100));
+            b.append(String.format(
+                    "· %s %d 人（%+d），生活 %d%%\n", s.displayName(), v.population(), delta, econ.solBps / 100));
         }
         return b.toString();
     }
@@ -140,25 +149,38 @@ public final class NewsWriter {
         int target = finance.centralbank.CentralBankService.inflationTargetBps();
         b.append(String.format("基准利率 %.2f%%，通胀 %.1f%%（目标 %.1f%%）\n", rate / 100.0, inflation / 100.0, target / 100.0));
         b.append(String.format("活期准备金率 %.1f%%\n", finance.centralbank.CentralBankService.demandReserveBps() / 100.0));
-        List<finance.centralbank.CentralBankService.Decision> decisions = finance.centralbank.CentralBankService.decisions();
+        List<finance.centralbank.CentralBankService.Decision> decisions =
+                finance.centralbank.CentralBankService.decisions();
         if (!decisions.isEmpty()) {
             var d = decisions.get(decisions.size() - 1);
             long today = MacroEconomyManager.lastProcessedDay();
             if (today == Long.MIN_VALUE || today - d.day() <= days) {
-                b.append(String.format("第 %d 天议息：利率 %.2f%%→%.2f%%", d.day(), d.rateBefore() / 100.0, d.rateAfter() / 100.0));
+                b.append(String.format(
+                        "第 %d 天议息：利率 %.2f%%→%.2f%%", d.day(), d.rateBefore() / 100.0, d.rateAfter() / 100.0));
                 if (d.reserveAfter() != d.reserveBefore()) {
-                    b.append(String.format("，准备金率%s到 %.1f%%", d.reserveAfter() > d.reserveBefore() ? "上调" : "下调", d.reserveAfter() / 100.0));
+                    b.append(String.format(
+                            "，准备金率%s到 %.1f%%",
+                            d.reserveAfter() > d.reserveBefore() ? "上调" : "下调", d.reserveAfter() / 100.0));
                 }
                 b.append('\n');
             }
         }
         var actions = finance.centralbank.PriceStabilizationService.lastActions();
         for (var a : actions.subList(0, Math.min(3, actions.size()))) {
-            b.append("· 平准").append(a.sold() ? "抛售" : "收储").append(MacroRadar.name(a.commodityId())).append(' ').append(a.quantity()).append('\n');
+            b.append("· 平准")
+                    .append(a.sold() ? "抛售" : "收储")
+                    .append(MacroRadar.name(a.commodityId()))
+                    .append(' ')
+                    .append(a.quantity())
+                    .append('\n');
         }
         var outlook = finance.policy.PolicyMeetingService.outlook();
         if (outlook.nextMeetingDay() >= 0) {
-            b.append("下次议息：第 ").append(outlook.nextMeetingDay()).append(" 天，倾向").append(outlook.guidanceDirection()).append('\n');
+            b.append("下次议息：第 ")
+                    .append(outlook.nextMeetingDay())
+                    .append(" 天，倾向")
+                    .append(outlook.guidanceDirection())
+                    .append('\n');
         }
         return b.toString();
     }
@@ -167,7 +189,11 @@ public final class NewsWriter {
         List<MacroRadar.Opportunity> top = MacroRadar.scan(1);
         StringBuilder b = new StringBuilder("【商机】\n");
         if (top.isEmpty()) b.append("暂时没有明显的商机。\n");
-        else b.append(top.get(0).text()).append("\n\n（调查于第 ").append(day).append(" 天，消息可能已经过时。想要最新情报：金融中心“更多操作 → 财报商情”）");
+        else
+            b.append(top.get(0).text())
+                    .append("\n\n（调查于第 ")
+                    .append(day)
+                    .append(" 天，消息可能已经过时。想要最新情报：金融中心“更多操作 → 财报商情”）");
         return b.toString();
     }
 
@@ -184,8 +210,9 @@ public final class NewsWriter {
             for (CompanyFacilityRecord f : CompanyFacilityManager.forCompany(company.getCompanyId())) {
                 workers += MacroEconomyManager.employment(f.facilityId());
             }
-            b.append(String.format("%s：近 %d 天利润 %+d\n雇工 %d 人，日工资 %d\n", company.getName(), days, sum, workers,
-                    MacroLaborService.wageOf(company.getCompanyId())));
+            b.append(String.format(
+                    "%s：近 %d 天利润 %+d\n雇工 %d 人，日工资 %d\n",
+                    company.getName(), days, sum, workers, MacroLaborService.wageOf(company.getCompanyId())));
         } else {
             b.append("你还没有公司。\n");
         }

@@ -1,7 +1,6 @@
 package finance.regional;
 
 import finance.data.EconomySavedData;
-
 import java.math.BigInteger;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -72,17 +71,18 @@ public final class RegionalCommodityMetricsManager {
     }
 
     /** Streams one immutable row at a time so persistence does not duplicate the whole world history in memory. */
-    public static synchronized void visitHistories(BiConsumer<RegionalCommodityKey,List<RegionalCommoditySnapshot>> visitor) {
+    public static synchronized void visitHistories(
+            BiConsumer<RegionalCommodityKey, List<RegionalCommoditySnapshot>> visitor) {
         if (visitor == null) return;
         HISTORY.forEach((key, rows) -> visitor.accept(key, List.copyOf(rows)));
     }
 
-    public static synchronized void visitLive(BiConsumer<RegionalCommodityKey,DailyAccumulator> visitor) {
+    public static synchronized void visitLive(BiConsumer<RegionalCommodityKey, DailyAccumulator> visitor) {
         if (visitor == null) return;
         LIVE.forEach((key, value) -> visitor.accept(key, value.copy()));
     }
 
-    public record HistoryView(RegionalCommodityKey key,List<RegionalCommoditySnapshot> rows) {}
+    public record HistoryView(RegionalCommodityKey key, List<RegionalCommoditySnapshot> rows) {}
 
     public static synchronized Map<RegionalCommodityKey, DailyAccumulator> liveCopy() {
         Map<RegionalCommodityKey, DailyAccumulator> copy = new LinkedHashMap<>();
@@ -92,7 +92,9 @@ public final class RegionalCommodityMetricsManager {
 
     static synchronized List<Map.Entry<RegionalCommodityKey, DailyAccumulator>> liveForDay(long day) {
         List<Map.Entry<RegionalCommodityKey, DailyAccumulator>> rows = new ArrayList<>();
-        LIVE.forEach((key, value) -> { if (value.day == day) rows.add(Map.entry(key, value.copy())); });
+        LIVE.forEach((key, value) -> {
+            if (value.day == day) rows.add(Map.entry(key, value.copy()));
+        });
         return rows;
     }
 
@@ -108,8 +110,14 @@ public final class RegionalCommodityMetricsManager {
         EconomySavedData.markDirty();
     }
 
-    public static synchronized long lastClosedDay() { return lastClosedDay; }
-    public static synchronized void restoreLastClosedDay(long day) { lastClosedDay = Math.max(-1, day); }
+    public static synchronized long lastClosedDay() {
+        return lastClosedDay;
+    }
+
+    public static synchronized void restoreLastClosedDay(long day) {
+        lastClosedDay = Math.max(-1, day);
+    }
+
     public static synchronized void restoreSnapshot(RegionalCommodityKey key, RegionalCommoditySnapshot row) {
         if (key == null || row == null || !knownKey(key) && uniqueKeyCount() >= MAX_KEYS) return;
         Deque<RegionalCommoditySnapshot> rows = HISTORY.computeIfAbsent(key, ignored -> new ArrayDeque<>());
@@ -117,13 +125,20 @@ public final class RegionalCommodityMetricsManager {
         if (rows.isEmpty() || rows.peekLast().day() < row.day()) rows.addLast(row);
         while (rows.size() > MAX_HISTORY_DAYS) rows.removeFirst();
     }
+
     public static synchronized void restoreLive(RegionalCommodityKey key, DailyAccumulator value) {
         if (key != null && value != null && (knownKey(key) || uniqueKeyCount() < MAX_KEYS)) {
             LIVE.put(key, value.copy());
             KNOWN_KEYS.add(key);
         }
     }
-    public static synchronized void clearDirect() { HISTORY.clear(); LIVE.clear(); KNOWN_KEYS.clear(); lastClosedDay = -1; }
+
+    public static synchronized void clearDirect() {
+        HISTORY.clear();
+        LIVE.clear();
+        KNOWN_KEYS.clear();
+        lastClosedDay = -1;
+    }
 
     private static boolean knownKey(RegionalCommodityKey key) {
         return KNOWN_KEYS.contains(key);
@@ -139,14 +154,114 @@ public final class RegionalCommodityMetricsManager {
         int opened, filled, expired, deliveredOnTime, deliveredLate, activeShipments;
         long requested, delivered;
         BigInteger paid = BigInteger.ZERO;
-        public DailyAccumulator(long day) { if (day < 0) throw new IllegalArgumentException("day"); this.day = day; }
-        void opened(long quantity) { opened = capInt(opened + 1L); requested = capQuantity(requested, quantity); }
-        void filled(long quantity, long reward, boolean onTime) { filled = capInt(filled + 1L); delivered = capQuantity(delivered, quantity); if (reward > 0) paid = paid.add(BigInteger.valueOf(reward)); if (onTime) deliveredOnTime = capInt(deliveredOnTime + 1L); else deliveredLate = capInt(deliveredLate + 1L); }
-        void noteExpired() { expired = capInt(expired + 1L); }
-        DailyAccumulator copy() { DailyAccumulator c=new DailyAccumulator(day);c.opened=opened;c.filled=filled;c.expired=expired;c.deliveredOnTime=deliveredOnTime;c.deliveredLate=deliveredLate;c.activeShipments=activeShipments;c.requested=requested;c.delivered=delivered;c.paid=paid;return c; }
-        private static long capQuantity(long current,long added){if(added<=0)return current;return Math.min(MAX_QUANTITY_PER_DAY,current>MAX_QUANTITY_PER_DAY-added?MAX_QUANTITY_PER_DAY:current+added);}
-        private static int capInt(long value){return (int)Math.min(1_000_000L,Math.max(0,value));}
-        public long day(){return day;} public int opened(){return opened;} public int filled(){return filled;} public int expiredCount(){return expired;} public int deliveredOnTime(){return deliveredOnTime;} public int deliveredLate(){return deliveredLate;} public int activeShipments(){return activeShipments;} public long requested(){return requested;} public long delivered(){return delivered;} public BigInteger paid(){return paid;}
-        public void restore(int opened,int filled,int expired,int onTime,int late,int active,long requested,long delivered,BigInteger paid){this.opened=capInt(opened);this.filled=capInt(filled);this.expired=capInt(expired);this.deliveredOnTime=capInt(onTime);this.deliveredLate=capInt(late);this.activeShipments=capInt(active);this.requested=Math.min(MAX_QUANTITY_PER_DAY,Math.max(0,requested));this.delivered=Math.min(MAX_QUANTITY_PER_DAY,Math.max(0,delivered));this.paid=paid==null||paid.signum()<0?BigInteger.ZERO:paid.min(BigInteger.valueOf(Long.MAX_VALUE));}
+
+        public DailyAccumulator(long day) {
+            if (day < 0) throw new IllegalArgumentException("day");
+            this.day = day;
+        }
+
+        void opened(long quantity) {
+            opened = capInt(opened + 1L);
+            requested = capQuantity(requested, quantity);
+        }
+
+        void filled(long quantity, long reward, boolean onTime) {
+            filled = capInt(filled + 1L);
+            delivered = capQuantity(delivered, quantity);
+            if (reward > 0) paid = paid.add(BigInteger.valueOf(reward));
+            if (onTime) deliveredOnTime = capInt(deliveredOnTime + 1L);
+            else deliveredLate = capInt(deliveredLate + 1L);
+        }
+
+        void noteExpired() {
+            expired = capInt(expired + 1L);
+        }
+
+        DailyAccumulator copy() {
+            DailyAccumulator c = new DailyAccumulator(day);
+            c.opened = opened;
+            c.filled = filled;
+            c.expired = expired;
+            c.deliveredOnTime = deliveredOnTime;
+            c.deliveredLate = deliveredLate;
+            c.activeShipments = activeShipments;
+            c.requested = requested;
+            c.delivered = delivered;
+            c.paid = paid;
+            return c;
+        }
+
+        private static long capQuantity(long current, long added) {
+            if (added <= 0) return current;
+            return Math.min(
+                    MAX_QUANTITY_PER_DAY,
+                    current > MAX_QUANTITY_PER_DAY - added ? MAX_QUANTITY_PER_DAY : current + added);
+        }
+
+        private static int capInt(long value) {
+            return (int) Math.min(1_000_000L, Math.max(0, value));
+        }
+
+        public long day() {
+            return day;
+        }
+
+        public int opened() {
+            return opened;
+        }
+
+        public int filled() {
+            return filled;
+        }
+
+        public int expiredCount() {
+            return expired;
+        }
+
+        public int deliveredOnTime() {
+            return deliveredOnTime;
+        }
+
+        public int deliveredLate() {
+            return deliveredLate;
+        }
+
+        public int activeShipments() {
+            return activeShipments;
+        }
+
+        public long requested() {
+            return requested;
+        }
+
+        public long delivered() {
+            return delivered;
+        }
+
+        public BigInteger paid() {
+            return paid;
+        }
+
+        public void restore(
+                int opened,
+                int filled,
+                int expired,
+                int onTime,
+                int late,
+                int active,
+                long requested,
+                long delivered,
+                BigInteger paid) {
+            this.opened = capInt(opened);
+            this.filled = capInt(filled);
+            this.expired = capInt(expired);
+            this.deliveredOnTime = capInt(onTime);
+            this.deliveredLate = capInt(late);
+            this.activeShipments = capInt(active);
+            this.requested = Math.min(MAX_QUANTITY_PER_DAY, Math.max(0, requested));
+            this.delivered = Math.min(MAX_QUANTITY_PER_DAY, Math.max(0, delivered));
+            this.paid =
+                    paid == null || paid.signum() < 0 ? BigInteger.ZERO : paid.min(BigInteger.valueOf(Long.MAX_VALUE));
+        }
     }
 }

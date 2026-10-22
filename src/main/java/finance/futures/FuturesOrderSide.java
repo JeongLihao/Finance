@@ -1,3 +1,6 @@
 package finance.futures;
 
-public enum FuturesOrderSide { BUY, SELL }
+public enum FuturesOrderSide {
+    BUY,
+    SELL
+}

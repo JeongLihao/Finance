@@ -1,27 +1,37 @@
 package finance.resources;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import org.junit.jupiter.api.Test;
-
-import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import javax.imageio.ImageIO;
+import org.junit.jupiter.api.Test;
 
 class FinanceTextureResourceTest {
     private static final List<String> BLOCK_TEXTURES = List.of(
-            "bank_counter", "boardroom_table", "central_bank_console", "company_desk",
-            "company_factory_controller", "indicator_full", "indicator_normal", "indicator_offline",
-            "indicator_risk", "indicator_warning", "machine_casing", "machine_top",
-            "market_terminal", "securities_terminal", "teal_casing", "warehouse_controller"
-    );
+            "bank_counter",
+            "boardroom_table",
+            "central_bank_console",
+            "company_desk",
+            "company_factory_controller",
+            "indicator_full",
+            "indicator_normal",
+            "indicator_offline",
+            "indicator_risk",
+            "indicator_warning",
+            "machine_casing",
+            "machine_top",
+            "market_terminal",
+            "securities_terminal",
+            "teal_casing",
+            "warehouse_controller");
 
     @Test
     void financeBlocksAndItemsHaveReadableSquareTextures() throws Exception {
@@ -36,8 +46,14 @@ class FinanceTextureResourceTest {
     @Test
     void everyFinanceModelReferenceResolves() throws Exception {
         for (String blockState : List.of(
-                "bank_counter", "boardroom_table", "central_bank_console", "company_desk",
-                "company_factory_controller", "market_terminal", "securities_terminal", "warehouse_controller")) {
+                "bank_counter",
+                "boardroom_table",
+                "central_bank_console",
+                "company_desk",
+                "company_factory_controller",
+                "market_terminal",
+                "securities_terminal",
+                "warehouse_controller")) {
             JsonObject root = readJson("assets/finance/blockstates/" + blockState + ".json");
             for (var entry : root.getAsJsonObject("variants").entrySet()) {
                 assertModel(entry.getValue().getAsJsonObject().get("model").getAsString());
@@ -49,7 +65,8 @@ class FinanceTextureResourceTest {
     void portableItemsUseFinanceTexturesInsteadOfVanillaBooks() throws Exception {
         for (String item : List.of("portable_ledger", "finance_guide", "sealed_cargo_crate")) {
             JsonObject model = readJson("assets/finance/models/item/" + item + ".json");
-            assertEquals("finance:item/" + item,
+            assertEquals(
+                    "finance:item/" + item,
                     model.getAsJsonObject("textures").get("layer0").getAsString());
         }
     }
@@ -86,7 +103,8 @@ class FinanceTextureResourceTest {
     private JsonObject readJson(String path) throws Exception {
         try (InputStream input = getClass().getClassLoader().getResourceAsStream(path)) {
             assertNotNull(input, path);
-            return JsonParser.parseReader(new InputStreamReader(input, StandardCharsets.UTF_8)).getAsJsonObject();
+            return JsonParser.parseReader(new InputStreamReader(input, StandardCharsets.UTF_8))
+                    .getAsJsonObject();
         }
     }
 }

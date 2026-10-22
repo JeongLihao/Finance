@@ -7,28 +7,26 @@ import finance.event.EventManager;
 import finance.event.EventTier;
 import finance.event.MarketEvent;
 import finance.market.CentralBankLoanLedger;
-import finance.market.MarketManager;
 import finance.market.MarketMakerLedger;
 import finance.market.MarketMakerPauseState;
+import finance.market.MarketManager;
 import finance.market.MarketPrice;
 import finance.market.NpcMarketMaker;
 import finance.market.Order;
 import finance.market.OrderType;
 import finance.market.Trade;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.Tag;
-
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.Map;
 import java.util.UUID;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.Tag;
 
 /** Persists commodity definitions, market books, price history and active events. */
 public final class MarketDataSerializer {
 
-    private MarketDataSerializer() {
-    }
+    private MarketDataSerializer() {}
 
     public static void save(CompoundTag tag) {
         ListTag tradesTag = new ListTag();
@@ -39,20 +37,11 @@ public final class MarketDataSerializer {
 
             tradeTag.putUUID("Buyer", trade.getBuyer());
             tradeTag.putUUID("Seller", trade.getSeller());
-            tradeTag.putString(
-                    "CommodityId",
-                    trade.getCommodityId()
-            );
+            tradeTag.putString("CommodityId", trade.getCommodityId());
             tradeTag.putLong("Price", trade.getPrice());
             tradeTag.putInt("Quantity", trade.getQuantity());
 
-            tradeTag.putLong(
-                    "Timestamp",
-                    trade.getTimestamp()
-                            .toEpochSecond(
-                                    ZoneOffset.UTC
-                            )
-            );
+            tradeTag.putLong("Timestamp", trade.getTimestamp().toEpochSecond(ZoneOffset.UTC));
 
             tradesTag.add(tradeTag);
         }
@@ -65,43 +54,19 @@ public final class MarketDataSerializer {
 
             CompoundTag orderTag = new CompoundTag();
 
-            orderTag.putUUID(
-                    "OrderId",
-                    order.getOrderId()
-            );
+            orderTag.putUUID("OrderId", order.getOrderId());
 
-            orderTag.putUUID(
-                    "PlayerUUID",
-                    order.getPlayerId()
-            );
+            orderTag.putUUID("PlayerUUID", order.getPlayerId());
 
-            orderTag.putString(
-                    "CommodityId",
-                    order.getCommodityId()
-            );
+            orderTag.putString("CommodityId", order.getCommodityId());
 
-            orderTag.putString(
-                    "Type",
-                    order.getType().name()
-            );
+            orderTag.putString("Type", order.getType().name());
 
-            orderTag.putLong(
-                    "Price",
-                    order.getPrice()
-            );
+            orderTag.putLong("Price", order.getPrice());
 
-            orderTag.putInt(
-                    "Quantity",
-                    order.getQuantity()
-            );
+            orderTag.putInt("Quantity", order.getQuantity());
 
-            orderTag.putLong(
-                    "Timestamp",
-                    order.getTimestamp()
-                            .toEpochSecond(
-                                    ZoneOffset.UTC
-                            )
-            );
+            orderTag.putLong("Timestamp", order.getTimestamp().toEpochSecond(ZoneOffset.UTC));
 
             ordersTag.add(orderTag);
         }
@@ -110,8 +75,7 @@ public final class MarketDataSerializer {
 
         ListTag pricesTag = new ListTag();
 
-        for (MarketPrice mp :
-                NpcMarketMaker.getAllMarketPrices().values()) {
+        for (MarketPrice mp : NpcMarketMaker.getAllMarketPrices().values()) {
 
             CompoundTag priceTag = new CompoundTag();
             priceTag.putString("CommodityId", mp.getCommodityId());
@@ -137,8 +101,7 @@ public final class MarketDataSerializer {
 
         ListTag snapshotsTag = new ListTag();
 
-        for (MarketPrice mp :
-                NpcMarketMaker.getAllMarketPrices().values()) {
+        for (MarketPrice mp : NpcMarketMaker.getAllMarketPrices().values()) {
 
             CompoundTag commoditySnapTag = new CompoundTag();
             commoditySnapTag.putString("CommodityId", mp.getCommodityId());
@@ -146,8 +109,7 @@ public final class MarketDataSerializer {
             ListTag snapsList = new ListTag();
             for (MarketPrice.PriceSnapshot snap : mp.getSnapshots()) {
                 CompoundTag snapTag = new CompoundTag();
-                snapTag.putLong("Timestamp",
-                        snap.getTimestamp().toEpochSecond(ZoneOffset.UTC));
+                snapTag.putLong("Timestamp", snap.getTimestamp().toEpochSecond(ZoneOffset.UTC));
                 snapTag.putLong("Price", snap.getPrice());
                 snapTag.putInt("Volume", snap.getVolume());
                 snapsList.add(snapTag);
@@ -214,8 +176,8 @@ public final class MarketDataSerializer {
      */
     public static void saveMarketMakerLedger(CompoundTag tag) {
         ListTag ledgerTag = new ListTag();
-        for (Map.Entry<MarketMakerLedger.SubMarket, Map<String, Long>> marketEntry
-                : MarketMakerLedger.getAllInventories().entrySet()) {
+        for (Map.Entry<MarketMakerLedger.SubMarket, Map<String, Long>> marketEntry :
+                MarketMakerLedger.getAllInventories().entrySet()) {
             for (Map.Entry<String, Long> entry : marketEntry.getValue().entrySet()) {
                 CompoundTag itemTag = new CompoundTag();
                 itemTag.putString("Market", marketEntry.getKey().name());
@@ -261,8 +223,8 @@ public final class MarketDataSerializer {
      */
     public static void saveCentralBankLoanLedger(CompoundTag tag) {
         ListTag loansTag = new ListTag();
-        for (Map.Entry<MarketMakerLedger.SubMarket, CentralBankLoanLedger.LoanBook> entry
-                : CentralBankLoanLedger.snapshot().entrySet()) {
+        for (Map.Entry<MarketMakerLedger.SubMarket, CentralBankLoanLedger.LoanBook> entry :
+                CentralBankLoanLedger.snapshot().entrySet()) {
             CentralBankLoanLedger.LoanBook book = entry.getValue();
             if (book.outstanding() <= 0 && book.totalLoaned() <= 0) {
                 continue;
@@ -293,8 +255,11 @@ public final class MarketDataSerializer {
             } catch (IllegalArgumentException ex) {
                 continue;
             }
-            CentralBankLoanLedger.restore(market, itemTag.getLong("Outstanding"),
-                    itemTag.getLong("TotalLoaned"), itemTag.getLong("TotalRepaid"),
+            CentralBankLoanLedger.restore(
+                    market,
+                    itemTag.getLong("Outstanding"),
+                    itemTag.getLong("TotalLoaned"),
+                    itemTag.getLong("TotalRepaid"),
                     itemTag.getLong("LastLoanDay"));
         }
     }
@@ -304,8 +269,8 @@ public final class MarketDataSerializer {
      */
     public static void saveMarketMakerPause(CompoundTag tag) {
         ListTag pauseTag = new ListTag();
-        for (Map.Entry<MarketMakerLedger.SubMarket, Boolean> entry
-                : MarketMakerPauseState.snapshot().entrySet()) {
+        for (Map.Entry<MarketMakerLedger.SubMarket, Boolean> entry :
+                MarketMakerPauseState.snapshot().entrySet()) {
             if (!Boolean.TRUE.equals(entry.getValue())) {
                 continue;
             }
@@ -357,9 +322,7 @@ public final class MarketDataSerializer {
 
             String displayName = cTag.getString("DisplayName");
             CommodityCategory category = NbtDataSupport.safeEnum(
-                    CommodityCategory.class,
-                    cTag.getString("Category"),
-                    CommodityCategory.MISCELLANEOUS);
+                    CommodityCategory.class, cTag.getString("Category"), CommodityCategory.MISCELLANEOUS);
             long basePrice = cTag.getLong("BasePrice");
             String itemId = cTag.contains("ItemId") ? cTag.getString("ItemId") : null;
 
@@ -373,10 +336,7 @@ public final class MarketDataSerializer {
 
             MarketManager.clearTradeHistory();
 
-            ListTag tradesTag = tag.getList(
-                    "Trades",
-                    Tag.TAG_COMPOUND
-            );
+            ListTag tradesTag = tag.getList("Trades", Tag.TAG_COMPOUND);
 
             for (Tag rawTag : tradesTag) {
 
@@ -387,23 +347,19 @@ public final class MarketDataSerializer {
                 if (buyer == null || seller == null) {
                     continue;
                 }
-                String commodityId =
-                        tradeTag.getString("CommodityId");
+                String commodityId = tradeTag.getString("CommodityId");
                 long price = tradeTag.getLong("Price");
                 int quantity = tradeTag.getInt("Quantity");
 
-                long epochSeconds =
-                        tradeTag.getLong("Timestamp");
+                long epochSeconds = tradeTag.getLong("Timestamp");
 
                 Trade trade = new Trade(
-                        buyer, seller, commodityId,
-                        price, quantity,
-                        LocalDateTime.ofEpochSecond(
-                                epochSeconds,
-                                0,
-                                ZoneOffset.UTC
-                        )
-                );
+                        buyer,
+                        seller,
+                        commodityId,
+                        price,
+                        quantity,
+                        LocalDateTime.ofEpochSecond(epochSeconds, 0, ZoneOffset.UTC));
 
                 MarketManager.addTradeToHistory(trade);
             }
@@ -415,15 +371,11 @@ public final class MarketDataSerializer {
 
             MarketManager.clearOrders();
 
-            ListTag ordersTag = tag.getList(
-                    "Orders",
-                    Tag.TAG_COMPOUND
-            );
+            ListTag ordersTag = tag.getList("Orders", Tag.TAG_COMPOUND);
 
             for (Tag rawTag : ordersTag) {
 
-                CompoundTag orderTag =
-                        (CompoundTag) rawTag;
+                CompoundTag orderTag = (CompoundTag) rawTag;
 
                 UUID orderId = NbtDataSupport.readUuidOrNull(orderTag, "OrderId");
                 if (orderId == null) {
@@ -435,8 +387,7 @@ public final class MarketDataSerializer {
                     continue;
                 }
 
-                String commodityId =
-                        orderTag.getString("CommodityId");
+                String commodityId = orderTag.getString("CommodityId");
 
                 OrderType type = NbtDataSupport.safeEnum(OrderType.class, orderTag.getString("Type"), null);
                 if (type == null) {
@@ -446,8 +397,7 @@ public final class MarketDataSerializer {
                 long price = orderTag.getLong("Price");
                 int quantity = orderTag.getInt("Quantity");
 
-                long epochSeconds =
-                        orderTag.getLong("Timestamp");
+                long epochSeconds = orderTag.getLong("Timestamp");
 
                 Order order = new Order(
                         orderId,
@@ -456,12 +406,7 @@ public final class MarketDataSerializer {
                         type,
                         price,
                         quantity,
-                        LocalDateTime.ofEpochSecond(
-                                epochSeconds,
-                                0,
-                                ZoneOffset.UTC
-                        )
-                );
+                        LocalDateTime.ofEpochSecond(epochSeconds, 0, ZoneOffset.UTC));
 
                 // 使用 addOrderDirect 跳过资产冻结
                 // （资产在上次运行时已冻结）
@@ -477,21 +422,16 @@ public final class MarketDataSerializer {
 
             NpcMarketMaker.clearMarketPrices();
 
-            ListTag pricesTag = tag.getList(
-                    "MarketPrices",
-                    Tag.TAG_COMPOUND
-            );
+            ListTag pricesTag = tag.getList("MarketPrices", Tag.TAG_COMPOUND);
 
             for (Tag rawTag : pricesTag) {
 
                 CompoundTag priceTag = (CompoundTag) rawTag;
 
-                String commodityId =
-                        priceTag.getString("CommodityId");
+                String commodityId = priceTag.getString("CommodityId");
 
                 // 跳过已从注册表中移除的商品
-                Commodity commodity =
-                        CommodityRegistry.getCommodity(commodityId);
+                Commodity commodity = CommodityRegistry.getCommodity(commodityId);
                 if (commodity == null) {
                     continue;
                 }
@@ -502,9 +442,7 @@ public final class MarketDataSerializer {
                 // basePrice 始终从 CommodityRegistry 取最新值
                 long basePrice = commodity.getBasePrice();
 
-                MarketPrice mp = new MarketPrice(
-                        commodityId, basePrice, spread
-                );
+                MarketPrice mp = new MarketPrice(commodityId, basePrice, spread);
                 mp.setMidPrice(midPrice);
 
                 // 恢复 24h 统计
@@ -553,10 +491,7 @@ public final class MarketDataSerializer {
         // ---- 加载事件状态 ----
 
         if (tag.contains("TimerMinor")) {
-            EventManager.setTimers(
-                    tag.getInt("TimerMinor"),
-                    tag.getInt("TimerMajor"),
-                    tag.getInt("TimerBlackSwan"));
+            EventManager.setTimers(tag.getInt("TimerMinor"), tag.getInt("TimerMajor"), tag.getInt("TimerBlackSwan"));
         }
 
         if (tag.contains("ActiveEvents")) {
@@ -567,14 +502,13 @@ public final class MarketDataSerializer {
                 String name = evTag.getString("Name");
                 String description = evTag.getString("Description");
                 EventTier tier = NbtDataSupport.safeEnum(EventTier.class, evTag.getString("Tier"), EventTier.MINOR);
-                String commodityId = evTag.contains("CommodityId")
-                        ? evTag.getString("CommodityId") : null;
+                String commodityId = evTag.contains("CommodityId") ? evTag.getString("CommodityId") : null;
                 double multiplier = evTag.getDouble("PriceMultiplier");
                 int totalTicks = evTag.getInt("TotalTicks");
                 int remainingTicks = evTag.getInt("RemainingTicks");
 
-                MarketEvent ev = new MarketEvent(name, description, tier,
-                        commodityId, multiplier, totalTicks, remainingTicks);
+                MarketEvent ev =
+                        new MarketEvent(name, description, tier, commodityId, multiplier, totalTicks, remainingTicks);
                 EventManager.addActiveEventDirect(ev);
 
                 if (ev.affectsAll()) {

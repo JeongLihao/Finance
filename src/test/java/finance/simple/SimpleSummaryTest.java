@@ -1,18 +1,18 @@
 package finance.simple;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import finance.account.TransactionRecord;
 import finance.account.TransactionType;
-import org.junit.jupiter.api.Test;
-
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.Test;
 
 class SimpleSummaryTest {
 
-    @Test void summarizesIncomeAndSpendingSinceLastOpen() {
+    @Test
+    void summarizesIncomeAndSpendingSinceLastOpen() {
         UUID me = UUID.randomUUID(), market = UUID.randomUUID();
         LocalDateTime since = LocalDateTime.now().minusSeconds(5);
         List<TransactionRecord> records = List.of(
@@ -25,9 +25,13 @@ class SimpleSummaryTest {
         assertTrue(lines.contains("分红 +3 磅"));
     }
 
-    @Test void nothingNewMeansNoSummary() {
+    @Test
+    void nothingNewMeansNoSummary() {
         UUID me = UUID.randomUUID();
-        List<TransactionRecord> records = List.of(new TransactionRecord(UUID.randomUUID(), me, 100, TransactionType.DIVIDEND));
-        assertTrue(SimpleCenterService.summarize(me, records, LocalDateTime.now().plusSeconds(60)).isEmpty());
+        List<TransactionRecord> records =
+                List.of(new TransactionRecord(UUID.randomUUID(), me, 100, TransactionType.DIVIDEND));
+        assertTrue(
+                SimpleCenterService.summarize(me, records, LocalDateTime.now().plusSeconds(60))
+                        .isEmpty());
     }
 }

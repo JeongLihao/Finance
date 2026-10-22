@@ -36,8 +36,14 @@ public class StockOrder {
     }
 
     /** 从持久化数据恢复订单 */
-    public StockOrder(UUID orderId, UUID playerId, String symbol, StockOrderType type,
-                      long price, int quantity, LocalDateTime timestamp) {
+    public StockOrder(
+            UUID orderId,
+            UUID playerId,
+            String symbol,
+            StockOrderType type,
+            long price,
+            int quantity,
+            LocalDateTime timestamp) {
         this.orderId = orderId;
         this.playerId = playerId;
         this.symbol = StockMarketManager.normalizeSymbol(symbol);
@@ -47,13 +53,33 @@ public class StockOrder {
         this.timestamp = timestamp;
     }
 
-    public UUID getOrderId() { return orderId; }
-    public UUID getPlayerId() { return playerId; }
-    public String getSymbol() { return symbol; }
-    public StockOrderType getType() { return type; }
-    public long getPrice() { return price; }
-    public int getQuantity() { return quantity; }
-    public LocalDateTime getTimestamp() { return timestamp; }
+    public UUID getOrderId() {
+        return orderId;
+    }
+
+    public UUID getPlayerId() {
+        return playerId;
+    }
+
+    public String getSymbol() {
+        return symbol;
+    }
+
+    public StockOrderType getType() {
+        return type;
+    }
+
+    public long getPrice() {
+        return price;
+    }
+
+    public int getQuantity() {
+        return quantity;
+    }
+
+    public LocalDateTime getTimestamp() {
+        return timestamp;
+    }
 
     public void reduceQuantity(int amount) {
         if (amount > 0) {

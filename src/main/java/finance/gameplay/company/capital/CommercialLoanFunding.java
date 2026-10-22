@@ -1,7 +1,7 @@
 package finance.gameplay.company.capital;
 
-import finance.account.AccountManager;
 import finance.account.Account;
+import finance.account.AccountManager;
 import finance.account.TransactionRecord;
 import finance.account.TransactionType;
 import finance.bank.BankCustomerAccount;
@@ -11,12 +11,11 @@ import finance.company.Company;
 import finance.config.FinanceConfig;
 import finance.debt.CompanyLoan;
 import finance.debt.CompanyLoanManager;
-import finance.debt.LoanStatus;
 import finance.debt.LoanLenderType;
+import finance.debt.LoanStatus;
 import finance.money.MoneyEndpoints;
 import finance.money.MoneyTransferResult;
 import finance.money.MoneyTransferService;
-
 import java.util.UUID;
 
 /**
@@ -28,12 +27,10 @@ final class CommercialLoanFunding implements CapitalFundingAdapter {
 
     static final CommercialLoanFunding INSTANCE = new CommercialLoanFunding();
 
-    private CommercialLoanFunding() {
-    }
+    private CommercialLoanFunding() {}
 
     @Override
-    public CapitalProjectActionResult initiate(WorldCapitalProject project, Company company,
-                                               UUID bankId, long day) {
+    public CapitalProjectActionResult initiate(WorldCapitalProject project, Company company, UUID bankId, long day) {
         if (bankId == null || BankingManager.bank(bankId) == null) {
             return CapitalProjectActionResult.fail("finance.capital_project.bank_missing");
         }
@@ -42,8 +39,13 @@ final class CommercialLoanFunding implements CapitalFundingAdapter {
         if (termDays > FinanceConfig.maxLoanTermDays()) termDays = FinanceConfig.maxLoanTermDays();
         int paymentIntervalDays = Math.max(1, termDays / 4);
         CompanyLoanManager.Result result = CompanyLoanManager.applyCommercial(
-                company.getOwnerId(), company.getCompanyId(), bankId, project.budget(),
-                day, termDays, paymentIntervalDays);
+                company.getOwnerId(),
+                company.getCompanyId(),
+                bankId,
+                project.budget(),
+                day,
+                termDays,
+                paymentIntervalDays);
         if (!result.success()) {
             return CapitalProjectActionResult.fail("finance.capital_project.loan_denied");
         }
@@ -80,8 +82,7 @@ final class CommercialLoanFunding implements CapitalFundingAdapter {
         if (escrow.getBalance() != 0 || !escrow.canDeposit(project.budget())) {
             return FundingSync.failed("finance.capital_project.escrow_mismatch");
         }
-        if (!BankingManager.withdrawCompanyToCash(company.getOwnerId(), project.bankId(),
-                project.budget(), day)) {
+        if (!BankingManager.withdrawCompanyToCash(company.getOwnerId(), project.bankId(), project.budget(), day)) {
             return FundingSync.pending();
         }
         return moveCompanyCashToEscrow(project, company);
@@ -106,9 +107,14 @@ final class CommercialLoanFunding implements CapitalFundingAdapter {
         }
         project.setFundedAmount(project.budget());
         project.setFundingSettled(true);
-        AccountManager.addTransactionRecord(new TransactionRecord(company.getCompanyId(), escrow,
-                project.budget(), TransactionType.CAPITAL_PROJECT_ESCROW, company.getOwnerId(),
-                company.getName() + "/capital-project", 1));
+        AccountManager.addTransactionRecord(new TransactionRecord(
+                company.getCompanyId(),
+                escrow,
+                project.budget(),
+                TransactionType.CAPITAL_PROJECT_ESCROW,
+                company.getOwnerId(),
+                company.getName() + "/capital-project",
+                1));
         return FundingSync.funded();
     }
 }

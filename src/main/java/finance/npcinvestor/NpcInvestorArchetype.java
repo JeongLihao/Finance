@@ -28,12 +28,18 @@ public enum NpcInvestorArchetype {
                 ("finance-npc-investor-" + name().toLowerCase(java.util.Locale.ROOT)).getBytes(StandardCharsets.UTF_8));
     }
 
-    public String displayName() { return displayName; }
+    public String displayName() {
+        return displayName;
+    }
 
     /** 相对 maxHoldingPercentEach 的持仓上限系数。 */
-    public double holdingCapFactor() { return holdingCapFactor; }
+    public double holdingCapFactor() {
+        return holdingCapFactor;
+    }
 
-    public UUID accountId() { return accountId; }
+    public UUID accountId() {
+        return accountId;
+    }
 
     /** 该 UUID 是否是某个 NPC 投资者的账户。 */
     public static boolean isInvestorAccount(UUID id) {

@@ -17,7 +17,7 @@ public final class SettlementEconomy {
     public static final int MAX_GOODS = 64;
 
     /** 一天的人口记录。 */
-    public record Point(long day, int sol, int population, long employed, long income) { }
+    public record Point(long day, int sol, int population, long employed, long income) {}
 
     final UUID settlementId;
     int solBps = 5_000;
@@ -28,10 +28,12 @@ public final class SettlementEconomy {
     long lastIncome;
     /** 收入中的工资部分，用于宏观快照的“工资”口径。 */
     long wagesToday;
+
     long lastWages;
     final TreeMap<String, GoodBook> goods = new TreeMap<>();
     /** 当天分摊：类别 → 商品 → 数量。只在日结内使用，不落盘。 */
     final EnumMap<NeedCategory, Map<String, Long>> plan = new EnumMap<>(NeedCategory.class);
+
     final EnumMap<NeedCategory, Double> required = new EnumMap<>(NeedCategory.class);
     final EnumMap<NeedCategory, Double> consumedUnits = new EnumMap<>(NeedCategory.class);
     final EnumMap<NeedCategory, Double> lastFulfilment = new EnumMap<>(NeedCategory.class);
@@ -41,15 +43,41 @@ public final class SettlementEconomy {
         this.settlementId = settlementId;
     }
 
-    public UUID settlementId() { return settlementId; }
-    public int solBps() { return solBps; }
-    public long employed() { return employed; }
-    public long lastIncome() { return lastIncome; }
-    public long lastWages() { return lastWages; }
-    public long lastProcessedDay() { return lastProcessedDay; }
-    public Map<String, GoodBook> goods() { return Collections.unmodifiableMap(goods); }
-    public Map<NeedCategory, Double> lastFulfilment() { return Collections.unmodifiableMap(lastFulfilment); }
-    public List<Point> history() { return new ArrayList<>(history); }
+    public UUID settlementId() {
+        return settlementId;
+    }
+
+    public int solBps() {
+        return solBps;
+    }
+
+    public long employed() {
+        return employed;
+    }
+
+    public long lastIncome() {
+        return lastIncome;
+    }
+
+    public long lastWages() {
+        return lastWages;
+    }
+
+    public long lastProcessedDay() {
+        return lastProcessedDay;
+    }
+
+    public Map<String, GoodBook> goods() {
+        return Collections.unmodifiableMap(goods);
+    }
+
+    public Map<NeedCategory, Double> lastFulfilment() {
+        return Collections.unmodifiableMap(lastFulfilment);
+    }
+
+    public List<Point> history() {
+        return new ArrayList<>(history);
+    }
 
     /** 取商品账本，不存在则创建（超过上限返回 null）。 */
     GoodBook book(String commodityId) {

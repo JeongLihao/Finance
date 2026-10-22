@@ -3,7 +3,6 @@ package finance.company;
 import finance.account.AccountManager;
 import finance.account.TransactionRecord;
 import finance.account.TransactionType;
-
 import java.util.UUID;
 
 /**
@@ -13,6 +12,7 @@ public class CompanyCreationService {
 
     /** 开公司要 10 磅，这笔钱全部作为公司的启动现金（不凭空多给钱；刷钱防线改由上市估值门槛承担）。 */
     public static final long CREATE_COMPANY_COST = 1_000L;
+
     public static final long INITIAL_PLAYER_COMPANY_CASH = CREATE_COMPANY_COST;
 
     public record Result(boolean success, String message, Company company) {}
@@ -42,29 +42,21 @@ public class CompanyCreationService {
             return fail("余额不足，创建公司需要 " + CREATE_COMPANY_COST + "。");
         }
 
-        Company company = new Company(
-                UUID.randomUUID(),
-                name,
-                type,
-                INITIAL_PLAYER_COMPANY_CASH,
-                ownerId
-        );
+        Company company = new Company(UUID.randomUUID(), name, type, INITIAL_PLAYER_COMPANY_CASH, ownerId);
         seedInitialInventory(company);
         CompanyManager.register(company);
         finance.gameplay.company.CompanyGameplayManager.createForNewCompany(company);
-        AccountManager.addTransactionRecord(
-                new TransactionRecord(
-                        ownerId,
-                        company.getCompanyId(),
-                        CREATE_COMPANY_COST,
-                        TransactionType.COMPANY_CREATE,
-                        ownerId,
-                        company.getName(),
-                        1
-                )
-        );
+        AccountManager.addTransactionRecord(new TransactionRecord(
+                ownerId,
+                company.getCompanyId(),
+                CREATE_COMPANY_COST,
+                TransactionType.COMPANY_CREATE,
+                ownerId,
+                company.getName(),
+                1));
 
-        return new Result(true,
+        return new Result(
+                true,
                 "公司已创建: " + company.getName()
                         + " | 行业: " + company.getType().getDisplayName()
                         + " | 启动资金: " + INITIAL_PLAYER_COMPANY_CASH,

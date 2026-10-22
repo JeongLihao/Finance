@@ -1,26 +1,35 @@
 package finance.simulation;
 
+import static finance.simulation.MacroLongRunSimulationService.*;
+import static org.junit.jupiter.api.Assertions.*;
+
 import finance.commodity.CommodityRegistry;
 import finance.config.FinanceConfig;
 import finance.data.EconomySavedData;
 import finance.macro.MacroFormulas;
+import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import java.util.List;
-
-import static finance.simulation.MacroLongRunSimulationService.*;
-import static org.junit.jupiter.api.Assertions.*;
-
 /** 宏观经济一年期平衡基线（数值见 docs/MACRO_ECONOMY.md “平衡基线”）。 */
 class MacroLongRunSimulationServiceTest {
-    @BeforeEach void setup() { EconomySavedData.resetRuntimeState(); }
-    @AfterEach void cleanup() { EconomySavedData.resetRuntimeState(); CommodityRegistry.resetToDefaults(); }
+    @BeforeEach
+    void setup() {
+        EconomySavedData.resetRuntimeState();
+    }
+
+    @AfterEach
+    void cleanup() {
+        EconomySavedData.resetRuntimeState();
+        CommodityRegistry.resetToDefaults();
+    }
 
     /** 工业化场景：全部工厂 3 级、工业档（厂房见 docs/COMPANY_FACILITIES.md）。只检验稳健性，不要求平衡。 */
-    @Test void fullIndustrialisationStaysConservedAndHealthy() {
-        Result r = MacroLongRunSimulationService.run(STANDARD_DAYS, finance.gameplay.company.factory.ProductionTier.INDUSTRIAL);
+    @Test
+    void fullIndustrialisationStaysConservedAndHealthy() {
+        Result r = MacroLongRunSimulationService.run(
+                STANDARD_DAYS, finance.gameplay.company.factory.ProductionTier.INDUSTRIAL);
         System.out.println("[工业化] " + r.summary());
         assertEquals(STANDARD_DAYS, r.daily().size());
         assertTrue(r.deterministic(), "同样的场景跑两遍结果一致");
@@ -31,7 +40,8 @@ class MacroLongRunSimulationServiceTest {
         }
     }
 
-    @Test void macroEconomyStaysBalancedForAFullYear() {
+    @Test
+    void macroEconomyStaysBalancedForAFullYear() {
         Result r = MacroLongRunSimulationService.run(STANDARD_DAYS);
         System.out.println(r.summary());
         assertEquals(STANDARD_DAYS, r.daily().size());
@@ -51,15 +61,23 @@ class MacroLongRunSimulationServiceTest {
         }
         // 冲击：铁厂停工期间 gamma 失业、人口外流；复工后回升
         List<Integer> gamma = r.populationOf("gamma");
-        int beforeShock = gamma.get(SHOCK_START - 1), atRecovery = gamma.get(SHOCK_END - 1), end = gamma.get(STANDARD_DAYS - 1);
+        int beforeShock = gamma.get(SHOCK_START - 1),
+                atRecovery = gamma.get(SHOCK_END - 1),
+                end = gamma.get(STANDARD_DAYS - 1);
         assertTrue(atRecovery < beforeShock, "停工期间人口下降：" + beforeShock + " → " + atRecovery);
         assertTrue(end > atRecovery, "复工后人口回升：" + atRecovery + " → " + end);
-        assertTrue(r.populationOf("beta").get(SHOCK_END - 1) > r.populationOf("beta").get(SHOCK_START - 1), "失业人口迁往邻近聚落");
+        assertTrue(
+                r.populationOf("beta").get(SHOCK_END - 1)
+                        > r.populationOf("beta").get(SHOCK_START - 1),
+                "失业人口迁往邻近聚落");
 
         // 价格系数：没有任何商品在任何聚落连续 30 天以上卡在 2500 或 17500
         assertTrue(r.longestPinnedRun() <= 30, "价格系数长期卡在边界：" + r.factors());
-        assertTrue(r.factors().stream().allMatch(f -> f.finalBps() > MacroFormulas.MIN_FACTOR_BPS
-                && f.finalBps() < MacroFormulas.MAX_FACTOR_BPS), "年末价格系数不在边界");
+        assertTrue(
+                r.factors().stream()
+                        .allMatch(f -> f.finalBps() > MacroFormulas.MIN_FACTOR_BPS
+                                && f.finalBps() < MacroFormulas.MAX_FACTOR_BPS),
+                "年末价格系数不在边界");
 
         // CPI：稳态年化通胀在 −3%～+5%；含开服磨合期也不超过 −10%
         double steady = r.annualizedCpiInflationPct(STEADY_STATE_DAY);

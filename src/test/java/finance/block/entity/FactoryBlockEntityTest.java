@@ -1,5 +1,11 @@
 package finance.block.entity;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import finance.factory.FactoryRecipe;
 import finance.testutil.MinecraftTestBootstrap;
 import net.minecraft.nbt.CompoundTag;
@@ -8,12 +14,6 @@ import net.minecraft.world.item.Items;
 import net.minecraftforge.items.ItemStackHandler;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * 工厂方块逻辑测试 —— 配方、生产推进、停机、原子合成、NBT 往返。
@@ -83,7 +83,8 @@ class FactoryBlockEntityTest {
             progress = tick(handler, progress, "wheat_to_bread");
             assertEquals(i + 1, progress);
             // 未完成前输入不动。
-            assertEquals(3, handler.getStackInSlot(FactoryBlockEntity.SLOT_INPUT).getCount());
+            assertEquals(
+                    3, handler.getStackInSlot(FactoryBlockEntity.SLOT_INPUT).getCount());
         }
         progress = tick(handler, progress, "wheat_to_bread");
         assertEquals(0, progress);
@@ -107,20 +108,19 @@ class FactoryBlockEntityTest {
 
     @Test
     void outputFullPausesWithoutConsumingInput() {
-        ItemStackHandler handler = handlerWith(
-                new ItemStack(Items.WHEAT, 3), new ItemStack(Items.BREAD, 64));
+        ItemStackHandler handler = handlerWith(new ItemStack(Items.WHEAT, 3), new ItemStack(Items.BREAD, 64));
         int before = handler.getStackInSlot(FactoryBlockEntity.SLOT_INPUT).getCount();
         int progress = tick(handler, 10, "wheat_to_bread");
         // 停机：进度保持，输入不扣。
         assertEquals(10, progress);
-        assertEquals(before, handler.getStackInSlot(FactoryBlockEntity.SLOT_INPUT).getCount());
+        assertEquals(
+                before, handler.getStackInSlot(FactoryBlockEntity.SLOT_INPUT).getCount());
         assertEquals(64, handler.getStackInSlot(FactoryBlockEntity.SLOT_OUTPUT).getCount());
     }
 
     @Test
     void outputWithDifferentItemBlocksCraft() {
-        ItemStackHandler handler = handlerWith(
-                new ItemStack(Items.WHEAT, 3), new ItemStack(Items.STONE, 1));
+        ItemStackHandler handler = handlerWith(new ItemStack(Items.WHEAT, 3), new ItemStack(Items.STONE, 1));
         int progress = tick(handler, 199, "wheat_to_bread");
         assertEquals(199, progress);
         assertEquals(3, handler.getStackInSlot(FactoryBlockEntity.SLOT_INPUT).getCount());
@@ -128,8 +128,7 @@ class FactoryBlockEntityTest {
 
     @Test
     void partialOutputSpaceAllowsCraft() {
-        ItemStackHandler handler = handlerWith(
-                new ItemStack(Items.OAK_LOG, 1), new ItemStack(Items.OAK_PLANKS, 60));
+        ItemStackHandler handler = handlerWith(new ItemStack(Items.OAK_LOG, 1), new ItemStack(Items.OAK_PLANKS, 60));
         FactoryRecipe recipe = FactoryRecipe.find(new ItemStack(Items.OAK_LOG, 1));
         int progress = recipe.cookTime() - 1;
         int next = tick(handler, progress, "oak_log_to_planks");
@@ -141,21 +140,20 @@ class FactoryBlockEntityTest {
 
     @Test
     void partialOutputSpaceInsufficientBlocksCraft() {
-        ItemStackHandler handler = handlerWith(
-                new ItemStack(Items.OAK_LOG, 1), new ItemStack(Items.OAK_PLANKS, 61));
+        ItemStackHandler handler = handlerWith(new ItemStack(Items.OAK_LOG, 1), new ItemStack(Items.OAK_PLANKS, 61));
         int before = handler.getStackInSlot(FactoryBlockEntity.SLOT_INPUT).getCount();
         // 61 + 4 > 64，放不下 → 不扣输入。
         int progress = tick(handler, 99, "oak_log_to_planks");
         assertEquals(99, progress);
-        assertEquals(before, handler.getStackInSlot(FactoryBlockEntity.SLOT_INPUT).getCount());
+        assertEquals(
+                before, handler.getStackInSlot(FactoryBlockEntity.SLOT_INPUT).getCount());
     }
 
     // ---- NBT ----
 
     @Test
     void inventoryNbtRoundTrip() {
-        ItemStackHandler handler = handlerWith(
-                new ItemStack(Items.IRON_ORE, 5), new ItemStack(Items.IRON_INGOT, 2));
+        ItemStackHandler handler = handlerWith(new ItemStack(Items.IRON_ORE, 5), new ItemStack(Items.IRON_INGOT, 2));
         CompoundTag tag = new CompoundTag();
         tag.put("Inventory", handler.serializeNBT());
 
@@ -184,8 +182,7 @@ class FactoryBlockEntityTest {
     @Test
     void craftIsAtomicOnOutputRace() {
         // 输出槽在检查后被占满的竞态：doCraft 二次确认，失败则不扣输入。
-        ItemStackHandler handler = handlerWith(
-                new ItemStack(Items.WHEAT, 3), new ItemStack(Items.BREAD, 64));
+        ItemStackHandler handler = handlerWith(new ItemStack(Items.WHEAT, 3), new ItemStack(Items.BREAD, 64));
         FactoryRecipe recipe = FactoryRecipe.find(new ItemStack(Items.WHEAT, 3));
         assertFalse(FactoryBlockEntity.doCraft(handler, recipe));
         assertEquals(3, handler.getStackInSlot(FactoryBlockEntity.SLOT_INPUT).getCount());

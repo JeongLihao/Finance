@@ -1,13 +1,12 @@
 package finance.network;
 
 import finance.gui.FinanceMenu;
+import java.util.function.Consumer;
+import java.util.function.Supplier;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.fml.DistExecutor;
 import net.minecraftforge.network.NetworkEvent;
-
-import java.util.function.Consumer;
-import java.util.function.Supplier;
 
 /**
  * 服务端 → 客户端：金融中心开着时推送最新数据快照，替换界面上的余额、库存、订单等数字。
@@ -33,8 +32,13 @@ public class FinanceMenuRefreshPacket {
         this.snapshot = snapshot;
     }
 
-    public int containerId() { return containerId; }
-    public FinanceMenu snapshot() { return snapshot; }
+    public int containerId() {
+        return containerId;
+    }
+
+    public FinanceMenu snapshot() {
+        return snapshot;
+    }
 
     public static void encode(FinanceMenuRefreshPacket packet, FriendlyByteBuf buffer) {
         buffer.writeVarInt(packet.containerId);
@@ -47,8 +51,11 @@ public class FinanceMenuRefreshPacket {
     }
 
     public static void handle(FinanceMenuRefreshPacket packet, Supplier<NetworkEvent.Context> ctx) {
-        ctx.get().enqueueWork(() -> DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () ->
-                finance.client.FinanceRefreshClientHandler.handle(packet.containerId, packet.snapshot)));
+        ctx.get()
+                .enqueueWork(() -> DistExecutor.unsafeRunWhenOn(
+                        Dist.CLIENT,
+                        () -> () -> finance.client.FinanceRefreshClientHandler.handle(
+                                packet.containerId, packet.snapshot)));
         ctx.get().setPacketHandled(true);
     }
 }

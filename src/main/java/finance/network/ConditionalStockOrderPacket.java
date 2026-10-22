@@ -2,12 +2,11 @@ package finance.network;
 
 import finance.stock.ConditionalStockOrderManager;
 import finance.stock.ConditionalStockOrderType;
+import java.util.UUID;
+import java.util.function.Supplier;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.network.NetworkEvent;
-
-import java.util.UUID;
-import java.util.function.Supplier;
 
 public class ConditionalStockOrderPacket {
 
@@ -23,8 +22,8 @@ public class ConditionalStockOrderPacket {
     private final long quantity;
     private final UUID orderId;
 
-    public ConditionalStockOrderPacket(ConditionalStockOrderType type, String symbol,
-                                       long triggerPrice, long quantity) {
+    public ConditionalStockOrderPacket(
+            ConditionalStockOrderType type, String symbol, long triggerPrice, long quantity) {
         this.action = Action.ADD;
         this.type = type;
         this.symbol = symbol;
@@ -85,13 +84,12 @@ public class ConditionalStockOrderPacket {
                     GuiFeedbackPacket.send(player, "条件委托参数无效。");
                     return;
                 }
-                ConditionalStockOrderManager.OrderResult result =
-                        ConditionalStockOrderManager.addOrder(
-                                player.getUUID(),
-                                NetworkValidation.normalizeSymbol(packet.symbol),
-                                packet.type,
-                                packet.triggerPrice,
-                                packet.quantity);
+                ConditionalStockOrderManager.OrderResult result = ConditionalStockOrderManager.addOrder(
+                        player.getUUID(),
+                        NetworkValidation.normalizeSymbol(packet.symbol),
+                        packet.type,
+                        packet.triggerPrice,
+                        packet.quantity);
                 GuiFeedbackPacket.send(player, result.message());
                 return;
             }

@@ -35,24 +35,24 @@ public class TransactionRecord {
     }
 
     /** 从持久化数据恢复交易记录，使用指定时间戳 */
-    public TransactionRecord(
-            UUID from, UUID to, long amount, TransactionType type,
-            LocalDateTime timestamp
-    ) {
+    public TransactionRecord(UUID from, UUID to, long amount, TransactionType type, LocalDateTime timestamp) {
         this(from, to, amount, type, timestamp, inferPlayerId(from, to), "", 0);
     }
 
     public TransactionRecord(
-            UUID from, UUID to, long amount, TransactionType type,
-            UUID playerId, String objectName, long quantity
-    ) {
+            UUID from, UUID to, long amount, TransactionType type, UUID playerId, String objectName, long quantity) {
         this(from, to, amount, type, LocalDateTime.now(), playerId, objectName, quantity);
     }
 
     public TransactionRecord(
-            UUID from, UUID to, long amount, TransactionType type,
-            LocalDateTime timestamp, UUID playerId, String objectName, long quantity
-    ) {
+            UUID from,
+            UUID to,
+            long amount,
+            TransactionType type,
+            LocalDateTime timestamp,
+            UUID playerId,
+            String objectName,
+            long quantity) {
         this.from = from;
         this.to = to;
         this.amount = amount;

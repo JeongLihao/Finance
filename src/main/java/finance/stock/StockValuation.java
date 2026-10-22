@@ -5,7 +5,6 @@ import finance.commodity.CommodityRegistry;
 import finance.company.Company;
 import finance.gameplay.company.CompanyFundamentalBridge;
 import finance.util.MathUtil;
-
 import java.util.Map;
 
 /**
@@ -70,7 +69,8 @@ public final class StockValuation {
         } catch (ArithmeticException e) {
             earnings = profit > 0 ? Long.MAX_VALUE / 4 : -(Long.MAX_VALUE / 4);
         }
-        long value = earnings >= 0 ? MathUtil.saturatedAddNonNegative(net, earnings) : Math.max(net / 2, net + earnings);
+        long value =
+                earnings >= 0 ? MathUtil.saturatedAddNonNegative(net, earnings) : Math.max(net / 2, net + earnings);
         return new Breakdown(net, profit, multiple, Math.max(0, value));
     }
 

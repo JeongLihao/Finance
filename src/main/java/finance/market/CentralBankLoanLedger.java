@@ -1,7 +1,6 @@
 package finance.market;
 
 import finance.data.EconomySavedData;
-
 import java.util.Collections;
 import java.util.EnumMap;
 import java.util.Map;
@@ -36,8 +35,7 @@ public final class CentralBankLoanLedger {
         }
     }
 
-    private CentralBankLoanLedger() {
-    }
+    private CentralBankLoanLedger() {}
 
     /** 记一笔紧急贷款发放（饱和加法防溢出）。 */
     public static synchronized void recordLoan(MarketMakerLedger.SubMarket market, long amount, long day) {
@@ -45,11 +43,13 @@ public final class CentralBankLoanLedger {
             return;
         }
         LoanBook book = BOOKS.get(market);
-        BOOKS.put(market, new LoanBook(
-                saturatedAdd(book.outstanding(), amount),
-                saturatedAdd(book.totalLoaned(), amount),
-                book.totalRepaid(),
-                Math.max(0, day)));
+        BOOKS.put(
+                market,
+                new LoanBook(
+                        saturatedAdd(book.outstanding(), amount),
+                        saturatedAdd(book.totalLoaned(), amount),
+                        book.totalRepaid(),
+                        Math.max(0, day)));
         EconomySavedData.markDirty();
     }
 
@@ -74,11 +74,13 @@ public final class CentralBankLoanLedger {
         if (actual <= 0) {
             return 0;
         }
-        BOOKS.put(market, new LoanBook(
-                book.outstanding() - actual,
-                book.totalLoaned(),
-                saturatedAdd(book.totalRepaid(), actual),
-                book.lastLoanDay()));
+        BOOKS.put(
+                market,
+                new LoanBook(
+                        book.outstanding() - actual,
+                        book.totalLoaned(),
+                        saturatedAdd(book.totalRepaid(), actual),
+                        book.lastLoanDay()));
         EconomySavedData.markDirty();
         return actual;
     }
@@ -97,13 +99,16 @@ public final class CentralBankLoanLedger {
     }
 
     /** 反序列化恢复（非法数据忽略）。 */
-    public static synchronized void restore(MarketMakerLedger.SubMarket market, long outstanding,
-                                           long totalLoaned, long totalRepaid, long lastLoanDay) {
+    public static synchronized void restore(
+            MarketMakerLedger.SubMarket market,
+            long outstanding,
+            long totalLoaned,
+            long totalRepaid,
+            long lastLoanDay) {
         if (market == null || outstanding < 0 || totalLoaned < 0 || totalRepaid < 0) {
             return;
         }
-        BOOKS.put(market, new LoanBook(
-                Math.min(outstanding, totalLoaned), totalLoaned, totalRepaid, lastLoanDay));
+        BOOKS.put(market, new LoanBook(Math.min(outstanding, totalLoaned), totalLoaned, totalRepaid, lastLoanDay));
         EconomySavedData.markDirty();
     }
 

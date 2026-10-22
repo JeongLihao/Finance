@@ -7,8 +7,13 @@ import finance.logistics.ShipmentService;
 import finance.registry.ModItems;
 import finance.warehouse.CommodityItemResolver;
 import finance.warehouse.WarehouseManager;
+import java.util.List;
+import java.util.UUID;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.InteractionResultHolder;
@@ -23,12 +28,6 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.List;
-import java.util.UUID;
-import net.minecraft.sounds.SoundEvents;
-import net.minecraft.sounds.SoundSource;
-import net.minecraft.core.particles.ParticleTypes;
-
 /** A bearer token for cargo; NBT labels are never an inventory authority. */
 public final class SealedCargoCrateItem extends Item {
     public static final int TOKEN_VERSION = 1;
@@ -39,7 +38,9 @@ public final class SealedCargoCrateItem extends Item {
     private static final String LABEL = "CargoLabel";
     private static final String QUANTITY = "CargoQuantity";
 
-    public SealedCargoCrateItem(Properties properties) { super(properties); }
+    public SealedCargoCrateItem(Properties properties) {
+        super(properties);
+    }
 
     @Override
     public InteractionResult useOn(UseOnContext context) {
@@ -59,16 +60,20 @@ public final class SealedCargoCrateItem extends Item {
         UUID tokenId = readUuid(crate, TOKEN);
         if (shipmentId != null || tokenId != null) {
             if (!validVersion(crate)) return message(player, "finance.logistics.invalid_cargo", false);
-            ShipmentActionResult result = ShipmentService.unload(player, shipmentId, tokenId,
-                    clicked.warehouseId(), UUID.randomUUID().toString());
+            ShipmentActionResult result = ShipmentService.unload(
+                    player,
+                    shipmentId,
+                    tokenId,
+                    clicked.warehouseId(),
+                    UUID.randomUUID().toString());
             if (result.success()) clearCargo(crate);
             return message(player, result.messageKey(), result.success());
         }
 
         UUID destinationId = readUuid(crate, DESTINATION);
         if (destinationId == null) {
-            ShipmentActionResult recovered = ShipmentService.recover(player, clicked.warehouseId(),
-                    UUID.randomUUID().toString());
+            ShipmentActionResult recovered = ShipmentService.recover(
+                    player, clicked.warehouseId(), UUID.randomUUID().toString());
             if (recovered.success()) {
                 seal(crate, recovered.shipment());
                 return message(player, recovered.messageKey(), true);
@@ -84,8 +89,14 @@ public final class SealedCargoCrateItem extends Item {
         String commodityId = CommodityItemResolver.commodityId(selector.getItem());
         if (selector.isEmpty() || commodityId == null)
             return message(player, "finance.logistics.offhand_selector", false);
-        ShipmentActionResult result = ShipmentService.load(player, clicked.warehouseId(), destinationId,
-                commodityId, selector.getCount(), null, UUID.randomUUID().toString());
+        ShipmentActionResult result = ShipmentService.load(
+                player,
+                clicked.warehouseId(),
+                destinationId,
+                commodityId,
+                selector.getCount(),
+                null,
+                UUID.randomUUID().toString());
         if (result.success()) seal(crate, result.shipment());
         return message(player, result.messageKey(), result.success());
     }
@@ -93,7 +104,9 @@ public final class SealedCargoCrateItem extends Item {
     @Override
     public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
         ItemStack stack = player.getItemInHand(hand);
-        if (!level.isClientSide && player.isShiftKeyDown() && readUuid(stack, SHIPMENT) == null
+        if (!level.isClientSide
+                && player.isShiftKeyDown()
+                && readUuid(stack, SHIPMENT) == null
                 && readUuid(stack, DESTINATION) != null) {
             stack.getOrCreateTag().remove(DESTINATION);
             player.displayClientMessage(Component.translatable("finance.logistics.destination_cleared"), true);
@@ -102,7 +115,9 @@ public final class SealedCargoCrateItem extends Item {
     }
 
     @Override
-    public boolean canFitInsideContainerItems() { return false; }
+    public boolean canFitInsideContainerItems() {
+        return false;
+    }
 
     @Override
     public void onDestroyed(ItemEntity entity, DamageSource source) {
@@ -117,19 +132,23 @@ public final class SealedCargoCrateItem extends Item {
         boolean changed = markLost(stack, reason);
         if (changed) {
             Shipment shipment = finance.logistics.ShipmentManager.get(shipmentId);
-            if (shipment != null) finance.feedback.WorldEconomyFeedbackService.queue(shipment.carrierId(),
-                    new finance.feedback.FeedbackNotification(Math.max(0, entity.level().getGameTime() / 24_000L),
-                            finance.feedback.FeedbackSeverity.WARNING, "finance.feedback.cargo_lost",
-                            java.util.List.of(shipment.id().toString().substring(0, 8))));
+            if (shipment != null)
+                finance.feedback.WorldEconomyFeedbackService.queue(
+                        shipment.carrierId(),
+                        new finance.feedback.FeedbackNotification(
+                                Math.max(0, entity.level().getGameTime() / 24_000L),
+                                finance.feedback.FeedbackSeverity.WARNING,
+                                "finance.feedback.cargo_lost",
+                                java.util.List.of(shipment.id().toString().substring(0, 8))));
         }
         return changed;
     }
 
     public static boolean markLost(ItemStack stack, String reason) {
-        if (stack == null || stack.isEmpty() || !stack.is(ModItems.SEALED_CARGO_CRATE.get()) || !validVersion(stack)) return false;
+        if (stack == null || stack.isEmpty() || !stack.is(ModItems.SEALED_CARGO_CRATE.get()) || !validVersion(stack))
+            return false;
         return ShipmentService.markLost(readUuid(stack, SHIPMENT), readUuid(stack, TOKEN), reason);
     }
-
 
     public static void seal(ItemStack stack, Shipment shipment) {
         if (stack == null || shipment == null) return;
@@ -154,8 +173,13 @@ public final class SealedCargoCrateItem extends Item {
     }
 
     private static UUID readUuid(ItemStack stack, String key) {
-        try { return stack != null && stack.hasTag() && stack.getTag().hasUUID(key) ? stack.getTag().getUUID(key) : null; }
-        catch (IllegalArgumentException ignored) { return null; }
+        try {
+            return stack != null && stack.hasTag() && stack.getTag().hasUUID(key)
+                    ? stack.getTag().getUUID(key)
+                    : null;
+        } catch (IllegalArgumentException ignored) {
+            return null;
+        }
     }
 
     private static boolean validVersion(ItemStack stack) {
@@ -166,8 +190,17 @@ public final class SealedCargoCrateItem extends Item {
         player.displayClientMessage(Component.translatable(key), true);
         if (success) {
             player.playNotifySound(SoundEvents.IRON_TRAPDOOR_CLOSE, SoundSource.PLAYERS, .55F, 1.2F);
-            player.serverLevel().sendParticles(ParticleTypes.HAPPY_VILLAGER,
-                    player.getX(), player.getY() + 1D, player.getZ(), 4, .2D, .25D, .2D, 0D);
+            player.serverLevel()
+                    .sendParticles(
+                            ParticleTypes.HAPPY_VILLAGER,
+                            player.getX(),
+                            player.getY() + 1D,
+                            player.getZ(),
+                            4,
+                            .2D,
+                            .25D,
+                            .2D,
+                            0D);
         }
         return success ? InteractionResult.CONSUME : InteractionResult.FAIL;
     }
@@ -176,10 +209,13 @@ public final class SealedCargoCrateItem extends Item {
     public void appendHoverText(ItemStack stack, @Nullable Level level, List<Component> tooltip, TooltipFlag flag) {
         UUID shipment = readUuid(stack, SHIPMENT);
         UUID destination = readUuid(stack, DESTINATION);
-        if (shipment != null) tooltip.add(Component.translatable("tooltip.finance.sealed_cargo_crate.sealed",
-                safeLabel(stack), safeQuantity(stack)));
-        else if (destination != null) tooltip.add(Component.translatable("tooltip.finance.sealed_cargo_crate.bound",
-                destination.toString().substring(0, 8)));
+        if (shipment != null)
+            tooltip.add(Component.translatable(
+                    "tooltip.finance.sealed_cargo_crate.sealed", safeLabel(stack), safeQuantity(stack)));
+        else if (destination != null)
+            tooltip.add(Component.translatable(
+                    "tooltip.finance.sealed_cargo_crate.bound",
+                    destination.toString().substring(0, 8)));
         else tooltip.add(Component.translatable("tooltip.finance.sealed_cargo_crate.empty"));
         tooltip.add(Component.translatable("tooltip.finance.sealed_cargo_crate.authority"));
     }
@@ -188,6 +224,7 @@ public final class SealedCargoCrateItem extends Item {
         String value = stack.hasTag() ? stack.getTag().getString(LABEL) : "?";
         return value.length() <= 64 ? value : value.substring(0, 64);
     }
+
     private static int safeQuantity(ItemStack stack) {
         return stack.hasTag() ? Math.max(0, stack.getTag().getInt(QUANTITY)) : 0;
     }

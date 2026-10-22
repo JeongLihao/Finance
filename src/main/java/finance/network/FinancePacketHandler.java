@@ -1,12 +1,11 @@
 package finance.network;
 
 import finance.FinanceMod;
+import java.util.Optional;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraftforge.network.NetworkDirection;
 import net.minecraftforge.network.NetworkRegistry;
 import net.minecraftforge.network.simple.SimpleChannel;
-import net.minecraftforge.network.NetworkDirection;
-
-import java.util.Optional;
 
 /**
  * 网络通道注册 —— GUI 操作数据包的入口。
@@ -20,215 +19,437 @@ public class FinancePacketHandler {
             ResourceLocation.fromNamespaceAndPath(FinanceMod.MOD_ID, "gui"),
             () -> PROTOCOL_VERSION,
             PROTOCOL_VERSION::equals,
-            PROTOCOL_VERSION::equals
-    );
+            PROTOCOL_VERSION::equals);
 
     private static int packetId = 0;
 
     public static void register() {
-        CHANNEL.registerMessage(packetId++, CapitalProjectActionPacket.class,
-                CapitalProjectActionPacket::encode, CapitalProjectActionPacket::decode,
-                CapitalProjectActionPacket::handle, Optional.of(NetworkDirection.PLAY_TO_SERVER));
-        CHANNEL.registerMessage(packetId++, CompanyGameplayActionPacket.class,
-                CompanyGameplayActionPacket::encode, CompanyGameplayActionPacket::decode,
-                CompanyGameplayActionPacket::handle, Optional.of(NetworkDirection.PLAY_TO_SERVER));
-        CHANNEL.registerMessage(packetId++, WarehouseActionPacket.class,
-                WarehouseActionPacket::encode, WarehouseActionPacket::decode,
-                WarehouseActionPacket::handle, Optional.of(NetworkDirection.PLAY_TO_SERVER));
-        CHANNEL.registerMessage(packetId++, ContractActionPacket.class,
-                ContractActionPacket::encode, ContractActionPacket::decode,
-                ContractActionPacket::handle, Optional.of(NetworkDirection.PLAY_TO_SERVER));
-        CHANNEL.registerMessage(packetId++,
+        CHANNEL.registerMessage(
+                packetId++,
+                CapitalProjectActionPacket.class,
+                CapitalProjectActionPacket::encode,
+                CapitalProjectActionPacket::decode,
+                CapitalProjectActionPacket::handle,
+                Optional.of(NetworkDirection.PLAY_TO_SERVER));
+        CHANNEL.registerMessage(
+                packetId++,
+                CompanyGameplayActionPacket.class,
+                CompanyGameplayActionPacket::encode,
+                CompanyGameplayActionPacket::decode,
+                CompanyGameplayActionPacket::handle,
+                Optional.of(NetworkDirection.PLAY_TO_SERVER));
+        CHANNEL.registerMessage(
+                packetId++,
+                WarehouseActionPacket.class,
+                WarehouseActionPacket::encode,
+                WarehouseActionPacket::decode,
+                WarehouseActionPacket::handle,
+                Optional.of(NetworkDirection.PLAY_TO_SERVER));
+        CHANNEL.registerMessage(
+                packetId++,
+                ContractActionPacket.class,
+                ContractActionPacket::encode,
+                ContractActionPacket::decode,
+                ContractActionPacket::handle,
+                Optional.of(NetworkDirection.PLAY_TO_SERVER));
+        CHANNEL.registerMessage(
+                packetId++,
                 TradeActionPacket.class,
-                 TradeActionPacket::encode,
-                 TradeActionPacket::decode,
-                 TradeActionPacket::handle,
-                 Optional.of(NetworkDirection.PLAY_TO_SERVER));
+                TradeActionPacket::encode,
+                TradeActionPacket::decode,
+                TradeActionPacket::handle,
+                Optional.of(NetworkDirection.PLAY_TO_SERVER));
 
-        CHANNEL.registerMessage(packetId++,
+        CHANNEL.registerMessage(
+                packetId++,
                 CancelOrderPacket.class,
-                 CancelOrderPacket::encode,
-                 CancelOrderPacket::decode,
-                 CancelOrderPacket::handle,
-                 Optional.of(NetworkDirection.PLAY_TO_SERVER));
+                CancelOrderPacket::encode,
+                CancelOrderPacket::decode,
+                CancelOrderPacket::handle,
+                Optional.of(NetworkDirection.PLAY_TO_SERVER));
 
-        CHANNEL.registerMessage(packetId++,
+        CHANNEL.registerMessage(
+                packetId++,
                 CreateCompanyPacket.class,
-                 CreateCompanyPacket::encode,
-                 CreateCompanyPacket::decode,
-                 CreateCompanyPacket::handle,
-                 Optional.of(NetworkDirection.PLAY_TO_SERVER));
+                CreateCompanyPacket::encode,
+                CreateCompanyPacket::decode,
+                CreateCompanyPacket::handle,
+                Optional.of(NetworkDirection.PLAY_TO_SERVER));
 
-        CHANNEL.registerMessage(packetId++,
+        CHANNEL.registerMessage(
+                packetId++,
                 StockTradePacket.class,
-                 StockTradePacket::encode,
-                 StockTradePacket::decode,
-                 StockTradePacket::handle,
-                 Optional.of(NetworkDirection.PLAY_TO_SERVER));
+                StockTradePacket::encode,
+                StockTradePacket::decode,
+                StockTradePacket::handle,
+                Optional.of(NetworkDirection.PLAY_TO_SERVER));
 
-        CHANNEL.registerMessage(packetId++,
+        CHANNEL.registerMessage(
+                packetId++,
                 OpenFinanceGuiPacket.class,
                 OpenFinanceGuiPacket::encode,
                 OpenFinanceGuiPacket::decode,
                 OpenFinanceGuiPacket::handle,
                 Optional.of(NetworkDirection.PLAY_TO_SERVER));
 
-        CHANNEL.registerMessage(packetId++,
+        CHANNEL.registerMessage(
+                packetId++,
                 TakeOrderPacket.class,
-                 TakeOrderPacket::encode,
-                 TakeOrderPacket::decode,
-                 TakeOrderPacket::handle,
-                 Optional.of(NetworkDirection.PLAY_TO_SERVER));
+                TakeOrderPacket::encode,
+                TakeOrderPacket::decode,
+                TakeOrderPacket::handle,
+                Optional.of(NetworkDirection.PLAY_TO_SERVER));
 
-        CHANNEL.registerMessage(packetId++,
+        CHANNEL.registerMessage(
+                packetId++,
                 AdminActionPacket.class,
-                 AdminActionPacket::encode,
-                 AdminActionPacket::decode,
-                 AdminActionPacket::handle,
-                 Optional.of(NetworkDirection.PLAY_TO_SERVER));
+                AdminActionPacket::encode,
+                AdminActionPacket::decode,
+                AdminActionPacket::handle,
+                Optional.of(NetworkDirection.PLAY_TO_SERVER));
 
-        CHANNEL.registerMessage(packetId++,
+        CHANNEL.registerMessage(
+                packetId++,
                 InventoryActionPacket.class,
-                 InventoryActionPacket::encode,
-                 InventoryActionPacket::decode,
-                 InventoryActionPacket::handle,
-                 Optional.of(NetworkDirection.PLAY_TO_SERVER));
+                InventoryActionPacket::encode,
+                InventoryActionPacket::decode,
+                InventoryActionPacket::handle,
+                Optional.of(NetworkDirection.PLAY_TO_SERVER));
 
-        CHANNEL.registerMessage(packetId++,
+        CHANNEL.registerMessage(
+                packetId++,
                 StockOrderPacket.class,
-                 StockOrderPacket::encode,
-                 StockOrderPacket::decode,
-                 StockOrderPacket::handle,
-                 Optional.of(NetworkDirection.PLAY_TO_SERVER));
+                StockOrderPacket::encode,
+                StockOrderPacket::decode,
+                StockOrderPacket::handle,
+                Optional.of(NetworkDirection.PLAY_TO_SERVER));
 
-        CHANNEL.registerMessage(packetId++,
+        CHANNEL.registerMessage(
+                packetId++,
                 CompanyIPOPacket.class,
-                 CompanyIPOPacket::encode,
-                 CompanyIPOPacket::decode,
-                 CompanyIPOPacket::handle,
-                 Optional.of(NetworkDirection.PLAY_TO_SERVER));
+                CompanyIPOPacket::encode,
+                CompanyIPOPacket::decode,
+                CompanyIPOPacket::handle,
+                Optional.of(NetworkDirection.PLAY_TO_SERVER));
 
-        CHANNEL.registerMessage(packetId++,
+        CHANNEL.registerMessage(
+                packetId++,
                 CompanyManagePacket.class,
-                 CompanyManagePacket::encode,
-                 CompanyManagePacket::decode,
-                 CompanyManagePacket::handle,
-                 Optional.of(NetworkDirection.PLAY_TO_SERVER));
+                CompanyManagePacket::encode,
+                CompanyManagePacket::decode,
+                CompanyManagePacket::handle,
+                Optional.of(NetworkDirection.PLAY_TO_SERVER));
 
-        CHANNEL.registerMessage(packetId++,
+        CHANNEL.registerMessage(
+                packetId++,
                 GuiFeedbackPacket.class,
-                 GuiFeedbackPacket::encode,
-                 GuiFeedbackPacket::decode,
-                 GuiFeedbackPacket::handle,
-                 Optional.of(NetworkDirection.PLAY_TO_CLIENT));
+                GuiFeedbackPacket::encode,
+                GuiFeedbackPacket::decode,
+                GuiFeedbackPacket::handle,
+                Optional.of(NetworkDirection.PLAY_TO_CLIENT));
 
-        CHANNEL.registerMessage(packetId++,
+        CHANNEL.registerMessage(
+                packetId++,
                 PriceAlertPacket.class,
-                 PriceAlertPacket::encode,
-                 PriceAlertPacket::decode,
-                 PriceAlertPacket::handle,
-                 Optional.of(NetworkDirection.PLAY_TO_SERVER));
+                PriceAlertPacket::encode,
+                PriceAlertPacket::decode,
+                PriceAlertPacket::handle,
+                Optional.of(NetworkDirection.PLAY_TO_SERVER));
 
-        CHANNEL.registerMessage(packetId++,
+        CHANNEL.registerMessage(
+                packetId++,
                 ConditionalStockOrderPacket.class,
-                 ConditionalStockOrderPacket::encode,
-                 ConditionalStockOrderPacket::decode,
-                 ConditionalStockOrderPacket::handle,
-                 Optional.of(NetworkDirection.PLAY_TO_SERVER));
+                ConditionalStockOrderPacket::encode,
+                ConditionalStockOrderPacket::decode,
+                ConditionalStockOrderPacket::handle,
+                Optional.of(NetworkDirection.PLAY_TO_SERVER));
 
-        CHANNEL.registerMessage(packetId++,
+        CHANNEL.registerMessage(
+                packetId++,
                 CompanyFinancingPacket.class,
-                 CompanyFinancingPacket::encode,
-                 CompanyFinancingPacket::decode,
-                 CompanyFinancingPacket::handle,
-                 Optional.of(NetworkDirection.PLAY_TO_SERVER));
+                CompanyFinancingPacket::encode,
+                CompanyFinancingPacket::decode,
+                CompanyFinancingPacket::handle,
+                Optional.of(NetworkDirection.PLAY_TO_SERVER));
 
-        CHANNEL.registerMessage(packetId++,
+        CHANNEL.registerMessage(
+                packetId++,
                 CompanyProposalPacket.class,
-                 CompanyProposalPacket::encode,
-                 CompanyProposalPacket::decode,
-                 CompanyProposalPacket::handle,
-                 Optional.of(NetworkDirection.PLAY_TO_SERVER));
+                CompanyProposalPacket::encode,
+                CompanyProposalPacket::decode,
+                CompanyProposalPacket::handle,
+                Optional.of(NetworkDirection.PLAY_TO_SERVER));
 
-        CHANNEL.registerMessage(packetId++,
+        CHANNEL.registerMessage(
+                packetId++,
                 CandlestickRequestPacket.class,
                 CandlestickRequestPacket::encode,
                 CandlestickRequestPacket::decode,
                 CandlestickRequestPacket::handle,
                 Optional.of(NetworkDirection.PLAY_TO_SERVER));
 
-        CHANNEL.registerMessage(packetId++,
+        CHANNEL.registerMessage(
+                packetId++,
                 CandlestickResponsePacket.class,
                 CandlestickResponsePacket::encode,
                 CandlestickResponsePacket::decode,
                 CandlestickResponsePacket::handle,
                 Optional.of(NetworkDirection.PLAY_TO_CLIENT));
 
-        CHANNEL.registerMessage(packetId++, FinancialProductRequestPacket.class,
-                FinancialProductRequestPacket::encode, FinancialProductRequestPacket::decode,
-                FinancialProductRequestPacket::handle, Optional.of(NetworkDirection.PLAY_TO_SERVER));
-        CHANNEL.registerMessage(packetId++, FinancialProductResponsePacket.class,
-                FinancialProductResponsePacket::encode, FinancialProductResponsePacket::decode,
-                FinancialProductResponsePacket::handle, Optional.of(NetworkDirection.PLAY_TO_CLIENT));
-        CHANNEL.registerMessage(packetId++, FinancialProductActionPacket.class,
-                FinancialProductActionPacket::encode, FinancialProductActionPacket::decode,
-                FinancialProductActionPacket::handle, Optional.of(NetworkDirection.PLAY_TO_SERVER));
-        CHANNEL.registerMessage(packetId++, FuturesRequestPacket.class,
-                FuturesRequestPacket::encode, FuturesRequestPacket::decode,
-                FuturesRequestPacket::handle, Optional.of(NetworkDirection.PLAY_TO_SERVER));
-        CHANNEL.registerMessage(packetId++, FuturesResponsePacket.class,
-                FuturesResponsePacket::encode, FuturesResponsePacket::decode,
-                FuturesResponsePacket::handle, Optional.of(NetworkDirection.PLAY_TO_CLIENT));
-        CHANNEL.registerMessage(packetId++, FuturesActionPacket.class,
-                FuturesActionPacket::encode, FuturesActionPacket::decode,
-                FuturesActionPacket::handle, Optional.of(NetworkDirection.PLAY_TO_SERVER));
-        CHANNEL.registerMessage(packetId++,BankRequestPacket.class,BankRequestPacket::encode,BankRequestPacket::decode,BankRequestPacket::handle,Optional.of(NetworkDirection.PLAY_TO_SERVER));
-        CHANNEL.registerMessage(packetId++,BankResponsePacket.class,BankResponsePacket::encode,BankResponsePacket::decode,BankResponsePacket::handle,Optional.of(NetworkDirection.PLAY_TO_CLIENT));
-        CHANNEL.registerMessage(packetId++,BankActionPacket.class,BankActionPacket::encode,BankActionPacket::decode,BankActionPacket::handle,Optional.of(NetworkDirection.PLAY_TO_SERVER));
-        CHANNEL.registerMessage(packetId++,FundActionPacket.class,FundActionPacket::encode,FundActionPacket::decode,FundActionPacket::handle,Optional.of(NetworkDirection.PLAY_TO_SERVER));
-        CHANNEL.registerMessage(packetId++,FundRequestPacket.class,FundRequestPacket::encode,FundRequestPacket::decode,FundRequestPacket::handle,Optional.of(NetworkDirection.PLAY_TO_SERVER));
-        CHANNEL.registerMessage(packetId++,FundResponsePacket.class,FundResponsePacket::encode,FundResponsePacket::decode,FundResponsePacket::handle,Optional.of(NetworkDirection.PLAY_TO_CLIENT));
-        CHANNEL.registerMessage(packetId++,InsuranceActionPacket.class,InsuranceActionPacket::encode,InsuranceActionPacket::decode,InsuranceActionPacket::handle,Optional.of(NetworkDirection.PLAY_TO_SERVER));
-        CHANNEL.registerMessage(packetId++,InsuranceRequestPacket.class,InsuranceRequestPacket::encode,InsuranceRequestPacket::decode,InsuranceRequestPacket::handle,Optional.of(NetworkDirection.PLAY_TO_SERVER));
-        CHANNEL.registerMessage(packetId++,InsuranceResponsePacket.class,InsuranceResponsePacket::encode,InsuranceResponsePacket::decode,InsuranceResponsePacket::handle,Optional.of(NetworkDirection.PLAY_TO_CLIENT));
-        CHANNEL.registerMessage(packetId++,GovernanceActionPacket.class,GovernanceActionPacket::encode,GovernanceActionPacket::decode,GovernanceActionPacket::handle,Optional.of(NetworkDirection.PLAY_TO_SERVER));
-        CHANNEL.registerMessage(packetId++,GovernanceActionResultPacket.class,GovernanceActionResultPacket::encode,GovernanceActionResultPacket::decode,GovernanceActionResultPacket::handle,Optional.of(NetworkDirection.PLAY_TO_CLIENT));
-        CHANNEL.registerMessage(packetId++,GovernanceRequestPacket.class,GovernanceRequestPacket::encode,GovernanceRequestPacket::decode,GovernanceRequestPacket::handle,Optional.of(NetworkDirection.PLAY_TO_SERVER));
-        CHANNEL.registerMessage(packetId++,GovernanceResponsePacket.class,GovernanceResponsePacket::encode,GovernanceResponsePacket::decode,GovernanceResponsePacket::handle,Optional.of(NetworkDirection.PLAY_TO_CLIENT));
-        CHANNEL.registerMessage(packetId++, SettlementActionPacket.class,
-                SettlementActionPacket::encode, SettlementActionPacket::decode, SettlementActionPacket::handle,
+        CHANNEL.registerMessage(
+                packetId++,
+                FinancialProductRequestPacket.class,
+                FinancialProductRequestPacket::encode,
+                FinancialProductRequestPacket::decode,
+                FinancialProductRequestPacket::handle,
                 Optional.of(NetworkDirection.PLAY_TO_SERVER));
-        CHANNEL.registerMessage(packetId++, VillageActionPacket.class,
-                VillageActionPacket::encode, VillageActionPacket::decode, VillageActionPacket::handle,
+        CHANNEL.registerMessage(
+                packetId++,
+                FinancialProductResponsePacket.class,
+                FinancialProductResponsePacket::encode,
+                FinancialProductResponsePacket::decode,
+                FinancialProductResponsePacket::handle,
+                Optional.of(NetworkDirection.PLAY_TO_CLIENT));
+        CHANNEL.registerMessage(
+                packetId++,
+                FinancialProductActionPacket.class,
+                FinancialProductActionPacket::encode,
+                FinancialProductActionPacket::decode,
+                FinancialProductActionPacket::handle,
                 Optional.of(NetworkDirection.PLAY_TO_SERVER));
-        CHANNEL.registerMessage(packetId++,RegionalRiskRequestPacket.class,RegionalRiskRequestPacket::encode,RegionalRiskRequestPacket::decode,RegionalRiskRequestPacket::handle,Optional.of(NetworkDirection.PLAY_TO_SERVER));
-        CHANNEL.registerMessage(packetId++,RegionalRiskResponsePacket.class,RegionalRiskResponsePacket::encode,RegionalRiskResponsePacket::decode,RegionalRiskResponsePacket::handle,Optional.of(NetworkDirection.PLAY_TO_CLIENT));
-        CHANNEL.registerMessage(packetId++,RegionalRiskActionPacket.class,RegionalRiskActionPacket::encode,RegionalRiskActionPacket::decode,RegionalRiskActionPacket::handle,Optional.of(NetworkDirection.PLAY_TO_SERVER));
-        CHANNEL.registerMessage(packetId++,MacroRequestPacket.class,MacroRequestPacket::encode,MacroRequestPacket::decode,MacroRequestPacket::handle,Optional.of(NetworkDirection.PLAY_TO_SERVER));
-        CHANNEL.registerMessage(packetId++,MacroResponsePacket.class,MacroResponsePacket::encode,MacroResponsePacket::decode,MacroResponsePacket::handle,Optional.of(NetworkDirection.PLAY_TO_CLIENT));
-        CHANNEL.registerMessage(packetId++,PlayerServicesRequestPacket.class,PlayerServicesRequestPacket::encode,PlayerServicesRequestPacket::decode,PlayerServicesRequestPacket::handle,Optional.of(NetworkDirection.PLAY_TO_SERVER));
-        CHANNEL.registerMessage(packetId++,PlayerServicesResponsePacket.class,PlayerServicesResponsePacket::encode,PlayerServicesResponsePacket::decode,PlayerServicesResponsePacket::handle,Optional.of(NetworkDirection.PLAY_TO_CLIENT));
-        CHANNEL.registerMessage(packetId++,PlayerServicesActionPacket.class,PlayerServicesActionPacket::encode,PlayerServicesActionPacket::decode,PlayerServicesActionPacket::handle,Optional.of(NetworkDirection.PLAY_TO_SERVER));
-        CHANNEL.registerMessage(packetId++, TutorialProgressPacket.class,
-                TutorialProgressPacket::encode, TutorialProgressPacket::decode, TutorialProgressPacket::handle,
+        CHANNEL.registerMessage(
+                packetId++,
+                FuturesRequestPacket.class,
+                FuturesRequestPacket::encode,
+                FuturesRequestPacket::decode,
+                FuturesRequestPacket::handle,
+                Optional.of(NetworkDirection.PLAY_TO_SERVER));
+        CHANNEL.registerMessage(
+                packetId++,
+                FuturesResponsePacket.class,
+                FuturesResponsePacket::encode,
+                FuturesResponsePacket::decode,
+                FuturesResponsePacket::handle,
+                Optional.of(NetworkDirection.PLAY_TO_CLIENT));
+        CHANNEL.registerMessage(
+                packetId++,
+                FuturesActionPacket.class,
+                FuturesActionPacket::encode,
+                FuturesActionPacket::decode,
+                FuturesActionPacket::handle,
+                Optional.of(NetworkDirection.PLAY_TO_SERVER));
+        CHANNEL.registerMessage(
+                packetId++,
+                BankRequestPacket.class,
+                BankRequestPacket::encode,
+                BankRequestPacket::decode,
+                BankRequestPacket::handle,
+                Optional.of(NetworkDirection.PLAY_TO_SERVER));
+        CHANNEL.registerMessage(
+                packetId++,
+                BankResponsePacket.class,
+                BankResponsePacket::encode,
+                BankResponsePacket::decode,
+                BankResponsePacket::handle,
+                Optional.of(NetworkDirection.PLAY_TO_CLIENT));
+        CHANNEL.registerMessage(
+                packetId++,
+                BankActionPacket.class,
+                BankActionPacket::encode,
+                BankActionPacket::decode,
+                BankActionPacket::handle,
+                Optional.of(NetworkDirection.PLAY_TO_SERVER));
+        CHANNEL.registerMessage(
+                packetId++,
+                FundActionPacket.class,
+                FundActionPacket::encode,
+                FundActionPacket::decode,
+                FundActionPacket::handle,
+                Optional.of(NetworkDirection.PLAY_TO_SERVER));
+        CHANNEL.registerMessage(
+                packetId++,
+                FundRequestPacket.class,
+                FundRequestPacket::encode,
+                FundRequestPacket::decode,
+                FundRequestPacket::handle,
+                Optional.of(NetworkDirection.PLAY_TO_SERVER));
+        CHANNEL.registerMessage(
+                packetId++,
+                FundResponsePacket.class,
+                FundResponsePacket::encode,
+                FundResponsePacket::decode,
+                FundResponsePacket::handle,
+                Optional.of(NetworkDirection.PLAY_TO_CLIENT));
+        CHANNEL.registerMessage(
+                packetId++,
+                InsuranceActionPacket.class,
+                InsuranceActionPacket::encode,
+                InsuranceActionPacket::decode,
+                InsuranceActionPacket::handle,
+                Optional.of(NetworkDirection.PLAY_TO_SERVER));
+        CHANNEL.registerMessage(
+                packetId++,
+                InsuranceRequestPacket.class,
+                InsuranceRequestPacket::encode,
+                InsuranceRequestPacket::decode,
+                InsuranceRequestPacket::handle,
+                Optional.of(NetworkDirection.PLAY_TO_SERVER));
+        CHANNEL.registerMessage(
+                packetId++,
+                InsuranceResponsePacket.class,
+                InsuranceResponsePacket::encode,
+                InsuranceResponsePacket::decode,
+                InsuranceResponsePacket::handle,
+                Optional.of(NetworkDirection.PLAY_TO_CLIENT));
+        CHANNEL.registerMessage(
+                packetId++,
+                GovernanceActionPacket.class,
+                GovernanceActionPacket::encode,
+                GovernanceActionPacket::decode,
+                GovernanceActionPacket::handle,
+                Optional.of(NetworkDirection.PLAY_TO_SERVER));
+        CHANNEL.registerMessage(
+                packetId++,
+                GovernanceActionResultPacket.class,
+                GovernanceActionResultPacket::encode,
+                GovernanceActionResultPacket::decode,
+                GovernanceActionResultPacket::handle,
+                Optional.of(NetworkDirection.PLAY_TO_CLIENT));
+        CHANNEL.registerMessage(
+                packetId++,
+                GovernanceRequestPacket.class,
+                GovernanceRequestPacket::encode,
+                GovernanceRequestPacket::decode,
+                GovernanceRequestPacket::handle,
+                Optional.of(NetworkDirection.PLAY_TO_SERVER));
+        CHANNEL.registerMessage(
+                packetId++,
+                GovernanceResponsePacket.class,
+                GovernanceResponsePacket::encode,
+                GovernanceResponsePacket::decode,
+                GovernanceResponsePacket::handle,
+                Optional.of(NetworkDirection.PLAY_TO_CLIENT));
+        CHANNEL.registerMessage(
+                packetId++,
+                SettlementActionPacket.class,
+                SettlementActionPacket::encode,
+                SettlementActionPacket::decode,
+                SettlementActionPacket::handle,
+                Optional.of(NetworkDirection.PLAY_TO_SERVER));
+        CHANNEL.registerMessage(
+                packetId++,
+                VillageActionPacket.class,
+                VillageActionPacket::encode,
+                VillageActionPacket::decode,
+                VillageActionPacket::handle,
+                Optional.of(NetworkDirection.PLAY_TO_SERVER));
+        CHANNEL.registerMessage(
+                packetId++,
+                RegionalRiskRequestPacket.class,
+                RegionalRiskRequestPacket::encode,
+                RegionalRiskRequestPacket::decode,
+                RegionalRiskRequestPacket::handle,
+                Optional.of(NetworkDirection.PLAY_TO_SERVER));
+        CHANNEL.registerMessage(
+                packetId++,
+                RegionalRiskResponsePacket.class,
+                RegionalRiskResponsePacket::encode,
+                RegionalRiskResponsePacket::decode,
+                RegionalRiskResponsePacket::handle,
+                Optional.of(NetworkDirection.PLAY_TO_CLIENT));
+        CHANNEL.registerMessage(
+                packetId++,
+                RegionalRiskActionPacket.class,
+                RegionalRiskActionPacket::encode,
+                RegionalRiskActionPacket::decode,
+                RegionalRiskActionPacket::handle,
+                Optional.of(NetworkDirection.PLAY_TO_SERVER));
+        CHANNEL.registerMessage(
+                packetId++,
+                MacroRequestPacket.class,
+                MacroRequestPacket::encode,
+                MacroRequestPacket::decode,
+                MacroRequestPacket::handle,
+                Optional.of(NetworkDirection.PLAY_TO_SERVER));
+        CHANNEL.registerMessage(
+                packetId++,
+                MacroResponsePacket.class,
+                MacroResponsePacket::encode,
+                MacroResponsePacket::decode,
+                MacroResponsePacket::handle,
+                Optional.of(NetworkDirection.PLAY_TO_CLIENT));
+        CHANNEL.registerMessage(
+                packetId++,
+                PlayerServicesRequestPacket.class,
+                PlayerServicesRequestPacket::encode,
+                PlayerServicesRequestPacket::decode,
+                PlayerServicesRequestPacket::handle,
+                Optional.of(NetworkDirection.PLAY_TO_SERVER));
+        CHANNEL.registerMessage(
+                packetId++,
+                PlayerServicesResponsePacket.class,
+                PlayerServicesResponsePacket::encode,
+                PlayerServicesResponsePacket::decode,
+                PlayerServicesResponsePacket::handle,
+                Optional.of(NetworkDirection.PLAY_TO_CLIENT));
+        CHANNEL.registerMessage(
+                packetId++,
+                PlayerServicesActionPacket.class,
+                PlayerServicesActionPacket::encode,
+                PlayerServicesActionPacket::decode,
+                PlayerServicesActionPacket::handle,
+                Optional.of(NetworkDirection.PLAY_TO_SERVER));
+        CHANNEL.registerMessage(
+                packetId++,
+                TutorialProgressPacket.class,
+                TutorialProgressPacket::encode,
+                TutorialProgressPacket::decode,
+                TutorialProgressPacket::handle,
                 Optional.of(NetworkDirection.PLAY_TO_CLIENT));
         // Phase 4：做市商总览（管理后台）
-        CHANNEL.registerMessage(packetId++, MarketMakerOverviewRequestPacket.class,
-                MarketMakerOverviewRequestPacket::encode, MarketMakerOverviewRequestPacket::decode,
-                MarketMakerOverviewRequestPacket::handle, Optional.of(NetworkDirection.PLAY_TO_SERVER));
-        CHANNEL.registerMessage(packetId++, MarketMakerOverviewResponsePacket.class,
-                MarketMakerOverviewResponsePacket::encode, MarketMakerOverviewResponsePacket::decode,
-                MarketMakerOverviewResponsePacket::handle, Optional.of(NetworkDirection.PLAY_TO_CLIENT));
+        CHANNEL.registerMessage(
+                packetId++,
+                MarketMakerOverviewRequestPacket.class,
+                MarketMakerOverviewRequestPacket::encode,
+                MarketMakerOverviewRequestPacket::decode,
+                MarketMakerOverviewRequestPacket::handle,
+                Optional.of(NetworkDirection.PLAY_TO_SERVER));
+        CHANNEL.registerMessage(
+                packetId++,
+                MarketMakerOverviewResponsePacket.class,
+                MarketMakerOverviewResponsePacket::encode,
+                MarketMakerOverviewResponsePacket::decode,
+                MarketMakerOverviewResponsePacket::handle,
+                Optional.of(NetworkDirection.PLAY_TO_CLIENT));
         // 金融中心开着时推送最新数据
-        CHANNEL.registerMessage(packetId++, FinanceMenuRefreshPacket.class,
-                FinanceMenuRefreshPacket::encode, FinanceMenuRefreshPacket::decode,
-                FinanceMenuRefreshPacket::handle, Optional.of(NetworkDirection.PLAY_TO_CLIENT));
+        CHANNEL.registerMessage(
+                packetId++,
+                FinanceMenuRefreshPacket.class,
+                FinanceMenuRefreshPacket::encode,
+                FinanceMenuRefreshPacket::decode,
+                FinanceMenuRefreshPacket::handle,
+                Optional.of(NetworkDirection.PLAY_TO_CLIENT));
         // 简单模式金融中心
-        CHANNEL.registerMessage(packetId++, SimpleActionPacket.class, SimpleActionPacket::encode,
-                SimpleActionPacket::decode, SimpleActionPacket::handle, Optional.of(NetworkDirection.PLAY_TO_SERVER));
-        CHANNEL.registerMessage(packetId++, SimpleStatusPacket.class, SimpleStatusPacket::encode,
-                SimpleStatusPacket::decode, SimpleStatusPacket::handle, Optional.of(NetworkDirection.PLAY_TO_CLIENT));
-        CHANNEL.registerMessage(packetId++, PriceTablePacket.class, PriceTablePacket::encode,
-                PriceTablePacket::decode, PriceTablePacket::handle, Optional.of(NetworkDirection.PLAY_TO_CLIENT));
+        CHANNEL.registerMessage(
+                packetId++,
+                SimpleActionPacket.class,
+                SimpleActionPacket::encode,
+                SimpleActionPacket::decode,
+                SimpleActionPacket::handle,
+                Optional.of(NetworkDirection.PLAY_TO_SERVER));
+        CHANNEL.registerMessage(
+                packetId++,
+                SimpleStatusPacket.class,
+                SimpleStatusPacket::encode,
+                SimpleStatusPacket::decode,
+                SimpleStatusPacket::handle,
+                Optional.of(NetworkDirection.PLAY_TO_CLIENT));
+        CHANNEL.registerMessage(
+                packetId++,
+                PriceTablePacket.class,
+                PriceTablePacket::encode,
+                PriceTablePacket::decode,
+                PriceTablePacket::handle,
+                Optional.of(NetworkDirection.PLAY_TO_CLIENT));
     }
 }

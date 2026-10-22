@@ -1,21 +1,27 @@
 package finance.data;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import finance.account.AccountManager;
 import finance.diagnostic.EconomyConsistencyService;
+import java.util.UUID;
 import net.minecraft.nbt.CompoundTag;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.*;
-
 class MigrationMatrixTest {
     private static final UUID PLAYER = UUID.fromString("00000000-0000-0000-0000-000000007001");
 
-    @BeforeEach void setup() { EconomySavedData.resetRuntimeState(); }
-    @AfterEach void cleanup() { EconomySavedData.resetRuntimeState(); }
+    @BeforeEach
+    void setup() {
+        EconomySavedData.resetRuntimeState();
+    }
+
+    @AfterEach
+    void cleanup() {
+        EconomySavedData.resetRuntimeState();
+    }
 
     @ParameterizedTest
     @ValueSource(ints = {13, 15, 17, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29})

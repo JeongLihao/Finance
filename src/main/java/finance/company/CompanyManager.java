@@ -1,15 +1,14 @@
 package finance.company;
 
-import finance.data.EconomySavedData;
 import finance.account.AccountManager;
 import finance.account.TransactionRecord;
 import finance.account.TransactionType;
 import finance.config.FinanceConfig;
+import finance.data.EconomySavedData;
 import finance.stock.Stock;
 import finance.stock.StockMarketManager;
 import finance.stock.StockPortfolioManager;
 import finance.util.ProportionalAllocator;
-
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -88,13 +87,19 @@ public class CompanyManager {
     }
 
     /** 每日经营 tick —— 所有公司生产 + 自动交易（由 FinanceMod 每天调用一次） */
-    public static void tickAll() { tickAll(-1); }
+    public static void tickAll() {
+        tickAll(-1);
+    }
+
     public static void tickAll(long day) {
         for (Company c : COMPANIES.values()) {
-            finance.gameplay.company.CompanyGameplayProfile profile = finance.gameplay.company.CompanyGameplayManager.profileFor(c);
-            if (day < 0 || profile.operatingMode() == finance.gameplay.company.CompanyOperatingMode.LEGACY_AUTOMATIC
-                    && finance.config.FinanceConfig.allowLegacyAutomaticCompanyProduction()) {
-                c.produce(); c.autoTrade();
+            finance.gameplay.company.CompanyGameplayProfile profile =
+                    finance.gameplay.company.CompanyGameplayManager.profileFor(c);
+            if (day < 0
+                    || profile.operatingMode() == finance.gameplay.company.CompanyOperatingMode.LEGACY_AUTOMATIC
+                            && finance.config.FinanceConfig.allowLegacyAutomaticCompanyProduction()) {
+                c.produce();
+                c.autoTrade();
             } else if (profile.operatingMode() != finance.gameplay.company.CompanyOperatingMode.LEGACY_AUTOMATIC) {
                 finance.gameplay.company.CompanyProductionService.processCompanyDay(c, day);
             }
@@ -125,7 +130,8 @@ public class CompanyManager {
                 continue;
             }
 
-            long dividendAmount = c.prepareDividend(currentMcDay,
+            long dividendAmount = c.prepareDividend(
+                    currentMcDay,
                     c.effectiveDividendRatio(dividendRatio),
                     c.effectiveDividendCycleDays(dividendCycleDays));
             if (dividendAmount > 0) {
@@ -151,13 +157,17 @@ public class CompanyManager {
         // 获取所有持有该公司股票的玩家（自由持仓）
         java.util.Map<java.util.UUID, Long> holdings = StockPortfolioManager.getHoldingsForCompany(symbol);
         // 回购锁定的份额：沿用旧口径，分红归股东本人
-        finance.governance.CorporateActionManager.buybackLockedShares(symbol).forEach((holder,quantity)->holdings.merge(holder,quantity,(a,b)->a>Long.MAX_VALUE-b?Long.MAX_VALUE:a+b));
+        finance.governance.CorporateActionManager.buybackLockedShares(symbol)
+                .forEach((holder, quantity) ->
+                        holdings.merge(holder, quantity, (a, b) -> a > Long.MAX_VALUE - b ? Long.MAX_VALUE : a + b));
         // 要约锁定的份额：经济权利已让渡，分红计入要约托管账户（escrow）——
         // 交割成功归收购方，失败/撤销则随份额一并返还股东。以 escrow 为伪持有人参与分配。
         java.util.Map<java.util.UUID, java.util.UUID> escrowToOffer = new java.util.HashMap<>();
-        for (java.util.Map.Entry<java.util.UUID, java.util.Map<java.util.UUID, Long>> oe
-                : finance.governance.CorporateActionManager.tenderLockedByOffer(symbol).entrySet()) {
-            finance.governance.TenderOffer offer = finance.governance.CorporateActionManager.tenders().get(oe.getKey());
+        for (java.util.Map.Entry<java.util.UUID, java.util.Map<java.util.UUID, Long>> oe :
+                finance.governance.CorporateActionManager.tenderLockedByOffer(symbol)
+                        .entrySet()) {
+            finance.governance.TenderOffer offer =
+                    finance.governance.CorporateActionManager.tenders().get(oe.getKey());
             if (offer == null || offer.status() != finance.governance.CapitalActionStatus.OPEN) continue;
             long locked = 0L;
             for (long qq : oe.getValue().values()) locked = locked > Long.MAX_VALUE - qq ? Long.MAX_VALUE : locked + qq;
@@ -172,8 +182,8 @@ public class CompanyManager {
 
         // 按比例精确分配，使用 BigInteger 计算“整除 + 最大余数补发”，避免溢出和超发。
         long actuallyPaid = 0;
-        for (ProportionalAllocator.Allocation share
-                : ProportionalAllocator.allocate(totalDividend, holdings, totalShares)) {
+        for (ProportionalAllocator.Allocation share :
+                ProportionalAllocator.allocate(totalDividend, holdings, totalShares)) {
             UUID playerId = share.id();
             long shareholding = share.weight();
             long payout = share.amount();
@@ -191,17 +201,14 @@ public class CompanyManager {
                     company.deposit(payout);
                     continue;
                 }
-                AccountManager.addTransactionRecord(
-                        new TransactionRecord(
-                                company.getCompanyId(),
-                                playerId,
-                                payout,
-                                TransactionType.DIVIDEND,
-                                playerId,
-                                company.getName() + "/" + symbol,
-                                shareholding
-                        )
-                );
+                AccountManager.addTransactionRecord(new TransactionRecord(
+                        company.getCompanyId(),
+                        playerId,
+                        payout,
+                        TransactionType.DIVIDEND,
+                        playerId,
+                        company.getName() + "/" + symbol,
+                        shareholding));
                 actuallyPaid += payout;
             }
         }
@@ -222,8 +229,13 @@ public class CompanyManager {
      * 要约锁定份额的分红 → 计入要约 escrow，并按接受份额比例记到各股东名下。
      * 交割成功时归收购方，失败/撤销时随份额原路返还。返回实际支付金额。
      */
-    private static long payTenderDividend(Company company, String symbol, java.util.UUID tenderId,
-                                          long payout, long shareholding, long currentMcDay) {
+    private static long payTenderDividend(
+            Company company,
+            String symbol,
+            java.util.UUID tenderId,
+            long payout,
+            long shareholding,
+            long currentMcDay) {
         finance.governance.TenderOffer offer =
                 finance.governance.CorporateActionManager.tenders().get(tenderId);
         if (offer == null || offer.status() != finance.governance.CapitalActionStatus.OPEN) {
@@ -245,23 +257,22 @@ public class CompanyManager {
             java.math.BigInteger total = java.math.BigInteger.valueOf(payout);
             java.math.BigInteger denom = java.math.BigInteger.valueOf(totalAccepted);
             for (java.util.Map.Entry<java.util.UUID, Long> e : offer.accepted().entrySet()) {
-                long div = total.multiply(java.math.BigInteger.valueOf(e.getValue())).divide(denom).longValue();
+                long div = total.multiply(java.math.BigInteger.valueOf(e.getValue()))
+                        .divide(denom)
+                        .longValue();
                 if (div > 0) {
                     offer.addDividend(e.getKey(), div);
                 }
             }
         }
-        AccountManager.addTransactionRecord(
-                new TransactionRecord(
-                        company.getCompanyId(),
-                        offer.escrowId(),
-                        payout,
-                        TransactionType.DIVIDEND,
-                        offer.buyerId(),
-                        company.getName() + "/" + symbol + "[tender-escrow]",
-                        shareholding
-                )
-        );
+        AccountManager.addTransactionRecord(new TransactionRecord(
+                company.getCompanyId(),
+                offer.escrowId(),
+                payout,
+                TransactionType.DIVIDEND,
+                offer.buyerId(),
+                company.getName() + "/" + symbol + "[tender-escrow]",
+                shareholding));
         return payout;
     }
 
@@ -296,7 +307,6 @@ public class CompanyManager {
             EconomySavedData.markDirty();
         }
     }
-
 
     public static void clearCompaniesDirect() {
         COMPANIES.clear();

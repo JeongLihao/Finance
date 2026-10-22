@@ -8,7 +8,6 @@ import finance.data.EconomySavedData;
 import finance.market.CentralBank;
 import finance.market.MarketPrice;
 import finance.market.NpcMarketMaker;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -28,8 +27,7 @@ public final class EconomyMetricsService {
     private static long currentStockVolume;
     private static long lastClosedMcDay = -1;
 
-    private EconomyMetricsService() {
-    }
+    private EconomyMetricsService() {}
 
     public static void recordCommodityTrade(long quantity) {
         if (quantity <= 0) {
@@ -108,9 +106,18 @@ public final class EconomyMetricsService {
         total = saturatedAdd(total, companyCash);
         total = saturatedAdd(total, npcCash);
         total = saturatedAdd(total, centralBankReserve);
-        return new CurrentMetrics(playerCash, playerFrozen, companyCash, npcCash,
-                centralBankReserve, total, currentCommodityVolume, currentStockVolume,
-                calculatePriceIndex(), riskCompanies, CentralBank.getLastInterventionSummary());
+        return new CurrentMetrics(
+                playerCash,
+                playerFrozen,
+                companyCash,
+                npcCash,
+                centralBankReserve,
+                total,
+                currentCommodityVolume,
+                currentStockVolume,
+                calculatePriceIndex(),
+                riskCompanies,
+                CentralBank.getLastInterventionSummary());
     }
 
     public static List<DailySnapshot> getDailySnapshots() {
@@ -133,8 +140,8 @@ public final class EconomyMetricsService {
         restore(commodityVolume, stockVolume, snapshots, -1);
     }
 
-    public static void restore(long commodityVolume, long stockVolume, List<DailySnapshot> snapshots,
-                               long persistedLastClosedMcDay) {
+    public static void restore(
+            long commodityVolume, long stockVolume, List<DailySnapshot> snapshots, long persistedLastClosedMcDay) {
         currentCommodityVolume = Math.max(0, commodityVolume);
         currentStockVolume = Math.max(0, stockVolume);
         lastClosedMcDay = Math.max(-1, persistedLastClosedMcDay);
@@ -186,7 +193,9 @@ public final class EconomyMetricsService {
 
     private static void trimHistory() {
         if (DAILY_SNAPSHOTS.size() > MAX_DAILY_SNAPSHOTS) {
-            DAILY_SNAPSHOTS.subList(0, DAILY_SNAPSHOTS.size() - MAX_DAILY_SNAPSHOTS).clear();
+            DAILY_SNAPSHOTS
+                    .subList(0, DAILY_SNAPSHOTS.size() - MAX_DAILY_SNAPSHOTS)
+                    .clear();
         }
     }
 
@@ -197,16 +206,29 @@ public final class EconomyMetricsService {
         return left + right;
     }
 
-    public record CurrentMetrics(long playerCash, long playerFrozenFunds, long companyCash,
-                                 long npcCash, long centralBankReserve, long totalMoney,
-                                 long dailyCommodityVolume, long dailyStockVolume,
-                                 double priceIndex, int bankruptcyRiskCompanies,
-                                 String centralBankSummary) {
-    }
+    public record CurrentMetrics(
+            long playerCash,
+            long playerFrozenFunds,
+            long companyCash,
+            long npcCash,
+            long centralBankReserve,
+            long totalMoney,
+            long dailyCommodityVolume,
+            long dailyStockVolume,
+            double priceIndex,
+            int bankruptcyRiskCompanies,
+            String centralBankSummary) {}
 
-    public record DailySnapshot(long mcDay, long playerCash, long playerFrozenFunds,
-                                long companyCash, long npcCash, long centralBankReserve,
-                                long totalMoney, long commodityVolume, long stockVolume,
-                                double priceIndex, int bankruptcyRiskCompanies) {
-    }
+    public record DailySnapshot(
+            long mcDay,
+            long playerCash,
+            long playerFrozenFunds,
+            long companyCash,
+            long npcCash,
+            long centralBankReserve,
+            long totalMoney,
+            long commodityVolume,
+            long stockVolume,
+            double priceIndex,
+            int bankruptcyRiskCompanies) {}
 }

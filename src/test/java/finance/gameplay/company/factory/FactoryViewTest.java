@@ -1,23 +1,22 @@
 package finance.gameplay.company.factory;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import finance.company.Company;
 import finance.company.CompanyManager;
 import finance.company.CompanyType;
 import finance.gameplay.company.*;
 import finance.gui.CompanyGameplayMenu;
 import io.netty.buffer.Unpooled;
+import java.lang.reflect.Method;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.FriendlyByteBuf;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
-import java.lang.reflect.Method;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 class FactoryViewTest {
     private CompanyFacilityRecord facility;
@@ -30,8 +29,16 @@ class FactoryViewTest {
         Company c = new Company(UUID.randomUUID(), "Bakery", CompanyType.FOOD_PROCESSING, 10_000, UUID.randomUUID());
         CompanyManager.registerDirect(c);
         CompanyGameplayManager.createForNewCompany(c);
-        facility = new CompanyFacilityRecord(UUID.randomUUID(), c.getCompanyId(), "minecraft:overworld",
-                new BlockPos(0, 64, 0), CompanyFacilityType.FACTORY_CONTROLLER, 2, CompanyFacilityStatus.ACTIVE, -1, null);
+        facility = new CompanyFacilityRecord(
+                UUID.randomUUID(),
+                c.getCompanyId(),
+                "minecraft:overworld",
+                new BlockPos(0, 64, 0),
+                CompanyFacilityType.FACTORY_CONTROLLER,
+                2,
+                CompanyFacilityStatus.ACTIVE,
+                -1,
+                null);
         facility.factory().markNewBuild();
         CompanyFacilityManager.restore(facility);
     }
@@ -43,9 +50,19 @@ class FactoryViewTest {
         CompanyFacilityManager.clearDirect();
     }
 
-    @Test void viewListsEquipmentHaveNeedAndAvailability() {
-        facility.factory().recordScan(Map.of(FactoryEquipment.CRAFTING_TABLE, 2, FactoryEquipment.BARREL, 2,
-                FactoryEquipment.SMOKER, 1), 3, 16);
+    @Test
+    void viewListsEquipmentHaveNeedAndAvailability() {
+        facility.factory()
+                .recordScan(
+                        Map.of(
+                                FactoryEquipment.CRAFTING_TABLE,
+                                2,
+                                FactoryEquipment.BARREL,
+                                2,
+                                FactoryEquipment.SMOKER,
+                                1),
+                        3,
+                        16);
         facility.factory().resolveDay(CompanyType.FOOD_PROCESSING, 2, 3, 14, 7, 3);
         CompanyGameplayMenu.FactoryView view = FactoryMethodService.view(null, facility, 3);
         assertEquals(3, view.methods().size());
@@ -65,12 +82,13 @@ class FactoryViewTest {
         assertEquals(4, view.zoneRadius());
     }
 
-    @Test void factoryViewRoundTripsThroughMenuCodec() throws Exception {
+    @Test
+    void factoryViewRoundTripsThroughMenuCodec() throws Exception {
         facility.factory().recordScan(Map.of(FactoryEquipment.CRAFTING_TABLE, 2, FactoryEquipment.BARREL, 2), 3, 16);
         facility.factory().resolveDay(CompanyType.FOOD_PROCESSING, 2, 3, 14, 7, 3);
         CompanyGameplayMenu.FactoryView view = FactoryMethodService.view(null, facility, 3);
-        Method write = CompanyGameplayMenu.class.getDeclaredMethod("writeFactory", FriendlyByteBuf.class,
-                CompanyGameplayMenu.FactoryView.class);
+        Method write = CompanyGameplayMenu.class.getDeclaredMethod(
+                "writeFactory", FriendlyByteBuf.class, CompanyGameplayMenu.FactoryView.class);
         Method read = CompanyGameplayMenu.class.getDeclaredMethod("readFactory", FriendlyByteBuf.class);
         write.setAccessible(true);
         read.setAccessible(true);
@@ -82,10 +100,18 @@ class FactoryViewTest {
         assertNull(read.invoke(null, empty), "不是从控制器打开时没有厂房页");
     }
 
-    @Test void legacyFacilityViewShowsProvisionalCountdown() {
-        CompanyFacilityRecord legacy = new CompanyFacilityRecord(UUID.randomUUID(), facility.companyId(),
-                "minecraft:overworld", new BlockPos(40, 64, 0), CompanyFacilityType.FACTORY_CONTROLLER, 1,
-                CompanyFacilityStatus.ACTIVE, -1, null);
+    @Test
+    void legacyFacilityViewShowsProvisionalCountdown() {
+        CompanyFacilityRecord legacy = new CompanyFacilityRecord(
+                UUID.randomUUID(),
+                facility.companyId(),
+                "minecraft:overworld",
+                new BlockPos(40, 64, 0),
+                CompanyFacilityType.FACTORY_CONTROLLER,
+                1,
+                CompanyFacilityStatus.ACTIVE,
+                -1,
+                null);
         legacy.factory().resolveDay(CompanyType.FOOD_PROCESSING, 1, 10, 14, 7, 3);
         CompanyGameplayMenu.FactoryView view = FactoryMethodService.view(null, legacy, 12);
         assertEquals("", view.activeTier());

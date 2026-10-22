@@ -2,12 +2,10 @@ package finance.data.serializer;
 
 import finance.margin.MarginAccount;
 import finance.margin.MarginPoolManager;
+import java.util.Map;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
-
-import java.util.Map;
-import java.util.UUID;
 
 /**
  * 融资融券 NBT 序列化。
@@ -19,8 +17,7 @@ public final class MarginDataSerializer {
     private static final int MAX_ACCOUNTS = 4096;
     private static final int MAX_ENTRIES = 1024;
 
-    private MarginDataSerializer() {
-    }
+    private MarginDataSerializer() {}
 
     public static void save(CompoundTag root) {
         CompoundTag section = new CompoundTag();
@@ -75,7 +72,8 @@ public final class MarginDataSerializer {
                     if (v > 0) acct.addCashCollateral(v);
                 }
                 if (tag.contains("FinancedDebt")) acct.addFinancedDebt(Math.max(0, tag.getLong("FinancedDebt")));
-                if (tag.contains("FinancedInterest")) acct.addFinancedInterest(Math.max(0, tag.getLong("FinancedInterest")));
+                if (tag.contains("FinancedInterest"))
+                    acct.addFinancedInterest(Math.max(0, tag.getLong("FinancedInterest")));
                 if (tag.contains("BadDebt")) acct.addBadDebt(Math.max(0, tag.getLong("BadDebt")));
                 if (tag.contains("LastInterestDay")) acct.setLastInterestDay(tag.getLong("LastInterestDay"));
                 readStringMap(tag, "FinancedShares", acct.getFinancedShares());

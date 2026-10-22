@@ -1,7 +1,6 @@
 package finance.account;
 
 import finance.data.EconomySavedData;
-
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -10,8 +9,7 @@ public final class AssetSnapshotManager {
 
     private static final Map<UUID, AssetSnapshot> SNAPSHOTS = new HashMap<>();
 
-    private AssetSnapshotManager() {
-    }
+    private AssetSnapshotManager() {}
 
     public static long getTodayProfit(UUID playerId, long currentTotalAsset, long currentMcDay) {
         AssetSnapshot snapshot = SNAPSHOTS.get(playerId);
@@ -37,6 +35,5 @@ public final class AssetSnapshotManager {
         SNAPSHOTS.clear();
     }
 
-    public record AssetSnapshot(long mcDay, long totalAsset) {
-    }
+    public record AssetSnapshot(long mcDay, long totalAsset) {}
 }

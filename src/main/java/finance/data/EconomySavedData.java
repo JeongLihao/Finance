@@ -7,12 +7,45 @@ import finance.company.Company;
 import finance.company.CompanyFinancingManager;
 import finance.company.CompanyManager;
 import finance.company.CompanyProposalManager;
+import finance.cycle.FinancialCycleService;
+import finance.data.serializer.AccountDataSerializer;
+import finance.data.serializer.BankingDataSerializer;
+import finance.data.serializer.BondMarketDataSerializer;
+import finance.data.serializer.CandlestickDataSerializer;
+import finance.data.serializer.CapitalProjectDataSerializer;
+import finance.data.serializer.CaravanDataSerializer;
+import finance.data.serializer.CentralBankBillDataSerializer;
+import finance.data.serializer.CompanyDataSerializer;
+import finance.data.serializer.CompanyGameplayDataSerializer;
+import finance.data.serializer.CompanyHedgeDataSerializer;
+import finance.data.serializer.ContractDataSerializer;
+import finance.data.serializer.DebtDataSerializer;
+import finance.data.serializer.DiagnosticDataSerializer;
+import finance.data.serializer.ExplorationDataSerializer;
+import finance.data.serializer.FinancialDataSerializer;
+import finance.data.serializer.FundDataSerializer;
+import finance.data.serializer.FuturesDataSerializer;
+import finance.data.serializer.GovernanceDataSerializer;
+import finance.data.serializer.InsuranceDataSerializer;
+import finance.data.serializer.InventoryCollateralDataSerializer;
+import finance.data.serializer.LogisticsDataSerializer;
+import finance.data.serializer.MarketDataSerializer;
+import finance.data.serializer.MetricsDataSerializer;
+import finance.data.serializer.PlayerFeatureDataSerializer;
+import finance.data.serializer.RegionalCommodityDataSerializer;
+import finance.data.serializer.SettlementDataSerializer;
+import finance.data.serializer.TreasuryBondDataSerializer;
+import finance.data.serializer.VillageDataSerializer;
+import finance.data.serializer.WarehouseDataSerializer;
+import finance.data.serializer.WorldFeedbackDataSerializer;
 import finance.event.EventManager;
-import finance.market.MarketManager;
 import finance.market.MarketMakerLedger;
+import finance.market.MarketManager;
 import finance.market.NpcMarketMaker;
-import finance.stock.Stock;
+import finance.marketdata.RecentTradeService;
+import finance.metrics.EconomyMetricsService;
 import finance.stock.ConditionalStockOrderManager;
+import finance.stock.Stock;
 import finance.stock.StockHolding;
 import finance.stock.StockMarketManager;
 import finance.stock.StockOrder;
@@ -20,49 +53,15 @@ import finance.stock.StockOrderType;
 import finance.stock.StockPortfolioManager;
 import finance.stock.StockPriceEngine;
 import finance.stock.StockTrade;
-import finance.data.serializer.AccountDataSerializer;
-import finance.data.serializer.CandlestickDataSerializer;
-import finance.data.serializer.CompanyDataSerializer;
-import finance.data.serializer.MarketDataSerializer;
-import finance.data.serializer.MetricsDataSerializer;
-import finance.data.serializer.PlayerFeatureDataSerializer;
-import finance.data.serializer.FinancialDataSerializer;
-import finance.data.serializer.DebtDataSerializer;
-import finance.data.serializer.BondMarketDataSerializer;
-import finance.data.serializer.CentralBankBillDataSerializer;
-import finance.data.serializer.TreasuryBondDataSerializer;
-import finance.data.serializer.FuturesDataSerializer;
-import finance.data.serializer.BankingDataSerializer;
-import finance.data.serializer.DiagnosticDataSerializer;
-import finance.data.serializer.FundDataSerializer;
-import finance.data.serializer.InsuranceDataSerializer;
-import finance.data.serializer.GovernanceDataSerializer;
-import finance.data.serializer.WarehouseDataSerializer;
-import finance.data.serializer.ContractDataSerializer;
-import finance.data.serializer.CompanyGameplayDataSerializer;
-import finance.data.serializer.CapitalProjectDataSerializer;
-import finance.data.serializer.CaravanDataSerializer;
-import finance.data.serializer.WorldFeedbackDataSerializer;
-import finance.data.serializer.LogisticsDataSerializer;
-import finance.data.serializer.SettlementDataSerializer;
-import finance.data.serializer.VillageDataSerializer;
-import finance.data.serializer.ExplorationDataSerializer;
-import finance.data.serializer.RegionalCommodityDataSerializer;
-import finance.data.serializer.InventoryCollateralDataSerializer;
-import finance.data.serializer.CompanyHedgeDataSerializer;
-import finance.cycle.FinancialCycleService;
-import finance.metrics.EconomyMetricsService;
-import finance.marketdata.RecentTradeService;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.util.Map;
+import java.util.UUID;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.level.saveddata.SavedData;
-
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
-import java.util.Map;
-import java.util.UUID;
 import net.minecraft.world.level.storage.DimensionDataStorage;
 
 /**
@@ -82,7 +81,10 @@ public class EconomySavedData extends SavedData {
 
     public static final String DATA_NAME = "finance_data";
     private static final int DATA_VERSION = 42;
-    public static int currentDataVersion() { return DATA_VERSION; }
+
+    public static int currentDataVersion() {
+        return DATA_VERSION;
+    }
 
     // ================================================================
     // 保存
@@ -131,8 +133,6 @@ public class EconomySavedData extends SavedData {
         finance.data.serializer.CentralBankDataSerializer.save(tag);
         finance.macro.MacroPersistence.save(tag);
 
-
-
         // ---- 保存交易记录（仅最近 500 条） ----
         // ---- 保存成交历史 ----
 
@@ -158,7 +158,7 @@ public class EconomySavedData extends SavedData {
             stockTag.putLong("TotalShares", stock.getTotalShares());
             stockTag.putLong("FloatShares", stock.getFloatShares());
             stockTag.putLong("OwnerShares", stock.getOwnerShares());
-            stockTag.putLong("TreasuryShares",stock.getTreasuryShares());
+            stockTag.putLong("TreasuryShares", stock.getTreasuryShares());
             if (stock.getFounderId() != null) {
                 stockTag.putUUID("FounderId", stock.getFounderId());
             }
@@ -205,7 +205,8 @@ public class EconomySavedData extends SavedData {
             CompoundTag portfolioTag = new CompoundTag();
             portfolioTag.putUUID("PlayerUUID", portfolioEntry.getKey());
             ListTag holdingsTag = new ListTag();
-            for (Map.Entry<String, StockHolding> holdingEntry : portfolioEntry.getValue().entrySet()) {
+            for (Map.Entry<String, StockHolding> holdingEntry :
+                    portfolioEntry.getValue().entrySet()) {
                 StockHolding holding = holdingEntry.getValue();
                 CompoundTag holdingTag = new CompoundTag();
                 holdingTag.putString("Symbol", holdingEntry.getKey());
@@ -265,7 +266,9 @@ public class EconomySavedData extends SavedData {
         resetRuntimeState();
         CompanyManager.setDividendPolicy(
                 tag.contains("DividendRatio") ? tag.getDouble("DividendRatio") : CompanyManager.getDividendRatio(),
-                tag.contains("DividendCycleDays") ? tag.getInt("DividendCycleDays") : CompanyManager.getDividendCycleDays());
+                tag.contains("DividendCycleDays")
+                        ? tag.getInt("DividendCycleDays")
+                        : CompanyManager.getDividendCycleDays());
 
         // ---- 加载账户余额 ----
         AccountDataSerializer.load(tag);
@@ -306,18 +309,17 @@ public class EconomySavedData extends SavedData {
                 long floatShares = stockTag.contains("FloatShares")
                         ? stockTag.getLong("FloatShares")
                         : stockTag.getLong("AvailableShares"); // 向后兼容：用旧的 AvailableShares
-                long ownerShares = stockTag.contains("OwnerShares")
-                        ? stockTag.getLong("OwnerShares")
-                        : 0;
+                long ownerShares = stockTag.contains("OwnerShares") ? stockTag.getLong("OwnerShares") : 0;
 
                 long currentPrice = stockTag.getLong("LastPrice");
                 long fairValue = stockTag.contains("FairValue")
                         ? stockTag.getLong("FairValue")
                         : currentPrice; // 旧存档：fairValue = currentPrice
 
-                Stock stock = new Stock(symbol, name, companyUuid, totalShares,
-                        floatShares, ownerShares, currentPrice, fairValue);
-                if(stockTag.contains("TreasuryShares"))stock.restoreTreasuryShares(stockTag.getLong("TreasuryShares"));
+                Stock stock = new Stock(
+                        symbol, name, companyUuid, totalShares, floatShares, ownerShares, currentPrice, fairValue);
+                if (stockTag.contains("TreasuryShares"))
+                    stock.restoreTreasuryShares(stockTag.getLong("TreasuryShares"));
                 UUID founderId = readUuidOrNull(stockTag, "FounderId");
                 if (stockTag.contains("FounderLockupDays")) {
                     stock.restoreFounderLockup(founderId, stockTag.getInt("FounderLockupDays"));
@@ -389,11 +391,7 @@ public class EconomySavedData extends SavedData {
                     StockPortfolioManager.putHoldingDirect(
                             playerUUID,
                             holdingTag.getString("Symbol"),
-                            new StockHolding(
-                                    holdingTag.getLong("Quantity"),
-                                    holdingTag.getLong("AverageCost")
-                            )
-                    );
+                            new StockHolding(holdingTag.getLong("Quantity"), holdingTag.getLong("AverageCost")));
                 }
             }
         }
@@ -418,7 +416,13 @@ public class EconomySavedData extends SavedData {
                 int quantity = orderTag.getInt("Quantity");
                 long timestamp = orderTag.getLong("Timestamp");
 
-                StockOrder order = new StockOrder(orderId, playerId, symbol, type, price, quantity,
+                StockOrder order = new StockOrder(
+                        orderId,
+                        playerId,
+                        symbol,
+                        type,
+                        price,
+                        quantity,
                         java.time.LocalDateTime.ofEpochSecond(timestamp, 0, java.time.ZoneOffset.UTC));
                 StockMarketManager.addStockOrderDirect(order);
             }
@@ -440,7 +444,12 @@ public class EconomySavedData extends SavedData {
                 int quantity = tradeTag.getInt("Quantity");
                 long timestamp = tradeTag.getLong("Timestamp");
 
-                StockTrade trade = new StockTrade(buyer, seller, symbol, price, quantity,
+                StockTrade trade = new StockTrade(
+                        buyer,
+                        seller,
+                        symbol,
+                        price,
+                        quantity,
                         java.time.LocalDateTime.ofEpochSecond(timestamp, 0, java.time.ZoneOffset.UTC));
                 StockMarketManager.addStockTradeDirect(trade);
             }
@@ -587,14 +596,9 @@ public class EconomySavedData extends SavedData {
     /** 获取或创建 EconomySavedData 实例（服务器启动时调用） */
     public static EconomySavedData get(MinecraftServer server) {
 
-        DimensionDataStorage storage =
-                server.overworld().getDataStorage();
+        DimensionDataStorage storage = server.overworld().getDataStorage();
 
-        INSTANCE = storage.computeIfAbsent(
-                EconomySavedData::load,
-                EconomySavedData::createFresh,
-                DATA_NAME
-        );
+        INSTANCE = storage.computeIfAbsent(EconomySavedData::load, EconomySavedData::createFresh, DATA_NAME);
 
         return INSTANCE;
     }

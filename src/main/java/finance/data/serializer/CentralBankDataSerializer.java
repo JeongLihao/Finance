@@ -1,15 +1,14 @@
 package finance.data.serializer;
 
 import finance.centralbank.CentralBankService;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.Tag;
-
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.Tag;
 
 /**
  * 中央银行状态持久化（DataVersion 42 新增）：动态准备金率、公开市场操作头寸、议息记录、物价稳定计数。
@@ -19,7 +18,7 @@ public final class CentralBankDataSerializer {
     public static final String ROOT = "CentralBank";
     public static final int VERSION = 1;
 
-    private CentralBankDataSerializer() { }
+    private CentralBankDataSerializer() {}
 
     public static void save(CompoundTag root) {
         CompoundTag data = new CompoundTag();
@@ -63,7 +62,8 @@ public final class CentralBankDataSerializer {
         if (!root.contains(ROOT, Tag.TAG_COMPOUND)) return;
         CompoundTag data = root.getCompound(ROOT);
         finance.cash.CashService.restoreNotesOutstanding(data.getLong("NotesOutstanding"));
-        if (data.contains("Reserve", Tag.TAG_COMPOUND)) finance.centralbank.ReserveService.load(data.getCompound("Reserve"));
+        if (data.contains("Reserve", Tag.TAG_COMPOUND))
+            finance.centralbank.ReserveService.load(data.getCompound("Reserve"));
         Map<UUID, Long> positions = new LinkedHashMap<>();
         for (Tag raw : data.getList("Positions", Tag.TAG_COMPOUND)) {
             try {
@@ -76,11 +76,23 @@ public final class CentralBankDataSerializer {
         List<CentralBankService.Decision> decisions = new ArrayList<>();
         for (Tag raw : data.getList("Decisions", Tag.TAG_COMPOUND)) {
             CompoundTag t = (CompoundTag) raw;
-            decisions.add(new CentralBankService.Decision(t.getLong("D"), t.getInt("RateBefore"), t.getInt("RateAfter"),
-                    t.getInt("ReserveBefore"), t.getInt("ReserveAfter"), t.getInt("Inflation"), t.getString("Note")));
+            decisions.add(new CentralBankService.Decision(
+                    t.getLong("D"),
+                    t.getInt("RateBefore"),
+                    t.getInt("RateAfter"),
+                    t.getInt("ReserveBefore"),
+                    t.getInt("ReserveAfter"),
+                    t.getInt("Inflation"),
+                    t.getString("Note")));
         }
-        CentralBankService.restore(data.contains("DemandReserveBps", Tag.TAG_INT) ? data.getInt("DemandReserveBps") : -1,
-                positions, decisions, data.contains("LastDay", Tag.TAG_LONG) ? data.getLong("LastDay") : Long.MIN_VALUE,
-                data.getLong("AbsorbedTotal"), data.getLong("InjectedTotal"), data.getInt("StableStreak"), data.getBoolean("Runaway"));
+        CentralBankService.restore(
+                data.contains("DemandReserveBps", Tag.TAG_INT) ? data.getInt("DemandReserveBps") : -1,
+                positions,
+                decisions,
+                data.contains("LastDay", Tag.TAG_LONG) ? data.getLong("LastDay") : Long.MIN_VALUE,
+                data.getLong("AbsorbedTotal"),
+                data.getLong("InjectedTotal"),
+                data.getInt("StableStreak"),
+                data.getBoolean("Runaway"));
     }
 }

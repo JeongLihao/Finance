@@ -2,7 +2,6 @@ package finance.rival;
 
 import finance.company.CompanyManager;
 import finance.company.CompanyType;
-
 import java.util.List;
 import java.util.Map;
 
@@ -17,7 +16,7 @@ public final class RivalNames {
             CompanyType.COAL_MINING, List.of("乌金煤矿", "黑脉矿业", "炭谷煤业", "深井矿务"),
             CompanyType.TEXTILE, List.of("云纱纺织", "织锦坊", "羊绒织造", "彩线纺业"));
 
-    private RivalNames() { }
+    private RivalNames() {}
 
     public static String pick(CompanyType type, long salt) {
         List<String> names = POOL.getOrDefault(type, List.of("新兴实业"));

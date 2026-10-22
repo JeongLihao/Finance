@@ -1,23 +1,28 @@
 package finance.fixedincome;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import finance.account.AccountManager;
 import finance.account.TransactionType;
 import finance.data.EconomySavedData;
 import finance.market.CentralBank;
 import finance.policy.MonetaryPolicyService;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 class CentralBankBillManagerTest {
     private final UUID player = UUID.fromString("00000000-0000-0000-0000-000000004301");
     private final UUID blockedPlayer = UUID.fromString("00000000-0000-0000-0000-000000004302");
-    @BeforeEach void setup() { EconomySavedData.resetRuntimeState(); AccountManager.deposit(player, 100_000); }
 
-    @Test void yieldCurveIsOrderedAndRateLocksAtSubscription() {
+    @BeforeEach
+    void setup() {
+        EconomySavedData.resetRuntimeState();
+        AccountManager.deposit(player, 100_000);
+    }
+
+    @Test
+    void yieldCurveIsOrderedAndRateLocksAtSubscription() {
         assertTrue(YieldCurveService.yieldBasisPoints(7) < YieldCurveService.yieldBasisPoints(30));
         assertTrue(YieldCurveService.yieldBasisPoints(30) < YieldCurveService.yieldBasisPoints(90));
         var result = CentralBankBillManager.subscribe(player, 30, 10_000, 2);
@@ -28,7 +33,8 @@ class CentralBankBillManagerTest {
         assertTrue(YieldCurveService.yieldBasisPoints(30) > locked);
     }
 
-    @Test void maturityPaysOnceAndCreatesOnlyReserveShortfall() {
+    @Test
+    void maturityPaysOnceAndCreatesOnlyReserveShortfall() {
         var result = CentralBankBillManager.subscribe(player, 7, 10_000, 0);
         CentralBankBill bill = CentralBankBillManager.bills().get(result.billId());
         long due = CentralBankBillManager.expectedMaturityValue(bill, player);
@@ -41,11 +47,15 @@ class CentralBankBillManagerTest {
         assertEquals(CentralBankBillStatus.MATURED, bill.status());
         CentralBankBillManager.processDay(8);
         assertEquals(playerBefore + due, AccountManager.getBalance(player));
-        assertEquals(1, AccountManager.getTransactions().stream()
-                .filter(t -> t.getType() == TransactionType.CENTRAL_BANK_MONETARY_ISSUE).count());
+        assertEquals(
+                1,
+                AccountManager.getTransactions().stream()
+                        .filter(t -> t.getType() == TransactionType.CENTRAL_BANK_MONETARY_ISSUE)
+                        .count());
     }
 
-    @Test void availableReserveReducesPolicyIssuanceToExactGap() {
+    @Test
+    void availableReserveReducesPolicyIssuanceToExactGap() {
         var result = CentralBankBillManager.subscribe(player, 7, 10_000, 0);
         CentralBankBill bill = CentralBankBillManager.bills().get(result.billId());
         long due = CentralBankBillManager.expectedMaturityValue(bill, player);
@@ -55,7 +65,8 @@ class CentralBankBillManagerTest {
         assertEquals(due - 250, CentralBankBillManager.lastPolicyIssuance());
     }
 
-    @Test void maturityPrecheckPreventsPartialPaymentWhenAnyHolderCannotReceive() {
+    @Test
+    void maturityPrecheckPreventsPartialPaymentWhenAnyHolderCannotReceive() {
         CentralBankBillManager.subscribe(player, 7, 10_000, 0);
         AccountManager.deposit(blockedPlayer, 20_000);
         CentralBankBillManager.subscribe(blockedPlayer, 7, 10_000, 0);
@@ -67,11 +78,14 @@ class CentralBankBillManagerTest {
 
         assertEquals(playerBefore, AccountManager.getBalance(player));
         assertEquals(reserveBefore, AccountManager.getBalance(CentralBank.UUID));
-        assertEquals(CentralBankBillStatus.ACTIVE, CentralBankBillManager.bills().values().iterator().next().status());
+        assertEquals(
+                CentralBankBillStatus.ACTIVE,
+                CentralBankBillManager.bills().values().iterator().next().status());
         assertEquals(0, CentralBankBillManager.cumulativePolicyIssuance());
     }
 
-    @Test void restoredIssuanceCannotClaimLastAmountAboveCumulativeAmount() {
+    @Test
+    void restoredIssuanceCannotClaimLastAmountAboveCumulativeAmount() {
         CentralBankBillManager.restorePolicyIssuance(100, 200, 5);
         assertEquals(100, CentralBankBillManager.cumulativePolicyIssuance());
         assertEquals(100, CentralBankBillManager.lastPolicyIssuance());

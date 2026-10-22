@@ -1,6 +1,5 @@
 package finance.governance;
 
-import finance.account.AccountManager;
 import finance.chart.Candlestick;
 import finance.chart.CandlestickService;
 import finance.chart.MarketInstrumentType;
@@ -13,7 +12,6 @@ import finance.stock.Stock;
 import finance.stock.StockMarketManager;
 import finance.stock.StockOrderManager;
 import finance.stock.StockPortfolioManager;
-
 import java.math.BigInteger;
 import java.util.Comparator;
 import java.util.List;
@@ -34,8 +32,7 @@ import java.util.UUID;
  */
 public final class TakeoverService {
 
-    private TakeoverService() {
-    }
+    private TakeoverService() {}
 
     // ================================================================
     // 发起要约
@@ -47,8 +44,14 @@ public final class TakeoverService {
      * @return CorporateActionManager.Result（success 时 id 为要约 ID）
      */
     public static synchronized CorporateActionManager.Result offerTender(
-            UUID buyer, UUID companyId, long price, long targetShares, long minShares,
-            int durationDays, long day, String key) {
+            UUID buyer,
+            UUID companyId,
+            long price,
+            long targetShares,
+            long minShares,
+            int durationDays,
+            long day,
+            String key) {
         // ---- fail-fast 基础校验 ----
         if (buyer == null || companyId == null) {
             return CorporateActionManager.Result.fail("参数错误。");
@@ -84,9 +87,8 @@ public final class TakeoverService {
         double votingPct = votingPercent(buyer, companyId, day);
         double requiredPct = FinanceConfig.takeoverMinHoldingBps() / 100.0;
         if (votingPct < requiredPct) {
-            return CorporateActionManager.Result.fail(String.format(
-                    "发起要约需事前持有目标公司有表决权股份 ≥ %.1f%%（当前 %.2f%%）。",
-                    requiredPct, votingPct));
+            return CorporateActionManager.Result.fail(
+                    String.format("发起要约需事前持有目标公司有表决权股份 ≥ %.1f%%（当前 %.2f%%）。", requiredPct, votingPct));
         }
 
         // ---- 定价护栏 ----
@@ -100,13 +102,11 @@ public final class TakeoverService {
         long maxPrice = (long) Math.floor(fairValue * capRatio);
         if (price < minPrice || price > maxPrice) {
             return CorporateActionManager.Result.fail(String.format(
-                    "要约价须在 %d ~ %d 之间（公允价值 %d 的 %.1f～%.1f 倍）。",
-                    minPrice, maxPrice, fairValue, floorRatio, capRatio));
+                    "要约价须在 %d ~ %d 之间（公允价值 %d 的 %.1f～%.1f 倍）。", minPrice, maxPrice, fairValue, floorRatio, capRatio));
         }
         // 与 IPO 发行价上限对齐，防止数值体系撕裂
         if (price > CompanyIPOService.MAX_ISSUE_PRICE) {
-            return CorporateActionManager.Result.fail(
-                    "要约价不得超过 " + CompanyIPOService.MAX_ISSUE_PRICE + "（与发行价上限对齐）。");
+            return CorporateActionManager.Result.fail("要约价不得超过 " + CompanyIPOService.MAX_ISSUE_PRICE + "（与发行价上限对齐）。");
         }
 
         // ---- 资金规模上限：price × target ≤ MAX_ISSUE_PRICE × totalShares ----
@@ -131,8 +131,7 @@ public final class TakeoverService {
         int minDays = FinanceConfig.takeoverMinDurationDays();
         int maxDays = FinanceConfig.takeoverMaxDurationDays();
         if (durationDays < minDays || durationDays > maxDays) {
-            return CorporateActionManager.Result.fail(
-                    "要约期须为 " + minDays + "～" + maxDays + " 天（MC 天）。");
+            return CorporateActionManager.Result.fail("要约期须为 " + minDays + "～" + maxDays + " 天（MC 天）。");
         }
 
         String opKey = (key == null || key.isBlank()) ? UUID.randomUUID().toString() : key;
@@ -195,9 +194,8 @@ public final class TakeoverService {
         double votingPct = votingPercent(squeezer, companyId, day);
         double requiredPct = FinanceConfig.takeoverSqueezeOutBps() / 100.0;
         if (votingPct < requiredPct) {
-            return CorporateActionManager.Result.fail(String.format(
-                    "强制私有化需持有 ≥ %.1f%% 有表决权股份（当前 %.2f%%）。",
-                    requiredPct, votingPct));
+            return CorporateActionManager.Result.fail(
+                    String.format("强制私有化需持有 ≥ %.1f%% 有表决权股份（当前 %.2f%%）。", requiredPct, votingPct));
         }
 
         // 先撤掉订单簿上的单子，把份额退回持仓，再统一强制收购
@@ -251,18 +249,20 @@ public final class TakeoverService {
             if (e.getKey().equals(squeezer) || e.getValue() <= 0) {
                 continue;
             }
-            long cost = StockPortfolioManager.getHolding(e.getKey(), stock.getSymbol()).getAverageCost();
+            long cost = StockPortfolioManager.getHolding(e.getKey(), stock.getSymbol())
+                    .getAverageCost();
             if (!StockPortfolioManager.removeHolding(e.getKey(), stock.getSymbol(), e.getValue())
                     || !offer.accept(e.getKey(), e.getValue(), cost)) {
                 // 回滚：已锁定的返还（此时要约刚创建，直接取消最干净）
-                CorporateActionManager.cancelTender(squeezer, offer.id(), day, UUID.randomUUID().toString());
+                CorporateActionManager.cancelTender(
+                        squeezer, offer.id(), day, UUID.randomUUID().toString());
                 return CorporateActionManager.Result.fail("锁定少数股东份额失败，已取消。");
             }
         }
         offer.setSqueezeOut(true);
         EconomySavedData.markDirty();
-        return CorporateActionManager.Result.ok(offer.id(),
-                "强制私有化要约已发起，保护价 " + price + "，将收购 " + minorityTotal + " 股，交割后公司退市。");
+        return CorporateActionManager.Result.ok(
+                offer.id(), "强制私有化要约已发起，保护价 " + price + "，将收购 " + minorityTotal + " 股，交割后公司退市。");
     }
 
     /**

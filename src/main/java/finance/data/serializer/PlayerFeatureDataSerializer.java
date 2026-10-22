@@ -7,19 +7,17 @@ import finance.alert.PriceAlertType;
 import finance.stock.ConditionalStockOrder;
 import finance.stock.ConditionalStockOrderManager;
 import finance.stock.ConditionalStockOrderType;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.util.UUID;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
-import java.util.UUID;
-
 /** Persists price alerts and conditional stock orders owned by players. */
 public final class PlayerFeatureDataSerializer {
 
-    private PlayerFeatureDataSerializer() {
-    }
+    private PlayerFeatureDataSerializer() {}
 
     public static void save(CompoundTag root) {
         ListTag alertsTag = new ListTag();
@@ -64,15 +62,19 @@ public final class PlayerFeatureDataSerializer {
             CompoundTag alertTag = (CompoundTag) rawTag;
             UUID alertId = NbtDataSupport.readUuidOrNull(alertTag, "AlertId");
             UUID playerId = NbtDataSupport.readUuidOrNull(alertTag, "PlayerUUID");
-            PriceAlertType type = NbtDataSupport.safeEnum(
-                    PriceAlertType.class, alertTag.getString("Type"), null);
-            PriceAlertDirection direction = NbtDataSupport.safeEnum(
-                    PriceAlertDirection.class, alertTag.getString("Direction"), null);
+            PriceAlertType type = NbtDataSupport.safeEnum(PriceAlertType.class, alertTag.getString("Type"), null);
+            PriceAlertDirection direction =
+                    NbtDataSupport.safeEnum(PriceAlertDirection.class, alertTag.getString("Direction"), null);
             if (alertId == null || playerId == null || type == null || direction == null) {
                 continue;
             }
-            PriceAlertManager.addAlertDirect(new PriceAlert(alertId, playerId, type,
-                    alertTag.getString("TargetId"), direction, alertTag.getLong("TargetPrice"),
+            PriceAlertManager.addAlertDirect(new PriceAlert(
+                    alertId,
+                    playerId,
+                    type,
+                    alertTag.getString("TargetId"),
+                    direction,
+                    alertTag.getLong("TargetPrice"),
                     LocalDateTime.ofEpochSecond(alertTag.getLong("CreatedAt"), 0, ZoneOffset.UTC)));
         }
     }
@@ -85,13 +87,17 @@ public final class PlayerFeatureDataSerializer {
             CompoundTag orderTag = (CompoundTag) rawTag;
             UUID orderId = NbtDataSupport.readUuidOrNull(orderTag, "OrderId");
             UUID playerId = NbtDataSupport.readUuidOrNull(orderTag, "PlayerUUID");
-            ConditionalStockOrderType type = NbtDataSupport.safeEnum(
-                    ConditionalStockOrderType.class, orderTag.getString("Type"), null);
+            ConditionalStockOrderType type =
+                    NbtDataSupport.safeEnum(ConditionalStockOrderType.class, orderTag.getString("Type"), null);
             if (orderId == null || playerId == null || type == null) {
                 continue;
             }
-            ConditionalStockOrderManager.addOrderDirect(new ConditionalStockOrder(orderId, playerId,
-                    orderTag.getString("Symbol"), type, orderTag.getLong("TriggerPrice"),
+            ConditionalStockOrderManager.addOrderDirect(new ConditionalStockOrder(
+                    orderId,
+                    playerId,
+                    orderTag.getString("Symbol"),
+                    type,
+                    orderTag.getLong("TriggerPrice"),
                     orderTag.getLong("Quantity"),
                     LocalDateTime.ofEpochSecond(orderTag.getLong("CreatedAt"), 0, ZoneOffset.UTC)));
         }

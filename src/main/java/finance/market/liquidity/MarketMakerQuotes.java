@@ -8,7 +8,6 @@ import finance.market.NpcMarketMaker;
 import finance.stock.Stock;
 import finance.stock.StockMarketManager;
 import finance.stock.StockPriceEngine;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -42,8 +41,7 @@ public final class MarketMakerQuotes {
     /** 波动率估计窗口（最近快照数）。 */
     private static final int VOLATILITY_WINDOW = 32;
 
-    private MarketMakerQuotes() {
-    }
+    private MarketMakerQuotes() {}
 
     /**
      * 该标的做市商是否熔断（暂停报价）。
@@ -63,8 +61,7 @@ public final class MarketMakerQuotes {
             return true;
         }
         if (MARKET_STOCK.equals(market)
-                && finance.market.MarketMakerPauseState.isPaused(
-                        finance.market.MarketMakerLedger.SubMarket.STOCK)) {
+                && finance.market.MarketMakerPauseState.isPaused(finance.market.MarketMakerLedger.SubMarket.STOCK)) {
             return true;
         }
         if (MARKET_COMMODITY.equals(market)) {
@@ -132,14 +129,18 @@ public final class MarketMakerQuotes {
         double volatility = VolatilityEstimator.estimate(prices, VOLATILITY_WINDOW);
         double momentum = mp.getTradeMomentum();
         boolean halted = Math.abs(momentum) > FinanceConfig.marketMakerCircuitBreakerThreshold();
-        MarketState state = new MarketState(mid, mid, basePrice, inventory,
-                mp.getReferenceStock(), volatility, mp.getSpread(), halted);
+        MarketState state = new MarketState(
+                mid, mid, basePrice, inventory, mp.getReferenceStock(), volatility, mp.getSpread(), halted);
         QuoteView view = toView(MARKET_COMMODITY, commodityId, state, haltReason(momentum));
         // 央行储备商品：市场收购价最多给到基准价。市场缺货时只是卖得贵，不会高价收——
         // 否则第一个往空市场卖钻石、绿宝石的人能拿到基准价的 2.7 倍。
-        if (!view.halted() && finance.centralbank.ReserveService.managed(commodityId) && basePrice > 0 && view.bid() > basePrice) {
+        if (!view.halted()
+                && finance.centralbank.ReserveService.managed(commodityId)
+                && basePrice > 0
+                && view.bid() > basePrice) {
             long bid = Math.max(1, basePrice);
-            view = new QuoteView(view.market(), view.symbol(), view.mid(), bid, Math.max(bid + 1, view.ask()), false, null);
+            view = new QuoteView(
+                    view.market(), view.symbol(), view.mid(), bid, Math.max(bid + 1, view.ask()), false, null);
         }
         return view;
     }
@@ -171,10 +172,16 @@ public final class MarketMakerQuotes {
         // 做市商按市价报价（不是每股价值）：大家一直买，成交价就一路往上，泡沫才吹得起来。
         // 不再因为偏离每股价值而停止报价，只在停牌和熔断时暂停。
         boolean halted = stock.isTradingPaused();
-        MarketState state = new MarketState(marketPrice, lastPrice, fairValue, inventory,
-                target, volatility, FinanceConfig.stockMarketMakerSpread(), halted);
-        return toView(MARKET_STOCK, normalized, state,
-                stock.isBreakerHalted() ? "股价 5 分钟内跌超 15%，熔断 1 分钟。" : "该股票停牌中。");
+        MarketState state = new MarketState(
+                marketPrice,
+                lastPrice,
+                fairValue,
+                inventory,
+                target,
+                volatility,
+                FinanceConfig.stockMarketMakerSpread(),
+                halted);
+        return toView(MARKET_STOCK, normalized, state, stock.isBreakerHalted() ? "股价 5 分钟内跌超 15%，熔断 1 分钟。" : "该股票停牌中。");
     }
 
     private static QuoteView toView(String market, String symbol, MarketState state, String haltReason) {
@@ -196,7 +203,6 @@ public final class MarketMakerQuotes {
     // 熔断
     // ---------------------------------------------------------------
 
-
     private static String haltReason(long lastPrice, long referencePrice, String name) {
         if (referencePrice <= 0) {
             return name + "参考价异常，做市商暂停报价。";
@@ -207,7 +213,6 @@ public final class MarketMakerQuotes {
 
     /** 商品熔断原因：成交动能（瞬态冲击）超过阈值。 */
     private static String haltReason(double tradeMomentum) {
-        return String.format("成交动量 %+.1f%% 超过熔断阈值，做市商暂停报价（动能随时间衰减后自动恢复）。",
-                tradeMomentum * 100.0);
+        return String.format("成交动量 %+.1f%% 超过熔断阈值，做市商暂停报价（动能随时间衰减后自动恢复）。", tradeMomentum * 100.0);
     }
 }

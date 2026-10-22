@@ -1,5 +1,10 @@
 package finance.market;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import finance.account.AccountManager;
 import finance.account.TransactionType;
 import finance.chart.CandlestickService;
@@ -17,16 +22,10 @@ import finance.futures.MarginAccount;
 import finance.futures.MarginManager;
 import finance.futures.MarginRiskStatus;
 import finance.stock.StockMarketManager;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-
 import java.time.LocalDateTime;
 import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 /**
  * Phase 4（央行跨市场联动）的回归测试。
@@ -180,10 +179,10 @@ class CentralBankPhase4Test {
     @Test
     void issuesEmergencyLoanWhenBelowMaintenance() {
         UUID contractId = UUID.randomUUID();
-        FuturesMarketManager.putContractDirect(new FuturesContract(contractId, "TST1", "iron", 10,
-                0, 10, 20, FuturesSettlementType.CASH, FuturesContractStatus.TRADING));
-        FuturesMarketManager.addTradeDirect(new FuturesTrade(UUID.randomUUID(), UUID.randomUUID(),
-                contractId, 100, 5, 1, LocalDateTime.now()));
+        FuturesMarketManager.putContractDirect(new FuturesContract(
+                contractId, "TST1", "iron", 10, 0, 10, 20, FuturesSettlementType.CASH, FuturesContractStatus.TRADING));
+        FuturesMarketManager.addTradeDirect(
+                new FuturesTrade(UUID.randomUUID(), UUID.randomUUID(), contractId, 100, 5, 1, LocalDateTime.now()));
         long qty = 50;
         MarginManager.putPositionDirect(new FuturesPosition(F002, contractId, qty, 100, 100, 0));
         long cash = 1_000;
@@ -199,8 +198,8 @@ class CentralBankPhase4Test {
         // 保证金账户实际到账（央行→f002 现金→保证金，全程真实划转）
         assertEquals(cash + expectedLoan, MarginManager.accounts().get(F002).cashBalance());
         // 可审计：CENTRAL_BANK_MM_LOAN 记录
-        assertTrue(AccountManager.getTransactions().stream().anyMatch(r ->
-                r.getType() == TransactionType.CENTRAL_BANK_MM_LOAN && r.getAmount() == expectedLoan));
+        assertTrue(AccountManager.getTransactions().stream()
+                .anyMatch(r -> r.getType() == TransactionType.CENTRAL_BANK_MM_LOAN && r.getAmount() == expectedLoan));
     }
 
     @Test
@@ -214,8 +213,9 @@ class CentralBankPhase4Test {
         long surplus = (long) (target * 1.5) - target;
         long expectedRepay = Math.min(1_000_000, surplus * FinanceConfig.cbMmLoanRepaymentBps() / 10_000);
         assertEquals(1_000_000 - expectedRepay, CentralBankLoanLedger.outstanding(FUTURES));
-        assertTrue(AccountManager.getTransactions().stream().anyMatch(r ->
-                r.getType() == TransactionType.CENTRAL_BANK_MM_LOAN_REPAY && r.getAmount() == expectedRepay));
+        assertTrue(AccountManager.getTransactions().stream()
+                .anyMatch(r ->
+                        r.getType() == TransactionType.CENTRAL_BANK_MM_LOAN_REPAY && r.getAmount() == expectedRepay));
     }
 
     @Test
@@ -225,7 +225,7 @@ class CentralBankPhase4Test {
         // 注意 interveneMarketCash 会注资 (target-0)/3，仍低于健康线 target
         CentralBank.dailyIntervention();
         assertEquals(1_000_000, CentralBankLoanLedger.outstanding(FUTURES));
-        assertTrue(AccountManager.getTransactions().stream().noneMatch(r ->
-                r.getType() == TransactionType.CENTRAL_BANK_MM_LOAN_REPAY));
+        assertTrue(AccountManager.getTransactions().stream()
+                .noneMatch(r -> r.getType() == TransactionType.CENTRAL_BANK_MM_LOAN_REPAY));
     }
 }

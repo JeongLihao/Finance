@@ -2,7 +2,6 @@ package finance.stock;
 
 import finance.account.AccountManager;
 import finance.data.EconomySavedData;
-
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -55,7 +54,8 @@ public class StockPortfolioManager {
             long quantity = entry.getValue() != null ? entry.getValue() : 0;
             if (playerId == null || quantity <= 0) return false;
             StockHolding current = getPortfolio(playerId).get(normalizedSymbol);
-            StockHolding replacement = current == null ? new StockHolding(0, 0)
+            StockHolding replacement = current == null
+                    ? new StockHolding(0, 0)
                     : new StockHolding(current.getQuantity(), current.getAverageCost());
             if (!replacement.add(quantity, price)) return false;
             replacements.put(playerId, replacement);

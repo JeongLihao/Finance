@@ -4,7 +4,6 @@ import finance.commodity.Commodity;
 import finance.commodity.CommodityRegistry;
 import finance.village.VillageManager;
 import finance.village.VillageRecord;
-
 import java.util.List;
 import java.util.Map;
 
@@ -15,14 +14,18 @@ import java.util.Map;
  * 有数据时 {@code EconomyMetricsService} 用它代替等权价格指数，央行议息的通胀缺口就来自真实生活成本。</p>
  */
 public final class MacroIndicators {
-    private MacroIndicators() { }
+    private MacroIndicators() {}
 
     /** CPI 链接系数：首次有 CPI 时 = 当时的等权指数 / CPI，之后固定（随存档保存）。≤ 0 表示尚未链接。 */
     private static double link = -1;
 
-    public static double link() { return link; }
+    public static double link() {
+        return link;
+    }
 
-    static void restoreLink(double value) { link = value > 0 && Double.isFinite(value) ? value : -1; }
+    static void restoreLink(double value) {
+        link = value > 0 && Double.isFinite(value) ? value : -1;
+    }
 
     /**
      * 给价格指数用的链接 CPI：首次可用时记下链接系数，让切换当天的指数等于旧口径，此后按 CPI 的变化走。
@@ -63,7 +66,8 @@ public final class MacroIndicators {
         MacroEconomyManager.Snapshot last = snaps.get(snaps.size() - 1);
         MacroEconomyManager.Snapshot base = snaps.get(0);
         for (MacroEconomyManager.Snapshot s : snaps) {
-            if (s.day() <= last.day() - 30) base = s; else break;
+            if (s.day() <= last.day() - 30) base = s;
+            else break;
         }
         long days = Math.max(1, last.day() - base.day());
         if (base.cpiX100() <= 0 || last.cpiX100() <= 0 || base == last) return 0;
@@ -82,13 +86,15 @@ public final class MacroIndicators {
             wages = GoodBook.sat(wages, econ.lastWages);
             for (Map.Entry<String, GoodBook> e : econ.goods.entrySet()) {
                 long price = MacroEconomyService.localPrice(econ, e.getKey());
-                if (price > 0) consumption = GoodBook.sat(consumption, finance.util.MathUtil.saturatedMultiplyNonNegative(
-                        e.getValue().lastConsumed, price));
+                if (price > 0)
+                    consumption = GoodBook.sat(
+                            consumption,
+                            finance.util.MathUtil.saturatedMultiplyNonNegative(e.getValue().lastConsumed, price));
             }
         }
         double cpi = cpiOrNegative();
         int avgSol = population <= 0 ? 0 : (int) Math.round(solWeighted / population);
-        MacroEconomyManager.addSnapshot(new MacroEconomyManager.Snapshot(day,
-                cpi < 0 ? 0 : Math.round(cpi * 100), population, avgSol, employed, wages, consumption));
+        MacroEconomyManager.addSnapshot(new MacroEconomyManager.Snapshot(
+                day, cpi < 0 ? 0 : Math.round(cpi * 100), population, avgSol, employed, wages, consumption));
     }
 }

@@ -1,5 +1,9 @@
 package finance.stock;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import finance.account.AccountManager;
 import finance.account.TransactionType;
 import finance.company.Company;
@@ -7,14 +11,9 @@ import finance.company.CompanyManager;
 import finance.company.CompanyType;
 import finance.data.EconomySavedData;
 import finance.metrics.EconomyMetricsService;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ConditionalStockOrderManagerTest {
 
@@ -29,21 +28,22 @@ class ConditionalStockOrderManagerTest {
         Company company = new Company(COMPANY_ID, "Conditional Test Inc", CompanyType.RAW_MATERIALS, 10_000);
         company.setPublic(true);
         CompanyManager.registerDirect(company);
-        StockMarketManager.putStockDirect(new Stock(SYMBOL, "Conditional Test Inc", COMPANY_ID,
-                10_000, 10_000, 0, 100, 100));
+        StockMarketManager.putStockDirect(
+                new Stock(SYMBOL, "Conditional Test Inc", COMPANY_ID, 10_000, 10_000, 0, 100, 100));
         StockPortfolioManager.addHolding(PLAYER_ID, SYMBOL, 5, 80);
     }
 
     @Test
     void takeProfitTriggerCreatesSellOrderAndWritesRecord() {
         StockMarketManager.getStock(SYMBOL).setLastPrice(120);
-        ConditionalStockOrderManager.OrderResult result = ConditionalStockOrderManager.addOrder(
-                PLAYER_ID, SYMBOL, ConditionalStockOrderType.TAKE_PROFIT, 110, 3);
+        ConditionalStockOrderManager.OrderResult result =
+                ConditionalStockOrderManager.addOrder(PLAYER_ID, SYMBOL, ConditionalStockOrderType.TAKE_PROFIT, 110, 3);
 
         assertTrue(result.success());
         assertEquals(1, ConditionalStockOrderManager.checkOrdersForTest());
 
-        assertEquals(0, ConditionalStockOrderManager.getOrdersForPlayer(PLAYER_ID).size());
+        assertEquals(
+                0, ConditionalStockOrderManager.getOrdersForPlayer(PLAYER_ID).size());
         assertEquals(2, StockPortfolioManager.getHolding(PLAYER_ID, SYMBOL).getQuantity());
         // 做市商按市价报价，止盈单触发后直接和做市商成交，不再挂在订单簿上
         assertEquals(0, StockOrderManager.getOrders().size());
@@ -62,7 +62,8 @@ class ConditionalStockOrderManagerTest {
 
         assertEquals(1, ConditionalStockOrderManager.checkOrdersForTest());
 
-        assertEquals(0, ConditionalStockOrderManager.getOrdersForPlayer(PLAYER_ID).size());
+        assertEquals(
+                0, ConditionalStockOrderManager.getOrdersForPlayer(PLAYER_ID).size());
         assertEquals(2, StockPortfolioManager.getHolding(BUYER_ID, SYMBOL).getQuantity());
         assertEquals(3, StockPortfolioManager.getHolding(PLAYER_ID, SYMBOL).getQuantity());
         assertEquals(1, StockOrderManager.getTradeHistory().size());
@@ -81,17 +82,19 @@ class ConditionalStockOrderManagerTest {
 
         assertEquals(0, ConditionalStockOrderManager.checkOrdersForTest());
 
-        assertEquals(0, ConditionalStockOrderManager.getOrdersForPlayer(PLAYER_ID).size());
+        assertEquals(
+                0, ConditionalStockOrderManager.getOrdersForPlayer(PLAYER_ID).size());
         assertTrue(AccountManager.getTransactions().stream()
                 .anyMatch(record -> record.getType() == TransactionType.CONDITIONAL_STOCK_CANCEL));
     }
 
     @Test
     void cannotCreateConditionalOrderWithoutEnoughCurrentHolding() {
-        ConditionalStockOrderManager.OrderResult result = ConditionalStockOrderManager.addOrder(
-                PLAYER_ID, SYMBOL, ConditionalStockOrderType.TAKE_PROFIT, 110, 6);
+        ConditionalStockOrderManager.OrderResult result =
+                ConditionalStockOrderManager.addOrder(PLAYER_ID, SYMBOL, ConditionalStockOrderType.TAKE_PROFIT, 110, 6);
 
         assertFalse(result.success());
-        assertEquals(0, ConditionalStockOrderManager.getOrdersForPlayer(PLAYER_ID).size());
+        assertEquals(
+                0, ConditionalStockOrderManager.getOrdersForPlayer(PLAYER_ID).size());
     }
 }

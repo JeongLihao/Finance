@@ -15,7 +15,6 @@ import finance.governance.TenderOffer;
 import finance.stock.Stock;
 import finance.stock.StockMarketManager;
 import finance.stock.StockPortfolioManager;
-
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumMap;
@@ -32,10 +31,10 @@ import java.util.UUID;
  * 必须排在当天 {@code CompanyProposalManager.tick} 之前，截止日当天仍可投票。</p>
  */
 public final class NpcGovernanceService {
-    private NpcGovernanceService() { }
+    private NpcGovernanceService() {}
 
-    public record Settings(boolean investorsEnabled, boolean votingEnabled,
-                           Map<NpcInvestorArchetype, Integer> tenderPremiumPercent) {
+    public record Settings(
+            boolean investorsEnabled, boolean votingEnabled, Map<NpcInvestorArchetype, Integer> tenderPremiumPercent) {
         public Settings {
             Map<NpcInvestorArchetype, Integer> copy = new EnumMap<>(NpcInvestorArchetype.class);
             if (tenderPremiumPercent != null) copy.putAll(tenderPremiumPercent);
@@ -44,7 +43,8 @@ public final class NpcGovernanceService {
 
         public static Settings fromConfig() {
             Map<NpcInvestorArchetype, Integer> premiums = new EnumMap<>(NpcInvestorArchetype.class);
-            for (NpcInvestorArchetype a : NpcInvestorArchetype.values()) premiums.put(a, FinanceConfig.npcTenderPremiumPercent(a));
+            for (NpcInvestorArchetype a : NpcInvestorArchetype.values())
+                premiums.put(a, FinanceConfig.npcTenderPremiumPercent(a));
             return new Settings(FinanceConfig.npcInvestorsEnabled(), FinanceConfig.npcVotingEnabled(), premiums);
         }
 
@@ -86,10 +86,11 @@ public final class NpcGovernanceService {
                 NpcVotingRules.Decision decision = NpcVotingRules.decide(archetype, context);
                 if (decision.choice() != NpcVotingRules.Choice.ABSTAIN) {
                     boolean support = decision.choice() == NpcVotingRules.Choice.SUPPORT;
-                    if (!CompanyProposalManager.vote(archetype.accountId(), proposal.getProposalId(), support, day).success()) continue;
+                    if (!CompanyProposalManager.vote(archetype.accountId(), proposal.getProposalId(), support, day)
+                            .success()) continue;
                 }
-                NpcGovernanceManager.putVote(new NpcGovernanceManager.VoteRecord(proposal.getProposalId(), archetype,
-                        decision.choice(), decision.reason(), power, day));
+                NpcGovernanceManager.putVote(new NpcGovernanceManager.VoteRecord(
+                        proposal.getProposalId(), archetype, decision.choice(), decision.reason(), power, day));
             }
         }
     }
@@ -101,13 +102,15 @@ public final class NpcGovernanceService {
     static void awardShareholderDemocracy(long day) {
         for (CompanyProposal p : CompanyProposalManager.getProposals()) {
             if (p.getEndMcDay() != day - 1) continue;
-            if (p.getStatus() != CompanyProposalStatus.PASSED && p.getStatus() != CompanyProposalStatus.EXECUTED) continue;
+            if (p.getStatus() != CompanyProposalStatus.PASSED && p.getStatus() != CompanyProposalStatus.EXECUTED)
+                continue;
             if (NpcInvestorArchetype.isInvestorAccount(p.getCreatorId())
                     || finance.rival.RivalManager.isInvestmentAccount(p.getCreatorId())) continue;
             boolean npcSupport = NpcGovernanceManager.votesFor(p.getProposalId()).stream()
                     .anyMatch(v -> v.choice() == NpcVotingRules.Choice.SUPPORT);
-            if (npcSupport) finance.macro.EconomyAchievements.award(p.getCreatorId(),
-                    finance.macro.EconomyAchievements.SHAREHOLDER_DEMOCRACY);
+            if (npcSupport)
+                finance.macro.EconomyAchievements.award(
+                        p.getCreatorId(), finance.macro.EconomyAchievements.SHAREHOLDER_DEMOCRACY);
         }
     }
 
@@ -117,12 +120,15 @@ public final class NpcGovernanceService {
         long fundamentalPerShare = totalShares <= 0 ? 0 : company.getFundamentalAssetValue() / totalShares;
         long currentDividend = Math.round(company.effectiveDividendRatio(CompanyManager.getDividendRatio()) * 100);
         CompanyProposalType type = proposal.getType();
-        return new NpcVotingRules.Context(type,
+        return new NpcVotingRules.Context(
+                type,
                 type == CompanyProposalType.DIVIDEND ? proposal.getValue1() : 0,
                 currentDividend,
                 type == CompanyProposalType.SHARE_ISSUE ? proposal.getValue2() : 0,
-                fundamentalPerShare, company.getRetainedEarnings(),
-                profitTrendPositive(company.getRecentProfits()), company.isBankruptcyRisk());
+                fundamentalPerShare,
+                company.getRetainedEarnings(),
+                profitTrendPositive(company.getRecentProfits()),
+                company.isBankruptcyRisk());
     }
 
     static boolean profitTrendPositive(List<Long> profits) {
@@ -141,12 +147,15 @@ public final class NpcGovernanceService {
         StringBuilder sb = new StringBuilder();
         for (NpcGovernanceManager.VoteRecord r : NpcGovernanceManager.votesFor(proposalId)) {
             if (sb.length() > 0) sb.append('·');
-            sb.append(r.archetype().displayName()).append(switch (r.choice()) {
-                case SUPPORT -> "赞成";
-                case OPPOSE -> "反对";
-                case ABSTAIN -> "弃权";
-            });
-            if (r.choice() != NpcVotingRules.Choice.ABSTAIN) sb.append('（').append(r.reason().fallbackText()).append('）');
+            sb.append(r.archetype().displayName())
+                    .append(
+                            switch (r.choice()) {
+                                case SUPPORT -> "赞成";
+                                case OPPOSE -> "反对";
+                                case ABSTAIN -> "弃权";
+                            });
+            if (r.choice() != NpcVotingRules.Choice.ABSTAIN)
+                sb.append('（').append(r.reason().fallbackText()).append('）');
         }
         return sb.length() > 96 ? sb.substring(0, 95) + "…" : sb.toString();
     }
@@ -161,19 +170,22 @@ public final class NpcGovernanceService {
             for (NpcInvestorArchetype archetype : NpcInvestorArchetype.values()) {
                 if (archetype.accountId().equals(offer.buyerId())) continue;
                 if (NpcGovernanceManager.hasTenderRecord(offer.id(), archetype)) continue;
-                if (CorporateActionManager.lockedShares(offer.symbol()).getOrDefault(archetype.accountId(), 0L) > 0) continue;
-                long free = StockPortfolioManager.getHolding(archetype.accountId(), offer.symbol()).getQuantity();
+                if (CorporateActionManager.lockedShares(offer.symbol()).getOrDefault(archetype.accountId(), 0L) > 0)
+                    continue;
+                long free = StockPortfolioManager.getHolding(archetype.accountId(), offer.symbol())
+                        .getQuantity();
                 if (free <= 0) continue;
                 long threshold = thresholdPrice(stock.getFairValue(), settings.premiumFor(archetype));
                 if (offer.price() < threshold) {
-                    NpcGovernanceManager.putTender(new NpcGovernanceManager.TenderRecord(offer.id(), archetype,
-                            false, 0, offer.price(), threshold, day));
+                    NpcGovernanceManager.putTender(new NpcGovernanceManager.TenderRecord(
+                            offer.id(), archetype, false, 0, offer.price(), threshold, day));
                     continue;
                 }
                 String key = "npc-tender:" + offer.id() + ":" + archetype.name();
-                if (TakeoverService.acceptTender(archetype.accountId(), offer.id(), free, day, key).success()) {
-                    NpcGovernanceManager.putTender(new NpcGovernanceManager.TenderRecord(offer.id(), archetype,
-                            true, free, offer.price(), threshold, day));
+                if (TakeoverService.acceptTender(archetype.accountId(), offer.id(), free, day, key)
+                        .success()) {
+                    NpcGovernanceManager.putTender(new NpcGovernanceManager.TenderRecord(
+                            offer.id(), archetype, true, free, offer.price(), threshold, day));
                 }
             }
         }

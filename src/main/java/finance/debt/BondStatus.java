@@ -1,3 +1,10 @@
 package finance.debt;
 
-public enum BondStatus { DRAFT, SUBSCRIPTION, ACTIVE, MATURED, DEFAULTED, CANCELLED }
+public enum BondStatus {
+    DRAFT,
+    SUBSCRIPTION,
+    ACTIVE,
+    MATURED,
+    DEFAULTED,
+    CANCELLED
+}

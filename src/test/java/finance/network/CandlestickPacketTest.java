@@ -1,18 +1,17 @@
 package finance.network;
 
-import finance.chart.Candlestick;
-import finance.chart.MarketInstrumentType;
-import org.junit.jupiter.api.Test;
-import io.netty.buffer.Unpooled;
-import net.minecraft.network.FriendlyByteBuf;
-
-import java.util.ArrayList;
-import java.util.List;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import finance.chart.Candlestick;
+import finance.chart.MarketInstrumentType;
+import io.netty.buffer.Unpooled;
+import java.util.ArrayList;
+import java.util.List;
+import net.minecraft.network.FriendlyByteBuf;
+import org.junit.jupiter.api.Test;
 
 class CandlestickPacketTest {
 
@@ -30,8 +29,8 @@ class CandlestickPacketTest {
         List<Candlestick> bars = new ArrayList<>();
         for (int day = 0; day < 140; day++) bars.add(Candlestick.carry(day, 10));
 
-        CandlestickResponsePacket packet = new CandlestickResponsePacket(
-                1, MarketInstrumentType.STOCK, "ABC", 120, 140, bars);
+        CandlestickResponsePacket packet =
+                new CandlestickResponsePacket(1, MarketInstrumentType.STOCK, "ABC", 120, 140, bars);
 
         assertEquals(120, packet.bars().size());
         assertEquals(20, packet.bars().get(0).mcDay());
@@ -61,8 +60,10 @@ class CandlestickPacketTest {
     @Test
     void overlongIdAndOversizedOrInvalidPayloadAreRejected() {
         FriendlyByteBuf overlong = new FriendlyByteBuf(Unpooled.buffer());
-        assertThrows(RuntimeException.class, () -> CandlestickRequestPacket.encode(
-                new CandlestickRequestPacket(1, MarketInstrumentType.STOCK, "A".repeat(17), 30), overlong));
+        assertThrows(
+                RuntimeException.class,
+                () -> CandlestickRequestPacket.encode(
+                        new CandlestickRequestPacket(1, MarketInstrumentType.STOCK, "A".repeat(17), 30), overlong));
 
         FriendlyByteBuf oversized = new FriendlyByteBuf(Unpooled.buffer());
         oversized.writeLong(1);

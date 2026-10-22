@@ -26,7 +26,7 @@ public final class FactoryOutlineRenderer {
     private static int radius, below, above;
     private static int ticksLeft;
 
-    private FactoryOutlineRenderer() { }
+    private FactoryOutlineRenderer() {}
 
     static void show(CompanyGameplayMenu.FactoryView view, BlockPos pos) {
         if (view == null || pos == null) return;
@@ -44,20 +44,32 @@ public final class FactoryOutlineRenderer {
         if (event.phase != TickEvent.Phase.END || ticksLeft <= 0) return;
         ticksLeft--;
         ClientLevel level = Minecraft.getInstance().level;
-        if (level == null || controller == null) { ticksLeft = 0; return; }
+        if (level == null || controller == null) {
+            ticksLeft = 0;
+            return;
+        }
         if (ticksLeft % INTERVAL_TICKS != 0) return;
         double x0 = controller.getX() - radius, x1 = controller.getX() + radius + 1;
         double z0 = controller.getZ() - radius, z1 = controller.getZ() + radius + 1;
         double y0 = controller.getY() - below, y1 = controller.getY() + above + 1;
         // 12 条棱，每格一个粒子
         for (double x = x0; x <= x1; x += 1) {
-            spawn(level, x, y0, z0); spawn(level, x, y0, z1); spawn(level, x, y1, z0); spawn(level, x, y1, z1);
+            spawn(level, x, y0, z0);
+            spawn(level, x, y0, z1);
+            spawn(level, x, y1, z0);
+            spawn(level, x, y1, z1);
         }
         for (double z = z0; z <= z1; z += 1) {
-            spawn(level, x0, y0, z); spawn(level, x1, y0, z); spawn(level, x0, y1, z); spawn(level, x1, y1, z);
+            spawn(level, x0, y0, z);
+            spawn(level, x1, y0, z);
+            spawn(level, x0, y1, z);
+            spawn(level, x1, y1, z);
         }
         for (double y = y0; y <= y1; y += 1) {
-            spawn(level, x0, y, z0); spawn(level, x1, y, z0); spawn(level, x0, y, z1); spawn(level, x1, y, z1);
+            spawn(level, x0, y, z0);
+            spawn(level, x1, y, z0);
+            spawn(level, x0, y, z1);
+            spawn(level, x1, y, z1);
         }
     }
 

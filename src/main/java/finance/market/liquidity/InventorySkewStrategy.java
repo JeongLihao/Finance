@@ -1,7 +1,6 @@
 package finance.market.liquidity;
 
 import finance.config.FinanceConfig;
-
 import java.util.Optional;
 
 /**

@@ -26,17 +26,35 @@ public final class PlayerCashPurse implements CashPurse {
         };
     }
 
-    @Override public long count(Denomination d) { return count(item(d)); }
+    @Override
+    public long count(Denomination d) {
+        return count(item(d));
+    }
 
-    @Override public boolean remove(Denomination d, long n) { return remove(item(d), n); }
+    @Override
+    public boolean remove(Denomination d, long n) {
+        return remove(item(d), n);
+    }
 
-    @Override public void give(Denomination d, long n) { give(item(d), n); }
+    @Override
+    public void give(Denomination d, long n) {
+        give(item(d), n);
+    }
 
-    @Override public long emeralds() { return count(Items.EMERALD); }
+    @Override
+    public long emeralds() {
+        return count(Items.EMERALD);
+    }
 
-    @Override public boolean removeEmeralds(long n) { return remove(Items.EMERALD, n); }
+    @Override
+    public boolean removeEmeralds(long n) {
+        return remove(Items.EMERALD, n);
+    }
 
-    @Override public void giveEmeralds(long n) { give(Items.EMERALD, n); }
+    @Override
+    public void giveEmeralds(long n) {
+        give(Items.EMERALD, n);
+    }
 
     @Override
     public long quotaUsed(String key, long day) {

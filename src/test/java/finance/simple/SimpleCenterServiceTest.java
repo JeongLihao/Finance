@@ -1,14 +1,13 @@
 package finance.simple;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import finance.company.Company;
 import finance.company.CompanyManagementAction;
 import finance.company.CompanyStrategy;
 import finance.company.CompanyType;
-import org.junit.jupiter.api.Test;
-
 import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.Test;
 
 class SimpleCenterServiceTest {
 
@@ -18,14 +17,16 @@ class SimpleCenterServiceTest {
         return c;
     }
 
-    @Test void upgradeFactoryRaisesTheLowestOfTheThreeLevels() {
+    @Test
+    void upgradeFactoryRaisesTheLowestOfTheThreeLevels() {
         assertEquals(CompanyManagementAction.UPGRADE_PRODUCTION, SimpleCenterService.nextUpgrade(company(0, 0, 0)));
         assertEquals(CompanyManagementAction.UPGRADE_STORAGE, SimpleCenterService.nextUpgrade(company(1, 0, 0)));
         assertEquals(CompanyManagementAction.UPGRADE_MANAGEMENT, SimpleCenterService.nextUpgrade(company(2, 1, 0)));
         assertNull(SimpleCenterService.nextUpgrade(company(5, 5, 5)), "三项都满 5 级就不能再升");
     }
 
-    @Test void factoryLevelIsTheSumAndCostFollowsTheLowestLevel() {
+    @Test
+    void factoryLevelIsTheSumAndCostFollowsTheLowestLevel() {
         Company c = company(2, 1, 1);
         assertEquals(4, SimpleCenterService.factoryLevel(c));
         assertEquals(c.getUpgradeCost("STORAGE"), SimpleCenterService.nextUpgradeCost(c));

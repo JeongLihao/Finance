@@ -3,18 +3,16 @@ package finance.client;
 import com.mojang.blaze3d.systems.RenderSystem;
 import finance.gui.MarketOverviewMenu;
 import finance.gui.MarketSnapshot;
+import finance.network.FinancePacketHandler;
+import finance.network.TradeActionPacket;
+import finance.util.FormatUtil;
+import java.util.List;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
-import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.components.EditBox;
-import finance.network.FinancePacketHandler;
-import finance.network.TradeActionPacket;
-
-import finance.util.FormatUtil;
-
-import java.util.List;
 
 public class MarketOverviewScreen extends AbstractContainerScreen<MarketOverviewMenu> {
 
@@ -24,7 +22,7 @@ public class MarketOverviewScreen extends AbstractContainerScreen<MarketOverview
     private int selectedRow;
     private int rowOffset;
     private EditBox quantity;
-    private String status="";
+    private String status = "";
 
     public MarketOverviewScreen(MarketOverviewMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -33,9 +31,48 @@ public class MarketOverviewScreen extends AbstractContainerScreen<MarketOverview
         inventoryLabelY = 10_000;
     }
 
-    @Override protected void init(){super.init();quantity=new EditBox(font,leftPos+10,topPos+218,58,18,Component.translatable("screen.finance.warehouse.amount"));quantity.setValue("1");addRenderableWidget(quantity);addRenderableWidget(Button.builder(Component.translatable("finance.market.buy"),b->trade(true)).bounds(leftPos+74,topPos+218,64,18).build());addRenderableWidget(Button.builder(Component.translatable("finance.market.sell"),b->trade(false)).bounds(leftPos+142,topPos+218,64,18).build());}
-    private void trade(boolean buy){List<MarketSnapshot> rows=menu.getSnapshots();if(rows.isEmpty()||selectedRow<0||selectedRow>=rows.size()){status=Component.translatable("finance.market.select_first").getString();return;}int amount;try{amount=Integer.parseInt(quantity.getValue().trim());}catch(NumberFormatException e){amount=0;}if(amount<=0){status=Component.translatable("finance.market.invalid_quantity").getString();return;}FinancePacketHandler.CHANNEL.sendToServer(new TradeActionPacket(buy?TradeActionPacket.ActionType.INTL_BUY:TradeActionPacket.ActionType.INTL_SELL,rows.get(selectedRow).commodityId(),0,amount));status=Component.translatable("finance.market.submitted").getString();}
-    public void setGuiStatus(String message){status=message==null?"":message;}
+    @Override
+    protected void init() {
+        super.init();
+        quantity = new EditBox(
+                font, leftPos + 10, topPos + 218, 58, 18, Component.translatable("screen.finance.warehouse.amount"));
+        quantity.setValue("1");
+        addRenderableWidget(quantity);
+        addRenderableWidget(Button.builder(Component.translatable("finance.market.buy"), b -> trade(true))
+                .bounds(leftPos + 74, topPos + 218, 64, 18)
+                .build());
+        addRenderableWidget(Button.builder(Component.translatable("finance.market.sell"), b -> trade(false))
+                .bounds(leftPos + 142, topPos + 218, 64, 18)
+                .build());
+    }
+
+    private void trade(boolean buy) {
+        List<MarketSnapshot> rows = menu.getSnapshots();
+        if (rows.isEmpty() || selectedRow < 0 || selectedRow >= rows.size()) {
+            status = Component.translatable("finance.market.select_first").getString();
+            return;
+        }
+        int amount;
+        try {
+            amount = Integer.parseInt(quantity.getValue().trim());
+        } catch (NumberFormatException e) {
+            amount = 0;
+        }
+        if (amount <= 0) {
+            status = Component.translatable("finance.market.invalid_quantity").getString();
+            return;
+        }
+        FinancePacketHandler.CHANNEL.sendToServer(new TradeActionPacket(
+                buy ? TradeActionPacket.ActionType.INTL_BUY : TradeActionPacket.ActionType.INTL_SELL,
+                rows.get(selectedRow).commodityId(),
+                0,
+                amount));
+        status = Component.translatable("finance.market.submitted").getString();
+    }
+
+    public void setGuiStatus(String message) {
+        status = message == null ? "" : message;
+    }
 
     @Override
     protected void renderBg(GuiGraphics graphics, float partialTick, int mouseX, int mouseY) {
@@ -74,7 +111,8 @@ public class MarketOverviewScreen extends AbstractContainerScreen<MarketOverview
 
         List<MarketSnapshot> snapshots = menu.getSnapshots();
         if (snapshots.isEmpty()) {
-            graphics.drawString(font, Component.translatable("screen.finance.market_overview.empty"), 10, 52, 0xB9C0C8, false);
+            graphics.drawString(
+                    font, Component.translatable("screen.finance.market_overview.empty"), 10, 52, 0xB9C0C8, false);
             return;
         }
 
@@ -85,34 +123,88 @@ public class MarketOverviewScreen extends AbstractContainerScreen<MarketOverview
             MarketSnapshot snapshot = snapshots.get(i);
             int y = rowY + visibleIndex * ROW_HEIGHT;
             int bg = (i % 2 == 0) ? 0x221C252D : 0x111C252D;
-            if(i==selectedRow)bg=0x553A6C8E;
+            if (i == selectedRow) bg = 0x553A6C8E;
             graphics.fill(8, y - 2, imageWidth - 8, y + ROW_HEIGHT - 2, bg);
 
             drawClipped(graphics, snapshot.commodityId(), 10, y, 44, 0xE6E9ED);
             drawClipped(graphics, Long.toString(snapshot.midPrice()), 58, y, 34, 0xE6E9ED);
             drawClipped(graphics, Long.toString(snapshot.bidPrice()), 96, y, 34, 0xB7E4C7);
             drawClipped(graphics, Long.toString(snapshot.askPrice()), 134, y, 36, 0xFFD6A5);
-            drawClipped(graphics, FormatUtil.formatPercent(snapshot.dayChange()), 174, y, 36, changeColor(snapshot.dayChange()));
+            drawClipped(
+                    graphics,
+                    FormatUtil.formatPercent(snapshot.dayChange()),
+                    174,
+                    y,
+                    36,
+                    changeColor(snapshot.dayChange()));
             drawClipped(graphics, Integer.toString(snapshot.dayVolume()), 214, y, 38, 0xC8CED6);
             drawClipped(graphics, Integer.toString(snapshot.marketStock()), 256, y, 44, 0xC8CED6);
         }
 
         var opportunity = menu.opportunity();
         int infoY = 174;
-        graphics.drawString(font, Component.translatable("finance.market.today_opportunity"), 10, infoY, 0xF5D76E, false);
-        drawClipped(graphics, Component.translatable("finance.market.shortage", opportunity.shortageId(), opportunity.shortageStock()).getString(), 10, infoY + 12, 290, 0xC8CED6);
-        drawClipped(graphics, Component.translatable("finance.market.contract", opportunity.contractId(), opportunity.contractReward()).getString(), 10, infoY + 24, 290, 0xC8CED6);
-        drawClipped(graphics, Component.translatable("finance.market.advanced_hint").getString(), 10, 207, 290, 0x8F99A4);
-        if(!status.isBlank())graphics.drawString(font,font.plainSubstrByWidth(status,94),212,223,0xF5D76E,false);
+        graphics.drawString(
+                font, Component.translatable("finance.market.today_opportunity"), 10, infoY, 0xF5D76E, false);
+        drawClipped(
+                graphics,
+                Component.translatable("finance.market.shortage", opportunity.shortageId(), opportunity.shortageStock())
+                        .getString(),
+                10,
+                infoY + 12,
+                290,
+                0xC8CED6);
+        drawClipped(
+                graphics,
+                Component.translatable(
+                                "finance.market.contract", opportunity.contractId(), opportunity.contractReward())
+                        .getString(),
+                10,
+                infoY + 24,
+                290,
+                0xC8CED6);
+        drawClipped(
+                graphics, Component.translatable("finance.market.advanced_hint").getString(), 10, 207, 290, 0x8F99A4);
+        if (!status.isBlank())
+            graphics.drawString(font, font.plainSubstrByWidth(status, 94), 212, 223, 0xF5D76E, false);
     }
 
-    @Override public boolean mouseClicked(double mouseX,double mouseY,int button){double x=mouseX-leftPos,y=mouseY-topPos;if(button==0&&x>=8&&x<=imageWidth-8&&y>=40&&y<40+Math.min(Math.max(0,menu.getSnapshots().size()-rowOffset),9)*ROW_HEIGHT){selectedRow=Math.min(menu.getSnapshots().size()-1,rowOffset+Math.max(0,(int)((y-40)/ROW_HEIGHT)));}return super.mouseClicked(mouseX,mouseY,button);}
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        double x = mouseX - leftPos, y = mouseY - topPos;
+        if (button == 0
+                && x >= 8
+                && x <= imageWidth - 8
+                && y >= 40
+                && y < 40 + Math.min(Math.max(0, menu.getSnapshots().size() - rowOffset), 9) * ROW_HEIGHT) {
+            selectedRow =
+                    Math.min(menu.getSnapshots().size() - 1, rowOffset + Math.max(0, (int) ((y - 40) / ROW_HEIGHT)));
+        }
+        return super.mouseClicked(mouseX, mouseY, button);
+    }
 
-    @Override public boolean mouseScrolled(double mouseX,double mouseY,double delta){double x=mouseX-leftPos,y=mouseY-topPos;if(x>=8&&x<=imageWidth-8&&y>=40&&y<168&&delta!=0){int direction=delta>0?-1:1;rowOffset=Math.max(0,Math.min(Math.max(0,menu.getSnapshots().size()-9),rowOffset+direction));selectedRow=Math.max(rowOffset,Math.min(selectedRow,Math.min(menu.getSnapshots().size()-1,rowOffset+8)));return true;}return super.mouseScrolled(mouseX,mouseY,delta);}
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
+        double x = mouseX - leftPos, y = mouseY - topPos;
+        if (x >= 8 && x <= imageWidth - 8 && y >= 40 && y < 168 && delta != 0) {
+            int direction = delta > 0 ? -1 : 1;
+            rowOffset = Math.max(0, Math.min(Math.max(0, menu.getSnapshots().size() - 9), rowOffset + direction));
+            selectedRow = Math.max(
+                    rowOffset,
+                    Math.min(selectedRow, Math.min(menu.getSnapshots().size() - 1, rowOffset + 8)));
+            return true;
+        }
+        return super.mouseScrolled(mouseX, mouseY, delta);
+    }
 
     private void drawHeader(GuiGraphics graphics, String column, int x, int y, int width) {
-        drawClipped(graphics, Component.translatable("screen.finance.market_overview.col." + column).getString(),
-                x, y, width, 0x9EA8B3);
+        drawClipped(
+                graphics,
+                Component.translatable("screen.finance.market_overview.col." + column)
+                        .getString(),
+                x,
+                y,
+                width,
+                0x9EA8B3);
     }
 
     @Override
@@ -126,7 +218,9 @@ public class MarketOverviewScreen extends AbstractContainerScreen<MarketOverview
         String value = text == null ? "" : text;
         if (font.width(value) > width) {
             String ellipsis = "…";
-            value = width <= font.width(ellipsis) ? "" : font.plainSubstrByWidth(value, width - font.width(ellipsis)) + ellipsis;
+            value = width <= font.width(ellipsis)
+                    ? ""
+                    : font.plainSubstrByWidth(value, width - font.width(ellipsis)) + ellipsis;
         }
         graphics.drawString(font, value, x, y, color, false);
     }

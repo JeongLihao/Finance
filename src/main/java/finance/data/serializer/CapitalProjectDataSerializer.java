@@ -2,9 +2,9 @@ package finance.data.serializer;
 
 import finance.account.Account;
 import finance.account.AccountManager;
-import finance.company.CompanyManager;
 import finance.company.CompanyFinancingManager;
 import finance.company.CompanyFinancingProject;
+import finance.company.CompanyManager;
 import finance.debt.CompanyLoan;
 import finance.debt.CompanyLoanManager;
 import finance.debt.CorporateBond;
@@ -17,6 +17,9 @@ import finance.gameplay.company.capital.CapitalProjectStatus;
 import finance.gameplay.company.capital.WorldCapitalProject;
 import finance.gameplay.company.capital.WorldCapitalProjectType;
 import finance.warehouse.WarehouseManager;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.UUID;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
@@ -25,10 +28,6 @@ import net.minecraft.nbt.Tag;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
-
-import java.util.LinkedHashMap;
-import java.util.Map;
-import java.util.UUID;
 
 /** Defensive, bounded persistence for physical capital projects. */
 public final class CapitalProjectDataSerializer {
@@ -104,29 +103,41 @@ public final class CapitalProjectDataSerializer {
         UUID companyId = NbtDataSupport.readUuidOrNull(tag, "Company");
         UUID targetId = NbtDataSupport.readUuidOrNull(tag, "Target");
         UUID creatorId = NbtDataSupport.readUuidOrNull(tag, "Creator");
-        WorldCapitalProjectType type = NbtDataSupport.safeEnum(WorldCapitalProjectType.class,
-                tag.getString("Type"), null);
-        CapitalFundingSource source = NbtDataSupport.safeEnum(CapitalFundingSource.class,
-                tag.getString("FundingSource"), null);
-        CapitalProjectStatus status = NbtDataSupport.safeEnum(CapitalProjectStatus.class,
-                tag.getString("Status"), null);
+        WorldCapitalProjectType type =
+                NbtDataSupport.safeEnum(WorldCapitalProjectType.class, tag.getString("Type"), null);
+        CapitalFundingSource source =
+                NbtDataSupport.safeEnum(CapitalFundingSource.class, tag.getString("FundingSource"), null);
+        CapitalProjectStatus status =
+                NbtDataSupport.safeEnum(CapitalProjectStatus.class, tag.getString("Status"), null);
         long created = tag.getLong("CreatedDay"), deadline = tag.getLong("DeadlineDay");
         long budget = tag.getLong("Budget"), funded = tag.getLong("Funded");
         int targetLevel = tag.getInt("TargetLevel");
-        if (id == null || companyId == null || targetId == null || creatorId == null || type == null
-                || source == null || status == null || created < 0 || deadline <= created
-                || budget <= 0 || funded < 0 || funded > budget || targetLevel < 1) return;
+        if (id == null
+                || companyId == null
+                || targetId == null
+                || creatorId == null
+                || type == null
+                || source == null
+                || status == null
+                || created < 0
+                || deadline <= created
+                || budget <= 0
+                || funded < 0
+                || funded > budget
+                || targetLevel < 1) return;
         Map<Item, Integer> materials = readMaterials(tag.getList("Materials", Tag.TAG_COMPOUND));
         if (materials.isEmpty()) return;
 
-        UUID escrowId = UUID.nameUUIDFromBytes(("capital-project-escrow:" + id)
-                .getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        UUID escrowId = UUID.nameUUIDFromBytes(
+                ("capital-project-escrow:" + id).getBytes(java.nio.charset.StandardCharsets.UTF_8));
         Account escrow = AccountManager.getAccounts().get(escrowId);
         long escrowBalance = escrow == null ? 0 : escrow.getBalance();
         boolean settled = tag.getBoolean("FundingSettled");
-        boolean escrowMismatch = status.terminal() ? funded != 0 || escrowBalance != 0
-                : settled || funded > 0 ? funded != budget || escrow == null || escrowBalance != budget
-                : escrowBalance != 0;
+        boolean escrowMismatch = status.terminal()
+                ? funded != 0 || escrowBalance != 0
+                : settled || funded > 0
+                        ? funded != budget || escrow == null || escrowBalance != budget
+                        : escrowBalance != 0;
 
         boolean missingReference = CompanyManager.getCompany(companyId) == null
                 || type == WorldCapitalProjectType.WAREHOUSE_UPGRADE && WarehouseManager.get(targetId) == null
@@ -134,30 +145,51 @@ public final class CapitalProjectDataSerializer {
         String financingFailure = status.terminal() ? "" : financingReferenceFailure(tag, source, companyId, budget);
         boolean quarantined = escrowMismatch || missingReference || !financingFailure.isBlank();
         CapitalProjectStatus restoredStatus = quarantined ? CapitalProjectStatus.FAILED_RECOVERABLE : status;
-        String failure = escrowMismatch ? "finance.capital_project.escrow_mismatch"
-                : missingReference ? "finance.capital_project.reference_missing"
-                : !financingFailure.isBlank() ? financingFailure : tag.getString("Failure");
-        WorldCapitalProject project = new WorldCapitalProject(id, companyId, type, targetId, creatorId,
-                created, deadline, targetLevel, source, budget, materials,
-                tag.getBoolean("GovernanceRequired"), restoredStatus, tag.getLong("StatusDay"));
-        project.restoreReferences(funded,
-                NbtDataSupport.readUuidOrNull(tag, "Proposal"), NbtDataSupport.readUuidOrNull(tag, "Loan"),
-                NbtDataSupport.readUuidOrNull(tag, "Bank"), NbtDataSupport.readUuidOrNull(tag, "Bond"),
-                NbtDataSupport.readUuidOrNull(tag, "Financing"), settled, failure);
+        String failure = escrowMismatch
+                ? "finance.capital_project.escrow_mismatch"
+                : missingReference
+                        ? "finance.capital_project.reference_missing"
+                        : !financingFailure.isBlank() ? financingFailure : tag.getString("Failure");
+        WorldCapitalProject project = new WorldCapitalProject(
+                id,
+                companyId,
+                type,
+                targetId,
+                creatorId,
+                created,
+                deadline,
+                targetLevel,
+                source,
+                budget,
+                materials,
+                tag.getBoolean("GovernanceRequired"),
+                restoredStatus,
+                tag.getLong("StatusDay"));
+        project.restoreReferences(
+                funded,
+                NbtDataSupport.readUuidOrNull(tag, "Proposal"),
+                NbtDataSupport.readUuidOrNull(tag, "Loan"),
+                NbtDataSupport.readUuidOrNull(tag, "Bank"),
+                NbtDataSupport.readUuidOrNull(tag, "Bond"),
+                NbtDataSupport.readUuidOrNull(tag, "Financing"),
+                settled,
+                failure);
         ListTag operations = tag.getList("Operations", Tag.TAG_STRING);
         for (int op = Math.max(0, operations.size() - WorldCapitalProject.MAX_OPERATION_KEYS);
-             op < operations.size(); op++) {
+                op < operations.size();
+                op++) {
             String key = operations.getString(op);
             if (!key.isBlank() && key.length() <= 96) project.restoreOperation(key);
         }
         CapitalProjectManager.restore(project);
     }
 
-    private static String financingReferenceFailure(CompoundTag tag, CapitalFundingSource source,
-                                                     UUID companyId, long budget) {
-        CapitalProjectStatus savedStatus = NbtDataSupport.safeEnum(CapitalProjectStatus.class,
-                tag.getString("Status"), CapitalProjectStatus.DRAFT);
-        boolean fundingStarted = tag.getLong("Funded") > 0 || tag.getBoolean("FundingSettled")
+    private static String financingReferenceFailure(
+            CompoundTag tag, CapitalFundingSource source, UUID companyId, long budget) {
+        CapitalProjectStatus savedStatus = NbtDataSupport.safeEnum(
+                CapitalProjectStatus.class, tag.getString("Status"), CapitalProjectStatus.DRAFT);
+        boolean fundingStarted = tag.getLong("Funded") > 0
+                || tag.getBoolean("FundingSettled")
                 || savedStatus == CapitalProjectStatus.FUNDING
                 || savedStatus == CapitalProjectStatus.FUNDED
                 || savedStatus == CapitalProjectStatus.MATERIALS_PENDING
@@ -171,15 +203,21 @@ public final class CapitalProjectDataSerializer {
         if (source == CapitalFundingSource.COMMERCIAL_LOAN) {
             UUID loanId = NbtDataSupport.readUuidOrNull(tag, "Loan");
             UUID bankId = NbtDataSupport.readUuidOrNull(tag, "Bank");
-            CompanyLoan loan = loanId == null ? null : CompanyLoanManager.loans().get(loanId);
+            CompanyLoan loan =
+                    loanId == null ? null : CompanyLoanManager.loans().get(loanId);
             if (loan == null) return "finance.capital_project.loan_missing";
-            return companyId.equals(loan.companyId()) && loan.lenderType() == LoanLenderType.COMMERCIAL_BANK
-                    && bankId != null && bankId.equals(loan.lenderId()) && loan.originalPrincipal() == budget
-                    ? "" : "finance.capital_project.loan_mismatch";
+            return companyId.equals(loan.companyId())
+                            && loan.lenderType() == LoanLenderType.COMMERCIAL_BANK
+                            && bankId != null
+                            && bankId.equals(loan.lenderId())
+                            && loan.originalPrincipal() == budget
+                    ? ""
+                    : "finance.capital_project.loan_mismatch";
         }
         if (source == CapitalFundingSource.CORPORATE_BOND) {
             UUID bondId = NbtDataSupport.readUuidOrNull(tag, "Bond");
-            CorporateBond bond = bondId == null ? null : CorporateBondManager.bonds().get(bondId);
+            CorporateBond bond =
+                    bondId == null ? null : CorporateBondManager.bonds().get(bondId);
             if (bond == null) return "finance.capital_project.bond_missing";
             return companyId.equals(bond.companyId()) ? "" : "finance.capital_project.bond_mismatch";
         }
@@ -188,10 +226,13 @@ public final class CapitalProjectDataSerializer {
         CompanyFinancingProject active = CompanyFinancingManager.getProject(financingId);
         CompanyFinancingManager.FinalizedFinancing finalized = CompanyFinancingManager.getFinalized(financingId);
         if (active == null && finalized == null) return "finance.capital_project.share_issue_missing";
-        if (active != null) return companyId.equals(active.getCompanyId()) && active.getFundingTarget() == budget
-                ? "" : "finance.capital_project.share_issue_mismatch";
+        if (active != null)
+            return companyId.equals(active.getCompanyId()) && active.getFundingTarget() == budget
+                    ? ""
+                    : "finance.capital_project.share_issue_mismatch";
         return companyId.equals(finalized.companyId()) && finalized.raisedAmount() >= budget
-                ? "" : "finance.capital_project.share_issue_mismatch";
+                ? ""
+                : "finance.capital_project.share_issue_mismatch";
     }
 
     private static Map<Item, Integer> readMaterials(ListTag list) {

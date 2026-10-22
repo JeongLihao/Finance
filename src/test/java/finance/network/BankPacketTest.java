@@ -1,8 +1,91 @@
 package finance.network;
-import finance.bank.*;import finance.client.BankClientCache;import finance.debt.*;import io.netty.buffer.Unpooled;import net.minecraft.network.FriendlyByteBuf;import org.junit.jupiter.api.*;import java.util.*;import static org.junit.jupiter.api.Assertions.*;
-class BankPacketTest {@Test void responseRoundTripsAllBoundedRows(){UUID id=UUID.randomUUID();var p=new BankResponsePacket(1,true,2_000,600,List.of(new BankResponsePacket.BankRow(id,"MCB","Bank",BankStatus.ACTIVE,1000,500,100,300,700,900,12000,350,425,0,true)),List.of(new BankResponsePacket.AccountRow(id,id,CustomerType.PLAYER,BankAccountType.DEMAND_DEPOSIT,100,0)),List.of(new BankResponsePacket.TimeRow(id,id,100,500,10,2,TimeDepositStatus.ACTIVE)),List.of(new BankResponsePacket.LoanRow(id,id,LoanLenderType.COMMERCIAL_BANK,id,100,2,800,20,LoanStatus.ACTIVE)));FriendlyByteBuf b=new FriendlyByteBuf(Unpooled.buffer());BankResponsePacket.encode(p,b);var d=BankResponsePacket.decode(b);assertEquals("MCB",d.banks().get(0).code());assertEquals(100,d.accounts().get(0).balance());assertEquals(LoanLenderType.COMMERCIAL_BANK,d.loans().get(0).lenderType());assertTrue(d.banks().get(0).playerOwned());}
- @Test void oversizedResponseCountIsRejectedBeforeAllocation(){FriendlyByteBuf b=new FriendlyByteBuf(Unpooled.buffer());b.writeLong(1);b.writeBoolean(false);b.writeLong(0);b.writeInt(0);b.writeVarInt(BankResponsePacket.MAX_ROWS+1);assertThrows(IllegalArgumentException.class,()->BankResponsePacket.decode(b));}
- @Test void actionRoundTripsAndCacheRejectsStaleResponse(){UUID id=UUID.randomUUID();var p=new BankActionPacket(BankActionPacket.Action.DEPOSIT,id,null,100,0,0);FriendlyByteBuf b=new FriendlyByteBuf(Unpooled.buffer());BankActionPacket.encode(p,b);assertEquals(p,BankActionPacket.decode(b));BankClientCache.clear();long old=BankClientCache.begin(),latest=BankClientCache.begin();BankClientCache.accept(empty(old,1));assertEquals(BankClientCache.State.LOADING,BankClientCache.get().state());BankClientCache.accept(empty(latest,2));assertEquals(2,BankClientCache.get().data().insuranceFund());}
- @Test void extremeTermIsRejectedAtDecodeBoundary(){FriendlyByteBuf b=new FriendlyByteBuf(Unpooled.buffer());BankActionPacket.encode(new BankActionPacket(BankActionPacket.Action.OPEN_TIME,UUID.randomUUID(),null,1,Integer.MAX_VALUE,1),b);assertThrows(IllegalArgumentException.class,()->BankActionPacket.decode(b));}
- @Test void refreshKeepsShowingTheLastDataInsteadOfALoadingScreen(){BankClientCache.clear();long first=BankClientCache.begin();BankClientCache.accept(empty(first,7));long second=BankClientCache.begin();assertEquals(BankClientCache.State.READY,BankClientCache.get().state());assertEquals(7,BankClientCache.get().data().insuranceFund());BankClientCache.accept(empty(first,8));assertEquals(7,BankClientCache.get().data().insuranceFund());BankClientCache.accept(empty(second,9));assertEquals(9,BankClientCache.get().data().insuranceFund());}
- private static BankResponsePacket empty(long id,long fund){return new BankResponsePacket(id,false,fund,0,List.of(),List.of(),List.of(),List.of());}}
+
+import static org.junit.jupiter.api.Assertions.*;
+
+import finance.bank.*;
+import finance.client.BankClientCache;
+import finance.debt.*;
+import io.netty.buffer.Unpooled;
+import java.util.*;
+import net.minecraft.network.FriendlyByteBuf;
+import org.junit.jupiter.api.*;
+
+class BankPacketTest {
+    @Test
+    void responseRoundTripsAllBoundedRows() {
+        UUID id = UUID.randomUUID();
+        var p = new BankResponsePacket(
+                1,
+                true,
+                2_000,
+                600,
+                List.of(new BankResponsePacket.BankRow(
+                        id, "MCB", "Bank", BankStatus.ACTIVE, 1000, 500, 100, 300, 700, 900, 12000, 350, 425, 0, true)),
+                List.of(new BankResponsePacket.AccountRow(
+                        id, id, CustomerType.PLAYER, BankAccountType.DEMAND_DEPOSIT, 100, 0)),
+                List.of(new BankResponsePacket.TimeRow(id, id, 100, 500, 10, 2, TimeDepositStatus.ACTIVE)),
+                List.of(new BankResponsePacket.LoanRow(
+                        id, id, LoanLenderType.COMMERCIAL_BANK, id, 100, 2, 800, 20, LoanStatus.ACTIVE)));
+        FriendlyByteBuf b = new FriendlyByteBuf(Unpooled.buffer());
+        BankResponsePacket.encode(p, b);
+        var d = BankResponsePacket.decode(b);
+        assertEquals("MCB", d.banks().get(0).code());
+        assertEquals(100, d.accounts().get(0).balance());
+        assertEquals(LoanLenderType.COMMERCIAL_BANK, d.loans().get(0).lenderType());
+        assertTrue(d.banks().get(0).playerOwned());
+    }
+
+    @Test
+    void oversizedResponseCountIsRejectedBeforeAllocation() {
+        FriendlyByteBuf b = new FriendlyByteBuf(Unpooled.buffer());
+        b.writeLong(1);
+        b.writeBoolean(false);
+        b.writeLong(0);
+        b.writeInt(0);
+        b.writeVarInt(BankResponsePacket.MAX_ROWS + 1);
+        assertThrows(IllegalArgumentException.class, () -> BankResponsePacket.decode(b));
+    }
+
+    @Test
+    void actionRoundTripsAndCacheRejectsStaleResponse() {
+        UUID id = UUID.randomUUID();
+        var p = new BankActionPacket(BankActionPacket.Action.DEPOSIT, id, null, 100, 0, 0);
+        FriendlyByteBuf b = new FriendlyByteBuf(Unpooled.buffer());
+        BankActionPacket.encode(p, b);
+        assertEquals(p, BankActionPacket.decode(b));
+        BankClientCache.clear();
+        long old = BankClientCache.begin(), latest = BankClientCache.begin();
+        BankClientCache.accept(empty(old, 1));
+        assertEquals(BankClientCache.State.LOADING, BankClientCache.get().state());
+        BankClientCache.accept(empty(latest, 2));
+        assertEquals(2, BankClientCache.get().data().insuranceFund());
+    }
+
+    @Test
+    void extremeTermIsRejectedAtDecodeBoundary() {
+        FriendlyByteBuf b = new FriendlyByteBuf(Unpooled.buffer());
+        BankActionPacket.encode(
+                new BankActionPacket(
+                        BankActionPacket.Action.OPEN_TIME, UUID.randomUUID(), null, 1, Integer.MAX_VALUE, 1),
+                b);
+        assertThrows(IllegalArgumentException.class, () -> BankActionPacket.decode(b));
+    }
+
+    @Test
+    void refreshKeepsShowingTheLastDataInsteadOfALoadingScreen() {
+        BankClientCache.clear();
+        long first = BankClientCache.begin();
+        BankClientCache.accept(empty(first, 7));
+        long second = BankClientCache.begin();
+        assertEquals(BankClientCache.State.READY, BankClientCache.get().state());
+        assertEquals(7, BankClientCache.get().data().insuranceFund());
+        BankClientCache.accept(empty(first, 8));
+        assertEquals(7, BankClientCache.get().data().insuranceFund());
+        BankClientCache.accept(empty(second, 9));
+        assertEquals(9, BankClientCache.get().data().insuranceFund());
+    }
+
+    private static BankResponsePacket empty(long id, long fund) {
+        return new BankResponsePacket(id, false, fund, 0, List.of(), List.of(), List.of(), List.of());
+    }
+}

@@ -1,6 +1,7 @@
 package finance.cycle;
 
 import finance.alert.PriceAlertManager;
+import finance.chart.CandlestickService;
 import finance.company.CompanyBankruptcyManager;
 import finance.company.CompanyFinancingManager;
 import finance.company.CompanyManager;
@@ -10,7 +11,6 @@ import finance.market.NpcMarketMaker;
 import finance.metrics.EconomyMetricsService;
 import finance.stock.ConditionalStockOrderManager;
 import finance.stock.StockMarketManager;
-import finance.chart.CandlestickService;
 import net.minecraft.server.MinecraftServer;
 
 public final class EconomyCycleService {
@@ -19,8 +19,7 @@ public final class EconomyCycleService {
     private static final long MOMENTUM_INTERVAL = 1_200L;
     private static final long NOISE_INTERVAL = 3_600L;
 
-    private EconomyCycleService() {
-    }
+    private EconomyCycleService() {}
 
     /**
      * 最近一次执行过 tickDay 的 mcDay。/time set 回拨会让同一天的 tickDay 被重复调用，
@@ -51,7 +50,8 @@ public final class EconomyCycleService {
         CandlestickService.observeDay(gameTime / TICKS_PER_MC_DAY);
         long mcDay = gameTime / TICKS_PER_MC_DAY;
         boolean marketClosed = FinancialCycleService.observeMarketDay(mcDay);
-        if (marketClosed) finance.futures.FuturesRiskService.notifyOnline(server, FinancialCycleService.lastClosedMarketDay());
+        if (marketClosed)
+            finance.futures.FuturesRiskService.notifyOnline(server, FinancialCycleService.lastClosedMarketDay());
         if (gameTime <= 0) {
             return;
         }
@@ -84,7 +84,7 @@ public final class EconomyCycleService {
         CandlestickService.closeDay(mcDay - 1);
         NpcMarketMaker.resetAllDayStats();
         EventManager.onDayTick(server);
-        finance.event.EventContractService.processDay(server,mcDay);
+        finance.event.EventContractService.processDay(server, mcDay);
         finance.settlement.SettlementService.processDay(server, mcDay);
         // 宏观经济：村庄集市（按类别需求采购并回报供需）→ 本地价格/人口收盘
         finance.village.VillageService.processDay(server, mcDay);

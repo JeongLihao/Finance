@@ -78,12 +78,21 @@ public final class FactoryBlockEntity extends BlockEntity implements MenuProvide
 
     /** GUI 同步用：0=progress，1=maxProgress。 */
     private final ContainerData data = new ContainerData() {
-        @Override public int get(int index) { return index == 0 ? progress : maxProgress; }
-        @Override public void set(int index, int value) {
+        @Override
+        public int get(int index) {
+            return index == 0 ? progress : maxProgress;
+        }
+
+        @Override
+        public void set(int index, int value) {
             if (index == 0) progress = Math.max(0, value);
             else maxProgress = Math.max(1, value);
         }
-        @Override public int getCount() { return 2; }
+
+        @Override
+        public int getCount() {
+            return 2;
+        }
     };
 
     public FactoryBlockEntity(BlockPos pos, BlockState state) {
@@ -158,9 +167,7 @@ public final class FactoryBlockEntity extends BlockEntity implements MenuProvide
         if (!canAcceptOutput(items, recipe)) return new TickResult(progress, recipe.id());
         int next = progress + 1;
         if (next >= recipe.cookTime()) {
-            return doCraft(items, recipe)
-                    ? new TickResult(0, recipe.id())
-                    : new TickResult(progress, recipe.id());
+            return doCraft(items, recipe) ? new TickResult(0, recipe.id()) : new TickResult(progress, recipe.id());
         }
         return new TickResult(next, recipe.id());
     }
@@ -180,7 +187,7 @@ public final class FactoryBlockEntity extends BlockEntity implements MenuProvide
         if (output.isEmpty()) return true;
         return output.is(result.getItem())
                 && output.getCount() + result.getCount()
-                    <= Math.min(output.getMaxStackSize(), items.getSlotLimit(SLOT_OUTPUT));
+                        <= Math.min(output.getMaxStackSize(), items.getSlotLimit(SLOT_OUTPUT));
     }
 
     /**
@@ -200,8 +207,7 @@ public final class FactoryBlockEntity extends BlockEntity implements MenuProvide
             // 理论上不可达（已预检数量）：把已扣的部分塞回。
             ItemStack leftover = items.insertItem(SLOT_INPUT, consumed, false);
             if (!leftover.isEmpty()) {
-                LOGGER.error("[factory] doCraft 扣减不足回滚失败，丢失 {} x{}",
-                        leftover.getItem(), leftover.getCount());
+                LOGGER.error("[factory] doCraft 扣减不足回滚失败，丢失 {} x{}", leftover.getItem(), leftover.getCount());
             }
             return false;
         }
@@ -224,8 +230,8 @@ public final class FactoryBlockEntity extends BlockEntity implements MenuProvide
             ItemStack leftover = items.insertItem(SLOT_INPUT, consumed, false);
             if (!leftover.isEmpty()) {
                 // 绝不静默丢弃：记 error，便于服主排查。
-                LOGGER.error("[factory] doCraft 输出写入失败且回滚塞回失败，丢失 {} x{}（含 NBT）",
-                        leftover.getItem(), leftover.getCount());
+                LOGGER.error(
+                        "[factory] doCraft 输出写入失败且回滚塞回失败，丢失 {} x{}（含 NBT）", leftover.getItem(), leftover.getCount());
             }
             return false;
         }
@@ -267,8 +273,13 @@ public final class FactoryBlockEntity extends BlockEntity implements MenuProvide
         return data;
     }
 
-    public int progress() { return progress; }
-    public int maxProgress() { return maxProgress; }
+    public int progress() {
+        return progress;
+    }
+
+    public int maxProgress() {
+        return maxProgress;
+    }
 
     // ================================================================
     // MenuProvider
@@ -281,8 +292,8 @@ public final class FactoryBlockEntity extends BlockEntity implements MenuProvide
 
     @Nullable
     @Override
-    public AbstractContainerMenu createMenu(int containerId, @NotNull Inventory playerInventory,
-                                            @NotNull Player player) {
+    public AbstractContainerMenu createMenu(
+            int containerId, @NotNull Inventory playerInventory, @NotNull Player player) {
         return new FactoryMenu(containerId, playerInventory, this);
     }
 

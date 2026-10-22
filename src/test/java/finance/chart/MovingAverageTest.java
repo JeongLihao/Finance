@@ -1,12 +1,11 @@
 package finance.chart;
 
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 class MovingAverageTest {
 
@@ -28,8 +27,8 @@ class MovingAverageTest {
         assertEquals(0, MovingAverage.simple(List.of(), 5).length);
         double[] insufficient = MovingAverage.simple(closes(1, 2), 5);
         assertTrue(Double.isNaN(insufficient[1]));
-        double[] extreme = MovingAverage.simple(List.of(
-                Candlestick.carry(0, Long.MAX_VALUE), Candlestick.carry(1, Long.MAX_VALUE)), 2);
+        double[] extreme = MovingAverage.simple(
+                List.of(Candlestick.carry(0, Long.MAX_VALUE), Candlestick.carry(1, Long.MAX_VALUE)), 2);
         assertTrue(Double.isFinite(extreme[1]));
         assertEquals((double) Long.MAX_VALUE, extreme[1]);
     }

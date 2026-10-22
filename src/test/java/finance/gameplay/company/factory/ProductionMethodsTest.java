@@ -1,14 +1,13 @@
 package finance.gameplay.company.factory;
 
-import finance.company.CompanyType;
-import org.junit.jupiter.api.Test;
-
-import java.util.EnumMap;
-import java.util.Map;
-
 import static finance.gameplay.company.factory.FactoryEquipment.*;
 import static finance.gameplay.company.factory.ProductionTier.*;
 import static org.junit.jupiter.api.Assertions.*;
+
+import finance.company.CompanyType;
+import java.util.EnumMap;
+import java.util.Map;
+import org.junit.jupiter.api.Test;
 
 class ProductionMethodsTest {
 
@@ -18,7 +17,8 @@ class ProductionMethodsTest {
         return map;
     }
 
-    @Test void everyIndustryHasThreeTiersInOrder() {
+    @Test
+    void everyIndustryHasThreeTiersInOrder() {
         for (CompanyType type : CompanyType.values()) {
             var methods = ProductionMethods.forType(type);
             assertEquals(3, methods.size(), type.name());
@@ -33,7 +33,8 @@ class ProductionMethodsTest {
         }
     }
 
-    @Test void manualTierMatchesLegacyCompanyTypeOutputs() {
+    @Test
+    void manualTierMatchesLegacyCompanyTypeOutputs() {
         for (CompanyType type : CompanyType.values()) {
             ProductionMethod manual = ProductionMethods.get(type, MANUAL);
             assertEquals(type.getDailyProduction(), manual.outputs(), type.name() + " 手工档产出应与旧规则一致");
@@ -41,34 +42,46 @@ class ProductionMethodsTest {
         // 铁矿手工档新增 20 木头燃料，其余行业手工档投入与旧规则一致
         for (CompanyType type : CompanyType.values()) {
             if (type == CompanyType.RAW_MATERIALS) continue;
-            assertEquals(type.getDailyConsumption(), ProductionMethods.get(type, MANUAL).inputs(), type.name());
+            assertEquals(
+                    type.getDailyConsumption(),
+                    ProductionMethods.get(type, MANUAL).inputs(),
+                    type.name());
         }
     }
 
-    @Test void higherTiersProduceMoreWithFewerJobsPerDevice() {
+    @Test
+    void higherTiersProduceMoreWithFewerJobsPerDevice() {
         for (CompanyType type : CompanyType.values()) {
             var m = ProductionMethods.forType(type);
-            long manualOut = m.get(0).outputs().values().stream().mapToLong(Integer::longValue).sum();
-            long industrialOut = m.get(2).outputs().values().stream().mapToLong(Integer::longValue).sum();
+            long manualOut = m.get(0).outputs().values().stream()
+                    .mapToLong(Integer::longValue)
+                    .sum();
+            long industrialOut = m.get(2).outputs().values().stream()
+                    .mapToLong(Integer::longValue)
+                    .sum();
             assertTrue(industrialOut > manualOut, type.name());
             assertTrue(m.get(2).jobsPerDevice() < m.get(0).jobsPerDevice(), type.name());
         }
     }
 
-    @Test void resolvePicksHighestSatisfiedTierAtOrBelowTarget() {
+    @Test
+    void resolvePicksHighestSatisfiedTierAtOrBelowTarget() {
         var food = CompanyType.FOOD;
-        Map<FactoryEquipment, Integer> all = counts(COMPOSTER, 2, HAY_BLOCK, 4, BARREL, 1, PISTON, 4, OBSERVER, 2, HOPPER, 2);
+        Map<FactoryEquipment, Integer> all =
+                counts(COMPOSTER, 2, HAY_BLOCK, 4, BARREL, 1, PISTON, 4, OBSERVER, 2, HOPPER, 2);
         assertEquals(INDUSTRIAL, ProductionMethods.resolve(food, 3, all, INDUSTRIAL));
         assertEquals(IMPROVED, ProductionMethods.resolve(food, 3, all, IMPROVED), "不会超过目标档");
         assertEquals(IMPROVED, ProductionMethods.resolve(food, 2, all, INDUSTRIAL), "工业档需要 3 级");
         assertEquals(MANUAL, ProductionMethods.resolve(food, 1, all, INDUSTRIAL), "改良档需要 2 级");
         // 设备不够时退化
-        assertEquals(MANUAL, ProductionMethods.resolve(food, 3, counts(COMPOSTER, 2, HAY_BLOCK, 3, BARREL, 1), INDUSTRIAL));
+        assertEquals(
+                MANUAL, ProductionMethods.resolve(food, 3, counts(COMPOSTER, 2, HAY_BLOCK, 3, BARREL, 1), INDUSTRIAL));
         assertNull(ProductionMethods.resolve(food, 3, counts(COMPOSTER, 1), MANUAL), "连手工档都不满足");
         assertNull(ProductionMethods.resolve(food, 3, Map.of(), null));
     }
 
-    @Test void jobsComeFromDevicesAndAreCappedByLevel() {
+    @Test
+    void jobsComeFromDevicesAndAreCappedByLevel() {
         ProductionMethod manual = ProductionMethods.get(CompanyType.FOOD, MANUAL);
         assertEquals(10, ProductionMethods.jobs(manual, counts(COMPOSTER, 2), 1, 16, 20));
         assertEquals(20, ProductionMethods.jobs(manual, counts(COMPOSTER, 6), 1, 16, 20), "1 级上限 20");
@@ -76,12 +89,15 @@ class ProductionMethodsTest {
         assertEquals(40, ProductionMethods.jobs(manual, counts(COMPOSTER, 64), 3, 8, 20), "每种设备最多计 8 台");
         ProductionMethod industrial = ProductionMethods.get(CompanyType.FOOD, INDUSTRIAL);
         // 4 活塞 + 2 侦测器 = 6 台 × 2；漏斗是辅助方块，堆肥桶不属于本档，都不提供岗位
-        assertEquals(12, ProductionMethods.jobs(industrial, counts(PISTON, 4, OBSERVER, 2, HOPPER, 2, COMPOSTER, 9), 3, 16, 20),
+        assertEquals(
+                12,
+                ProductionMethods.jobs(industrial, counts(PISTON, 4, OBSERVER, 2, HOPPER, 2, COMPOSTER, 9), 3, 16, 20),
                 "辅助方块和不属于本档的设备不提供岗位");
         assertEquals(0, ProductionMethods.jobs(null, counts(COMPOSTER, 2), 3, 16, 20));
     }
 
-    @Test void equipmentLookupCoversBlockVariants() {
+    @Test
+    void equipmentLookupCoversBlockVariants() {
         assertEquals(PISTON, FactoryEquipment.fromBlockId("minecraft:sticky_piston"));
         assertEquals(RAIL, FactoryEquipment.fromBlockId("minecraft:powered_rail"));
         assertEquals(ANVIL, FactoryEquipment.fromBlockId("minecraft:damaged_anvil"));
@@ -90,7 +106,8 @@ class ProductionMethodsTest {
         assertNull(FactoryEquipment.fromBlockId(null));
     }
 
-    @Test void methodKeysAreUnique() {
+    @Test
+    void methodKeysAreUnique() {
         java.util.Set<String> keys = new java.util.HashSet<>();
         for (CompanyType type : CompanyType.values()) {
             for (ProductionMethod m : ProductionMethods.forType(type)) assertTrue(keys.add(m.key()), m.key());

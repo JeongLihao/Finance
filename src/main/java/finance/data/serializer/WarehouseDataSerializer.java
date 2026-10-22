@@ -5,14 +5,13 @@ import finance.warehouse.WarehousePermissionMode;
 import finance.warehouse.WarehouseRecord;
 import finance.warehouse.WarehouseStatus;
 import finance.warehouse.WarehouseTier;
+import java.util.UUID;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.StringTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.resources.ResourceLocation;
-
-import java.util.UUID;
 
 public final class WarehouseDataSerializer {
     public static final String ROOT = "Warehouses";
@@ -64,23 +63,43 @@ public final class WarehouseDataSerializer {
                 BlockPos pos = BlockPos.of(tag.getLong("Pos"));
                 int capacity = tag.getInt("Capacity");
                 WarehouseStatus status = NbtDataSupport.safeEnum(WarehouseStatus.class, tag.getString("Status"), null);
-                WarehousePermissionMode permission = NbtDataSupport.safeEnum(
-                        WarehousePermissionMode.class, tag.getString("Permission"), null);
+                WarehousePermissionMode permission =
+                        NbtDataSupport.safeEnum(WarehousePermissionMode.class, tag.getString("Permission"), null);
                 long created = tag.getLong("CreatedDay");
                 long audit = tag.getLong("LastAuditDay");
-                if (id == null || owner == null || ResourceLocation.tryParse(dimension) == null
-                        || Math.abs((long) pos.getX()) > 30_000_000L || Math.abs((long) pos.getZ()) > 30_000_000L
-                        || pos.getY() < -2_048 || pos.getY() > 2_048 || capacity <= 0 || capacity > MAX_CAPACITY
-                        || status == null || permission == null || created < 0 || audit < -1) continue;
+                if (id == null
+                        || owner == null
+                        || ResourceLocation.tryParse(dimension) == null
+                        || Math.abs((long) pos.getX()) > 30_000_000L
+                        || Math.abs((long) pos.getZ()) > 30_000_000L
+                        || pos.getY() < -2_048
+                        || pos.getY() > 2_048
+                        || capacity <= 0
+                        || capacity > MAX_CAPACITY
+                        || status == null
+                        || permission == null
+                        || created < 0
+                        || audit < -1) continue;
                 WarehouseTier tier = tag.contains("Tier")
                         ? NbtDataSupport.safeEnum(WarehouseTier.class, tag.getString("Tier"), null)
                         : WarehouseTier.fromLegacyCapacity(capacity);
                 if (tier == null) continue;
-                WarehouseRecord record = new WarehouseRecord(id, dimension, pos, owner,
-                        NbtDataSupport.readUuidOrNull(tag, "Company"), tier, capacity, status, created, audit, permission);
+                WarehouseRecord record = new WarehouseRecord(
+                        id,
+                        dimension,
+                        pos,
+                        owner,
+                        NbtDataSupport.readUuidOrNull(tag, "Company"),
+                        tier,
+                        capacity,
+                        status,
+                        created,
+                        audit,
+                        permission);
                 ListTag operations = tag.getList("Operations", Tag.TAG_STRING);
                 for (int op = Math.max(0, operations.size() - WarehouseRecord.MAX_OPERATION_KEYS);
-                     op < operations.size(); op++) {
+                        op < operations.size();
+                        op++) {
                     String key = operations.getString(op);
                     if (!key.isBlank() && key.length() <= 96) record.restoreOperation(key);
                 }

@@ -1,5 +1,7 @@
 package finance.margin;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import finance.account.AccountManager;
 import finance.company.Company;
 import finance.company.CompanyManager;
@@ -10,12 +12,9 @@ import finance.npcinvestor.SpeculatorService;
 import finance.stock.Stock;
 import finance.stock.StockMarketManager;
 import finance.stock.StockPriceEngine;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 /** 玩家引发股灾需要的几样机制：噪音不累积、加杠杆来回买卖必亏、强制卖出连环踩踏、短线派追涨。 */
 class CrashMechanicsTest {
@@ -40,7 +39,8 @@ class CrashMechanicsTest {
         return id;
     }
 
-    @Test void noiseNoLongerDriftsThePriceAwayFromFairValue() {
+    @Test
+    void noiseNoLongerDriftsThePriceAwayFromFairValue() {
         StockPriceEngine engine = new StockPriceEngine("N", 1_000, 1_000);
         for (int i = 0; i < 2_000; i++) {
             engine.tickNoise();
@@ -49,17 +49,21 @@ class CrashMechanicsTest {
         }
     }
 
-    @Test void aLeveragedRoundTripAlwaysLosesMoney() {
+    @Test
+    void aLeveragedRoundTripAlwaysLosesMoney() {
         UUID id = trader(50_000);
-        long before = AccountManager.getBalance(id) + MarginPoolManager.getAccount(id).getCashCollateral();
+        long before =
+                AccountManager.getBalance(id) + MarginPoolManager.getAccount(id).getCashCollateral();
         assertTrue(MarginService.marginBuy(id, SYMBOL, 1_000).success());
         assertTrue(stock.getAnchorPrice() > 100, "买入推高市价");
         assertTrue(MarginService.closeFinanced(id, SYMBOL).success());
-        long after = AccountManager.getBalance(id) + MarginPoolManager.getAccount(id).getCashCollateral();
+        long after =
+                AccountManager.getBalance(id) + MarginPoolManager.getAccount(id).getCashCollateral();
         assertTrue(after < before, "自己推高再自己卖，按推动后的价格成交，必亏：" + before + " → " + after);
     }
 
-    @Test void forcedSalesPushThePriceDownAndTriggerTheNextOne() {
+    @Test
+    void forcedSalesPushThePriceDownAndTriggerTheNextOne() {
         UUID early = trader(16_000);
         UUID late = trader(16_000);
         assertTrue(MarginService.marginBuy(early, SYMBOL, 300).success());
@@ -72,7 +76,8 @@ class CrashMechanicsTest {
         assertTrue(stock.getAnchorPrice() < afterDump, "强制卖出卖进市场，继续压低股价");
     }
 
-    @Test void debtLeftAfterForcedSaleIsSettledFromCollateralThenBadDebt() {
+    @Test
+    void debtLeftAfterForcedSaleIsSettledFromCollateralThenBadDebt() {
         UUID id = trader(16_000);
         assertTrue(MarginService.marginBuy(id, SYMBOL, 300).success());
         MarginAccount acct = MarginPoolManager.getAccount(id);
@@ -89,7 +94,8 @@ class CrashMechanicsTest {
         assertFalse(MarginService.marginBuy(id, SYMBOL, 1).success(), "有不良债务时不能新开仓");
     }
 
-    @Test void everyForcedSaleIsReportedWithItsOwnerAndRefund() {
+    @Test
+    void everyForcedSaleIsReportedWithItsOwnerAndRefund() {
         UUID early = trader(16_000);
         UUID late = trader(16_000);
         assertTrue(MarginService.marginBuy(early, SYMBOL, 300).success());
@@ -98,7 +104,9 @@ class CrashMechanicsTest {
         java.util.List<MarginService.Liquidation> seen = new java.util.ArrayList<>();
         java.util.List<String> log = MarginService.checkLiquidations(seen::add);
         assertEquals(log.size(), seen.size(), "日志里的每笔强平都交给了通知");
-        assertEquals(java.util.Set.of(early, late), seen.stream().map(MarginService.Liquidation::player).collect(java.util.stream.Collectors.toSet()));
+        assertEquals(
+                java.util.Set.of(early, late),
+                seen.stream().map(MarginService.Liquidation::player).collect(java.util.stream.Collectors.toSet()));
         for (MarginService.Liquidation l : seen) {
             assertEquals(SYMBOL, l.symbol());
             assertFalse(l.shortSide());
@@ -107,7 +115,8 @@ class CrashMechanicsTest {
         }
     }
 
-    @Test void breakerStopsForcedSalesForAMinute() {
+    @Test
+    void breakerStopsForcedSalesForAMinute() {
         UUID id = trader(20_000);
         assertTrue(MarginService.marginBuy(id, SYMBOL, 300).success());
         for (int i = 0; i < 6; i++) stock.recalculateFromCurrent();
@@ -118,7 +127,8 @@ class CrashMechanicsTest {
         assertFalse(stock.isBreakerHalted());
     }
 
-    @Test void speculatorsChaseARallyWithLeverage() {
+    @Test
+    void speculatorsChaseARallyWithLeverage() {
         UUID spec = NpcInvestorArchetype.SPECULATOR.accountId();
         AccountManager.getAccount(spec).setBalance(100_000);
         SpeculatorService.clearDirect();

@@ -9,13 +9,12 @@ import finance.feedback.WorldEconomyEvent;
 import finance.feedback.WorldEconomyFeedbackService;
 import finance.feedback.WorldFeedbackType;
 import finance.metrics.EconomyMetricsService;
-import net.minecraft.server.MinecraftServer;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import net.minecraft.server.MinecraftServer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * 议息日历与政策沟通 —— 议息日前瞻指引、议息日执行、GLOBAL 公告。
@@ -44,35 +43,52 @@ public final class PolicyMeetingService {
      */
     private static int cycleBaselineBps = -1;
 
-    private PolicyMeetingService() {
-    }
+    private PolicyMeetingService() {}
 
     /** 测试用模式覆盖（null = 读配置）。 */
     private static String modeOverrideForTest = null;
 
-    static void setModeOverrideForTest(String mode) { modeOverrideForTest = mode; }
+    static void setModeOverrideForTest(String mode) {
+        modeOverrideForTest = mode;
+    }
 
     private static String mode() {
         if (modeOverrideForTest != null) return modeOverrideForTest;
         return FinanceConfig.policyRateMode();
     }
 
-    public record PolicyOutlook(long nextMeetingDay, String mode, String guidanceDirection,
-                                int currentBps, int recommendedBps) {
+    public record PolicyOutlook(
+            long nextMeetingDay, String mode, String guidanceDirection, int currentBps, int recommendedBps) {}
+
+    public static long lastMeetingDay() {
+        return lastMeetingDay;
     }
 
-    public static long lastMeetingDay() { return lastMeetingDay; }
-    public static long nextMeetingDay() { return nextMeetingDay; }
-    public static long guidanceSentForMeeting() { return guidanceSentForMeeting; }
-    public static int guidanceBaselineBps() { return guidanceBaselineBps; }
-    public static int cycleBaselineBps() { return cycleBaselineBps; }
+    public static long nextMeetingDay() {
+        return nextMeetingDay;
+    }
+
+    public static long guidanceSentForMeeting() {
+        return guidanceSentForMeeting;
+    }
+
+    public static int guidanceBaselineBps() {
+        return guidanceBaselineBps;
+    }
+
+    public static int cycleBaselineBps() {
+        return cycleBaselineBps;
+    }
 
     public static PolicyOutlook outlook() {
         int current = MonetaryPolicyService.benchmarkRateBasisPoints();
         PolicyRuleService.Evaluation eval = evaluateNow(current);
-        return new PolicyOutlook(nextMeetingDay, mode(),
+        return new PolicyOutlook(
+                nextMeetingDay,
+                mode(),
                 eval == null ? "—" : PolicyRuleService.directionLabel(eval.direction()),
-                current, eval == null ? current : eval.recommendedBps());
+                current,
+                eval == null ? current : eval.recommendedBps());
     }
 
     /** 每个 MC 天调用一次（由 EconomyCycleService.tickDay 驱动）。 */
@@ -101,8 +117,7 @@ public final class PolicyMeetingService {
         PolicyRuleService.Evaluation eval = evaluateNow(MonetaryPolicyService.benchmarkRateBasisPoints());
         if (eval == null) return false;
         guidanceBaselineBps = MonetaryPolicyService.benchmarkRateBasisPoints();
-        return MonetaryPolicyService.setBenchmarkRate(mcDay, eval.recommendedBps(),
-                "议息确认：" + eval.explanation());
+        return MonetaryPolicyService.setBenchmarkRate(mcDay, eval.recommendedBps(), "议息确认：" + eval.explanation());
     }
 
     private static void holdMeeting(MinecraftServer server, long mcDay) {
@@ -120,8 +135,7 @@ public final class PolicyMeetingService {
         if (overdue > 0) {
             // 停服跳天：只补执行最近一次议息，但必须让服主知道错过了几次。
             long missed = overdue / interval;
-            LOGGER.warn("[议息] 错过 {} 次议息日（原定第 {} 天，当前第 {} 天），仅执行本次",
-                    missed, nextMeetingDay, mcDay);
+            LOGGER.warn("[议息] 错过 {} 次议息日（原定第 {} 天，当前第 {} 天），仅执行本次", missed, nextMeetingDay, mcDay);
         }
 
         if (!"MANUAL".equals(mode)) {
@@ -129,7 +143,10 @@ public final class PolicyMeetingService {
             // 广播真实结果，杜绝"公告声称 X%→Y% 而实际未变"的虚假公告。
             boolean intervened = detectIntervention(current);
             if (intervened) {
-                broadcast(server, mcDay, "policy-decision-keep",
+                broadcast(
+                        server,
+                        mcDay,
+                        "policy-decision-keep",
                         "finance.feedback.policy_decision_manual",
                         List.of(formatBps(current), eval.explanation()),
                         FeedbackSeverity.NOTICE);
@@ -139,22 +156,30 @@ public final class PolicyMeetingService {
                 if (!changed && eval.direction() != PolicyRuleService.Direction.HOLD) {
                     // 极端残留：人工改后又改回原值，干预检测看不出，
                     // 但 setBenchmarkRate 因"同日唯一"拒绝——如实广播维持现状，不谎称已调息。
-                    broadcast(server, mcDay, "policy-decision-keep",
+                    broadcast(
+                            server,
+                            mcDay,
+                            "policy-decision-keep",
                             "finance.feedback.policy_decision_manual",
                             List.of(formatBps(current), "议息日已有人工调息，决议未执行：" + eval.explanation()),
                             FeedbackSeverity.NOTICE);
                 } else {
-                    broadcast(server, mcDay, "policy-decision",
+                    broadcast(
+                            server,
+                            mcDay,
+                            "policy-decision",
                             "finance.feedback.policy_decision",
-                            List.of(formatBps(current), formatBps(eval.recommendedBps()),
+                            List.of(
+                                    formatBps(current), formatBps(eval.recommendedBps()),
                                     PolicyRuleService.directionLabel(eval.direction()), eval.explanation()),
                             eval.direction() == PolicyRuleService.Direction.HOLD
-                                    ? FeedbackSeverity.NOTICE : FeedbackSeverity.WARNING);
+                                    ? FeedbackSeverity.NOTICE
+                                    : FeedbackSeverity.WARNING);
                 }
             }
         }
-        finance.centralbank.CentralBankService.onMeeting(mcDay, eval, current,
-                MonetaryPolicyService.benchmarkRateBasisPoints(), "MANUAL".equals(mode));
+        finance.centralbank.CentralBankService.onMeeting(
+                mcDay, eval, current, MonetaryPolicyService.benchmarkRateBasisPoints(), "MANUAL".equals(mode));
         lastMeetingDay = mcDay;
         nextMeetingDay = mcDay + interval;
         guidanceSentForMeeting = -1;
@@ -182,9 +207,13 @@ public final class PolicyMeetingService {
         if (eval == null) return;
         guidanceSentForMeeting = nextMeetingDay;
         guidanceBaselineBps = current;
-        broadcast(server, mcDay, "policy-guidance",
+        broadcast(
+                server,
+                mcDay,
+                "policy-guidance",
                 "finance.feedback.policy_guidance",
-                List.of(String.valueOf(nextMeetingDay - mcDay), String.valueOf(nextMeetingDay),
+                List.of(
+                        String.valueOf(nextMeetingDay - mcDay), String.valueOf(nextMeetingDay),
                         PolicyRuleService.directionLabel(eval.direction()), formatBps(current)),
                 FeedbackSeverity.NOTICE);
         EconomySavedData.markDirty();
@@ -198,8 +227,7 @@ public final class PolicyMeetingService {
     /** 用实时经济度量评估；无可用数据时返回 null（保持静默）。 */
     static PolicyRuleService.Evaluation evaluateNow(int currentBps) {
         try {
-            List<EconomyMetricsService.DailySnapshot> snapshots =
-                    EconomyMetricsService.getDailySnapshots();
+            List<EconomyMetricsService.DailySnapshot> snapshots = EconomyMetricsService.getDailySnapshots();
             double now = 100.0;
             double base = -1.0;
             int riskCompanies = 0;
@@ -228,13 +256,26 @@ public final class PolicyMeetingService {
         }
     }
 
-    private static void broadcast(MinecraftServer server, long mcDay, String eventKey,
-                                  String translationKey, List<String> args, FeedbackSeverity severity) {
+    private static void broadcast(
+            MinecraftServer server,
+            long mcDay,
+            String eventKey,
+            String translationKey,
+            List<String> args,
+            FeedbackSeverity severity) {
         if (server == null) return;
         WorldEconomyEvent event = new WorldEconomyEvent(
-                eventKey, WorldFeedbackType.POLICY_RATE, severity,
-                "central-bank", mcDay, "", null,
-                translationKey, args, FeedbackAudience.GLOBAL, Set.of());
+                eventKey,
+                WorldFeedbackType.POLICY_RATE,
+                severity,
+                "central-bank",
+                mcDay,
+                "",
+                null,
+                translationKey,
+                args,
+                FeedbackAudience.GLOBAL,
+                Set.of());
         WorldEconomyFeedbackService.publish(server, event);
     }
 
@@ -245,8 +286,8 @@ public final class PolicyMeetingService {
 
     // ---------- 持久化 / 测试 ----------
 
-    public static void restore(long lastMeeting, long nextMeeting, long guidanceFor,
-                               int baselineBps, int cycleBaseline) {
+    public static void restore(
+            long lastMeeting, long nextMeeting, long guidanceFor, int baselineBps, int cycleBaseline) {
         lastMeetingDay = lastMeeting;
         nextMeetingDay = nextMeeting;
         guidanceSentForMeeting = guidanceFor;

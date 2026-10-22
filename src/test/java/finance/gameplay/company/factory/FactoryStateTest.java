@@ -1,20 +1,21 @@
 package finance.gameplay.company.factory;
 
-import finance.company.CompanyType;
-import org.junit.jupiter.api.Test;
-
-import java.util.EnumMap;
-import java.util.Map;
-
 import static finance.gameplay.company.factory.FactoryEquipment.*;
 import static finance.gameplay.company.factory.ProductionTier.*;
 import static org.junit.jupiter.api.Assertions.*;
+
+import finance.company.CompanyType;
+import java.util.EnumMap;
+import java.util.Map;
+import org.junit.jupiter.api.Test;
 
 class FactoryStateTest {
     private static final CompanyType FOOD = CompanyType.FOOD;
     private static final int PROVISIONAL = 14, STALE = 7, RETOOL = 3;
 
-    private static Map<FactoryEquipment, Integer> manual() { return counts(COMPOSTER, 2); }
+    private static Map<FactoryEquipment, Integer> manual() {
+        return counts(COMPOSTER, 2);
+    }
 
     private static Map<FactoryEquipment, Integer> allTiers() {
         return counts(COMPOSTER, 2, HAY_BLOCK, 4, BARREL, 1, PISTON, 4, OBSERVER, 2, HOPPER, 2);
@@ -30,19 +31,24 @@ class FactoryStateTest {
         s.resolveDay(FOOD, level, day, PROVISIONAL, STALE, RETOOL);
     }
 
-    @Test void legacyRecordGetsProvisionalWorkshopThenStops() {
+    @Test
+    void legacyRecordGetsProvisionalWorkshopThenStops() {
         FactoryState s = new FactoryState();
         resolve(s, 1, 10);
         assertEquals(24, s.provisionalUntilDay(), "第一次日结开始 14 天兼容期");
         assertNull(s.activeTier());
-        assertEquals(ProductionMethods.legacy(FOOD).outputs(), s.effectiveMethod(FOOD, 10).outputs(), "临时作坊沿用原有规则");
+        assertEquals(
+                ProductionMethods.legacy(FOOD).outputs(),
+                s.effectiveMethod(FOOD, 10).outputs(),
+                "临时作坊沿用原有规则");
         resolve(s, 1, 24);
         assertNotNull(s.effectiveMethod(FOOD, 24), "最后一天仍可生产");
         resolve(s, 1, 25);
         assertNull(s.effectiveMethod(FOOD, 25), "到期仍没设备 → 缺少设备");
     }
 
-    @Test void provisionalConvertsAsSoonAsEquipmentFitsWithoutRetool() {
+    @Test
+    void provisionalConvertsAsSoonAsEquipmentFitsWithoutRetool() {
         FactoryState s = new FactoryState();
         resolve(s, 1, 0);
         s.recordScan(manual(), 3, 16);
@@ -52,7 +58,8 @@ class FactoryStateTest {
         assertFalse(s.retooling(3), "转正不进改造期");
     }
 
-    @Test void newBuildHasNoProvisionalAndFirstActivationHasNoRetool() {
+    @Test
+    void newBuildHasNoProvisionalAndFirstActivationHasNoRetool() {
         FactoryState s = new FactoryState();
         s.markNewBuild();
         resolve(s, 1, 0);
@@ -63,7 +70,8 @@ class FactoryStateTest {
         assertFalse(s.retooling(1));
     }
 
-    @Test void switchingToTargetStartsRetoolAndDegradeDoesNot() {
+    @Test
+    void switchingToTargetStartsRetoolAndDegradeDoesNot() {
         FactoryState s = new FactoryState();
         s.markNewBuild();
         s.recordScan(allTiers(), 0, 16);
@@ -88,7 +96,8 @@ class FactoryStateTest {
         assertTrue(s.retooling(11));
     }
 
-    @Test void recoveryAfterMissingEquipmentRetools() {
+    @Test
+    void recoveryAfterMissingEquipmentRetools() {
         FactoryState s = new FactoryState();
         s.markNewBuild();
         s.recordScan(manual(), 0, 16);
@@ -102,7 +111,8 @@ class FactoryStateTest {
         assertTrue(s.retooling(2), "缺设备后恢复要经历改造期");
     }
 
-    @Test void staleScanCountsAsMissingAndResolveIsIdempotent() {
+    @Test
+    void staleScanCountsAsMissingAndResolveIsIdempotent() {
         FactoryState s = new FactoryState();
         s.markNewBuild();
         s.recordScan(manual(), 0, 16);
@@ -117,7 +127,8 @@ class FactoryStateTest {
         assertNull(s.activeTier(), "回拨日期不重算");
     }
 
-    @Test void scanIsCappedPerType() {
+    @Test
+    void scanIsCappedPerType() {
         FactoryState s = new FactoryState();
         s.recordScan(counts(COMPOSTER, 40), 0, 16);
         assertEquals(16, s.equipment().get(COMPOSTER));

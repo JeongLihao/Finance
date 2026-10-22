@@ -18,7 +18,6 @@ import finance.npcinvestor.NpcFloatPlacementService;
 import finance.stock.Stock;
 import finance.stock.StockMarketManager;
 import finance.stock.StockOrder;
-
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -41,13 +40,14 @@ public final class RivalHostileService {
     static final int OFFER_PREMIUM_BPS = 13_000;
     /** 每天建仓不超过流通股的 2%；超过 30 天还没建够就放弃。 */
     static final int STAKE_BPS_PER_DAY = 200, STAKE_GIVE_UP_DAYS = 30;
+
     static final int TENDER_DAYS = 7, COOLDOWN_DAYS = 30, ACTIVISM_GAP_DAYS = 30;
     /** 建仓与要约都要求竞争公司至少留 2 万现金。 */
     static final long RESERVE_CASH = 20_000L;
     /** 提案资格：单一持股者 ≥ 有表决权股份的 25%（见 GovernanceAuthorizationService）。 */
     static final int PROPOSAL_BPS = 2_500;
 
-    private RivalHostileService() { }
+    private RivalHostileService() {}
 
     public record Settings(boolean hostileTakeovers, boolean activism) {
         public static Settings fromConfig() {
@@ -83,7 +83,8 @@ public final class RivalHostileService {
         if (profile.personality() == RivalPersonality.CONSERVATIVE) return;
         UUID account = RivalProfile.investmentAccount(rival.getCompanyId());
         if (profile.hostileTarget() == null) {
-            if (profile.hostileCooldownDay() != Long.MIN_VALUE && day - profile.hostileCooldownDay() < COOLDOWN_DAYS) return;
+            if (profile.hostileCooldownDay() != Long.MIN_VALUE && day - profile.hostileCooldownDay() < COOLDOWN_DAYS)
+                return;
             Stock target = pickTarget(rival);
             if (target == null) return;
             profile.startHostile(target.getCompanyId(), day);
@@ -117,7 +118,8 @@ public final class RivalHostileService {
         for (Stock s : StockMarketManager.getListedStocks()) {
             if (s.getCompanyId().equals(rival.getCompanyId()) || s.isTradingHalted() || s.getLastPrice() <= 0) continue;
             Company c = CompanyManager.getCompany(s.getCompanyId());
-            if (c == null || c.isBankruptcyRisk() || CorporateActionManager.openTenderIdFor(c.getCompanyId()) != null) continue;
+            if (c == null || c.isBankruptcyRisk() || CorporateActionManager.openTenderIdFor(c.getCompanyId()) != null)
+                continue;
             long fps = c.getFundamentalAssetValue() / Math.max(1, s.getTotalShares());
             if (fps <= 0) continue;
             double ratio = s.getLastPrice() / (double) fps;
@@ -141,7 +143,9 @@ public final class RivalHostileService {
         if (!fund(rival, account, cost)) return;
         long residual = NpcFloatPlacementService.availableResidual(stock, day);
         long fromResidual = Math.min(qty, residual);
-        if (fromResidual > 0 && !NpcFloatPlacementService.place(account, stock.getSymbol(), fromResidual, day).success()) {
+        if (fromResidual > 0
+                && !NpcFloatPlacementService.place(account, stock.getSymbol(), fromResidual, day)
+                        .success()) {
             fromResidual = 0; // 配售失败就全部改走普通买单
         }
         long rest = qty - Math.max(0, fromResidual);
@@ -152,8 +156,10 @@ public final class RivalHostileService {
     static void offer(Company rival, RivalProfile profile, UUID account, Stock stock, Company target, long day) {
         long fair = stock.getFairValue();
         if (fair <= 0) return;
-        long price = Math.min((long) Math.floor(fair * FinanceConfig.takeoverPriceCapRatio()),
-                Math.max((long) Math.ceil(fair * FinanceConfig.takeoverPriceFloorRatio()), (long) Math.ceil(fair * OFFER_PREMIUM_BPS / 10_000.0)));
+        long price = Math.min(
+                (long) Math.floor(fair * FinanceConfig.takeoverPriceCapRatio()),
+                Math.max((long) Math.ceil(fair * FinanceConfig.takeoverPriceFloorRatio()), (long)
+                        Math.ceil(fair * OFFER_PREMIUM_BPS / 10_000.0)));
         price = Math.min(price, finance.company.CompanyIPOService.MAX_ISSUE_PRICE);
         long voting = stock.getVotingShares();
         long targetShares = (long) Math.ceil(voting * 0.51) - holding(account, stock, day);
@@ -164,8 +170,15 @@ public final class RivalHostileService {
         long minShares = Math.max(1, targetShares / 2);
         long escrow = safeMul(price, targetShares);
         if (!fund(rival, account, escrow)) return;
-        var result = TakeoverService.offerTender(account, target.getCompanyId(), price, targetShares, minShares,
-                TENDER_DAYS, day, "rival-tender:" + rival.getCompanyId() + ":" + day);
+        var result = TakeoverService.offerTender(
+                account,
+                target.getCompanyId(),
+                price,
+                targetShares,
+                minShares,
+                TENDER_DAYS,
+                day,
+                "rival-tender:" + rival.getCompanyId() + ":" + day);
         if (!result.success()) {
             profile.record(day, "HOSTILE_FAIL", result.message());
             profile.endHostile(day);
@@ -173,9 +186,11 @@ public final class RivalHostileService {
         }
         profile.record(day, "TENDER", stock.getSymbol() + " @" + price + " ×" + targetShares);
         profile.endHostile(day);
-        news(70, rival.getName() + "对" + target.getName() + "发起敌对要约收购",
-                rival.getName() + "已持有 " + stock.getSymbol() + " 三成股份，现以每股 " + price
-                        + " 收购，目标拿下控股权。股东可以选择接受或拒绝。", true);
+        news(
+                70,
+                rival.getName() + "对" + target.getName() + "发起敌对要约收购",
+                rival.getName() + "已持有 " + stock.getSymbol() + " 三成股份，现以每股 " + price + " 收购，目标拿下控股权。股东可以选择接受或拒绝。",
+                true);
     }
 
     // ---------------------------------------------------------------- 股东激进主义
@@ -191,23 +206,38 @@ public final class RivalHostileService {
             long voting = stock.getVotingShares();
             // 提案资格只看可用持股（与 GovernanceAuthorizationService.mayCreateProposal 一致），挂单和要约锁定的不算
             var holder = ShareholderRegistryService.holder(stock.getCompanyId(), account, day);
-            if (voting <= 0 || holder == null
-                    || BigInteger.valueOf(holder.available()).multiply(BigInteger.valueOf(10_000))
-                    .compareTo(BigInteger.valueOf(voting).multiply(BigInteger.valueOf(PROPOSAL_BPS))) < 0) continue;
+            if (voting <= 0
+                    || holder == null
+                    || BigInteger.valueOf(holder.available())
+                                    .multiply(BigInteger.valueOf(10_000))
+                                    .compareTo(BigInteger.valueOf(voting).multiply(BigInteger.valueOf(PROPOSAL_BPS)))
+                            < 0) continue;
             if (!underperforming(target, day)) continue;
             boolean active = CompanyProposalManager.getProposalsForCompany(target.getCompanyId()).stream()
                     .anyMatch(p -> p.getStatus() == CompanyProposalStatus.ACTIVE && account.equals(p.getCreatorId()));
             if (active) continue;
             long current = Math.round(target.effectiveDividendRatio(CompanyManager.getDividendRatio()) * 100);
             long proposed = Math.min(100, Math.max(30, current + 20));
-            var result = CompanyProposalManager.createProposal(account, target.getCompanyId(), CompanyProposalType.DIVIDEND,
-                    "", proposed, 0, 0, day, day + 7, 0.5);
+            var result = CompanyProposalManager.createProposal(
+                    account,
+                    target.getCompanyId(),
+                    CompanyProposalType.DIVIDEND,
+                    "",
+                    proposed,
+                    0,
+                    0,
+                    day,
+                    day + 7,
+                    0.5);
             if (!result.success()) continue;
             voteForOwnProposal(account, target.getCompanyId(), day);
             profile.setLastActivismDay(day);
             profile.record(day, "ACTIVISM", stock.getSymbol() + " 分红 " + current + "% → " + proposed + "%");
-            news(50, rival.getName() + "要求" + target.getName() + "提高分红",
-                    rival.getName() + "作为大股东提出把分红比例从 " + current + "% 提到 " + proposed + "%，7 天内表决。", false);
+            news(
+                    50,
+                    rival.getName() + "要求" + target.getName() + "提高分红",
+                    rival.getName() + "作为大股东提出把分红比例从 " + current + "% 提到 " + proposed + "%，7 天内表决。",
+                    false);
             return;
         }
     }
@@ -253,13 +283,16 @@ public final class RivalHostileService {
             rival.deposit(missing);
             return false;
         }
-        AccountManager.addTransactionRecord(new TransactionRecord(rival.getCompanyId(), account, missing,
-                TransactionType.RIVAL_INVESTMENT, null, rival.getName(), 0));
+        AccountManager.addTransactionRecord(new TransactionRecord(
+                rival.getCompanyId(), account, missing, TransactionType.RIVAL_INVESTMENT, null, rival.getName(), 0));
         return true;
     }
 
     private static long safeMul(long a, long b) {
-        return BigInteger.valueOf(a).multiply(BigInteger.valueOf(b)).min(BigInteger.valueOf(Long.MAX_VALUE)).longValue();
+        return BigInteger.valueOf(a)
+                .multiply(BigInteger.valueOf(b))
+                .min(BigInteger.valueOf(Long.MAX_VALUE))
+                .longValue();
     }
 
     private static void news(int score, String headline, String body, boolean major) {

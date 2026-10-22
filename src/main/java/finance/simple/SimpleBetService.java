@@ -5,8 +5,8 @@ import finance.commodity.Commodity;
 import finance.commodity.CommodityRegistry;
 import finance.config.FinanceConfig;
 import finance.futures.FuturesContract;
-import finance.futures.FuturesMarketManager;
 import finance.futures.FuturesMarketMaker;
+import finance.futures.FuturesMarketManager;
 import finance.futures.FuturesMath;
 import finance.futures.FuturesPosition;
 import finance.futures.MarginManager;
@@ -16,14 +16,13 @@ import finance.margin.MarginService;
 import finance.stock.Stock;
 import finance.stock.StockMarketManager;
 import finance.util.MoneyFormat;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.server.level.ServerPlayer;
-
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.server.level.ServerPlayer;
 
 /**
  * 押注：把加倍买、借股卖出（股票）和锁价合同（商品期货）合成“看涨 / 看跌”两个按钮。
@@ -39,7 +38,9 @@ public final class SimpleBetService {
      * tracked = false 表示不是从押注按钮开的（旧界面或命令），没有投入记录，只显示现值。
      */
     public record Bet(String key, String name, boolean up, long stake, long value, String note, boolean tracked) {
-        public long pnl() { return tracked ? value - stake : 0; }
+        public long pnl() {
+            return tracked ? value - stake : 0;
+        }
     }
 
     /** 下单前的预估：数量（股或份）、对应的货值、涨跌 10% 的盈亏、强制结束线（跌/涨百分之几，-1 表示没有）。 */
@@ -123,11 +124,18 @@ public final class SimpleBetService {
                 Stock stock = StockMarketManager.getStock(e.getKey());
                 CompoundTag rec = book.getCompound(key);
                 boolean tracked = rec.contains("stake") && totalBorrowed > 0;
-                double weight = tracked ? rec.getLong("borrowed") / (double) totalBorrowed
+                double weight = tracked
+                        ? rec.getLong("borrowed") / (double) totalBorrowed
                         : totalGross > 0 ? gross.get(e.getKey()) / (double) totalGross : 0;
                 long value = Math.max(0, gross.get(e.getKey()) - Math.round(owed * weight));
-                out.add(new Bet(key, stock == null ? e.getKey() : stock.getName(), true, tracked ? rec.getLong("stake") : value,
-                        value, e.getValue() + " 股（一半是借的）", tracked));
+                out.add(new Bet(
+                        key,
+                        stock == null ? e.getKey() : stock.getName(),
+                        true,
+                        tracked ? rec.getLong("stake") : value,
+                        value,
+                        e.getValue() + " 股（一半是借的）",
+                        tracked));
             }
             for (Map.Entry<String, Long> e : acct.getShortPositions().entrySet()) {
                 String key = "s:" + e.getKey() + ":down";
@@ -135,12 +143,20 @@ public final class SimpleBetService {
                 Stock stock = StockMarketManager.getStock(e.getKey());
                 long qty = e.getValue();
                 long cover = stock == null ? 0 : multiply(qty, stock.impactedPrice(qty, true));
-                long pnl = acct.shortProceedsOf(e.getKey()) - cover - acct.getShortInterestOwed().getOrDefault(e.getKey(), 0L);
+                long pnl = acct.shortProceedsOf(e.getKey())
+                        - cover
+                        - acct.getShortInterestOwed().getOrDefault(e.getKey(), 0L);
                 CompoundTag rec = book.getCompound(key);
                 boolean tracked = rec.contains("stake");
                 long stake = tracked ? rec.getLong("stake") : (acct.shortProceedsOf(e.getKey()) + 1) / 2;
-                out.add(new Bet(key, stock == null ? e.getKey() : stock.getName(), false, stake, Math.max(0, stake + pnl),
-                        "借了 " + qty + " 股卖掉", tracked));
+                out.add(new Bet(
+                        key,
+                        stock == null ? e.getKey() : stock.getName(),
+                        false,
+                        stake,
+                        Math.max(0, stake + pnl),
+                        "借了 " + qty + " 股卖掉",
+                        tracked));
             }
         }
 
@@ -152,12 +168,22 @@ public final class SimpleBetService {
             String key = "f:" + c.id();
             live.add(key);
             long price = FuturesMarketManager.riskPrice(c.id());
-            long pnl = price <= 0 ? 0 : FuturesMath.signedPnl(p.averageEntryPrice(), price, c.contractSize(), p.signedQuantity());
+            long pnl = price <= 0
+                    ? 0
+                    : FuturesMath.signedPnl(p.averageEntryPrice(), price, c.contractSize(), p.signedQuantity());
             CompoundTag rec = book.getCompound(key);
             boolean tracked = rec.contains("stake");
-            long stake = tracked ? rec.getLong("stake") : FuturesMath.margin(p.averageEntryPrice(), c.contractSize(), p.quantity(), bps);
-            out.add(new Bet(key, commodityName(c.commodityId()), p.signedQuantity() > 0, stake, Math.max(0, stake + pnl),
-                    p.quantity() + " 份 × " + c.contractSize() + " 个，第 " + c.maturityDay() + " 天自动结算", tracked));
+            long stake = tracked
+                    ? rec.getLong("stake")
+                    : FuturesMath.margin(p.averageEntryPrice(), c.contractSize(), p.quantity(), bps);
+            out.add(new Bet(
+                    key,
+                    commodityName(c.commodityId()),
+                    p.signedQuantity() > 0,
+                    stake,
+                    Math.max(0, stake + pnl),
+                    p.quantity() + " 份 × " + c.contractSize() + " 个，第 " + c.maturityDay() + " 天自动结算",
+                    tracked));
         }
 
         // 已经结束（到期结算、被强制结束）的记录清掉
@@ -205,7 +231,8 @@ public final class SimpleBetService {
             MarginService.Result deposit = MarginService.depositCollateral(id, topUp);
             if (!deposit.success()) return failed(deposit.message());
         }
-        MarginService.Result r = up ? MarginService.marginBuy(id, stock.getSymbol(), pv.quantity())
+        MarginService.Result r = up
+                ? MarginService.marginBuy(id, stock.getSymbol(), pv.quantity())
                 : MarginService.shortSell(id, stock.getSymbol(), pv.quantity());
         if (!r.success()) {
             sweepIdle(id);
@@ -216,10 +243,13 @@ public final class SimpleBetService {
         String msg = up
                 ? "看涨「" + stock.getName() + "」：投入 " + MoneyFormat.pounds(own) + "，相当于买了 " + pv.quantity()
                         + " 股（一半是借的）。涨 10% 约赚 " + MoneyFormat.pounds(pv.swing10()) + "，跌超 " + stop + "% 会被强制结束。"
-                : "看跌「" + stock.getName() + "」：押了 " + MoneyFormat.pounds(own) + "，借 " + pv.quantity()
-                        + " 股卖掉。跌 10% 约赚 " + MoneyFormat.pounds(pv.swing10()) + "，涨超 " + stop + "% 会被强制结束。";
-        return new Opened(new SimpleInvestService.Result(true, msg, -paid), "s:" + stock.getSymbol() + (up ? ":up" : ":down"),
-                own, up ? pv.notional() - own : 0);
+                : "看跌「" + stock.getName() + "」：押了 " + MoneyFormat.pounds(own) + "，借 " + pv.quantity() + " 股卖掉。跌 10% 约赚 "
+                        + MoneyFormat.pounds(pv.swing10()) + "，涨超 " + stop + "% 会被强制结束。";
+        return new Opened(
+                new SimpleInvestService.Result(true, msg, -paid),
+                "s:" + stock.getSymbol() + (up ? ":up" : ":down"),
+                own,
+                up ? pv.notional() - own : 0);
     }
 
     private static Opened failed(String message) {
@@ -230,13 +260,16 @@ public final class SimpleBetService {
     static String closeStockFor(UUID id, String key) {
         String[] parts = key.split(":");
         if (parts.length != 3 || !parts[0].equals("s")) return "请求无效。";
-        MarginService.Result r = "up".equals(parts[2]) ? MarginService.closeFinanced(id, parts[1]) : MarginService.coverShort(id, parts[1], 0);
+        MarginService.Result r = "up".equals(parts[2])
+                ? MarginService.closeFinanced(id, parts[1])
+                : MarginService.coverShort(id, parts[1], 0);
         if (!r.success()) return r.message();
         sweepIdle(id);
         return null;
     }
 
-    private static SimpleInvestService.Result openFutures(ServerPlayer player, String commodityId, boolean up, long stake) {
+    private static SimpleInvestService.Result openFutures(
+            ServerPlayer player, String commodityId, boolean up, long stake) {
         FuturesContract c = liveContract(commodityId);
         if (c == null) return fail("这种东西现在没有可押的合约，明天再来。");
         long[] quote = FuturesMarketMaker.getQuote(c.id());
@@ -244,16 +277,20 @@ public final class SimpleBetService {
         long price = up ? quote[1] : quote[0];
         int bps = FinanceConfig.futuresInitialMarginBps();
         Preview pv = futuresPreview(stake, price, c.contractSize(), bps);
-        if (pv.quantity() <= 0) return fail("投入太少：至少要 " + MoneyFormat.pounds(futuresMinStake(price, c.contractSize(), bps)) + "。");
+        if (pv.quantity() <= 0)
+            return fail("投入太少：至少要 " + MoneyFormat.pounds(futuresMinStake(price, c.contractSize(), bps)) + "。");
         long before = AccountManager.getBalance(player.getUUID());
         SimpleCenterService.Result r = SimpleCenterService.lockPrice(player, c.id(), !up, pv.quantity());
         if (!r.success()) return fail(r.message());
         long margin = FuturesMath.margin(price, c.contractSize(), pv.quantity(), bps);
         addToBook(player, "f:" + c.id(), margin, 0);
         String name = commodityName(commodityId);
-        return new SimpleInvestService.Result(true, (up ? "看涨" : "看跌") + name + "：投入 " + MoneyFormat.pounds(margin) + "，签了 "
-                + pv.quantity() + " 份（共 " + multiply(pv.quantity(), c.contractSize()) + " 个）。价格"
-                + (up ? "涨" : "跌") + " 10% 约赚 " + MoneyFormat.pounds(pv.swing10()) + "，第 " + c.maturityDay() + " 天自动结算。",
+        return new SimpleInvestService.Result(
+                true,
+                (up ? "看涨" : "看跌") + name + "：投入 " + MoneyFormat.pounds(margin) + "，签了 "
+                        + pv.quantity() + " 份（共 " + multiply(pv.quantity(), c.contractSize()) + " 个）。价格"
+                        + (up ? "涨" : "跌") + " 10% 约赚 " + MoneyFormat.pounds(pv.swing10()) + "，第 " + c.maturityDay()
+                        + " 天自动结算。",
                 AccountManager.getBalance(player.getUUID()) - before);
     }
 
@@ -261,7 +298,8 @@ public final class SimpleBetService {
     public static FuturesContract liveContract(String commodityId) {
         FuturesContract best = null;
         for (FuturesContract c : FuturesMarketManager.contracts().values()) {
-            if (!c.commodityId().equals(commodityId) || !c.canTrade() || FuturesMarketMaker.getQuote(c.id()) == null) continue;
+            if (!c.commodityId().equals(commodityId) || !c.canTrade() || FuturesMarketMaker.getQuote(c.id()) == null)
+                continue;
             if (best == null || c.maturityDay() < best.maturityDay()) best = c;
         }
         return best;
@@ -272,7 +310,10 @@ public final class SimpleBetService {
     public static SimpleInvestService.Result close(ServerPlayer player, String key) {
         UUID id = player.getUUID();
         if (key == null) return fail("请求无效。");
-        Bet bet = bets(player).stream().filter(b -> b.key().equals(key)).findFirst().orElse(null);
+        Bet bet = bets(player).stream()
+                .filter(b -> b.key().equals(key))
+                .findFirst()
+                .orElse(null);
         if (bet == null) return fail("这笔押注已经结束了。");
         long before = AccountManager.getBalance(id);
         String failure = null;
@@ -294,8 +335,10 @@ public final class SimpleBetService {
         sweepIdle(id);
         long got = AccountManager.getBalance(id) - before;
         Long pnl = settleReturned(player, key, got);
-        String result = pnl == null ? "" : pnl >= 0 ? WIN_MARK + MoneyFormat.pounds(pnl) : LOSS_MARK + MoneyFormat.pounds(-pnl);
-        return new SimpleInvestService.Result(true, "结束押注「" + bet.name() + "」：拿回 " + MoneyFormat.pounds(Math.max(0, got)) + result + "。", got);
+        String result =
+                pnl == null ? "" : pnl >= 0 ? WIN_MARK + MoneyFormat.pounds(pnl) : LOSS_MARK + MoneyFormat.pounds(-pnl);
+        return new SimpleInvestService.Result(
+                true, "结束押注「" + bet.name() + "」：拿回 " + MoneyFormat.pounds(Math.max(0, got)) + result + "。", got);
     }
 
     // ------------------------------------------------------------ 结算与战绩
@@ -308,15 +351,19 @@ public final class SimpleBetService {
         public static final Stats EMPTY = new Stats(0, 0, 0, 0, 0);
 
         Stats plus(long pnl) {
-            return new Stats(count + 1, wins + (pnl > 0 ? 1 : 0), total + pnl,
-                    count == 0 ? pnl : Math.max(best, pnl), count == 0 ? pnl : Math.min(worst, pnl));
+            return new Stats(
+                    count + 1,
+                    wins + (pnl > 0 ? 1 : 0),
+                    total + pnl,
+                    count == 0 ? pnl : Math.max(best, pnl),
+                    count == 0 ? pnl : Math.min(worst, pnl));
         }
 
         /** “战绩：12 笔，赚了 7 笔，累计 +3 磅，最赚一笔 +5 磅”；一笔都没有返回空串。 */
         public String line() {
             if (count == 0) return "";
-            return "战绩：" + count + " 笔，赚了 " + wins + " 笔，累计 " + MoneyFormat.signed(total)
-                    + "，最赚一笔 " + MoneyFormat.signed(best) + "，最亏一笔 " + MoneyFormat.signed(worst);
+            return "战绩：" + count + " 笔，赚了 " + wins + " 笔，累计 " + MoneyFormat.signed(total) + "，最赚一笔 "
+                    + MoneyFormat.signed(best) + "，最亏一笔 " + MoneyFormat.signed(worst);
         }
     }
 
@@ -324,7 +371,8 @@ public final class SimpleBetService {
 
     public static Stats stats(ServerPlayer player) {
         CompoundTag t = player.getPersistentData().getCompound(STATS_TAG);
-        return new Stats(t.getInt("count"), t.getInt("wins"), t.getLong("total"), t.getLong("best"), t.getLong("worst"));
+        return new Stats(
+                t.getInt("count"), t.getInt("wins"), t.getLong("total"), t.getLong("best"), t.getLong("worst"));
     }
 
     private static void record(ServerPlayer player, long pnl) {
@@ -384,7 +432,8 @@ public final class SimpleBetService {
             long cash = acct.getCashCollateral();
             if (MarginService.withdrawCollateral(id, cash).success()) returned += cash;
         }
-        boolean futuresOpen = MarginManager.positions().values().stream().anyMatch(p -> p.ownerId().equals(id) && p.signedQuantity() != 0);
+        boolean futuresOpen = MarginManager.positions().values().stream()
+                .anyMatch(p -> p.ownerId().equals(id) && p.signedQuantity() != 0);
         if (!futuresOpen) {
             long free = MarginManager.availableToWithdraw(id);
             if (free > 0 && MarginManager.withdraw(id, free)) returned += free;

@@ -1,8 +1,7 @@
 package finance.compat.ponder;
 
-import net.createmod.ponder.foundation.PonderIndex;
-
 import java.util.concurrent.atomic.AtomicBoolean;
+import net.createmod.ponder.foundation.PonderIndex;
 
 /** Loaded reflectively only when the optional Ponder mod is present. */
 public final class FinancePonderBootstrap {

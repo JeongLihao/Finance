@@ -3,12 +3,11 @@ package finance.network;
 import finance.alert.PriceAlertDirection;
 import finance.alert.PriceAlertManager;
 import finance.alert.PriceAlertType;
+import java.util.UUID;
+import java.util.function.Supplier;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.network.NetworkEvent;
-
-import java.util.UUID;
-import java.util.function.Supplier;
 
 public class PriceAlertPacket {
 
@@ -24,8 +23,7 @@ public class PriceAlertPacket {
     private final long targetPrice;
     private final UUID alertId;
 
-    public PriceAlertPacket(PriceAlertType type, String targetId,
-                            PriceAlertDirection direction, long targetPrice) {
+    public PriceAlertPacket(PriceAlertType type, String targetId, PriceAlertDirection direction, long targetPrice) {
         this.action = Action.ADD;
         this.type = type;
         this.targetId = targetId;
@@ -66,10 +64,7 @@ public class PriceAlertPacket {
                     ? NetworkValidation.MAX_SYMBOL_LENGTH
                     : NetworkValidation.MAX_COMMODITY_ID_LENGTH;
             return new PriceAlertPacket(
-                    type,
-                    buffer.readUtf(maxLength),
-                    buffer.readEnum(PriceAlertDirection.class),
-                    buffer.readLong());
+                    type, buffer.readUtf(maxLength), buffer.readEnum(PriceAlertDirection.class), buffer.readLong());
         }
         return new PriceAlertPacket(buffer.readUUID());
     }
@@ -80,21 +75,24 @@ public class PriceAlertPacket {
             if (player == null) {
                 return;
             }
-            if (!MarketDataRequestLimiter.allow(player.getUUID(),player.server.getTickCount(),"price-alert:"+packet.action)) { GuiFeedbackPacket.send(player,"操作过于频繁。"); return; }
+            if (!MarketDataRequestLimiter.allow(
+                    player.getUUID(), player.server.getTickCount(), "price-alert:" + packet.action)) {
+                GuiFeedbackPacket.send(player, "操作过于频繁。");
+                return;
+            }
             if (packet.action == Action.ADD) {
-                boolean fixedPrice = packet.direction == PriceAlertDirection.ABOVE
-                        || packet.direction == PriceAlertDirection.BELOW;
-                if (packet.type == null || packet.direction == null || (fixedPrice && packet.targetPrice <= 0)
-                        || packet.targetId == null || packet.targetId.isBlank()) {
+                boolean fixedPrice =
+                        packet.direction == PriceAlertDirection.ABOVE || packet.direction == PriceAlertDirection.BELOW;
+                if (packet.type == null
+                        || packet.direction == null
+                        || (fixedPrice && packet.targetPrice <= 0)
+                        || packet.targetId == null
+                        || packet.targetId.isBlank()) {
                     GuiFeedbackPacket.send(player, "提醒参数无效。");
                     return;
                 }
                 PriceAlertManager.AddResult result = PriceAlertManager.addAlert(
-                        player.getUUID(),
-                        packet.type,
-                        packet.targetId,
-                        packet.direction,
-                        packet.targetPrice);
+                        player.getUUID(), packet.type, packet.targetId, packet.direction, packet.targetPrice);
                 GuiFeedbackPacket.send(player, result.message());
                 return;
             }

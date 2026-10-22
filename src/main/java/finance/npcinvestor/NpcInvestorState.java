@@ -20,20 +20,42 @@ public final class NpcInvestorState {
         this.archetype = archetype;
     }
 
-    public NpcInvestorArchetype archetype() { return archetype; }
-    public boolean initialFunded() { return initialFunded; }
-    public long contributedCapital() { return contributedCapital; }
-    public Map<UUID, Integer> sentiment() { return Collections.unmodifiableMap(sentiment); }
-    public Map<UUID, Integer> targetBps() { return Collections.unmodifiableMap(targetBps); }
+    public NpcInvestorArchetype archetype() {
+        return archetype;
+    }
 
-    public int sentimentFor(UUID companyId) { return sentiment.getOrDefault(companyId, 0); }
-    public int targetBpsFor(UUID companyId) { return targetBps.getOrDefault(companyId, 0); }
+    public boolean initialFunded() {
+        return initialFunded;
+    }
 
-    void markInitialFunded() { initialFunded = true; }
+    public long contributedCapital() {
+        return contributedCapital;
+    }
+
+    public Map<UUID, Integer> sentiment() {
+        return Collections.unmodifiableMap(sentiment);
+    }
+
+    public Map<UUID, Integer> targetBps() {
+        return Collections.unmodifiableMap(targetBps);
+    }
+
+    public int sentimentFor(UUID companyId) {
+        return sentiment.getOrDefault(companyId, 0);
+    }
+
+    public int targetBpsFor(UUID companyId) {
+        return targetBps.getOrDefault(companyId, 0);
+    }
+
+    void markInitialFunded() {
+        initialFunded = true;
+    }
 
     void addContribution(long amount) {
         if (amount <= 0) return;
-        contributedCapital = contributedCapital > Long.MAX_VALUE - amount ? Long.MAX_VALUE : contributedCapital + amount;
+        contributedCapital =
+                contributedCapital > Long.MAX_VALUE - amount ? Long.MAX_VALUE : contributedCapital + amount;
     }
 
     void record(UUID companyId, int sentimentValue, int target) {

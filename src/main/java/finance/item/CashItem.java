@@ -1,6 +1,7 @@
 package finance.item;
 
 import finance.cash.Denomination;
+import java.util.List;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.InteractionHand;
@@ -13,8 +14,6 @@ import net.minecraft.world.level.Level;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.fml.DistExecutor;
 
-import java.util.List;
-
 /** 实体现金（硬币或纸币）。右键打开“更多操作 → 现金”页，可以存入账户或兑换绿宝石。 */
 public final class CashItem extends Item {
     private final Denomination denomination;
@@ -24,13 +23,16 @@ public final class CashItem extends Item {
         this.denomination = denomination;
     }
 
-    public Denomination denomination() { return denomination; }
+    public Denomination denomination() {
+        return denomination;
+    }
 
     @Override
     public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
         if (level.isClientSide) {
-            DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () ->
-                    finance.client.PlayerServicesScreen.open(finance.client.PlayerServicesForm.Page.CASH));
+            DistExecutor.unsafeRunWhenOn(
+                    Dist.CLIENT,
+                    () -> () -> finance.client.PlayerServicesScreen.open(finance.client.PlayerServicesForm.Page.CASH));
         }
         return InteractionResultHolder.sidedSuccess(player.getItemInHand(hand), level.isClientSide);
     }

@@ -6,7 +6,6 @@ import finance.account.TransactionType;
 import finance.config.FinanceConfig;
 import finance.data.EconomySavedData;
 import finance.market.CentralBank;
-
 import java.math.BigInteger;
 import java.util.*;
 
@@ -18,20 +17,36 @@ public final class CentralBankBillManager {
     private static long cumulativePolicyIssuance;
     private static long lastPolicyIssuance;
     private static long lastPolicyIssuanceDay = -1;
-    private CentralBankBillManager() { }
+
+    private CentralBankBillManager() {}
 
     public static Result subscribe(UUID playerId, int termDays, long principal, long currentDay) {
-        if (playerId == null || playerId.equals(CentralBank.UUID) || !TERMS.contains(termDays)
-                || principal <= 0 || currentDay < 0) return Result.fail("央行票据认购参数无效");
+        if (playerId == null
+                || playerId.equals(CentralBank.UUID)
+                || !TERMS.contains(termDays)
+                || principal <= 0
+                || currentDay < 0) return Result.fail("央行票据认购参数无效");
         long maturity;
-        try { maturity = Math.addExact(currentDay, termDays); }
-        catch (ArithmeticException ignored) { return Result.fail("到期日溢出"); }
-        CentralBankBill bill = BILLS.values().stream().filter(b -> b.status() == CentralBankBillStatus.ACTIVE
-                && b.issueDay() == currentDay && b.termDays() == termDays).findFirst().orElse(null);
+        try {
+            maturity = Math.addExact(currentDay, termDays);
+        } catch (ArithmeticException ignored) {
+            return Result.fail("到期日溢出");
+        }
+        CentralBankBill bill = BILLS.values().stream()
+                .filter(b -> b.status() == CentralBankBillStatus.ACTIVE
+                        && b.issueDay() == currentDay
+                        && b.termDays() == termDays)
+                .findFirst()
+                .orElse(null);
         if (bill == null) {
             if (BILLS.size() >= MAX_BILLS) return Result.fail("央行票据数量达到上限");
-            bill = new CentralBankBill(UUID.randomUUID(), termDays, YieldCurveService.yieldBasisPoints(termDays),
-                    currentDay, maturity, CentralBankBillStatus.ACTIVE);
+            bill = new CentralBankBill(
+                    UUID.randomUUID(),
+                    termDays,
+                    YieldCurveService.yieldBasisPoints(termDays),
+                    currentDay,
+                    maturity,
+                    CentralBankBillStatus.ACTIVE);
             BILLS.put(bill.id(), bill);
         }
         long old = bill.principalByPlayer().getOrDefault(playerId, 0L);
@@ -44,8 +59,14 @@ public final class CentralBankBillManager {
             if (bill.principalByPlayer().isEmpty()) BILLS.remove(bill.id());
             return Result.fail("票据持仓结算失败");
         }
-        AccountManager.addTransactionRecord(new TransactionRecord(playerId, CentralBank.UUID, principal,
-                TransactionType.CENTRAL_BANK_BILL_SUBSCRIBE, playerId, "央行票据/" + termDays + "日", principal));
+        AccountManager.addTransactionRecord(new TransactionRecord(
+                playerId,
+                CentralBank.UUID,
+                principal,
+                TransactionType.CENTRAL_BANK_BILL_SUBSCRIBE,
+                playerId,
+                "央行票据/" + termDays + "日",
+                principal));
         EconomySavedData.markDirty();
         return Result.ok(bill.id(), "央行票据认购成功");
     }
@@ -62,14 +83,16 @@ public final class CentralBankBillManager {
         BigInteger total = BigInteger.ZERO;
         for (Map.Entry<UUID, Long> holding : bill.principalByPlayer().entrySet()) {
             BigInteger principal = BigInteger.valueOf(holding.getValue());
-            BigInteger interest = principal.multiply(BigInteger.valueOf(bill.annualRateBasisPoints()))
+            BigInteger interest = principal
+                    .multiply(BigInteger.valueOf(bill.annualRateBasisPoints()))
                     .multiply(BigInteger.valueOf(bill.termDays()))
                     .divide(BigInteger.valueOf((long) FinanceConfig.annualMcDays() * 10_000L));
             BigInteger due = principal.add(interest);
             if (due.compareTo(BigInteger.valueOf(Long.MAX_VALUE)) > 0) return false;
             long amount = due.longValue();
             if (!AccountManager.canDeposit(holding.getKey(), amount)) return false;
-            payouts.put(holding.getKey(), amount); total = total.add(due);
+            payouts.put(holding.getKey(), amount);
+            total = total.add(due);
         }
         if (total.compareTo(BigInteger.valueOf(Long.MAX_VALUE)) > 0) return false;
         long due = total.longValue(), reserve = AccountManager.getBalance(CentralBank.UUID);
@@ -78,7 +101,8 @@ public final class CentralBankBillManager {
         List<Map.Entry<UUID, Long>> paid = new ArrayList<>();
         for (Map.Entry<UUID, Long> payout : payouts.entrySet()) {
             if (!AccountManager.moveFunds(CentralBank.UUID, payout.getKey(), payout.getValue())) {
-                for (Map.Entry<UUID, Long> rollback : paid) AccountManager.moveFunds(rollback.getKey(), CentralBank.UUID, rollback.getValue());
+                for (Map.Entry<UUID, Long> rollback : paid)
+                    AccountManager.moveFunds(rollback.getKey(), CentralBank.UUID, rollback.getValue());
                 if (issuance > 0) AccountManager.withdraw(CentralBank.UUID, issuance);
                 return false;
             }
@@ -86,38 +110,87 @@ public final class CentralBankBillManager {
         }
         if (issuance > 0) {
             cumulativePolicyIssuance = saturatedAdd(cumulativePolicyIssuance, issuance);
-            lastPolicyIssuance = issuance; lastPolicyIssuanceDay = day;
-            AccountManager.addTransactionRecord(new TransactionRecord(CentralBank.UUID, CentralBank.UUID, issuance,
-                    TransactionType.CENTRAL_BANK_MONETARY_ISSUE, CentralBank.UUID, "票据兑付缺口投放", 1));
+            lastPolicyIssuance = issuance;
+            lastPolicyIssuanceDay = day;
+            AccountManager.addTransactionRecord(new TransactionRecord(
+                    CentralBank.UUID,
+                    CentralBank.UUID,
+                    issuance,
+                    TransactionType.CENTRAL_BANK_MONETARY_ISSUE,
+                    CentralBank.UUID,
+                    "票据兑付缺口投放",
+                    1));
         }
-        for (Map.Entry<UUID, Long> payout : payouts.entrySet()) AccountManager.addTransactionRecord(
-                new TransactionRecord(CentralBank.UUID, payout.getKey(), payout.getValue(),
-                        TransactionType.CENTRAL_BANK_BILL_MATURITY, payout.getKey(), "央行票据到期/" + bill.termDays() + "日", 1));
-        bill.setStatus(CentralBankBillStatus.MATURED); EconomySavedData.markDirty(); return true;
+        for (Map.Entry<UUID, Long> payout : payouts.entrySet())
+            AccountManager.addTransactionRecord(new TransactionRecord(
+                    CentralBank.UUID,
+                    payout.getKey(),
+                    payout.getValue(),
+                    TransactionType.CENTRAL_BANK_BILL_MATURITY,
+                    payout.getKey(),
+                    "央行票据到期/" + bill.termDays() + "日",
+                    1));
+        bill.setStatus(CentralBankBillStatus.MATURED);
+        EconomySavedData.markDirty();
+        return true;
     }
 
     public static long expectedMaturityValue(CentralBankBill bill, UUID player) {
         if (bill == null || player == null) return 0;
         long principal = bill.principalByPlayer().getOrDefault(player, 0L);
-        BigInteger interest = BigInteger.valueOf(principal).multiply(BigInteger.valueOf(bill.annualRateBasisPoints()))
+        BigInteger interest = BigInteger.valueOf(principal)
+                .multiply(BigInteger.valueOf(bill.annualRateBasisPoints()))
                 .multiply(BigInteger.valueOf(bill.termDays()))
                 .divide(BigInteger.valueOf((long) FinanceConfig.annualMcDays() * 10_000L));
-        return interest.add(BigInteger.valueOf(principal)).min(BigInteger.valueOf(Long.MAX_VALUE)).longValue();
+        return interest.add(BigInteger.valueOf(principal))
+                .min(BigInteger.valueOf(Long.MAX_VALUE))
+                .longValue();
     }
-    public static Map<UUID, CentralBankBill> bills() { return Collections.unmodifiableMap(BILLS); }
-    public static long cumulativePolicyIssuance() { return cumulativePolicyIssuance; }
-    public static long lastPolicyIssuance() { return lastPolicyIssuance; }
-    public static long lastPolicyIssuanceDay() { return lastPolicyIssuanceDay; }
+
+    public static Map<UUID, CentralBankBill> bills() {
+        return Collections.unmodifiableMap(BILLS);
+    }
+
+    public static long cumulativePolicyIssuance() {
+        return cumulativePolicyIssuance;
+    }
+
+    public static long lastPolicyIssuance() {
+        return lastPolicyIssuance;
+    }
+
+    public static long lastPolicyIssuanceDay() {
+        return lastPolicyIssuanceDay;
+    }
+
     public static void restorePolicyIssuance(long cumulative, long last, long day) {
         cumulativePolicyIssuance = Math.max(0, cumulative);
         lastPolicyIssuance = Math.min(cumulativePolicyIssuance, Math.max(0, last));
         lastPolicyIssuanceDay = lastPolicyIssuance > 0 ? Math.max(0, day) : -1;
     }
-    public static void putDirect(CentralBankBill bill) { if (bill != null && BILLS.size() < MAX_BILLS) BILLS.put(bill.id(), bill); }
-    public static void clearDirect() { BILLS.clear(); cumulativePolicyIssuance = 0; lastPolicyIssuance = 0; lastPolicyIssuanceDay = -1; }
-    private static long saturatedAdd(long a, long b) { return a > Long.MAX_VALUE - b ? Long.MAX_VALUE : a + b; }
+
+    public static void putDirect(CentralBankBill bill) {
+        if (bill != null && BILLS.size() < MAX_BILLS) BILLS.put(bill.id(), bill);
+    }
+
+    public static void clearDirect() {
+        BILLS.clear();
+        cumulativePolicyIssuance = 0;
+        lastPolicyIssuance = 0;
+        lastPolicyIssuanceDay = -1;
+    }
+
+    private static long saturatedAdd(long a, long b) {
+        return a > Long.MAX_VALUE - b ? Long.MAX_VALUE : a + b;
+    }
+
     public record Result(boolean success, UUID billId, String message) {
-        static Result ok(UUID id, String message) { return new Result(true, id, message); }
-        static Result fail(String message) { return new Result(false, null, message); }
+        static Result ok(UUID id, String message) {
+            return new Result(true, id, message);
+        }
+
+        static Result fail(String message) {
+            return new Result(false, null, message);
+        }
     }
 }

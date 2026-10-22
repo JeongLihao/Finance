@@ -4,13 +4,12 @@ import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.BoolArgumentType;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
+import java.util.List;
+import java.util.UUID;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
-
-import java.util.List;
-import java.util.UUID;
 
 /**
  * /caravan 命令 —— 抽象商队管理入口（GUI 按惯例暂缓）。
@@ -23,58 +22,74 @@ import java.util.UUID;
  */
 public final class CaravanCommand {
 
-    private CaravanCommand() { }
+    private CaravanCommand() {}
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
-        dispatcher.register(
-                Commands.literal("caravan")
-                        // 商队拨动全局 mid、有真实经济影响，与 /market 等经济命令同为 OP-2
-                        .requires(source -> source.hasPermission(2))
-                        .then(Commands.literal("create")
-                                .then(Commands.argument("source", StringArgumentType.string())
-                                        .then(Commands.argument("dest", StringArgumentType.string())
-                                                .then(Commands.argument("commodity", StringArgumentType.string())
-                                                        .then(Commands.argument("qty", IntegerArgumentType.integer(1))
-                                                                .then(Commands.argument("guard", IntegerArgumentType.integer(0, 3))
-                                                                        .then(Commands.argument("insure", BoolArgumentType.bool())
-                                                                                .executes(ctx -> create(ctx.getSource(),
-                                                                                        StringArgumentType.getString(ctx, "source"),
-                                                                                        StringArgumentType.getString(ctx, "dest"),
-                                                                                        StringArgumentType.getString(ctx, "commodity"),
-                                                                                        IntegerArgumentType.getInteger(ctx, "qty"),
-                                                                                        IntegerArgumentType.getInteger(ctx, "guard"),
-                                                                                        BoolArgumentType.getBool(ctx, "insure"))))
-                                                                        .executes(ctx -> create(ctx.getSource(),
-                                                                                        StringArgumentType.getString(ctx, "source"),
-                                                                                        StringArgumentType.getString(ctx, "dest"),
-                                                                                        StringArgumentType.getString(ctx, "commodity"),
-                                                                                        IntegerArgumentType.getInteger(ctx, "qty"),
-                                                                                        IntegerArgumentType.getInteger(ctx, "guard"),
-                                                                                        false)))
-                                                                .executes(ctx -> create(ctx.getSource(),
-                                                                                        StringArgumentType.getString(ctx, "source"),
-                                                                                        StringArgumentType.getString(ctx, "dest"),
-                                                                                        StringArgumentType.getString(ctx, "commodity"),
-                                                                                        IntegerArgumentType.getInteger(ctx, "qty"),
-                                                                                        0, false)))))))
-                        .then(Commands.literal("list").executes(ctx -> list(ctx.getSource())))
-                        .then(Commands.literal("pause")
-                                .then(Commands.argument("id", StringArgumentType.string())
-                                        .executes(ctx -> manage(ctx.getSource(),
-                                                StringArgumentType.getString(ctx, "id"), "pause"))))
-                        .then(Commands.literal("resume")
-                                .then(Commands.argument("id", StringArgumentType.string())
-                                        .executes(ctx -> manage(ctx.getSource(),
-                                                StringArgumentType.getString(ctx, "id"), "resume"))))
-                        .then(Commands.literal("close")
-                                .then(Commands.argument("id", StringArgumentType.string())
-                                        .executes(ctx -> manage(ctx.getSource(),
-                                                StringArgumentType.getString(ctx, "id"), "close"))))
-        );
+        dispatcher.register(Commands.literal("caravan")
+                // 商队拨动全局 mid、有真实经济影响，与 /market 等经济命令同为 OP-2
+                .requires(source -> source.hasPermission(2))
+                .then(Commands.literal("create")
+                        .then(Commands.argument("source", StringArgumentType.string())
+                                .then(Commands.argument("dest", StringArgumentType.string())
+                                        .then(Commands.argument("commodity", StringArgumentType.string())
+                                                .then(Commands.argument("qty", IntegerArgumentType.integer(1))
+                                                        .then(Commands.argument(
+                                                                        "guard", IntegerArgumentType.integer(0, 3))
+                                                                .then(Commands.argument(
+                                                                                "insure", BoolArgumentType.bool())
+                                                                        .executes(ctx -> create(
+                                                                                ctx.getSource(),
+                                                                                StringArgumentType.getString(
+                                                                                        ctx, "source"),
+                                                                                StringArgumentType.getString(
+                                                                                        ctx, "dest"),
+                                                                                StringArgumentType.getString(
+                                                                                        ctx, "commodity"),
+                                                                                IntegerArgumentType.getInteger(
+                                                                                        ctx, "qty"),
+                                                                                IntegerArgumentType.getInteger(
+                                                                                        ctx, "guard"),
+                                                                                BoolArgumentType.getBool(
+                                                                                        ctx, "insure"))))
+                                                                .executes(ctx -> create(
+                                                                        ctx.getSource(),
+                                                                        StringArgumentType.getString(ctx, "source"),
+                                                                        StringArgumentType.getString(ctx, "dest"),
+                                                                        StringArgumentType.getString(ctx, "commodity"),
+                                                                        IntegerArgumentType.getInteger(ctx, "qty"),
+                                                                        IntegerArgumentType.getInteger(ctx, "guard"),
+                                                                        false)))
+                                                        .executes(ctx -> create(
+                                                                ctx.getSource(),
+                                                                StringArgumentType.getString(ctx, "source"),
+                                                                StringArgumentType.getString(ctx, "dest"),
+                                                                StringArgumentType.getString(ctx, "commodity"),
+                                                                IntegerArgumentType.getInteger(ctx, "qty"),
+                                                                0,
+                                                                false)))))))
+                .then(Commands.literal("list").executes(ctx -> list(ctx.getSource())))
+                .then(Commands.literal("pause")
+                        .then(Commands.argument("id", StringArgumentType.string())
+                                .executes(ctx ->
+                                        manage(ctx.getSource(), StringArgumentType.getString(ctx, "id"), "pause"))))
+                .then(Commands.literal("resume")
+                        .then(Commands.argument("id", StringArgumentType.string())
+                                .executes(ctx ->
+                                        manage(ctx.getSource(), StringArgumentType.getString(ctx, "id"), "resume"))))
+                .then(Commands.literal("close")
+                        .then(Commands.argument("id", StringArgumentType.string())
+                                .executes(ctx ->
+                                        manage(ctx.getSource(), StringArgumentType.getString(ctx, "id"), "close")))));
     }
 
-    private static int create(CommandSourceStack source, String srcName, String dstName,
-                              String commodityId, int qty, int guard, boolean insure) {
+    private static int create(
+            CommandSourceStack source,
+            String srcName,
+            String dstName,
+            String commodityId,
+            int qty,
+            int guard,
+            boolean insure) {
         ServerPlayer player;
         try {
             player = source.getPlayerOrException();
@@ -87,11 +102,13 @@ public final class CaravanCommand {
             day = source.getServer().overworld().getDayTime() / 24000L;
         } catch (Exception ignored) {
         }
-        CaravanService.Result r = CaravanService.createRoute(
-                player, srcName, dstName, commodityId, qty, guard, insure, day);
+        CaravanService.Result r =
+                CaravanService.createRoute(player, srcName, dstName, commodityId, qty, guard, insure, day);
         if (r.ok()) {
-            source.sendSuccess(() -> Component.literal(r.message()
-                    + "（id: " + r.route().id().toString().substring(0, 8) + "）"), false);
+            source.sendSuccess(
+                    () -> Component.literal(
+                            r.message() + "（id: " + r.route().id().toString().substring(0, 8) + "）"),
+                    false);
             return 1;
         }
         source.sendFailure(Component.literal(r.message()));
@@ -113,12 +130,19 @@ public final class CaravanCommand {
         }
         StringBuilder sb = new StringBuilder("你的商队路线：");
         for (CaravanRoute r : routes) {
-            sb.append("\n- ").append(r.id().toString(), 0, 8)
-                    .append(" [").append(r.status()).append("] ")
-                    .append(r.commodityId()).append(" ×").append(r.qtyPerTrip())
-                    .append(" 保镖").append(r.guardLevel())
+            sb.append("\n- ")
+                    .append(r.id().toString(), 0, 8)
+                    .append(" [")
+                    .append(r.status())
+                    .append("] ")
+                    .append(r.commodityId())
+                    .append(" ×")
+                    .append(r.qtyPerTrip())
+                    .append(" 保镖")
+                    .append(r.guardLevel())
                     .append(r.insured() ? " 已保价" : "")
-                    .append(" 累计盈亏 ").append(r.totalProfit());
+                    .append(" 累计盈亏 ")
+                    .append(r.totalProfit());
         }
         source.sendSuccess(() -> Component.literal(sb.toString()), false);
         return 1;
@@ -139,9 +163,15 @@ public final class CaravanCommand {
         }
         CaravanService.Result r;
         switch (op) {
-            case "pause": r = CaravanService.pauseRoute(player, id); break;
-            case "resume": r = CaravanService.resumeRoute(player, id); break;
-            default: r = CaravanService.closeRoute(player, id); break;
+            case "pause":
+                r = CaravanService.pauseRoute(player, id);
+                break;
+            case "resume":
+                r = CaravanService.resumeRoute(player, id);
+                break;
+            default:
+                r = CaravanService.closeRoute(player, id);
+                break;
         }
         if (r.ok()) {
             source.sendSuccess(() -> Component.literal(r.message()), false);

@@ -1,5 +1,7 @@
 package finance.gameplay.company.factory;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import finance.company.Company;
 import finance.company.CompanyManager;
 import finance.company.CompanyType;
@@ -7,6 +9,8 @@ import finance.data.serializer.CompanyGameplayDataSerializer;
 import finance.data.serializer.WarehouseDataSerializer;
 import finance.gameplay.company.*;
 import finance.warehouse.*;
+import java.util.Map;
+import java.util.UUID;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
@@ -14,11 +18,6 @@ import net.minecraft.nbt.Tag;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
-import java.util.Map;
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 class FactoryPersistenceTest {
     private CompanyFacilityRecord facility;
@@ -33,12 +32,28 @@ class FactoryPersistenceTest {
         Company c = new Company(UUID.randomUUID(), "Farm", CompanyType.FOOD, 10_000, owner);
         CompanyManager.registerDirect(c);
         CompanyGameplayProfile p = CompanyGameplayManager.createForNewCompany(c);
-        WarehouseRecord w = new WarehouseRecord(UUID.randomUUID(), "minecraft:overworld", BlockPos.ZERO, owner,
-                c.getCompanyId(), 4096, WarehouseStatus.ACTIVE, 0, 0, WarehousePermissionMode.OWNER_ONLY);
+        WarehouseRecord w = new WarehouseRecord(
+                UUID.randomUUID(),
+                "minecraft:overworld",
+                BlockPos.ZERO,
+                owner,
+                c.getCompanyId(),
+                4096,
+                WarehouseStatus.ACTIVE,
+                0,
+                0,
+                WarehousePermissionMode.OWNER_ONLY);
         WarehouseManager.restore(w);
         p.bindWarehouse(w.warehouseId());
-        facility = new CompanyFacilityRecord(UUID.randomUUID(), c.getCompanyId(), "minecraft:overworld",
-                new BlockPos(3, 64, 3), CompanyFacilityType.FACTORY_CONTROLLER, 3, CompanyFacilityStatus.ACTIVE, 5,
+        facility = new CompanyFacilityRecord(
+                UUID.randomUUID(),
+                c.getCompanyId(),
+                "minecraft:overworld",
+                new BlockPos(3, 64, 3),
+                CompanyFacilityType.FACTORY_CONTROLLER,
+                3,
+                CompanyFacilityStatus.ACTIVE,
+                5,
                 w.warehouseId());
         CompanyFacilityManager.restore(facility);
     }
@@ -66,10 +81,12 @@ class FactoryPersistenceTest {
         CompanyGameplayDataSerializer.load(root);
     }
 
-    @Test void factoryStateRoundTrips() {
+    @Test
+    void factoryStateRoundTrips() {
         FactoryState s = facility.factory();
         s.markNewBuild();
-        s.recordScan(Map.of(FactoryEquipment.PISTON, 4, FactoryEquipment.OBSERVER, 2, FactoryEquipment.HOPPER, 2), 6, 16);
+        s.recordScan(
+                Map.of(FactoryEquipment.PISTON, 4, FactoryEquipment.OBSERVER, 2, FactoryEquipment.HOPPER, 2), 6, 16);
         s.setTargetTier(ProductionTier.INDUSTRIAL);
         s.resolveDay(CompanyType.FOOD, 3, 6, 14, 7, 3);
         loadAll(saveAll());
@@ -83,9 +100,11 @@ class FactoryPersistenceTest {
         assertTrue(loaded.everActive());
     }
 
-    @Test void pre40SaveWithoutFactoryEntersProvisionalWorkshop() {
+    @Test
+    void pre40SaveWithoutFactoryEntersProvisionalWorkshop() {
         CompoundTag root = saveAll();
-        ListTag facilities = root.getCompound(CompanyGameplayDataSerializer.ROOT).getList("Facilities", Tag.TAG_COMPOUND);
+        ListTag facilities =
+                root.getCompound(CompanyGameplayDataSerializer.ROOT).getList("Facilities", Tag.TAG_COMPOUND);
         facilities.getCompound(0).remove("Factory");
         loadAll(root);
         FactoryState loaded = CompanyFacilityManager.get(facility.facilityId()).factory();
@@ -95,10 +114,13 @@ class FactoryPersistenceTest {
         assertNotNull(loaded.effectiveMethod(CompanyType.FOOD, 20), "老工厂不会因为更新突然停产");
     }
 
-    @Test void corruptFactoryFieldsFallBackSafely() {
+    @Test
+    void corruptFactoryFieldsFallBackSafely() {
         CompoundTag root = saveAll();
-        CompoundTag factory = root.getCompound(CompanyGameplayDataSerializer.ROOT).getList("Facilities", Tag.TAG_COMPOUND)
-                .getCompound(0).getCompound("Factory");
+        CompoundTag factory = root.getCompound(CompanyGameplayDataSerializer.ROOT)
+                .getList("Facilities", Tag.TAG_COMPOUND)
+                .getCompound(0)
+                .getCompound("Factory");
         factory.putString("Target", "NOT_A_TIER");
         factory.getCompound("Equipment").putInt("NOT_EQUIPMENT", 5);
         loadAll(root);

@@ -14,6 +14,7 @@ public class StockTrade {
 
     /** 成交单价 */
     private final long price;
+
     private final int quantity;
     private final LocalDateTime timestamp;
 
@@ -35,10 +36,27 @@ public class StockTrade {
         this.timestamp = timestamp;
     }
 
-    public UUID getBuyer() { return buyer; }
-    public UUID getSeller() { return seller; }
-    public String getSymbol() { return symbol; }
-    public long getPrice() { return price; }
-    public int getQuantity() { return quantity; }
-    public LocalDateTime getTimestamp() { return timestamp; }
+    public UUID getBuyer() {
+        return buyer;
+    }
+
+    public UUID getSeller() {
+        return seller;
+    }
+
+    public String getSymbol() {
+        return symbol;
+    }
+
+    public long getPrice() {
+        return price;
+    }
+
+    public int getQuantity() {
+        return quantity;
+    }
+
+    public LocalDateTime getTimestamp() {
+        return timestamp;
+    }
 }

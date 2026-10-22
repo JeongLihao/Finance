@@ -1,5 +1,7 @@
 package finance.macro;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import finance.account.AccountManager;
 import finance.commodity.Commodity;
 import finance.commodity.CommodityCategory;
@@ -15,17 +17,14 @@ import finance.village.VillageManager;
 import finance.village.VillageProfession;
 import finance.village.VillageRecord;
 import finance.village.VillageService;
+import java.util.EnumMap;
+import java.util.List;
+import java.util.UUID;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
-import java.util.EnumMap;
-import java.util.List;
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 /** 第一步：聚落市场、生活水平、人口增长与迁移，以及和村庄集市、商队的衔接。 */
 class MacroEconomyServiceTest {
@@ -37,9 +36,12 @@ class MacroEconomyServiceTest {
         EconomySavedData.resetRuntimeState();
         CommodityRegistry.resetToDefaults();
         CommodityRegistry.register(new Commodity("wheat", "minecraft:wheat", "Wheat", CommodityCategory.FOOD, 8));
-        CommodityRegistry.register(new Commodity("iron", "minecraft:iron_ingot", "Iron", CommodityCategory.RAW_MATERIALS, 20));
-        CommodityRegistry.register(new Commodity("stone", "minecraft:stone", "Stone", CommodityCategory.BUILDING_BLOCKS, 4));
-        CommodityRegistry.register(new Commodity("wool", "minecraft:white_wool", "Wool", CommodityCategory.MISCELLANEOUS, 9));
+        CommodityRegistry.register(
+                new Commodity("iron", "minecraft:iron_ingot", "Iron", CommodityCategory.RAW_MATERIALS, 20));
+        CommodityRegistry.register(
+                new Commodity("stone", "minecraft:stone", "Stone", CommodityCategory.BUILDING_BLOCKS, 4));
+        CommodityRegistry.register(
+                new Commodity("wool", "minecraft:white_wool", "Wool", CommodityCategory.MISCELLANEOUS, 9));
         ModuleHealthRegistry.clear();
         AccountManager.getOrCreateSystemAccount(NpcMarketMaker.NPC_UUID);
         AccountManager.deposit(NpcMarketMaker.NPC_UUID, 10_000_000L);
@@ -47,7 +49,8 @@ class MacroEconomyServiceTest {
         CommodityInventoryManager.setCommodity(NpcMarketMaker.NPC_UUID, "iron", 100_000);
         CommodityInventoryManager.setCommodity(NpcMarketMaker.NPC_UUID, "stone", 100_000);
         CommodityInventoryManager.setCommodity(NpcMarketMaker.NPC_UUID, "wool", 0);
-        settlement = SettlementManager.registerOrRecover(UUID.randomUUID(), "minecraft:overworld", new BlockPos(0, 64, 0), "alpha");
+        settlement = SettlementManager.registerOrRecover(
+                UUID.randomUUID(), "minecraft:overworld", new BlockPos(0, 64, 0), "alpha");
         village = makeVillage(settlement, 12, 9, 4, 5);
     }
 
@@ -78,7 +81,8 @@ class MacroEconomyServiceTest {
         return MacroEconomyManager.settlement(settlement.id());
     }
 
-    @Test void shortageRaisesLocalPriceAndLeavesCategoryUnmet() {
+    @Test
+    void shortageRaisesLocalPriceAndLeavesCategoryUnmet() {
         runDay(1);
         GoodBook wool = econ().goods().get("wool");
         assertNotNull(wool, "羊毛是衣物类别的唯一候选，即使没货也要下需求");
@@ -92,7 +96,8 @@ class MacroEconomyServiceTest {
         assertTrue(wheat.factorBps() < 10_000, "小麦供大于求 → 价格下行");
     }
 
-    @Test void supplyArrivingFulfilsTheCategoryAndPriceFalls() {
+    @Test
+    void supplyArrivingFulfilsTheCategoryAndPriceFalls() {
         for (long d = 1; d <= 5; d++) runDay(d);
         int highFactor = econ().goods().get("wool").factorBps();
         assertTrue(highFactor > 10_000);
@@ -109,7 +114,8 @@ class MacroEconomyServiceTest {
         CommodityInventoryManager.setCommodity(NpcMarketMaker.NPC_UUID, "wool", 1_000_000);
     }
 
-    @Test void incomeGrowsPopulationAndFamineShrinksIt() {
+    @Test
+    void incomeGrowsPopulationAndFamineShrinksIt() {
         stockAllNeeds();
         for (long d = 1; d <= 60; d++) {
             MacroEconomyManager.getOrCreate(settlement.id()).addIncome(300); // 人均 10 元/天，相当于有工资收入
@@ -118,7 +124,11 @@ class MacroEconomyServiceTest {
         int grown = village.population();
         assertTrue(econ().solBps() > 5_000, "需求都满足且有收入，生活水平高于 50%：" + econ().solBps());
         assertTrue(grown > 30, "人口应增长：" + grown);
-        assertEquals(grown, village.professionMix().values().stream().mapToInt(Integer::intValue).sum());
+        assertEquals(
+                grown,
+                village.professionMix().values().stream()
+                        .mapToInt(Integer::intValue)
+                        .sum());
 
         CommodityInventoryManager.setCommodity(NpcMarketMaker.NPC_UUID, "wheat", 0);
         for (long d = 61; d <= 160; d++) runDay(d);
@@ -128,7 +138,8 @@ class MacroEconomyServiceTest {
         assertTrue(village.population() >= 5, "不低于人口下限");
     }
 
-    @Test void villageWithoutIncomeSettlesAtItsNaturalSize() {
+    @Test
+    void villageWithoutIncomeSettlesAtItsNaturalSize() {
         stockAllNeeds();
         for (long d = 1; d <= 30; d++) runDay(d);
         assertEquals(30, village.population(), "自然规模（villagePopulation=30）、没有收入：不涨不跌");
@@ -138,9 +149,10 @@ class MacroEconomyServiceTest {
         assertTrue(village.population() < 60 && village.population() > 30, "超过自然规模又没有收入时回落：" + village.population());
     }
 
-    @Test void migrationMovesPeopleTowardTheBetterSettlement() {
-        SettlementRecord other = SettlementManager.registerOrRecover(UUID.randomUUID(), "minecraft:overworld",
-                new BlockPos(500, 64, 0), "beta");
+    @Test
+    void migrationMovesPeopleTowardTheBetterSettlement() {
+        SettlementRecord other = SettlementManager.registerOrRecover(
+                UUID.randomUUID(), "minecraft:overworld", new BlockPos(500, 64, 0), "beta");
         VillageRecord rich = makeVillage(other, 12, 9, 4, 5);
         MacroEconomyManager.getOrCreate(settlement.id()).solBps = 2_000;
         MacroEconomyManager.getOrCreate(other.id()).solBps = 8_000;
@@ -154,7 +166,8 @@ class MacroEconomyServiceTest {
         assertEquals(27, village.population(), "差距不足 500 不迁移");
     }
 
-    @Test void excessVillageBudgetFlowsBackToNpcPool() {
+    @Test
+    void excessVillageBudgetFlowsBackToNpcPool() {
         AccountManager.deposit(village.budgetAccountId(), 1_000_000L);
         long pool = AccountManager.getBalance(NpcMarketMaker.NPC_UUID);
         runDay(1);
@@ -163,7 +176,8 @@ class MacroEconomyServiceTest {
         assertTrue(AccountManager.getBalance(NpcMarketMaker.NPC_UUID) > pool - cap, "资金池收回村民消费");
     }
 
-    @Test void caravanImportsLandInSettlementCustody() {
+    @Test
+    void caravanImportsLandInSettlementCustody() {
         assertTrue(MacroEconomyService.deliverImport(settlement.id(), "wool", 40));
         assertEquals(40, CommodityInventoryManager.getCommodityAmount(settlement.id(), "wool"));
         MacroEconomyService.recordExport(settlement.id(), "wheat", 25);
@@ -173,7 +187,8 @@ class MacroEconomyServiceTest {
         assertTrue(econ().lastFulfilment().get(NeedCategory.CLOTHING) > 0, "进口的羊毛被人口消费");
     }
 
-    @Test void raidAlertDayDoesNotCountAsAGoodDay() {
+    @Test
+    void raidAlertDayDoesNotCountAsAGoodDay() {
         runDay(1);
         int sol = econ().solBps();
         settlement.raidAlert(2, "raid:2");
@@ -182,7 +197,8 @@ class MacroEconomyServiceTest {
         assertEquals(30, village.population());
     }
 
-    @Test void readOnlyModuleFallsBackToLegacyVillageLogic() {
+    @Test
+    void readOnlyModuleFallsBackToLegacyVillageLogic() {
         ModuleHealthRegistry.restrict(ModuleHealthRegistry.Module.MACRO_ECONOMY, ModuleRunState.READ_ONLY, "test", 0);
         assertNull(MacroEconomyService.planNeeds(village));
         runDay(1);
@@ -190,7 +206,8 @@ class MacroEconomyServiceTest {
         assertEquals(30, village.population());
     }
 
-    @Test void cpiTracksBasketCost() {
+    @Test
+    void cpiTracksBasketCost() {
         assertTrue(MacroIndicators.cpiOrNegative() < 0, "没有数据时返回 −1，价格指数沿用旧算法");
         for (long d = 1; d <= 3; d++) runDay(d);
         double cpi = MacroIndicators.cpiOrNegative();
@@ -199,7 +216,8 @@ class MacroEconomyServiceTest {
         assertEquals(30, MacroEconomyManager.latestSnapshot().population());
     }
 
-    @Test void stateSurvivesSaveAndLoad() {
+    @Test
+    void stateSurvivesSaveAndLoad() {
         for (long d = 1; d <= 3; d++) runDay(d);
         int factor = econ().goods().get("wool").factorBps();
         int sol = econ().solBps();

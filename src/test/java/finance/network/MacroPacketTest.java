@@ -1,5 +1,7 @@
 package finance.network;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import finance.account.AccountManager;
 import finance.commodity.Commodity;
 import finance.commodity.CommodityCategory;
@@ -16,16 +18,13 @@ import finance.village.VillageProfession;
 import finance.village.VillageRecord;
 import finance.village.VillageService;
 import io.netty.buffer.Unpooled;
+import java.util.EnumMap;
+import java.util.UUID;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.FriendlyByteBuf;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
-import java.util.EnumMap;
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 class MacroPacketTest {
     @BeforeEach
@@ -36,7 +35,8 @@ class MacroPacketTest {
         AccountManager.getOrCreateSystemAccount(NpcMarketMaker.NPC_UUID);
         AccountManager.deposit(NpcMarketMaker.NPC_UUID, 10_000_000L);
         CommodityInventoryManager.setCommodity(NpcMarketMaker.NPC_UUID, "wheat", 100_000);
-        SettlementRecord s = SettlementManager.registerOrRecover(UUID.randomUUID(), "minecraft:overworld", new BlockPos(0, 64, 0), "alpha");
+        SettlementRecord s = SettlementManager.registerOrRecover(
+                UUID.randomUUID(), "minecraft:overworld", new BlockPos(0, 64, 0), "alpha");
         EnumMap<VillageProfession, Integer> mix = new EnumMap<>(VillageProfession.class);
         mix.put(VillageProfession.FARMER, 10);
         mix.put(VillageProfession.ARTISAN, 0);
@@ -52,7 +52,8 @@ class MacroPacketTest {
         CommodityRegistry.resetToDefaults();
     }
 
-    @Test void snapshotRoundTripsThroughTheWire() {
+    @Test
+    void snapshotRoundTripsThroughTheWire() {
         VillageService.processDay(null, 1);
         MacroEconomyService.afterVillages(1);
         MacroResponsePacket built = MacroSnapshotBuilder.build(7);
@@ -60,8 +61,12 @@ class MacroPacketTest {
         assertEquals(1, built.settlements().size());
         assertEquals("alpha", built.settlements().get(0).name());
         assertEquals("小麦", built.settlements().get(0).goods().get(0).commodity());
-        assertEquals(finance.centralbank.CentralBankService.demandReserveBps(), built.centralBank().reserveBps());
-        assertEquals(finance.policy.MonetaryPolicyService.benchmarkRateBasisPoints(), built.centralBank().rateBps());
+        assertEquals(
+                finance.centralbank.CentralBankService.demandReserveBps(),
+                built.centralBank().reserveBps());
+        assertEquals(
+                finance.policy.MonetaryPolicyService.benchmarkRateBasisPoints(),
+                built.centralBank().rateBps());
 
         FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
         MacroResponsePacket.encode(built, buf);
@@ -69,7 +74,8 @@ class MacroPacketTest {
         assertEquals(built, decoded);
     }
 
-    @Test void oversizedRowCountsAreRejected() {
+    @Test
+    void oversizedRowCountsAreRejected() {
         FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
         buf.writeLong(1);
         buf.writeBoolean(true);

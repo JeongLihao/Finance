@@ -1,10 +1,10 @@
 package finance.client;
 
-import finance.tutorial.TutorialOptionalGoal;
-import org.junit.jupiter.api.Test;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import finance.tutorial.TutorialOptionalGoal;
+import org.junit.jupiter.api.Test;
 
 class CompactScreenLayoutTest {
     @Test
@@ -25,7 +25,7 @@ class CompactScreenLayoutTest {
     void financeCenterIsNotScaledAtCommonAutoGuiSizes() {
         // 854x480、1280x720、2560x1440、3840x2160 在“自动”界面尺寸下都是 426~427x240；1366x768 是 455x256。
         // 缩放必须正好是 1，否则像素字体会被非整数缩放弄糊
-        for (int[] size : new int[][]{{427, 240}, {426, 240}, {455, 256}, {480, 270}, {533, 300}}) {
+        for (int[] size : new int[][] {{427, 240}, {426, 240}, {455, 256}, {480, 270}, {533, 300}}) {
             assertEquals(1.0F, FinanceScreen.fitScale(size[0], size[1]), size[0] + "x" + size[1]);
         }
     }

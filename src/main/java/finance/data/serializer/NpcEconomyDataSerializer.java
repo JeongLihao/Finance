@@ -4,19 +4,18 @@ import finance.diagnostic.ModuleHealthRegistry;
 import finance.diagnostic.ModuleRunState;
 import finance.npcinvestor.NpcGovernanceManager;
 import finance.npcinvestor.NpcInvestorArchetype;
-import finance.npcinvestor.NpcVotingRules;
 import finance.npcinvestor.NpcInvestorManager;
 import finance.npcinvestor.NpcInvestorState;
 import finance.npcinvestor.NpcReason;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.Tag;
-
+import finance.npcinvestor.NpcVotingRules;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.Tag;
 
 /**
  * 单人经济（NPC 投资者）持久化。DataVersion 38 新增；旧存档没有该标签时按"刚启用"初始化。
@@ -28,7 +27,7 @@ public final class NpcEconomyDataSerializer {
     public static final String ROOT = "NpcEconomy";
     public static final int VERSION = 1;
 
-    private NpcEconomyDataSerializer() { }
+    private NpcEconomyDataSerializer() {}
 
     public static void save(CompoundTag root) {
         CompoundTag data = new CompoundTag();
@@ -121,8 +120,8 @@ public final class NpcEconomyDataSerializer {
                         skipped++;
                     }
                 }
-                NpcInvestorManager.restoreState(archetype, t.getBoolean("Funded"), t.getLong("Contributed"),
-                        sentiments, targets);
+                NpcInvestorManager.restoreState(
+                        archetype, t.getBoolean("Funded"), t.getLong("Contributed"), sentiments, targets);
             } catch (Exception e) {
                 skipped++;
             }
@@ -134,16 +133,21 @@ public final class NpcEconomyDataSerializer {
         for (int i = start; i < rawDecisions.size(); i++) {
             try {
                 CompoundTag t = rawDecisions.getCompound(i);
-                decisions.add(new NpcInvestorManager.Decision(t.getLong("Day"),
+                decisions.add(new NpcInvestorManager.Decision(
+                        t.getLong("Day"),
                         NpcInvestorArchetype.valueOf(t.getString("Archetype")),
                         t.hasUUID("Company") ? t.getUUID("Company") : null,
-                        t.getString("Symbol"), t.getString("Action"), t.getLong("Qty"), t.getLong("Price"),
+                        t.getString("Symbol"),
+                        t.getString("Action"),
+                        t.getLong("Qty"),
+                        t.getLong("Price"),
                         NpcReason.valueOf(t.getString("Reason"))));
             } catch (Exception e) {
                 skipped++;
             }
         }
-        long lastDay = data.contains("LastProcessedDay", Tag.TAG_LONG) ? data.getLong("LastProcessedDay") : Long.MIN_VALUE;
+        long lastDay =
+                data.contains("LastProcessedDay", Tag.TAG_LONG) ? data.getLong("LastProcessedDay") : Long.MIN_VALUE;
         NpcInvestorManager.restoreDirect(lastDay, decisions);
 
         List<NpcGovernanceManager.VoteRecord> votes = new ArrayList<>();
@@ -153,11 +157,13 @@ public final class NpcEconomyDataSerializer {
         for (int i = voteStart; i < rawVotes.size(); i++) {
             try {
                 CompoundTag t = rawVotes.getCompound(i);
-                votes.add(new NpcGovernanceManager.VoteRecord(t.getUUID("Proposal"),
+                votes.add(new NpcGovernanceManager.VoteRecord(
+                        t.getUUID("Proposal"),
                         NpcInvestorArchetype.valueOf(t.getString("Archetype")),
                         NpcVotingRules.Choice.valueOf(t.getString("Choice")),
                         NpcVotingRules.VoteReason.valueOf(t.getString("Reason")),
-                        t.getLong("Power"), t.getLong("Day")));
+                        t.getLong("Power"),
+                        t.getLong("Day")));
             } catch (Exception e) {
                 skipped++;
             }
@@ -169,18 +175,27 @@ public final class NpcEconomyDataSerializer {
         for (int i = tenderStart; i < rawTenders.size(); i++) {
             try {
                 CompoundTag t = rawTenders.getCompound(i);
-                tenders.add(new NpcGovernanceManager.TenderRecord(t.getUUID("Offer"),
-                        NpcInvestorArchetype.valueOf(t.getString("Archetype")), t.getBoolean("Accepted"),
-                        t.getLong("Shares"), t.getLong("OfferPrice"), t.getLong("Threshold"), t.getLong("Day")));
+                tenders.add(new NpcGovernanceManager.TenderRecord(
+                        t.getUUID("Offer"),
+                        NpcInvestorArchetype.valueOf(t.getString("Archetype")),
+                        t.getBoolean("Accepted"),
+                        t.getLong("Shares"),
+                        t.getLong("OfferPrice"),
+                        t.getLong("Threshold"),
+                        t.getLong("Day")));
             } catch (Exception e) {
                 skipped++;
             }
         }
-        long governanceDay = data.contains("GovernanceDay", Tag.TAG_LONG) ? data.getLong("GovernanceDay") : Long.MIN_VALUE;
+        long governanceDay =
+                data.contains("GovernanceDay", Tag.TAG_LONG) ? data.getLong("GovernanceDay") : Long.MIN_VALUE;
         NpcGovernanceManager.restoreDirect(governanceDay, votes, tenders);
         if (invalid || skipped > 0) {
-            ModuleHealthRegistry.restrict(ModuleHealthRegistry.Module.NPC_ECONOMY,
-                    ModuleRunState.READ_ONLY, "NPC 经济存档 " + skipped + " 条损坏已跳过", -1);
+            ModuleHealthRegistry.restrict(
+                    ModuleHealthRegistry.Module.NPC_ECONOMY,
+                    ModuleRunState.READ_ONLY,
+                    "NPC 经济存档 " + skipped + " 条损坏已跳过",
+                    -1);
         }
     }
 }

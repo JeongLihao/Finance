@@ -21,11 +21,16 @@ public enum VillageProfession {
     /** 默认职业占比（基点，和 = 10000）。 */
     public int defaultRatioBps() {
         switch (this) {
-            case FARMER: return 4000;
-            case ARTISAN: return 3000;
-            case GUARD: return 1500;
-            case OTHER: return 1500;
-            default: throw new AssertionError("未知职业: " + this);
+            case FARMER:
+                return 4000;
+            case ARTISAN:
+                return 3000;
+            case GUARD:
+                return 1500;
+            case OTHER:
+                return 1500;
+            default:
+                throw new AssertionError("未知职业: " + this);
         }
     }
 
@@ -37,11 +42,16 @@ public enum VillageProfession {
      */
     public Map<String, Double> needsBasket() {
         switch (this) {
-            case FARMER: return Map.of("wheat", 2.0, "stone", 0.2, "iron", 0.1);
-            case ARTISAN: return Map.of("wheat", 1.0, "stone", 1.0, "iron", 0.3);
-            case GUARD: return Map.of("wheat", 1.5, "stone", 0.1, "iron", 0.5);
-            case OTHER: return Map.of("wheat", 1.0, "stone", 0.3, "iron", 0.1);
-            default: throw new AssertionError("未知职业: " + this);
+            case FARMER:
+                return Map.of("wheat", 2.0, "stone", 0.2, "iron", 0.1);
+            case ARTISAN:
+                return Map.of("wheat", 1.0, "stone", 1.0, "iron", 0.3);
+            case GUARD:
+                return Map.of("wheat", 1.5, "stone", 0.1, "iron", 0.5);
+            case OTHER:
+                return Map.of("wheat", 1.0, "stone", 0.3, "iron", 0.1);
+            default:
+                throw new AssertionError("未知职业: " + this);
         }
     }
 }

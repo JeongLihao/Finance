@@ -11,14 +11,13 @@ import finance.earnings.EarningsExpectation;
 import finance.earnings.QuarterlyEarningsReport;
 import finance.stock.Stock;
 import finance.stock.StockMarketManager;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
-
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
 
 /**
  * /earnings —— 财报季查询。
@@ -31,20 +30,18 @@ import java.util.List;
 public class EarningsCommand {
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
-        dispatcher.register(
-                Commands.literal("earnings")
-                        // 只读公开数据，全员可查；显式声明 OP-0，与其他命令的 requires 惯例对齐
-                        .requires(source -> source.hasPermission(0))
-                        .then(Commands.literal("calendar")
-                                .executes(context -> showCalendar(context.getSource(), 30))
-                                .then(Commands.argument("days", IntegerArgumentType.integer(1, 365))
-                                        .executes(context -> showCalendar(context.getSource(),
-                                                IntegerArgumentType.getInteger(context, "days")))))
-                        .then(Commands.literal("report")
-                                .then(Commands.argument("symbol", StringArgumentType.word())
-                                        .executes(context -> showReport(context.getSource(),
-                                                StringArgumentType.getString(context, "symbol")))))
-        );
+        dispatcher.register(Commands.literal("earnings")
+                // 只读公开数据，全员可查；显式声明 OP-0，与其他命令的 requires 惯例对齐
+                .requires(source -> source.hasPermission(0))
+                .then(Commands.literal("calendar")
+                        .executes(context -> showCalendar(context.getSource(), 30))
+                        .then(Commands.argument("days", IntegerArgumentType.integer(1, 365))
+                                .executes(context -> showCalendar(
+                                        context.getSource(), IntegerArgumentType.getInteger(context, "days")))))
+                .then(Commands.literal("report")
+                        .then(Commands.argument("symbol", StringArgumentType.word())
+                                .executes(context -> showReport(
+                                        context.getSource(), StringArgumentType.getString(context, "symbol"))))));
     }
 
     private static int showCalendar(CommandSourceStack source, int days) {
@@ -77,8 +74,10 @@ public class EarningsCommand {
             for (int d = 0; d < days; d++) {
                 long day = today + d;
                 if (Math.floorMod(day, quarterDays) == offset) {
-                    entries.add(new CalendarEntry(day, "D+" + d + "（第 " + day + " 天） " + company.getName()
-                            + " [" + stock.getSymbol() + "] 现价 " + stock.getLastPrice()));
+                    entries.add(new CalendarEntry(
+                            day,
+                            "D+" + d + "（第 " + day + " 天） " + company.getName() + " [" + stock.getSymbol() + "] 现价 "
+                                    + stock.getLastPrice()));
                 }
             }
         }
@@ -112,7 +111,7 @@ public class EarningsCommand {
     }
 
     /** 最新季报的文字（命令与 GUI 共用）。found=false 表示找不到股票或公司。 */
-    public record Report(boolean found, List<String> lines) { }
+    public record Report(boolean found, List<String> lines) {}
 
     public static Report report(String symbol) {
         List<String> lines = new ArrayList<>();
@@ -123,7 +122,8 @@ public class EarningsCommand {
         }
         Company company = CompanyManager.getCompanies().stream()
                 .filter(c -> c.getCompanyId().equals(stock.getCompanyId()))
-                .findFirst().orElse(null);
+                .findFirst()
+                .orElse(null);
         if (company == null) {
             lines.add("找不到该股票对应的公司。");
             return new Report(false, lines);
@@ -134,10 +134,10 @@ public class EarningsCommand {
             return new Report(true, lines);
         }
         QuarterlyEarningsReport latest = history.get(history.size() - 1);
-        lines.add("=== " + company.getName() + " [" + stock.getSymbol() + "] Q" + latest.quarterIndex()
-                + " 季报（第 " + latest.mcDay() + " 天发布）===");
-        lines.add("营收 " + latest.revenue() + " | 成本 " + latest.expenses()
-                + " | 净利润 " + latest.netProfit() + " | EPS " + latest.eps());
+        lines.add("=== " + company.getName() + " [" + stock.getSymbol() + "] Q" + latest.quarterIndex() + " 季报（第 "
+                + latest.mcDay() + " 天发布）===");
+        lines.add("营收 " + latest.revenue() + " | 成本 " + latest.expenses() + " | 净利润 " + latest.netProfit() + " | EPS "
+                + latest.eps());
         lines.add("营收环比 " + fmtBps(latest.revenueQoQBps()) + " | 利润环比 " + fmtBps(latest.profitQoQBps())
                 + " | 每股分红 " + latest.dividendPerShare()
                 + " | 覆盖 " + latest.tradingDays() + " 天"
@@ -147,15 +147,17 @@ public class EarningsCommand {
         if (expected == Long.MIN_VALUE) {
             lines.add("市场预期：暂无（首份季报）");
         } else {
-            lines.add("市场预期净利润 " + expected + " | 实际 " + latest.netProfit()
-                    + " | 预期差 " + fmtBps(surprise));
+            lines.add("市场预期净利润 " + expected + " | 实际 " + latest.netProfit() + " | 预期差 " + fmtBps(surprise));
         }
         if (history.size() > 1) {
             StringBuilder sb = new StringBuilder("历史预期差：");
             for (int i = Math.max(0, history.size() - 6); i < history.size(); i++) {
                 QuarterlyEarningsReport r = history.get(i);
-                sb.append("Q").append(r.quarterIndex()).append(" ")
-                        .append(fmtBps(r.surpriseBps())).append("；");
+                sb.append("Q")
+                        .append(r.quarterIndex())
+                        .append(" ")
+                        .append(fmtBps(r.surpriseBps()))
+                        .append("；");
             }
             lines.add(sb.toString());
         }
@@ -168,6 +170,5 @@ public class EarningsCommand {
     }
 
     /** 财报日历条目：携带绝对天数用于数字排序，避免 "D+10" 排在 "D+5" 前。 */
-    private record CalendarEntry(long day, String text) {
-    }
+    private record CalendarEntry(long day, String text) {}
 }

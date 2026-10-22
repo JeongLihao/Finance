@@ -3,7 +3,6 @@ package finance.margin;
 import finance.data.EconomySavedData;
 import finance.stock.Stock;
 import finance.stock.StockMarketManager;
-
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -26,8 +25,7 @@ public final class MarginPoolManager {
     /** symbol -> 已借出股数 */
     private static final Map<String, Long> POOL_BORROWED = new HashMap<>();
 
-    private MarginPoolManager() {
-    }
+    private MarginPoolManager() {}
 
     // ================================================================
     // 账户
@@ -36,7 +34,6 @@ public final class MarginPoolManager {
     public static MarginAccount getAccount(UUID playerId) {
         return ACCOUNTS.computeIfAbsent(playerId, MarginAccount::new);
     }
-
 
     public static Map<UUID, MarginAccount> accounts() {
         return ACCOUNTS;

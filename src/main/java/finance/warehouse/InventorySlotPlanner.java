@@ -10,6 +10,7 @@ public final class InventorySlotPlanner {
             if (count < 0 || maxCount < 0 || count > maxCount) throw new IllegalArgumentException("invalid slot state");
         }
     }
+
     public record Allocation(int slot, int amount) {}
 
     private InventorySlotPlanner() {}

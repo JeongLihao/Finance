@@ -1,19 +1,18 @@
 package finance.client;
 
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
-import org.junit.jupiter.api.Test;
-
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
-import java.util.Set;
-
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
+import java.util.Set;
+import org.junit.jupiter.api.Test;
 
 class FinanceGuideScreenTest {
     @Test
@@ -24,11 +23,10 @@ class FinanceGuideScreenTest {
 
     @Test
     void pageTextSplitsIntoTitleAndBody() {
-        assertArrayEquals(new String[]{"怎样开始？", "第一段\n\n第二段"},
-                FinanceGuideScreen.splitPage("怎样开始？\n\n第一段\n\n第二段"));
-        assertArrayEquals(new String[]{"只有标题", ""}, FinanceGuideScreen.splitPage("只有标题"));
-        assertArrayEquals(new String[]{"标题", "正文"}, FinanceGuideScreen.splitPage("标题\r\n正文\n"));
-        assertArrayEquals(new String[]{"", ""}, FinanceGuideScreen.splitPage(null));
+        assertArrayEquals(new String[] {"怎样开始？", "第一段\n\n第二段"}, FinanceGuideScreen.splitPage("怎样开始？\n\n第一段\n\n第二段"));
+        assertArrayEquals(new String[] {"只有标题", ""}, FinanceGuideScreen.splitPage("只有标题"));
+        assertArrayEquals(new String[] {"标题", "正文"}, FinanceGuideScreen.splitPage("标题\r\n正文\n"));
+        assertArrayEquals(new String[] {"", ""}, FinanceGuideScreen.splitPage(null));
     }
 
     @Test
@@ -52,9 +50,10 @@ class FinanceGuideScreenTest {
         int zhCount = FinanceGuideScreen.pageCount(zh::has);
         assertEquals(zhCount, FinanceGuideScreen.pageCount(en::has));
         assertTrue(zhCount >= 13, "handbook pages: " + zhCount);
-        for (JsonObject lang : new JsonObject[]{zh, en}) {
+        for (JsonObject lang : new JsonObject[] {zh, en}) {
             for (int i = 1; i <= zhCount; i++) {
-                String[] page = FinanceGuideScreen.splitPage(lang.get(FinanceGuideScreen.PAGE_KEY + i).getAsString());
+                String[] page = FinanceGuideScreen.splitPage(
+                        lang.get(FinanceGuideScreen.PAGE_KEY + i).getAsString());
                 assertFalse(page[0].isBlank(), "title of page " + i);
                 assertFalse(page[1].isBlank(), "body of page " + i);
             }
@@ -62,9 +61,11 @@ class FinanceGuideScreenTest {
     }
 
     private JsonObject lang(String name) throws Exception {
-        try (InputStream in = getClass().getClassLoader().getResourceAsStream("assets/finance/lang/" + name + ".json")) {
+        try (InputStream in =
+                getClass().getClassLoader().getResourceAsStream("assets/finance/lang/" + name + ".json")) {
             assertNotNull(in, name);
-            return JsonParser.parseReader(new InputStreamReader(in, StandardCharsets.UTF_8)).getAsJsonObject();
+            return JsonParser.parseReader(new InputStreamReader(in, StandardCharsets.UTF_8))
+                    .getAsJsonObject();
         }
     }
 }

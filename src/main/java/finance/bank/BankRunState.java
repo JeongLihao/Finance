@@ -27,47 +27,132 @@ public final class BankRunState {
         this.bankId = bankId;
     }
 
-    public UUID bankId() { return bankId; }
-    public int panic() { return panic; }
-    public long lastPanicDay() { return lastPanicDay; }
-    public long dailyWithdrawn() { return dailyWithdrawn; }
-    public long budgetDay() { return budgetDay; }
-    public long budgetUsed() { return budgetUsed; }
-    public long queued() { return queued; }
-    public int illiquidDays() { return illiquidDays; }
-    public long rumorCooldownDay() { return rumorCooldownDay; }
-    public int peakPanic() { return peakPanic; }
-    public long cumulativeOutflow() { return cumulativeOutflow; }
-    public long lastRumorDay() { return lastRumorDay; }
-    public String lastRumorText() { return lastRumorText; }
-    public long npcLoanBook() { return npcLoanBook; }
+    public UUID bankId() {
+        return bankId;
+    }
+
+    public int panic() {
+        return panic;
+    }
+
+    public long lastPanicDay() {
+        return lastPanicDay;
+    }
+
+    public long dailyWithdrawn() {
+        return dailyWithdrawn;
+    }
+
+    public long budgetDay() {
+        return budgetDay;
+    }
+
+    public long budgetUsed() {
+        return budgetUsed;
+    }
+
+    public long queued() {
+        return queued;
+    }
+
+    public int illiquidDays() {
+        return illiquidDays;
+    }
+
+    public long rumorCooldownDay() {
+        return rumorCooldownDay;
+    }
+
+    public int peakPanic() {
+        return peakPanic;
+    }
+
+    public long cumulativeOutflow() {
+        return cumulativeOutflow;
+    }
+
+    public long lastRumorDay() {
+        return lastRumorDay;
+    }
+
+    public String lastRumorText() {
+        return lastRumorText;
+    }
+
+    public long npcLoanBook() {
+        return npcLoanBook;
+    }
 
     void setPanic(int v, long day) {
         panic = Math.max(0, Math.min(100, v));
         lastPanicDay = day;
         if (panic > peakPanic) peakPanic = panic;
     }
-    void addWithdrawn(long v) { if (v > 0) dailyWithdrawn = safeAdd(dailyWithdrawn, v); }
-    void resetDailyWithdrawn() { dailyWithdrawn = 0; }
-    void addBudgetUsed(long v) { budgetUsed = v > 0 ? safeAdd(budgetUsed, v) : Math.max(0, budgetUsed + v); }
-    void resetBudget(long day) { budgetDay = day; budgetUsed = 0; }
-    void addQueued(long v) { if (v > 0) queued = safeAdd(queued, v); }
-    void reduceQueued(long v) { if (v > 0) queued = Math.max(0, queued - v); }
-    void setIlliquidDays(int v) { illiquidDays = Math.max(0, v); }
-    void setRumorCooldownDay(long day) { rumorCooldownDay = day; }
-    void addOutflow(long v) { if (v > 0) cumulativeOutflow = safeAdd(cumulativeOutflow, v); }
+
+    void addWithdrawn(long v) {
+        if (v > 0) dailyWithdrawn = safeAdd(dailyWithdrawn, v);
+    }
+
+    void resetDailyWithdrawn() {
+        dailyWithdrawn = 0;
+    }
+
+    void addBudgetUsed(long v) {
+        budgetUsed = v > 0 ? safeAdd(budgetUsed, v) : Math.max(0, budgetUsed + v);
+    }
+
+    void resetBudget(long day) {
+        budgetDay = day;
+        budgetUsed = 0;
+    }
+
+    void addQueued(long v) {
+        if (v > 0) queued = safeAdd(queued, v);
+    }
+
+    void reduceQueued(long v) {
+        if (v > 0) queued = Math.max(0, queued - v);
+    }
+
+    void setIlliquidDays(int v) {
+        illiquidDays = Math.max(0, v);
+    }
+
+    void setRumorCooldownDay(long day) {
+        rumorCooldownDay = day;
+    }
+
+    void addOutflow(long v) {
+        if (v > 0) cumulativeOutflow = safeAdd(cumulativeOutflow, v);
+    }
+
     void setLastRumor(long day, String text) {
         lastRumorDay = day;
         lastRumorText = text == null ? "" : text.substring(0, Math.min(256, text.length()));
     }
 
-    void setNpcLoanBook(long v) { npcLoanBook = Math.max(0, v); }
-    void reduceNpcLoanBook(long v) { if (v > 0) npcLoanBook = Math.max(0, npcLoanBook - v); }
+    void setNpcLoanBook(long v) {
+        npcLoanBook = Math.max(0, v);
+    }
+
+    void reduceNpcLoanBook(long v) {
+        if (v > 0) npcLoanBook = Math.max(0, npcLoanBook - v);
+    }
 
     /** 持久化恢复用。 */
-    void restore(int panic, long lastPanicDay, long queued, int illiquidDays, long rumorCooldownDay,
-                 int peakPanic, long cumulativeOutflow, long lastRumorDay, String lastRumorText,
-                 long budgetDay, long budgetUsed, long npcLoanBook) {
+    void restore(
+            int panic,
+            long lastPanicDay,
+            long queued,
+            int illiquidDays,
+            long rumorCooldownDay,
+            int peakPanic,
+            long cumulativeOutflow,
+            long lastRumorDay,
+            String lastRumorText,
+            long budgetDay,
+            long budgetUsed,
+            long npcLoanBook) {
         this.panic = Math.max(0, Math.min(100, panic));
         this.lastPanicDay = Math.max(-1, lastPanicDay);
         this.queued = Math.max(0, queued);
@@ -82,5 +167,7 @@ public final class BankRunState {
         this.npcLoanBook = Math.max(0, npcLoanBook);
     }
 
-    private static long safeAdd(long a, long b) { return a > Long.MAX_VALUE - b ? Long.MAX_VALUE : a + b; }
+    private static long safeAdd(long a, long b) {
+        return a > Long.MAX_VALUE - b ? Long.MAX_VALUE : a + b;
+    }
 }

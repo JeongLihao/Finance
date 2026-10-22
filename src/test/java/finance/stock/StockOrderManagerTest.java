@@ -1,23 +1,22 @@
 package finance.stock;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import finance.account.AccountManager;
+import finance.chart.CandlestickService;
+import finance.chart.MarketInstrumentType;
 import finance.company.Company;
 import finance.company.CompanyManager;
 import finance.company.CompanyType;
 import finance.market.MarketMakerLedger;
 import finance.metrics.EconomyMetricsService;
-import finance.chart.CandlestickService;
-import finance.chart.MarketInstrumentType;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 class StockOrderManagerTest {
 
@@ -46,8 +45,7 @@ class StockOrderManagerTest {
         company.setPublic(true);
         CompanyManager.registerDirect(company);
 
-        Stock stock = new Stock(SYMBOL, "Bug Regression Inc", COMPANY_ID,
-                10_000, 10_000, 0, 100, 100);
+        Stock stock = new Stock(SYMBOL, "Bug Regression Inc", COMPANY_ID, 10_000, 10_000, 0, 100, 100);
         StockMarketManager.putStockDirect(stock);
 
         // Phase 1 起做市商成交需要真实资金与库存：总账户注资并建仓至目标库存
@@ -168,7 +166,11 @@ class StockOrderManagerTest {
         assertEquals(1, StockOrderManager.getTradeHistory().size());
         assertEquals(2, StockOrderManager.getTradeHistory().get(0).getQuantity());
         assertEquals(2, EconomyMetricsService.getCurrentStockVolume());
-        assertEquals(2, CandlestickService.getBars(MarketInstrumentType.STOCK, SYMBOL, 30).get(0).volume());
+        assertEquals(
+                2,
+                CandlestickService.getBars(MarketInstrumentType.STOCK, SYMBOL, 30)
+                        .get(0)
+                        .volume());
     }
 
     @Test
@@ -215,18 +217,24 @@ class StockOrderManagerTest {
         assertTrue(result.success());
         assertEquals(3, StockPortfolioManager.getHolding(BUYER_A, SYMBOL).getQuantity());
         assertEquals(3, EconomyMetricsService.getCurrentStockVolume());
-        assertEquals(3, CandlestickService.getBars(MarketInstrumentType.STOCK, SYMBOL, 30).get(0).volume());
+        assertEquals(
+                3,
+                CandlestickService.getBars(MarketInstrumentType.STOCK, SYMBOL, 30)
+                        .get(0)
+                        .volume());
     }
 
     @Test
     void unfilledAndCancelledStockOrdersDoNotIncreaseTradeVolume() {
         StockOrderManager.OrderResult result = StockOrderManager.placeBuyOrder(BUYER_A, SYMBOL, 90, 2);
         assertTrue(result.success());
-        assertTrue(StockOrderManager.cancelOrder(StockOrderManager.getOrders().get(0).getOrderId(), BUYER_A));
+        assertTrue(StockOrderManager.cancelOrder(
+                StockOrderManager.getOrders().get(0).getOrderId(), BUYER_A));
 
         assertEquals(0, EconomyMetricsService.getCurrentStockVolume());
         assertEquals(0, StockOrderManager.getTradeHistory().size());
-        assertTrue(CandlestickService.getBars(MarketInstrumentType.STOCK, SYMBOL, 30).isEmpty());
+        assertTrue(CandlestickService.getBars(MarketInstrumentType.STOCK, SYMBOL, 30)
+                .isEmpty());
     }
 
     @Test

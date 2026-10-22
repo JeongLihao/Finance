@@ -1,7 +1,6 @@
 package finance.client;
 
 import finance.network.MarketMakerOverviewResponsePacket;
-
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -9,17 +8,19 @@ import java.util.concurrent.atomic.AtomicLong;
  * follow {@link FuturesClientCache} 的请求/响应模式。
  */
 public final class MarketMakerOverviewClientCache {
-    public enum State {NOT_REQUESTED, LOADING, READY, SLOW}
-
-    public record Entry(State state, long requestId, long requestedAt,
-                        MarketMakerOverviewResponsePacket data) {
+    public enum State {
+        NOT_REQUESTED,
+        LOADING,
+        READY,
+        SLOW
     }
+
+    public record Entry(State state, long requestId, long requestedAt, MarketMakerOverviewResponsePacket data) {}
 
     private static final AtomicLong SEQ = new AtomicLong();
     private static Entry entry = new Entry(State.NOT_REQUESTED, 0, 0, null);
 
-    private MarketMakerOverviewClientCache() {
-    }
+    private MarketMakerOverviewClientCache() {}
 
     public static long begin() {
         long id = SEQ.updateAndGet(v -> v == Long.MAX_VALUE ? 1 : v + 1);
@@ -34,8 +35,7 @@ public final class MarketMakerOverviewClientCache {
     }
 
     public static Entry get() {
-        if (entry.state() == State.LOADING
-                && System.currentTimeMillis() - entry.requestedAt() > 3000) {
+        if (entry.state() == State.LOADING && System.currentTimeMillis() - entry.requestedAt() > 3000) {
             entry = new Entry(State.SLOW, entry.requestId(), entry.requestedAt(), null);
         }
         return entry;

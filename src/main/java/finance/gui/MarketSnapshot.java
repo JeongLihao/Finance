@@ -1,11 +1,10 @@
 package finance.gui;
 
 import finance.market.MarketPrice;
-import net.minecraft.network.FriendlyByteBuf;
-
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import net.minecraft.network.FriendlyByteBuf;
 
 public record MarketSnapshot(
         String commodityId,
@@ -14,8 +13,7 @@ public record MarketSnapshot(
         long askPrice,
         double dayChange,
         int dayVolume,
-        int marketStock
-) {
+        int marketStock) {
     public static final int MAX_ROWS = 64;
     public static final int MAX_ID_LENGTH = 64;
 
@@ -46,15 +44,15 @@ public record MarketSnapshot(
                     buffer.readLong(),
                     buffer.readDouble(),
                     buffer.readVarInt(),
-                    buffer.readVarInt()
-            ));
+                    buffer.readVarInt()));
         }
         return snapshots;
     }
 
     public static List<MarketSnapshot> sorted(List<MarketSnapshot> snapshots) {
         if (snapshots == null) return List.of();
-        return snapshots.stream().limit(MAX_ROWS)
+        return snapshots.stream()
+                .limit(MAX_ROWS)
                 .sorted(Comparator.comparing(MarketSnapshot::commodityId))
                 .toList();
     }
@@ -67,7 +65,6 @@ public record MarketSnapshot(
                 price.getAskPrice(),
                 price.getDayChange(),
                 price.getDayVolume(),
-                marketStock
-        );
+                marketStock);
     }
 }

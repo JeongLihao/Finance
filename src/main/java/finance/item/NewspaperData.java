@@ -1,15 +1,14 @@
 package finance.item;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.StringTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.world.item.ItemStack;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /** 《金融周报》报纸物品携带的内容：期号、日期、是否号外、头条和各版正文。
  * 读取时一律限长，创造模式改出来的异常 NBT 也不会让界面卡死。 */
@@ -22,16 +21,17 @@ public final class NewspaperData {
         public Paper {
             headline = limit(headline, MAX_HEADLINE_CHARS);
             List<String> safe = new ArrayList<>();
-            if (pages != null) for (String page : pages) {
-                if (safe.size() >= MAX_PAGES) break;
-                if (page != null) safe.add(limit(page, MAX_PAGE_CHARS));
-            }
+            if (pages != null)
+                for (String page : pages) {
+                    if (safe.size() >= MAX_PAGES) break;
+                    if (page != null) safe.add(limit(page, MAX_PAGE_CHARS));
+                }
             pages = List.copyOf(safe);
         }
     }
 
     /** 报纸的一个版面。 */
-    public record Section(String title, String body) { }
+    public record Section(String title, String body) {}
 
     public static final String FRONT_PAGE = "头版";
     private static final Pattern HEADER = Pattern.compile("^【([^】]{1,12})】(.*)$");
@@ -39,7 +39,7 @@ public final class NewspaperData {
     private static final Pattern ISSUE_NO = Pattern.compile("^第\\s*\\d+\\s*期$");
     private static final Pattern DAY_LINE = Pattern.compile("^第\\s*-?\\d+\\s*天$");
 
-    private NewspaperData() { }
+    private NewspaperData() {}
 
     public static void write(ItemStack stack, Paper paper) {
         CompoundTag tag = new CompoundTag();
@@ -60,8 +60,12 @@ public final class NewspaperData {
         ListTag list = tag.getList("pages", Tag.TAG_STRING);
         List<String> pages = new ArrayList<>();
         for (int i = 0; i < list.size() && i < MAX_PAGES; i++) pages.add(list.getString(i));
-        return new Paper(Math.max(0, tag.getInt("number")), tag.getLong("day"), tag.getBoolean("extra"),
-                tag.getString("headline"), pages);
+        return new Paper(
+                Math.max(0, tag.getInt("number")),
+                tag.getLong("day"),
+                tag.getBoolean("extra"),
+                tag.getString("headline"),
+                pages);
     }
 
     /**
@@ -95,7 +99,9 @@ public final class NewspaperData {
             }
             if (title == null) {
                 // 第一个版名之前只有报头
-                if (line.isEmpty() || MASTHEAD.matcher(line).matches() || DAY_LINE.matcher(line).matches()) continue;
+                if (line.isEmpty()
+                        || MASTHEAD.matcher(line).matches()
+                        || DAY_LINE.matcher(line).matches()) continue;
                 title = FRONT_PAGE;
             }
             if (FRONT_PAGE.equals(title) && body.toString().isBlank()) {

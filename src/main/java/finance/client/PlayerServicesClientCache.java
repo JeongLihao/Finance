@@ -1,19 +1,23 @@
 package finance.client;
 
 import finance.network.PlayerServicesResponsePacket;
-
 import java.util.concurrent.atomic.AtomicLong;
 
 /** “更多操作”界面的客户端快照缓存（沿用 MacroClientCache 的请求/超时模式；requestId &lt; 0 是动作后的推送，总是接受）。 */
 public final class PlayerServicesClientCache {
-    public enum State { NOT_REQUESTED, LOADING, READY, SLOW }
+    public enum State {
+        NOT_REQUESTED,
+        LOADING,
+        READY,
+        SLOW
+    }
 
-    public record Entry(State state, long requestId, long at, PlayerServicesResponsePacket data) { }
+    public record Entry(State state, long requestId, long at, PlayerServicesResponsePacket data) {}
 
     private static final AtomicLong SEQ = new AtomicLong();
     private static Entry entry = new Entry(State.NOT_REQUESTED, 0, 0, null);
 
-    private PlayerServicesClientCache() { }
+    private PlayerServicesClientCache() {}
 
     public static synchronized long begin() {
         long id = SEQ.updateAndGet(v -> v == Long.MAX_VALUE ? 1 : v + 1);

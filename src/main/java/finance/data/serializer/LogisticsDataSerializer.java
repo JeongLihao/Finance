@@ -9,16 +9,16 @@ import finance.logistics.ShipmentStatus;
 import finance.logistics.TransportCargo;
 import finance.logistics.TransportCustodyManager;
 import finance.warehouse.WarehouseManager;
+import java.util.UUID;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.StringTag;
 import net.minecraft.nbt.Tag;
 
-import java.util.UUID;
-
 public final class LogisticsDataSerializer {
     public static final String ROOT = "Logistics";
     public static final int VERSION = 1;
+
     private LogisticsDataSerializer() {}
 
     public static void save(CompoundTag root) {
@@ -84,33 +84,61 @@ public final class LogisticsDataSerializer {
                 UUID token = NbtDataSupport.readUuidOrNull(tag, "Token");
                 String commodity = tag.getString("Commodity");
                 ShipmentStatus status = NbtDataSupport.safeEnum(ShipmentStatus.class, tag.getString("Status"), null);
-                if (id == null || source == null || destination == null || creator == null || carrier == null
-                        || token == null || status == null || WarehouseManager.get(source) == null
-                        || WarehouseManager.get(destination) == null || CommodityRegistry.getCommodity(commodity) == null)
-                    { invalid = true; continue; }
-                Shipment shipment = new Shipment(id, source, destination,
-                        NbtDataSupport.readUuidOrNull(tag, "Contract"), commodity, tag.getInt("Quantity"),
-                        creator, carrier, NbtDataSupport.readUuidOrNull(tag, "Company"), status,
-                        tag.getLong("CreatedDay"), tag.getLong("DeadlineDay"), token, tag.getString("Failure"));
+                if (id == null
+                        || source == null
+                        || destination == null
+                        || creator == null
+                        || carrier == null
+                        || token == null
+                        || status == null
+                        || WarehouseManager.get(source) == null
+                        || WarehouseManager.get(destination) == null
+                        || CommodityRegistry.getCommodity(commodity) == null) {
+                    invalid = true;
+                    continue;
+                }
+                Shipment shipment = new Shipment(
+                        id,
+                        source,
+                        destination,
+                        NbtDataSupport.readUuidOrNull(tag, "Contract"),
+                        commodity,
+                        tag.getInt("Quantity"),
+                        creator,
+                        carrier,
+                        NbtDataSupport.readUuidOrNull(tag, "Company"),
+                        status,
+                        tag.getLong("CreatedDay"),
+                        tag.getLong("DeadlineDay"),
+                        token,
+                        tag.getString("Failure"));
                 ListTag operations = tag.getList("Operations", Tag.TAG_STRING);
-                for (int op = Math.max(0, operations.size() - Shipment.MAX_OPERATION_KEYS); op < operations.size(); op++)
-                    shipment.restoreOperation(operations.getString(op));
+                for (int op = Math.max(0, operations.size() - Shipment.MAX_OPERATION_KEYS);
+                        op < operations.size();
+                        op++) shipment.restoreOperation(operations.getString(op));
                 if (!ShipmentManager.restore(shipment)) invalid = true;
-            } catch (RuntimeException exception) { invalid = true; }
+            } catch (RuntimeException exception) {
+                invalid = true;
+            }
         }
         ListTag cargo = data.getList("Cargo", Tag.TAG_COMPOUND);
         for (int i = 0; i < Math.min(ShipmentManager.MAX_RECORDS, cargo.size()); i++) {
             CompoundTag tag = cargo.getCompound(i);
             try {
-                TransportCargo entry = new TransportCargo(NbtDataSupport.readUuidOrNull(tag, "Shipment"),
-                        tag.getString("Commodity"), tag.getInt("Quantity"));
+                TransportCargo entry = new TransportCargo(
+                        NbtDataSupport.readUuidOrNull(tag, "Shipment"),
+                        tag.getString("Commodity"),
+                        tag.getInt("Quantity"));
                 if (CommodityRegistry.getCommodity(entry.commodityId()) == null
                         || !TransportCustodyManager.restore(entry)) invalid = true;
-            } catch (RuntimeException exception) { invalid = true; }
+            } catch (RuntimeException exception) {
+                invalid = true;
+            }
         }
         for (Shipment shipment : ShipmentManager.all().values()) {
             TransportCargo entry = TransportCustodyManager.get(shipment.id());
-            boolean matches = entry != null && entry.commodityId().equals(shipment.commodityId())
+            boolean matches = entry != null
+                    && entry.commodityId().equals(shipment.commodityId())
                     && entry.quantity() == shipment.quantity();
             if (shipment.status().carriesCargo() != matches) {
                 shipment.quarantine("saved transport custody mismatch");
@@ -124,7 +152,8 @@ public final class LogisticsDataSerializer {
             CompoundTag tag = keys.getCompound(i);
             ShipmentManager.restoreLoadKey(tag.getString("Key"), NbtDataSupport.readUuidOrNull(tag, "Shipment"));
         }
-        if (invalid) ModuleHealthRegistry.restrict(ModuleHealthRegistry.Module.LOGISTICS,
-                ModuleRunState.PAUSED, "logistics save invariant failed", 0);
+        if (invalid)
+            ModuleHealthRegistry.restrict(
+                    ModuleHealthRegistry.Module.LOGISTICS, ModuleRunState.PAUSED, "logistics save invariant failed", 0);
     }
 }

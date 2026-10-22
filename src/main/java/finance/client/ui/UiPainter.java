@@ -3,11 +3,10 @@ package finance.client.ui;
 import finance.client.FinanceGui;
 import finance.commodity.Commodity;
 import finance.commodity.CommodityRegistry;
+import java.util.List;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
-
-import java.util.List;
 
 /** 把排好的 {@link UiElement} 画出来，并负责点击和悬停提示。坐标都是面板内坐标。 */
 public final class UiPainter {
@@ -51,7 +50,7 @@ public final class UiPainter {
                 }
                 case CHART -> FinanceGui.drawTrendGraph(g, e.series(), e.x(), e.y(), e.w(), e.h(), e.color());
                 case CANDLES -> FinanceGui.drawHourCandles(g, e.series(), e.x(), e.y(), e.w(), e.h());
-                case INPUT, HOTSPOT -> { }
+                case INPUT, HOTSPOT -> {}
             }
         }
     }

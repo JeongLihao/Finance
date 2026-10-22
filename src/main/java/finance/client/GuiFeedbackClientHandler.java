@@ -5,8 +5,7 @@ import net.minecraft.network.chat.Component;
 
 public final class GuiFeedbackClientHandler {
 
-    private GuiFeedbackClientHandler() {
-    }
+    private GuiFeedbackClientHandler() {}
 
     public static void handle(String message) {
         handle(message, 0);
@@ -29,8 +28,12 @@ public final class GuiFeedbackClientHandler {
             } else if (tone == finance.network.GuiFeedbackPacket.TONE_LOSS) {
                 minecraft.player.playSound(net.minecraft.sounds.SoundEvents.ANVIL_LAND, 0.4F, 0.8F);
             } else if (moneyDelta != 0) {
-                minecraft.player.playSound(moneyDelta > 0 ? net.minecraft.sounds.SoundEvents.EXPERIENCE_ORB_PICKUP
-                        : net.minecraft.sounds.SoundEvents.ITEM_PICKUP, 0.6F, moneyDelta > 0 ? 1.2F : 1.0F);
+                minecraft.player.playSound(
+                        moneyDelta > 0
+                                ? net.minecraft.sounds.SoundEvents.EXPERIENCE_ORB_PICKUP
+                                : net.minecraft.sounds.SoundEvents.ITEM_PICKUP,
+                        0.6F,
+                        moneyDelta > 0 ? 1.2F : 1.0F);
             }
         }
         if (minecraft.screen instanceof FinanceScreen screen) {

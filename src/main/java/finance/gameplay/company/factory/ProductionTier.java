@@ -16,11 +16,17 @@ public enum ProductionTier {
         this.displayName = displayName;
     }
 
-    public int requiredLevel() { return requiredLevel; }
+    public int requiredLevel() {
+        return requiredLevel;
+    }
 
-    public String displayName() { return displayName; }
+    public String displayName() {
+        return displayName;
+    }
 
-    public String translationKey() { return "screen.finance.factory.tier." + name().toLowerCase(Locale.ROOT); }
+    public String translationKey() {
+        return "screen.finance.factory.tier." + name().toLowerCase(Locale.ROOT);
+    }
 
     public static ProductionTier parse(String name) {
         if (name == null || name.isBlank()) return null;

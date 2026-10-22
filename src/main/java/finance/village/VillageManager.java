@@ -4,7 +4,6 @@ import finance.account.AccountManager;
 import finance.commodity.CommodityRegistry;
 import finance.config.FinanceConfig;
 import finance.data.EconomySavedData;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -66,7 +65,8 @@ public final class VillageManager {
             assigned += count;
         }
         mix.put(professions[professions.length - 1], population - assigned);
-        UUID budgetAccountId = AccountManager.getOrCreateSystemAccount(UUID.randomUUID()).getPlayerId();
+        UUID budgetAccountId =
+                AccountManager.getOrCreateSystemAccount(UUID.randomUUID()).getPlayerId();
         VillageRecord created = new VillageRecord(settlementId, population, mix, budgetAccountId, 0L, 0);
         VILLAGES.put(settlementId, created);
         EconomySavedData.markDirty();
@@ -91,8 +91,7 @@ public final class VillageManager {
      * commodity 必须已在 {@code CommodityRegistry} 注册，否则抛 IllegalArgumentException。
      */
     public static VillageStall registerStall(UUID settlementId, UUID ownerId, String commodityId, long unitPrice) {
-        if (settlementId == null || ownerId == null)
-            throw new IllegalArgumentException("settlementId/ownerId 不能为空");
+        if (settlementId == null || ownerId == null) throw new IllegalArgumentException("settlementId/ownerId 不能为空");
         if (commodityId == null || commodityId.isBlank() || commodityId.length() > 64)
             throw new IllegalArgumentException("commodityId 非法");
         if (unitPrice < 1) throw new IllegalArgumentException("unitPrice 必须 ≥ 1");
@@ -127,7 +126,6 @@ public final class VillageManager {
         return out;
     }
 
-
     /**
      * 移除摊位并返回 true；不存在返回 false。
      * 调用方保证先清空摊位库存（下架撤回）。
@@ -155,7 +153,9 @@ public final class VillageManager {
         if (STALL_KEYS.containsKey(key)) return false;
         if (STALLS.putIfAbsent(stall.id(), stall) != null) return false;
         STALL_KEYS.put(key, stall.id());
-        STALLS_BY_SETTLEMENT.computeIfAbsent(stall.settlementId(), k -> new HashSet<>()).add(stall.id());
+        STALLS_BY_SETTLEMENT
+                .computeIfAbsent(stall.settlementId(), k -> new HashSet<>())
+                .add(stall.id());
         return true;
     }
 

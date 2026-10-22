@@ -8,7 +8,7 @@ import java.util.List;
 public final class NpcInvestorScoring {
     public static final int MAX_SCORE = 10_000;
 
-    private NpcInvestorScoring() { }
+    private NpcInvestorScoring() {}
 
     /**
      * 评分输入：只读的公司/股票画像。
@@ -21,12 +21,17 @@ public final class NpcInvestorScoring {
      * @param dividendCount      最近两个分红周期内的分红次数
      * @param bankruptcyRisk     是否处于破产风险
      */
-    public record Profile(long price, long fundamentalPerShare, double dayChangePercent,
-                          List<Long> recentProfits, long recentDividendPerShare, int dividendCount,
-                          boolean bankruptcyRisk) { }
+    public record Profile(
+            long price,
+            long fundamentalPerShare,
+            double dayChangePercent,
+            List<Long> recentProfits,
+            long recentDividendPerShare,
+            int dividendCount,
+            boolean bankruptcyRisk) {}
 
     /** 评分结果：分数与可展示的理由代码。 */
-    public record Score(int value, NpcReason reason) { }
+    public record Score(int value, NpcReason reason) {}
 
     public static Score score(NpcInvestorArchetype archetype, Profile p) {
         if (archetype == null || p == null || p.price() <= 0) return new Score(0, NpcReason.NO_PRICE);

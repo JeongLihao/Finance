@@ -19,12 +19,22 @@ public enum FactoryEquipment {
     BLAST_FURNACE("高炉", "minecraft:blast_furnace"),
     REDSTONE_LAMP(false, "红石灯", "minecraft:redstone_lamp"),
     FURNACE("熔炉", "minecraft:furnace"),
-    CAULDRON("炼药锅", "minecraft:cauldron", "minecraft:water_cauldron", "minecraft:lava_cauldron",
+    CAULDRON(
+            "炼药锅",
+            "minecraft:cauldron",
+            "minecraft:water_cauldron",
+            "minecraft:lava_cauldron",
             "minecraft:powder_snow_cauldron"),
     STONECUTTER("切石机", "minecraft:stonecutter"),
     ANVIL("铁砧", "minecraft:anvil", "minecraft:chipped_anvil", "minecraft:damaged_anvil"),
     GRINDSTONE("砂轮", "minecraft:grindstone"),
-    RAIL(false, "铁轨", "minecraft:rail", "minecraft:powered_rail", "minecraft:detector_rail", "minecraft:activator_rail"),
+    RAIL(
+            false,
+            "铁轨",
+            "minecraft:rail",
+            "minecraft:powered_rail",
+            "minecraft:detector_rail",
+            "minecraft:activator_rail"),
     CHEST(false, "箱子", "minecraft:chest", "minecraft:trapped_chest"),
     LOOM("织布机", "minecraft:loom");
 
@@ -43,14 +53,22 @@ public enum FactoryEquipment {
         this.blockIds = List.of(blockIds);
     }
 
-    public boolean providesJobs() { return providesJobs; }
+    public boolean providesJobs() {
+        return providesJobs;
+    }
 
-    public String displayName() { return displayName; }
+    public String displayName() {
+        return displayName;
+    }
 
-    public List<String> blockIds() { return blockIds; }
+    public List<String> blockIds() {
+        return blockIds;
+    }
 
     /** 本地化键：screen.finance.factory.equipment.&lt;小写名&gt;。 */
-    public String translationKey() { return "screen.finance.factory.equipment." + name().toLowerCase(Locale.ROOT); }
+    public String translationKey() {
+        return "screen.finance.factory.equipment." + name().toLowerCase(Locale.ROOT);
+    }
 
     /** 按方块注册名找设备；不是设备返回 null。 */
     public static FactoryEquipment fromBlockId(String blockId) {

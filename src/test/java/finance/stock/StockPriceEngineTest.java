@@ -1,9 +1,9 @@
 package finance.stock;
 
-import org.junit.jupiter.api.Test;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import org.junit.jupiter.api.Test;
 
 class StockPriceEngineTest {
 
@@ -21,8 +21,7 @@ class StockPriceEngineTest {
 
         engine.recordTrade(100, 10, 100, true);
 
-        assertTrue(engine.getCurrentPrice() > 100,
-                "买入成交后价格应被推高");
+        assertTrue(engine.getCurrentPrice() > 100, "买入成交后价格应被推高");
     }
 
     @Test
@@ -34,8 +33,7 @@ class StockPriceEngineTest {
 
         engine.recordTrade(priceAfterBuy, 10, 100, false);
 
-        assertTrue(engine.getTradeMomentum() < momentumAfterBuy,
-                "卖出成交后交易动量应从买入压力中回落");
+        assertTrue(engine.getTradeMomentum() < momentumAfterBuy, "卖出成交后交易动量应从买入压力中回落");
     }
 
     @Test
@@ -44,8 +42,7 @@ class StockPriceEngineTest {
 
         engine.updateFairValue(1000, 10, 0, 1.0);
 
-        assertEquals(90, engine.getFairValue(),
-                "1000 资产 / 10 股，在最高行业景气度下应经过 0.90 风险折扣");
+        assertEquals(90, engine.getFairValue(), "1000 资产 / 10 股，在最高行业景气度下应经过 0.90 风险折扣");
     }
 
     @Test
@@ -56,8 +53,7 @@ class StockPriceEngineTest {
 
         engine.tickMomentum();
 
-        assertTrue(Math.abs(engine.getTradeMomentum()) < Math.abs(momentumBefore),
-                "tick 后交易动量应衰减");
+        assertTrue(Math.abs(engine.getTradeMomentum()) < Math.abs(momentumBefore), "tick 后交易动量应衰减");
     }
 
     @Test
@@ -68,7 +64,6 @@ class StockPriceEngineTest {
 
         engine.recalculateFromCurrent();
 
-        assertTrue(engine.getCurrentPrice() >= 20,
-                "价格不应低于 fairValue * 0.2 的下限");
+        assertTrue(engine.getCurrentPrice() >= 20, "价格不应低于 fairValue * 0.2 的下限");
     }
 }

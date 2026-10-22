@@ -1,13 +1,13 @@
 package finance.chart;
 
-import org.junit.jupiter.api.Test;
-
-import java.util.List;
-
 import static org.junit.jupiter.api.Assertions.*;
 
+import java.util.List;
+import org.junit.jupiter.api.Test;
+
 class MarketSummaryTest {
-    @Test void summaryUsesRequestedWindowExtremesAndMarksCurrentDayVolumeSpike() {
+    @Test
+    void summaryUsesRequestedWindowExtremesAndMarksCurrentDayVolumeSpike() {
         List<Candlestick> bars = List.of(
                 new Candlestick(1, 100, 110, 90, 105, 10),
                 new Candlestick(2, 105, 108, 95, 100, 10),

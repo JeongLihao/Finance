@@ -11,13 +11,12 @@ import finance.governance.CapitalActionStatus;
 import finance.governance.CorporateActionManager;
 import finance.governance.TakeoverService;
 import finance.governance.TenderOffer;
+import java.util.List;
+import java.util.UUID;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
-
-import java.util.List;
-import java.util.UUID;
 
 /**
  * /takeover —— 公司并购 / 要约收购。
@@ -29,45 +28,32 @@ import java.util.UUID;
 public class TakeoverCommand {
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
-        dispatcher.register(
-                Commands.literal("takeover")
-                        .then(
-                                Commands.literal("offer")
-                                        .then(Commands.argument("company", StringArgumentType.greedyString())
-                                                .then(Commands.argument("price", LongArgumentType.longArg(1))
-                                                        .then(Commands.argument("targetShares", LongArgumentType.longArg(1))
-                                                                .then(Commands.argument("minShares", LongArgumentType.longArg(1))
-                                                                        .then(Commands.argument("days", IntegerArgumentType.integer(1, 90))
-                                                                                .executes(TakeoverCommand::offer))))))
-                        )
-                        .then(
-                                Commands.literal("accept")
-                                        .then(Commands.argument("offerId", StringArgumentType.word())
-                                                .then(Commands.argument("shares", LongArgumentType.longArg(1))
-                                                        .executes(TakeoverCommand::accept)))
-                        )
-                        .then(
-                                Commands.literal("cancel")
-                                        .then(Commands.argument("offerId", StringArgumentType.word())
-                                                .executes(TakeoverCommand::cancel))
-                        )
-                        .then(
-                                Commands.literal("list")
-                                        .executes(TakeoverCommand::list)
-                                        .then(Commands.argument("company", StringArgumentType.greedyString())
-                                                .executes(TakeoverCommand::listFor))
-                        )
-                        .then(
-                                Commands.literal("info")
-                                        .then(Commands.argument("offerId", StringArgumentType.word())
-                                                .executes(TakeoverCommand::info))
-                        )
-                        .then(
-                                Commands.literal("squeeze")
-                                        .then(Commands.argument("company", StringArgumentType.greedyString())
-                                                .executes(TakeoverCommand::squeeze))
-                        )
-        );
+        dispatcher.register(Commands.literal("takeover")
+                .then(Commands.literal("offer")
+                        .then(Commands.argument("company", StringArgumentType.greedyString())
+                                .then(Commands.argument("price", LongArgumentType.longArg(1))
+                                        .then(Commands.argument("targetShares", LongArgumentType.longArg(1))
+                                                .then(Commands.argument("minShares", LongArgumentType.longArg(1))
+                                                        .then(Commands.argument(
+                                                                        "days", IntegerArgumentType.integer(1, 90))
+                                                                .executes(TakeoverCommand::offer)))))))
+                .then(Commands.literal("accept")
+                        .then(Commands.argument("offerId", StringArgumentType.word())
+                                .then(Commands.argument("shares", LongArgumentType.longArg(1))
+                                        .executes(TakeoverCommand::accept))))
+                .then(Commands.literal("cancel")
+                        .then(Commands.argument("offerId", StringArgumentType.word())
+                                .executes(TakeoverCommand::cancel)))
+                .then(Commands.literal("list")
+                        .executes(TakeoverCommand::list)
+                        .then(Commands.argument("company", StringArgumentType.greedyString())
+                                .executes(TakeoverCommand::listFor)))
+                .then(Commands.literal("info")
+                        .then(Commands.argument("offerId", StringArgumentType.word())
+                                .executes(TakeoverCommand::info)))
+                .then(Commands.literal("squeeze")
+                        .then(Commands.argument("company", StringArgumentType.greedyString())
+                                .executes(TakeoverCommand::squeeze))));
     }
 
     private static int offer(com.mojang.brigadier.context.CommandContext<CommandSourceStack> ctx) {
@@ -91,12 +77,17 @@ public class TakeoverCommand {
         }
         long day = EconomyCycleService.currentMcDay(player.server);
         CorporateActionManager.Result result = TakeoverService.offerTender(
-                player.getUUID(), company.getCompanyId(), price, targetShares, minShares, days, day,
+                player.getUUID(),
+                company.getCompanyId(),
+                price,
+                targetShares,
+                minShares,
+                days,
+                day,
                 UUID.randomUUID().toString());
         player.sendSystemMessage(Component.literal(result.message()));
         if (result.success()) {
-            player.sendSystemMessage(Component.literal(
-                    "要约已公告，目标公司股票停牌 " + days + " 天。要约 ID: " + result.id()));
+            player.sendSystemMessage(Component.literal("要约已公告，目标公司股票停牌 " + days + " 天。要约 ID: " + result.id()));
         }
         return result.success() ? 1 : 0;
     }
@@ -122,8 +113,7 @@ public class TakeoverCommand {
                 player.getUUID(), offerId, shares, day, UUID.randomUUID().toString());
         player.sendSystemMessage(Component.literal(result.message()));
         if (result.success()) {
-            player.sendSystemMessage(Component.literal(
-                    "已锁定 " + shares + " 股，交割前不可交易；若要约失败将按原成本价返还。"));
+            player.sendSystemMessage(Component.literal("已锁定 " + shares + " 股，交割前不可交易；若要约失败将按原成本价返还。"));
         }
         return result.success() ? 1 : 0;
     }
@@ -164,8 +154,8 @@ public class TakeoverCommand {
         return listInternal(ctx, company.getCompanyId());
     }
 
-    private static int listInternal(com.mojang.brigadier.context.CommandContext<CommandSourceStack> ctx,
-                                    UUID companyId) {
+    private static int listInternal(
+            com.mojang.brigadier.context.CommandContext<CommandSourceStack> ctx, UUID companyId) {
         List<TenderOffer> offers = TakeoverService.openTenders().stream()
                 .filter(o -> companyId == null || o.targetCompanyId().equals(companyId))
                 .toList();
@@ -177,11 +167,14 @@ public class TakeoverCommand {
         for (TenderOffer o : offers) {
             Company c = CompanyManager.getCompany(o.targetCompanyId());
             String name = c == null ? "?" : c.getName();
-            long accepted = o.accepted().values().stream().mapToLong(Long::longValue).sum();
-            ctx.getSource().sendSuccess(() -> Component.literal(
-                    o.id() + " | " + name + " | 价格 " + o.price()
-                            + " | 已接受 " + accepted + "/" + o.targetShares()
-                            + (o.isSqueezeOut() ? " | 强制私有化" : "")), false);
+            long accepted =
+                    o.accepted().values().stream().mapToLong(Long::longValue).sum();
+            ctx.getSource()
+                    .sendSuccess(
+                            () -> Component.literal(o.id() + " | " + name + " | 价格 " + o.price()
+                                    + " | 已接受 " + accepted + "/" + o.targetShares()
+                                    + (o.isSqueezeOut() ? " | 强制私有化" : "")),
+                            false);
         }
         return 1;
     }
@@ -201,7 +194,8 @@ public class TakeoverCommand {
         }
         Company c = CompanyManager.getCompany(o.targetCompanyId());
         String name = c == null ? "?" : c.getName();
-        long accepted = o.accepted().values().stream().mapToLong(Long::longValue).sum();
+        long accepted =
+                o.accepted().values().stream().mapToLong(Long::longValue).sum();
         long day;
         try {
             day = EconomyCycleService.currentMcDay(ctx.getSource().getServer());
@@ -213,9 +207,13 @@ public class TakeoverCommand {
         sb.append("=== 要约详情 ===\n");
         sb.append("目标公司: ").append(name).append("\n");
         sb.append("要约价: ").append(o.price()).append("\n");
-        sb.append("目标股数: ").append(o.targetShares())
-                .append(" | 已接受: ").append(accepted)
-                .append(" | 最低接受: ").append(o.minShares()).append("\n");
+        sb.append("目标股数: ")
+                .append(o.targetShares())
+                .append(" | 已接受: ")
+                .append(accepted)
+                .append(" | 最低接受: ")
+                .append(o.minShares())
+                .append("\n");
         sb.append("托管金额: ").append(o.maxFunds()).append("\n");
         sb.append("状态: ").append(o.status()).append("\n");
         if (o.status() == CapitalActionStatus.OPEN) {

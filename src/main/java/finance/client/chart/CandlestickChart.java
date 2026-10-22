@@ -2,11 +2,10 @@ package finance.client.chart;
 
 import finance.chart.Candlestick;
 import finance.chart.MovingAverage;
+import java.util.List;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
-
-import java.util.List;
 
 public final class CandlestickChart {
 
@@ -16,11 +15,18 @@ public final class CandlestickChart {
     private static final int MA5 = 0xFFE19B32;
     private static final int MA10 = 0xFF4F78C4;
 
-    private CandlestickChart() {
-    }
+    private CandlestickChart() {}
 
-    public static void render(GuiGraphics graphics, Font font, List<Candlestick> input,
-                              int x, int y, int width, int height, int mouseX, int mouseY) {
+    public static void render(
+            GuiGraphics graphics,
+            Font font,
+            List<Candlestick> input,
+            int x,
+            int y,
+            int width,
+            int height,
+            int mouseX,
+            int mouseY) {
         graphics.fill(x, y, x + width, y + height, 0xFFF5F1E5);
         outline(graphics, x, y, width, height, 0xFF555555);
         if (input == null || input.isEmpty() || width < 40 || height < 40) {
@@ -57,45 +63,76 @@ public final class CandlestickChart {
             graphics.fill(centerX, highY, centerX + 1, lowY + 1, color);
             int bodyTop = Math.min(openY, closeY);
             int bodyBottom = Math.max(openY, closeY);
-            graphics.fill(centerX - bodyWidth / 2, bodyTop,
-                    centerX + (bodyWidth + 1) / 2, Math.max(bodyTop + 1, bodyBottom + 1), color);
+            graphics.fill(
+                    centerX - bodyWidth / 2,
+                    bodyTop,
+                    centerX + (bodyWidth + 1) / 2,
+                    Math.max(bodyTop + 1, bodyBottom + 1),
+                    color);
             if (maxVolume > 0 && bar.volume() > 0) {
-                int volumePixels = Math.max(1, (int) Math.round((double) bar.volume() / maxVolume * (volumeHeight - 4)));
-                graphics.fill(centerX - bodyWidth / 2, y + height - 3 - volumePixels,
-                        centerX + (bodyWidth + 1) / 2, y + height - 3, color & 0x88FFFFFF);
+                int volumePixels =
+                        Math.max(1, (int) Math.round((double) bar.volume() / maxVolume * (volumeHeight - 4)));
+                graphics.fill(
+                        centerX - bodyWidth / 2,
+                        y + height - 3 - volumePixels,
+                        centerX + (bodyWidth + 1) / 2,
+                        y + height - 3,
+                        color & 0x88FFFFFF);
             }
             if (mouseX >= centerX - Math.max(2, (int) Math.ceil(slot / 2))
                     && mouseX <= centerX + Math.max(2, (int) Math.ceil(slot / 2))
-                    && mouseY >= y && mouseY <= y + height) hovered = index;
+                    && mouseY >= y
+                    && mouseY <= y + height) hovered = index;
         }
 
         drawMovingAverage(graphics, MovingAverage.simple(bars, 5), x, slot, min, range, priceTop, priceBottom, MA5);
         drawMovingAverage(graphics, MovingAverage.simple(bars, 10), x, slot, min, range, priceTop, priceBottom, MA10);
         graphics.drawString(font, "MA5", x + 5, y + 2, MA5, false);
         graphics.drawString(font, "MA10", x + 36, y + 2, MA10, false);
-        graphics.drawString(font, Long.toString(max), x + width - font.width(Long.toString(max)) - 3, y + 2, 0xFF666666, false);
-        graphics.drawString(font, Long.toString(min), x + width - font.width(Long.toString(min)) - 3,
-                priceBottom - font.lineHeight, 0xFF666666, false);
+        graphics.drawString(
+                font, Long.toString(max), x + width - font.width(Long.toString(max)) - 3, y + 2, 0xFF666666, false);
+        graphics.drawString(
+                font,
+                Long.toString(min),
+                x + width - font.width(Long.toString(min)) - 3,
+                priceBottom - font.lineHeight,
+                0xFF666666,
+                false);
         String firstDay = "D" + bars.get(0).mcDay();
         String lastDay = "D" + bars.get(bars.size() - 1).mcDay();
         graphics.drawString(font, firstDay, x + 3, y + height - font.lineHeight - 1, 0xFF666666, false);
-        graphics.drawString(font, lastDay, x + width - font.width(lastDay) - 3,
-                y + height - font.lineHeight - 1, 0xFF666666, false);
+        graphics.drawString(
+                font,
+                lastDay,
+                x + width - font.width(lastDay) - 3,
+                y + height - font.lineHeight - 1,
+                0xFF666666,
+                false);
 
         if (hovered >= 0) {
             Candlestick bar = bars.get(hovered);
             long previous = hovered > 0 ? bars.get(hovered - 1).close() : bar.open();
             double changePercent = previous <= 0 ? 0 : (double) (bar.close() - previous) / previous * 100.0;
-            graphics.renderTooltip(font, Component.literal("第" + bar.mcDay() + "天  开" + bar.open()
-                    + " 高" + bar.high() + " 低" + bar.low() + " 收" + bar.close() + " 量" + bar.volume()
-                    + " " + String.format(java.util.Locale.ROOT, "%+.1f%%", changePercent)),
-                    mouseX, mouseY);
+            graphics.renderTooltip(
+                    font,
+                    Component.literal("第" + bar.mcDay() + "天  开" + bar.open()
+                            + " 高" + bar.high() + " 低" + bar.low() + " 收" + bar.close() + " 量" + bar.volume()
+                            + " " + String.format(java.util.Locale.ROOT, "%+.1f%%", changePercent)),
+                    mouseX,
+                    mouseY);
         }
     }
 
-    private static void drawMovingAverage(GuiGraphics graphics, double[] averages,
-                                          int x, double slot, long min, double range,
-                                          int top, int bottom, int color) {
+    private static void drawMovingAverage(
+            GuiGraphics graphics,
+            double[] averages,
+            int x,
+            double slot,
+            long min,
+            double range,
+            int top,
+            int bottom,
+            int color) {
         int previousX = 0;
         int previousY = 0;
         for (int index = 0; index < averages.length; index++) {

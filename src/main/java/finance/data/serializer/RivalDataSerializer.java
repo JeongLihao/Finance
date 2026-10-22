@@ -5,13 +5,12 @@ import finance.diagnostic.ModuleRunState;
 import finance.rival.RivalManager;
 import finance.rival.RivalPersonality;
 import finance.rival.RivalProfile;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.Tag;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.Tag;
 
 /**
  * NPC 竞争公司档案持久化（DataVersion 41 新增）。旧存档没有该标签时，系统公司的档案会在第一次日结时懒创建。
@@ -21,7 +20,7 @@ public final class RivalDataSerializer {
     public static final String ROOT = "Rivals";
     public static final int VERSION = 1;
 
-    private RivalDataSerializer() { }
+    private RivalDataSerializer() {}
 
     public static void save(CompoundTag root) {
         CompoundTag data = new CompoundTag();
@@ -66,31 +65,46 @@ public final class RivalDataSerializer {
         List<RivalProfile> profiles = new ArrayList<>();
         ListTag raw = data.getList("Profiles", Tag.TAG_COMPOUND);
         for (int i = 0; i < raw.size(); i++) {
-            if (profiles.size() >= RivalManager.MAX_PROFILES) { skipped += raw.size() - i; break; }
+            if (profiles.size() >= RivalManager.MAX_PROFILES) {
+                skipped += raw.size() - i;
+                break;
+            }
             try {
                 CompoundTag t = raw.getCompound(i);
                 UUID id = t.getUUID("Company");
                 RivalPersonality personality = RivalPersonality.parse(t.getString("Personality"));
-                if (personality == null) { skipped++; continue; }
-                RivalProfile profile = new RivalProfile(id, personality, t.getString("Commodity"), t.getLong("Created"));
+                if (personality == null) {
+                    skipped++;
+                    continue;
+                }
+                RivalProfile profile =
+                        new RivalProfile(id, personality, t.getString("Commodity"), t.getLong("Created"));
                 List<RivalProfile.Decision> history = new ArrayList<>();
                 for (Tag h : t.getList("History", Tag.TAG_COMPOUND)) {
                     CompoundTag ht = (CompoundTag) h;
-                    history.add(new RivalProfile.Decision(ht.getLong("Day"), ht.getString("Action"), ht.getString("Detail")));
+                    history.add(new RivalProfile.Decision(
+                            ht.getLong("Day"), ht.getString("Action"), ht.getString("Detail")));
                 }
                 profile.restoreDirect(t.getLong("LastUpgrade"), history);
-                profile.restoreHostile(t.hasUUID("HostileTarget") ? t.getUUID("HostileTarget") : null,
-                        longOr(t, "HostileStart"), longOr(t, "HostileCooldown"), longOr(t, "LastActivism"));
+                profile.restoreHostile(
+                        t.hasUUID("HostileTarget") ? t.getUUID("HostileTarget") : null,
+                        longOr(t, "HostileStart"),
+                        longOr(t, "HostileCooldown"),
+                        longOr(t, "LastActivism"));
                 profiles.add(profile);
             } catch (Exception e) {
                 skipped++;
             }
         }
-        RivalManager.restoreDirect(longOr(data, "LastProcessedDay"), longOr(data, "LastSpawnDay"),
-                longOr(data, "LastBankruptcyDay"), longOr(data, "LastHostileDay"), profiles);
+        RivalManager.restoreDirect(
+                longOr(data, "LastProcessedDay"),
+                longOr(data, "LastSpawnDay"),
+                longOr(data, "LastBankruptcyDay"),
+                longOr(data, "LastHostileDay"),
+                profiles);
         if (invalid || skipped > 0) {
-            ModuleHealthRegistry.restrict(ModuleHealthRegistry.Module.RIVALS, ModuleRunState.READ_ONLY,
-                    "竞争公司存档 " + skipped + " 条损坏已跳过", -1);
+            ModuleHealthRegistry.restrict(
+                    ModuleHealthRegistry.Module.RIVALS, ModuleRunState.READ_ONLY, "竞争公司存档 " + skipped + " 条损坏已跳过", -1);
         }
     }
 

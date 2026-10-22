@@ -1,14 +1,13 @@
 package finance.client;
 
 import finance.item.NewspaperData;
+import java.util.ArrayList;
+import java.util.List;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
 import org.lwjgl.glfw.GLFW;
-
-import java.util.ArrayList;
-import java.util.List;
 
 /** 《金融周报》阅读界面：报头 + 版面页签 + 双栏正文。
  * ← → 换版，↑ ↓ / 滚轮翻栏；头版先排 2 倍大的头条，再接正文。 */
@@ -27,6 +26,7 @@ public final class NewspaperScreen extends Screen {
     private static final int LINE_H = 10;
     /** 头条放大倍数必须是整数，否则像素字体会糊；行高与坐标都取偶数，放大后仍对齐像素。 */
     private static final int HEADLINE_SCALE = 2, HEADLINE_LINE_H = 18;
+
     private static final int PREV_X = MARGIN, NEXT_X = MARGIN + 56, CLOSE_X = PANEL_WIDTH - MARGIN - 52, BUTTON_W = 52;
 
     private final NewspaperData.Paper paper;
@@ -53,12 +53,15 @@ public final class NewspaperScreen extends Screen {
     }
 
     private boolean onFront() {
-        return !sections.isEmpty() && section == 0 && NewspaperData.FRONT_PAGE.equals(sections.get(0).title());
+        return !sections.isEmpty()
+                && section == 0
+                && NewspaperData.FRONT_PAGE.equals(sections.get(0).title());
     }
 
     private void layoutSection() {
         columnPage = 0;
-        bodyLines = sections.isEmpty() ? List.of()
+        bodyLines = sections.isEmpty()
+                ? List.of()
                 : font.split(Component.literal(sections.get(section).body()), COLUMN_W);
         // 头条放大 2 倍（整数倍，像素字体不糊），所以按一半宽度折行
         headlineLines = onFront() && paper != null && !paper.headline().isBlank()
@@ -115,18 +118,37 @@ public final class NewspaperScreen extends Screen {
         renderBody(g);
 
         g.fill(MARGIN, FOOTER_Y - 4, PANEL_WIDTH - MARGIN, FOOTER_Y - 3, RULE);
-        FinanceGui.drawButton(font, g, Component.translatable("screen.finance.newspaper.prev").getString(),
-                PREV_X, FOOTER_Y, BUTTON_W, section > 0 && hit(mx, my, PREV_X));
-        FinanceGui.drawButton(font, g, Component.translatable("screen.finance.newspaper.next").getString(),
-                NEXT_X, FOOTER_Y, BUTTON_W, section < sections.size() - 1 && hit(mx, my, NEXT_X));
-        FinanceGui.drawButton(font, g, Component.translatable("screen.finance.guide.close").getString(),
-                CLOSE_X, FOOTER_Y, BUTTON_W, hit(mx, my, CLOSE_X));
+        FinanceGui.drawButton(
+                font,
+                g,
+                Component.translatable("screen.finance.newspaper.prev").getString(),
+                PREV_X,
+                FOOTER_Y,
+                BUTTON_W,
+                section > 0 && hit(mx, my, PREV_X));
+        FinanceGui.drawButton(
+                font,
+                g,
+                Component.translatable("screen.finance.newspaper.next").getString(),
+                NEXT_X,
+                FOOTER_Y,
+                BUTTON_W,
+                section < sections.size() - 1 && hit(mx, my, NEXT_X));
+        FinanceGui.drawButton(
+                font,
+                g,
+                Component.translatable("screen.finance.guide.close").getString(),
+                CLOSE_X,
+                FOOTER_Y,
+                BUTTON_W,
+                hit(mx, my, CLOSE_X));
         int pages = columnPages();
         String hint = pages > 1
-                ? Component.translatable("screen.finance.newspaper.columns", columnPage + 1, pages).getString()
+                ? Component.translatable("screen.finance.newspaper.columns", columnPage + 1, pages)
+                        .getString()
                 : Component.translatable("screen.finance.newspaper.keys").getString();
-        FinanceGui.drawCenteredClippedString(font, g, hint, NEXT_X + BUTTON_W + 4, FOOTER_Y + 3,
-                CLOSE_X - NEXT_X - BUTTON_W - 8, INK_DIM);
+        FinanceGui.drawCenteredClippedString(
+                font, g, hint, NEXT_X + BUTTON_W + 4, FOOTER_Y + 3, CLOSE_X - NEXT_X - BUTTON_W - 8, INK_DIM);
 
         g.pose().popPose();
         super.render(g, mouseX, mouseY, partialTick);
@@ -134,8 +156,9 @@ public final class NewspaperScreen extends Screen {
 
     private void renderMasthead(GuiGraphics g) {
         boolean extra = paper != null && paper.extra();
-        String name = Component.translatable(extra ? "screen.finance.newspaper.extra_masthead"
-                : "screen.finance.newspaper.masthead").getString();
+        String name = Component.translatable(
+                        extra ? "screen.finance.newspaper.extra_masthead" : "screen.finance.newspaper.masthead")
+                .getString();
         g.pose().pushPose();
         g.pose().scale(2.0F, 2.0F, 1.0F);
         g.drawString(font, name, (PANEL_WIDTH / 2 - font.width(name)) / 2, 2, extra ? EXTRA_RED : INK, false);
@@ -144,8 +167,10 @@ public final class NewspaperScreen extends Screen {
         g.fill(MARGIN, 24, PANEL_WIDTH - MARGIN, 26, RULE);
         g.fill(MARGIN, 27, PANEL_WIDTH - MARGIN, 28, RULE);
         if (paper != null) {
-            String issue = Component.translatable("screen.finance.newspaper.issue", paper.number()).getString();
-            String day = Component.translatable("screen.finance.newspaper.day", paper.day()).getString();
+            String issue = Component.translatable("screen.finance.newspaper.issue", paper.number())
+                    .getString();
+            String day = Component.translatable("screen.finance.newspaper.day", paper.day())
+                    .getString();
             g.drawString(font, issue, MARGIN, 30, INK_DIM, false);
             g.drawString(font, day, PANEL_WIDTH - MARGIN - font.width(day), 30, INK_DIM, false);
         }
@@ -160,13 +185,14 @@ public final class NewspaperScreen extends Screen {
         int x = MARGIN;
         for (int i = 0; i < sections.size(); i++) {
             String label = sections.get(i).title();
-            int w = natural <= available ? font.width(label) + 10
+            int w = natural <= available
+                    ? font.width(label) + 10
                     : Math.max(18, (available - (sections.size() - 1) * 2) / sections.size());
             boolean active = i == section;
             boolean hovered = mx >= x && mx < x + w && my >= TABS_Y && my < TABS_Y + TAB_H;
             g.fill(x, TABS_Y, x + w, TABS_Y + TAB_H, active ? RULE : hovered ? 0xFFD8CBAA : TAB_IDLE);
             FinanceGui.drawCenteredClippedString(font, g, label, x, TABS_Y + 2, w, active ? PAPER : INK);
-            tabBounds.add(new int[]{x, w});
+            tabBounds.add(new int[] {x, w});
             x += w + 2;
         }
         g.fill(MARGIN, TABS_Y + TAB_H, PANEL_WIDTH - MARGIN, TABS_Y + TAB_H + 1, RULE);
@@ -174,8 +200,14 @@ public final class NewspaperScreen extends Screen {
 
     private void renderBody(GuiGraphics g) {
         if (sections.isEmpty()) {
-            FinanceGui.drawCenteredClippedString(font, g, Component.translatable("screen.finance.newspaper.empty").getString(),
-                    0, BODY_Y + 30, PANEL_WIDTH, INK_DIM);
+            FinanceGui.drawCenteredClippedString(
+                    font,
+                    g,
+                    Component.translatable("screen.finance.newspaper.empty").getString(),
+                    0,
+                    BODY_Y + 30,
+                    PANEL_WIDTH,
+                    INK_DIM);
             return;
         }
         int y = BODY_Y;
@@ -183,8 +215,13 @@ public final class NewspaperScreen extends Screen {
             g.pose().pushPose();
             g.pose().scale(HEADLINE_SCALE, HEADLINE_SCALE, 1.0F);
             for (int i = 0; i < Math.min(2, headlineLines.size()); i++) {
-                g.drawString(font, headlineLines.get(i), MARGIN / HEADLINE_SCALE, (y + i * HEADLINE_LINE_H) / HEADLINE_SCALE,
-                        paper.extra() ? EXTRA_RED : INK, false);
+                g.drawString(
+                        font,
+                        headlineLines.get(i),
+                        MARGIN / HEADLINE_SCALE,
+                        (y + i * HEADLINE_LINE_H) / HEADLINE_SCALE,
+                        paper.extra() ? EXTRA_RED : INK,
+                        false);
             }
             g.pose().popPose();
             y += headlineHeight();
@@ -213,13 +250,25 @@ public final class NewspaperScreen extends Screen {
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         int mx = (int) mouseX - left, my = (int) mouseY - top;
         if (button == 0) {
-            if (hit(mx, my, PREV_X)) { goToSection(section - 1); return true; }
-            if (hit(mx, my, NEXT_X)) { goToSection(section + 1); return true; }
-            if (hit(mx, my, CLOSE_X)) { onClose(); return true; }
+            if (hit(mx, my, PREV_X)) {
+                goToSection(section - 1);
+                return true;
+            }
+            if (hit(mx, my, NEXT_X)) {
+                goToSection(section + 1);
+                return true;
+            }
+            if (hit(mx, my, CLOSE_X)) {
+                onClose();
+                return true;
+            }
             if (my >= TABS_Y && my < TABS_Y + TAB_H) {
                 for (int i = 0; i < tabBounds.size(); i++) {
                     int[] b = tabBounds.get(i);
-                    if (mx >= b[0] && mx < b[0] + b[1]) { goToSection(i); return true; }
+                    if (mx >= b[0] && mx < b[0] + b[1]) {
+                        goToSection(i);
+                        return true;
+                    }
                 }
             }
             // 点正文左半栏往回翻、右半栏往后翻
@@ -240,11 +289,25 @@ public final class NewspaperScreen extends Screen {
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
         switch (keyCode) {
-            case GLFW.GLFW_KEY_LEFT -> { goToSection(section - 1); return true; }
-            case GLFW.GLFW_KEY_RIGHT -> { goToSection(section + 1); return true; }
-            case GLFW.GLFW_KEY_UP, GLFW.GLFW_KEY_PAGE_UP -> { turnColumns(-1); return true; }
-            case GLFW.GLFW_KEY_DOWN, GLFW.GLFW_KEY_PAGE_DOWN -> { turnColumns(1); return true; }
-            default -> { return super.keyPressed(keyCode, scanCode, modifiers); }
+            case GLFW.GLFW_KEY_LEFT -> {
+                goToSection(section - 1);
+                return true;
+            }
+            case GLFW.GLFW_KEY_RIGHT -> {
+                goToSection(section + 1);
+                return true;
+            }
+            case GLFW.GLFW_KEY_UP, GLFW.GLFW_KEY_PAGE_UP -> {
+                turnColumns(-1);
+                return true;
+            }
+            case GLFW.GLFW_KEY_DOWN, GLFW.GLFW_KEY_PAGE_DOWN -> {
+                turnColumns(1);
+                return true;
+            }
+            default -> {
+                return super.keyPressed(keyCode, scanCode, modifiers);
+            }
         }
     }
 

@@ -1,14 +1,12 @@
 package finance.data.serializer;
 
-import net.minecraft.nbt.CompoundTag;
-
 import java.util.UUID;
+import net.minecraft.nbt.CompoundTag;
 
 /** Shared defensive readers for persisted economy data. */
 final class NbtDataSupport {
 
-    private NbtDataSupport() {
-    }
+    private NbtDataSupport() {}
 
     static UUID readUuidOrNull(CompoundTag tag, String key) {
         try {

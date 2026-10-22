@@ -3,13 +3,11 @@ package finance.company;
 import finance.account.AccountManager;
 import finance.account.TransactionRecord;
 import finance.account.TransactionType;
-
 import java.util.UUID;
 
 public final class CompanyManagementService {
 
-    private CompanyManagementService() {
-    }
+    private CompanyManagementService() {}
 
     /**
      * 所有者单次提现上限。
@@ -25,15 +23,15 @@ public final class CompanyManagementService {
      */
     public static final long OWNER_WITHDRAW_COOLDOWN_MILLIS = 20L * 60L * 1000L;
 
-    public record Result(boolean success, String message) {
-    }
+    public record Result(boolean success, String message) {}
 
-    public static Result apply(UUID playerId,
-                               Company company,
-                               CompanyManagementAction action,
-                               CompanyStrategy strategy,
-                               long amount,
-                               double ratio) {
+    public static Result apply(
+            UUID playerId,
+            Company company,
+            CompanyManagementAction action,
+            CompanyStrategy strategy,
+            long amount,
+            double ratio) {
         if (playerId == null) {
             return new Result(false, "无效玩家。");
         }
@@ -86,12 +84,13 @@ public final class CompanyManagementService {
             return new Result(false, "余额不足，升级需要 " + cost);
         }
 
-        boolean upgraded = switch (type) {
-            case "PRODUCTION" -> company.upgradeProduction();
-            case "STORAGE" -> company.upgradeStorage();
-            case "MANAGEMENT" -> company.upgradeManagement();
-            default -> false;
-        };
+        boolean upgraded =
+                switch (type) {
+                    case "PRODUCTION" -> company.upgradeProduction();
+                    case "STORAGE" -> company.upgradeStorage();
+                    case "MANAGEMENT" -> company.upgradeManagement();
+                    default -> false;
+                };
 
         if (!upgraded) {
             if (!AccountManager.deposit(playerId, cost)) {
@@ -157,16 +156,13 @@ public final class CompanyManagementService {
     }
 
     private static void recordCompanyAction(UUID playerId, Company company, long amount, long quantity) {
-        AccountManager.addTransactionRecord(
-                new TransactionRecord(
-                        playerId,
-                        company.getCompanyId(),
-                        amount,
-                        TransactionType.COMPANY_ACTION,
-                        playerId,
-                        company.getName(),
-                        quantity
-                )
-        );
+        AccountManager.addTransactionRecord(new TransactionRecord(
+                playerId,
+                company.getCompanyId(),
+                amount,
+                TransactionType.COMPANY_ACTION,
+                playerId,
+                company.getName(),
+                quantity));
     }
 }

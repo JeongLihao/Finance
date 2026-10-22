@@ -4,9 +4,12 @@ import java.util.Arrays;
 
 public final class MacdIndicator {
     public record Result(double[] dif, double[] dea, double[] histogram) {}
+
     private MacdIndicator() {}
 
-    public static Result calculate(double[] closes) { return calculate(closes, 12, 26, 9); }
+    public static Result calculate(double[] closes) {
+        return calculate(closes, 12, 26, 9);
+    }
 
     public static Result calculate(double[] closes, int fast, int slow, int signal) {
         if (fast <= 0 || slow <= fast || signal <= 0) throw new IllegalArgumentException("Invalid MACD periods");

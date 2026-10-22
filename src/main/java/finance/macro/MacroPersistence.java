@@ -2,12 +2,11 @@ package finance.macro;
 
 import finance.diagnostic.ModuleHealthRegistry;
 import finance.diagnostic.ModuleRunState;
+import java.util.Map;
+import java.util.UUID;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
-
-import java.util.Map;
-import java.util.UUID;
 
 /**
  * 宏观经济存档。DataVersion 39 新增根标签 {@value #ROOT}；旧存档没有该标签时按“刚启用”初始化。
@@ -17,7 +16,7 @@ public final class MacroPersistence {
     public static final String ROOT = "MacroEconomy";
     public static final int VERSION = 1;
 
-    private MacroPersistence() { }
+    private MacroPersistence() {}
 
     public static void save(CompoundTag root) {
         CompoundTag data = new CompoundTag();
@@ -216,7 +215,10 @@ public final class MacroPersistence {
         for (Tag raw : t.getList("Pool", Tag.TAG_COMPOUND)) {
             CompoundTag c = (CompoundTag) raw;
             String headline = c.getString("Headline");
-            if (headline.isBlank()) { skipped++; continue; }
+            if (headline.isBlank()) {
+                skipped++;
+                continue;
+            }
             pool.add(new NewsService.Item(c.getLong("D"), c.getInt("Score"), headline, c.getString("Body")));
         }
         java.util.List<NewsService.Issue> issues = new java.util.ArrayList<>();
@@ -226,9 +228,17 @@ public final class MacroPersistence {
                 CompoundTag c = (CompoundTag) raw;
                 int number = c.getInt("Number");
                 java.util.List<String> pages = readStrings(c.getList("Pages", Tag.TAG_STRING));
-                if (number <= 0 || pages.isEmpty()) { skipped++; continue; }
-                issues.add(new NewsService.Issue(number, c.getLong("D"), c.getBoolean("Extra"), c.getString("Headline"),
-                        java.util.List.copyOf(pages), readPersonal(c.getList("Personal", Tag.TAG_COMPOUND))));
+                if (number <= 0 || pages.isEmpty()) {
+                    skipped++;
+                    continue;
+                }
+                issues.add(new NewsService.Issue(
+                        number,
+                        c.getLong("D"),
+                        c.getBoolean("Extra"),
+                        c.getString("Headline"),
+                        java.util.List.copyOf(pages),
+                        readPersonal(c.getList("Personal", Tag.TAG_COMPOUND))));
                 java.util.Set<UUID> ids = new java.util.LinkedHashSet<>();
                 for (Tag id : c.getList("Claimed", Tag.TAG_INT_ARRAY)) ids.add(net.minecraft.nbt.NbtUtils.loadUUID(id));
                 claimed.put(number, ids);
@@ -252,8 +262,15 @@ public final class MacroPersistence {
             personal = Map.of();
             skipped++;
         }
-        NewsService.restore(t.getInt("Counter"), t.contains("LastWeekly", Tag.TAG_LONG) ? t.getLong("LastWeekly") : Long.MIN_VALUE,
-                t.contains("LastExtra", Tag.TAG_LONG) ? t.getLong("LastExtra") : Long.MIN_VALUE, pool, issues, claimed, personal, radar);
+        NewsService.restore(
+                t.getInt("Counter"),
+                t.contains("LastWeekly", Tag.TAG_LONG) ? t.getLong("LastWeekly") : Long.MIN_VALUE,
+                t.contains("LastExtra", Tag.TAG_LONG) ? t.getLong("LastExtra") : Long.MIN_VALUE,
+                pool,
+                issues,
+                claimed,
+                personal,
+                radar);
         return skipped;
     }
 
@@ -263,8 +280,10 @@ public final class MacroPersistence {
         CompoundTag data = root.getCompound(ROOT);
         boolean invalid = data.getInt("Version") != VERSION;
         int skipped = 0;
-        if (data.contains("LastProcessedDay", Tag.TAG_LONG)) MacroEconomyManager.setLastProcessedDay(data.getLong("LastProcessedDay"));
-        if (data.contains("LastLaborDay", Tag.TAG_LONG)) MacroEconomyManager.setLastLaborDay(data.getLong("LastLaborDay"));
+        if (data.contains("LastProcessedDay", Tag.TAG_LONG))
+            MacroEconomyManager.setLastProcessedDay(data.getLong("LastProcessedDay"));
+        if (data.contains("LastLaborDay", Tag.TAG_LONG))
+            MacroEconomyManager.setLastLaborDay(data.getLong("LastLaborDay"));
 
         ListTag settlements = data.getList("Settlements", Tag.TAG_COMPOUND);
         skipped += Math.max(0, settlements.size() - MacroEconomyManager.MAX_SETTLEMENTS);
@@ -272,9 +291,15 @@ public final class MacroPersistence {
             try {
                 CompoundTag t = settlements.getCompound(i);
                 SettlementEconomy econ = MacroEconomyManager.getOrCreate(t.getUUID("Id"));
-                if (econ == null) { skipped++; continue; }
+                if (econ == null) {
+                    skipped++;
+                    continue;
+                }
                 int sol = t.getInt("Sol");
-                if (sol < 0 || sol > MacroFormulas.MAX_SOL) { skipped++; sol = MacroFormulas.clampSol(sol); }
+                if (sol < 0 || sol > MacroFormulas.MAX_SOL) {
+                    skipped++;
+                    sol = MacroFormulas.clampSol(sol);
+                }
                 econ.solBps = sol;
                 econ.growthMilli = Math.max(-999, Math.min(999, t.getLong("GrowthMilli")));
                 econ.lastProcessedDay = t.getLong("LastDay");
@@ -294,20 +319,35 @@ public final class MacroPersistence {
                     try {
                         CompoundTag g = goods.getCompound(j);
                         String id = g.getString("Id");
-                        if (id.isBlank() || id.length() > 64) { skipped++; continue; }
+                        if (id.isBlank() || id.length() > 64) {
+                            skipped++;
+                            continue;
+                        }
                         GoodBook b = econ.book(id);
-                        if (b == null) { skipped++; continue; }
+                        if (b == null) {
+                            skipped++;
+                            continue;
+                        }
                         int factor = g.getInt("Factor");
                         if (factor < MacroFormulas.MIN_FACTOR_BPS || factor > MacroFormulas.MAX_FACTOR_BPS) skipped++;
-                        b.restore(factor, g.getLong("Demand"), g.getLong("Supply"), g.getLong("Consumed"),
-                                g.getLong("Imports"), g.getLong("Exports"));
+                        b.restore(
+                                factor,
+                                g.getLong("Demand"),
+                                g.getLong("Supply"),
+                                g.getLong("Consumed"),
+                                g.getLong("Imports"),
+                                g.getLong("Exports"));
                         b.importsToday = Math.max(0, g.getLong("ImportsToday"));
                         b.exportsToday = Math.max(0, g.getLong("ExportsToday"));
                         ListTag hist = g.getList("History", Tag.TAG_COMPOUND);
                         for (int k = Math.max(0, hist.size() - GoodBook.HISTORY_DAYS); k < hist.size(); k++) {
                             CompoundTag h = hist.getCompound(k);
-                            b.history.addLast(new GoodBook.Point(h.getLong("D"), MacroFormulas.clampFactor(h.getInt("F")),
-                                    Math.max(0, h.getLong("Dm")), Math.max(0, h.getLong("S")), Math.max(0, h.getLong("C"))));
+                            b.history.addLast(new GoodBook.Point(
+                                    h.getLong("D"),
+                                    MacroFormulas.clampFactor(h.getInt("F")),
+                                    Math.max(0, h.getLong("Dm")),
+                                    Math.max(0, h.getLong("S")),
+                                    Math.max(0, h.getLong("C"))));
                         }
                     } catch (Exception e) {
                         skipped++;
@@ -316,8 +356,12 @@ public final class MacroPersistence {
                 ListTag hist = t.getList("History", Tag.TAG_COMPOUND);
                 for (int k = Math.max(0, hist.size() - SettlementEconomy.HISTORY_DAYS); k < hist.size(); k++) {
                     CompoundTag h = hist.getCompound(k);
-                    econ.history.addLast(new SettlementEconomy.Point(h.getLong("D"), MacroFormulas.clampSol(h.getInt("Sol")),
-                            Math.max(0, h.getInt("Pop")), Math.max(0, h.getLong("Emp")), Math.max(0, h.getLong("Inc"))));
+                    econ.history.addLast(new SettlementEconomy.Point(
+                            h.getLong("D"),
+                            MacroFormulas.clampSol(h.getInt("Sol")),
+                            Math.max(0, h.getInt("Pop")),
+                            Math.max(0, h.getLong("Emp")),
+                            Math.max(0, h.getLong("Inc"))));
                 }
             } catch (Exception e) {
                 skipped++;
@@ -328,8 +372,12 @@ public final class MacroPersistence {
             try {
                 CompoundTag t = (CompoundTag) raw;
                 long n = t.getLong("Employed");
-                if (n < 0) { skipped++; continue; }
-                MacroEconomyManager.setEmployment(t.getUUID("Facility"), n, t.hasUUID("Source") ? t.getUUID("Source") : null);
+                if (n < 0) {
+                    skipped++;
+                    continue;
+                }
+                MacroEconomyManager.setEmployment(
+                        t.getUUID("Facility"), n, t.hasUUID("Source") ? t.getUUID("Source") : null);
             } catch (Exception e) {
                 skipped++;
             }
@@ -345,9 +393,14 @@ public final class MacroPersistence {
         ListTag snaps = data.getList("Snapshots", Tag.TAG_COMPOUND);
         for (int i = Math.max(0, snaps.size() - MacroEconomyManager.MAX_SNAPSHOTS); i < snaps.size(); i++) {
             CompoundTag t = snaps.getCompound(i);
-            MacroEconomyManager.addSnapshot(new MacroEconomyManager.Snapshot(t.getLong("D"), Math.max(0, t.getLong("Cpi")),
-                    Math.max(0, t.getLong("Pop")), MacroFormulas.clampSol(t.getInt("Sol")), Math.max(0, t.getLong("Emp")),
-                    Math.max(0, t.getLong("Wages")), Math.max(0, t.getLong("Cons"))));
+            MacroEconomyManager.addSnapshot(new MacroEconomyManager.Snapshot(
+                    t.getLong("D"),
+                    Math.max(0, t.getLong("Cpi")),
+                    Math.max(0, t.getLong("Pop")),
+                    MacroFormulas.clampSol(t.getInt("Sol")),
+                    Math.max(0, t.getLong("Emp")),
+                    Math.max(0, t.getLong("Wages")),
+                    Math.max(0, t.getLong("Cons"))));
         }
         if (data.contains("Achievements", Tag.TAG_COMPOUND)) {
             CompoundTag ach = data.getCompound("Achievements");
@@ -362,14 +415,17 @@ public final class MacroPersistence {
                     skipped++;
                 }
             }
-            EconomyAchievements.restore(ach.contains("LastDay", Tag.TAG_LONG) ? ach.getLong("LastDay") : Long.MIN_VALUE,
-                    pending);
+            EconomyAchievements.restore(
+                    ach.contains("LastDay", Tag.TAG_LONG) ? ach.getLong("LastDay") : Long.MIN_VALUE, pending);
         }
         if (data.contains("News", Tag.TAG_COMPOUND)) skipped += loadNews(data.getCompound("News"));
         if (data.contains("CpiLink", Tag.TAG_DOUBLE)) MacroIndicators.restoreLink(data.getDouble("CpiLink"));
         if (invalid || skipped > 0) {
-            ModuleHealthRegistry.restrict(ModuleHealthRegistry.Module.MACRO_ECONOMY,
-                    ModuleRunState.READ_ONLY, "宏观经济存档 " + skipped + " 条损坏已跳过", -1);
+            ModuleHealthRegistry.restrict(
+                    ModuleHealthRegistry.Module.MACRO_ECONOMY,
+                    ModuleRunState.READ_ONLY,
+                    "宏观经济存档 " + skipped + " 条损坏已跳过",
+                    -1);
         }
     }
 }

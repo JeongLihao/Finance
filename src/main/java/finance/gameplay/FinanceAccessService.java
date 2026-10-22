@@ -3,13 +3,14 @@ package finance.gameplay;
 /** 服务端权威的入口类型、距离、权限和界面模式校验。 */
 public final class FinanceAccessService {
 
-    private FinanceAccessService() {
-    }
+    private FinanceAccessService() {}
 
-    public static FinanceAccessDecision authorize(FinanceAccessContext context,
-                                                   FinanceAccessPolicy policy) {
-        if (context == null || context.playerId() == null || context.terminalType() == null
-                || context.requestedMode() == null || policy == null) {
+    public static FinanceAccessDecision authorize(FinanceAccessContext context, FinanceAccessPolicy policy) {
+        if (context == null
+                || context.playerId() == null
+                || context.terminalType() == null
+                || context.requestedMode() == null
+                || policy == null) {
             return FinanceAccessDecision.deny("finance.access.invalid_request");
         }
 
@@ -23,14 +24,17 @@ public final class FinanceAccessService {
             return FinanceAccessDecision.deny("finance.access.portable_disabled");
         }
         if (terminal == FinanceTerminalType.CENTRAL_BANK_CONSOLE
-                && policy.adminConsoleRequiresPermission() && context.permissionLevel() < 2) {
+                && policy.adminConsoleRequiresPermission()
+                && context.permissionLevel() < 2) {
             return FinanceAccessDecision.deny("finance.access.admin_required");
         }
 
         if (terminal == FinanceTerminalType.LEGACY_FULL_SCREEN) {
             boolean administrator = context.permissionLevel() >= 2;
-            boolean legacyEnabled = !policy.minecraftFirstMode() || policy.legacyFullScreenKeybind()
-                    || !policy.advancedFinanceRequiresTerminal() || administrator;
+            boolean legacyEnabled = !policy.minecraftFirstMode()
+                    || policy.legacyFullScreenKeybind()
+                    || !policy.advancedFinanceRequiresTerminal()
+                    || administrator;
             return legacyEnabled
                     ? FinanceAccessDecision.allow(FinanceScreenMode.ADVANCED, null)
                     : FinanceAccessDecision.deny("finance.access.terminal_required");
@@ -41,7 +45,8 @@ public final class FinanceAccessService {
         }
         if (terminal.isPhysicalTerminal() && policy.requirePhysicalTerminal()) {
             double maxDistance = policy.terminalInteractionDistance();
-            if (!context.sameDimension() || context.sourcePos() == null
+            if (!context.sameDimension()
+                    || context.sourcePos() == null
                     || context.distanceSquared() > maxDistance * maxDistance) {
                 return FinanceAccessDecision.deny("finance.access.too_far");
             }
@@ -49,16 +54,14 @@ public final class FinanceAccessService {
         return FinanceAccessDecision.allow(requestedMode, context.sourcePos());
     }
 
-    public static FinanceAccessDecision validatePortableLedger(FinanceAccessContext context,
-                                                                FinanceAccessPolicy policy) {
+    public static FinanceAccessDecision validatePortableLedger(
+            FinanceAccessContext context, FinanceAccessPolicy policy) {
         return authorize(context, policy);
     }
 
-    public static FinanceAccessDecision validateTerminal(FinanceAccessContext context,
-                                                          FinanceAccessPolicy policy) {
+    public static FinanceAccessDecision validateTerminal(FinanceAccessContext context, FinanceAccessPolicy policy) {
         return authorize(context, policy);
     }
-
 
     public static java.util.Set<FinanceScreenMode> allowedModes(FinanceTerminalType terminal) {
         return terminal == null ? java.util.Set.of() : terminal.allowedModes();

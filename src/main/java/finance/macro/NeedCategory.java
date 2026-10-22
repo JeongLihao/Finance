@@ -24,13 +24,19 @@ public enum NeedCategory {
         this.unitsPerItem = unitsPerItem;
     }
 
-    public String displayName() { return displayName; }
+    public String displayName() {
+        return displayName;
+    }
 
     /** 计算生活水平时的权重，全部类别之和为 100。 */
-    public int weight() { return weight; }
+    public int weight() {
+        return weight;
+    }
 
     /** 商品 id → 每件折算的需求份数（按声明顺序）。 */
-    public Map<String, Double> unitsPerItem() { return unitsPerItem; }
+    public Map<String, Double> unitsPerItem() {
+        return unitsPerItem;
+    }
 
     /** 某商品在本类别里每件折算的份数；不属于本类别返回 0。 */
     public double unitsOf(String commodityId) {

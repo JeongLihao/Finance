@@ -3,14 +3,13 @@ package finance.network;
 import finance.FinanceMod;
 import finance.gui.FinanceGuiOpener;
 import finance.gui.FinanceMenu;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.UUID;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
-
-import java.util.HashSet;
-import java.util.Set;
-import java.util.UUID;
 
 /**
  * 让开着的金融中心保持最新：玩家操作后的下一 tick 立即刷新，平时每 {@value #PERIOD_TICKS} tick 刷新一次。
@@ -49,12 +48,19 @@ public final class FinanceMenuRefresher {
                 try {
                     FinanceGuiOpener.refresh(player);
                 } catch (RuntimeException e) {
-                    LOGGER.warn("Finance center refresh failed for {}", player.getGameProfile().getName(), e);
+                    LOGGER.warn(
+                            "Finance center refresh failed for {}",
+                            player.getGameProfile().getName(),
+                            e);
                 }
             }
         }
-        synchronized (FinanceMenuRefresher.class) { if (DIRTY.size() > 1024) DIRTY.clear(); }
+        synchronized (FinanceMenuRefresher.class) {
+            if (DIRTY.size() > 1024) DIRTY.clear();
+        }
     }
 
-    static synchronized void clear() { DIRTY.clear(); }
+    static synchronized void clear() {
+        DIRTY.clear();
+    }
 }

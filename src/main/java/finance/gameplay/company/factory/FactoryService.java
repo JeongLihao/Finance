@@ -7,17 +7,16 @@ import finance.data.EconomySavedData;
 import finance.gameplay.company.CompanyFacilityManager;
 import finance.gameplay.company.CompanyFacilityRecord;
 import finance.gameplay.company.CompanyFacilityStatus;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
-
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
 
 /**
  * 厂房日结：扫描厂区设备 → 判定当天生效的生产方式。生产（{@code CompanyProductionService}）和
@@ -27,10 +26,12 @@ import java.util.Map;
  * 区块未加载时不扫描，沿用最近一次结果（最多 {@code scanStaleDays} 天）。</p>
  */
 public final class FactoryService {
-    private FactoryService() { }
+    private FactoryService() {}
 
     public static FactoryZone zone() {
-        return new FactoryZone(FinanceConfig.facilityZoneRadius(), FinanceConfig.facilityZoneBelow(),
+        return new FactoryZone(
+                FinanceConfig.facilityZoneRadius(),
+                FinanceConfig.facilityZoneBelow(),
                 FinanceConfig.facilityZoneAbove());
     }
 
@@ -53,6 +54,7 @@ public final class FactoryService {
 
     /** 煤价新闻同一条每 30 天最多一次（运行时状态，重启后最多再报一次）。 */
     static final int COAL_NEWS_GAP_DAYS = 30;
+
     static final int COAL_NEWS_FACTOR_PERCENT = 130;
     private static long lastCoalNewsDay = Long.MIN_VALUE;
 
@@ -68,8 +70,7 @@ public final class FactoryService {
         String headline = layoffs > 0
                 ? company.getName() + "启用" + method.displayName() + "，裁员 " + layoffs + " 人"
                 : company.getName() + "启用" + method.displayName();
-        finance.macro.NewsService.report(45, headline,
-                "机器取代了人手：产量更高，但要吃更多的煤和铁。", false);
+        finance.macro.NewsService.report(45, headline, "机器取代了人手：产量更高，但要吃更多的煤和铁。", false);
     }
 
     /** 有工业档工厂且煤价比基准价高出 30% 以上时："煤价因工业化上涨 X%"。 */
@@ -83,8 +84,7 @@ public final class FactoryService {
         long percent = price.getAskPrice() * 100 / coal.getBasePrice();
         if (percent < COAL_NEWS_FACTOR_PERCENT) return;
         lastCoalNewsDay = day;
-        finance.macro.NewsService.report(50, "煤价因工业化上涨 " + (percent - 100) + "%",
-                "工厂的锅炉和高炉在抢煤，村民的取暖钱跟着涨。", false);
+        finance.macro.NewsService.report(50, "煤价因工业化上涨 " + (percent - 100) + "%", "工厂的锅炉和高炉在抢煤，村民的取暖钱跟着涨。", false);
     }
 
     public static void clearDirect() {
@@ -103,11 +103,13 @@ public final class FactoryService {
 
     /** 公司玩法模块只读或暂停时，厂房状态（档位、改造、临时窗口）也不能变。 */
     static boolean writable() {
-        return finance.diagnostic.ModuleHealthRegistry.mayWrite(finance.diagnostic.ModuleHealthRegistry.Module.COMPANY_GAMEPLAY);
+        return finance.diagnostic.ModuleHealthRegistry.mayWrite(
+                finance.diagnostic.ModuleHealthRegistry.Module.COMPANY_GAMEPLAY);
     }
 
     static boolean operational(CompanyFacilityRecord facility) {
-        return facility.status() != CompanyFacilityStatus.DISABLED && facility.status() != CompanyFacilityStatus.ORPHANED;
+        return facility.status() != CompanyFacilityStatus.DISABLED
+                && facility.status() != CompanyFacilityStatus.ORPHANED;
     }
 
     /** 全服工厂档位统计：[手工, 改良, 工业, 停产或临时作坊]，供宏观页签显示。 */
@@ -143,9 +145,12 @@ public final class FactoryService {
         FactoryState state = facility.factory();
         long day = Math.max(0, state.lastResolvedDay());
         if (state.activeTier() != null) {
-            return ProductionMethods.jobs(ProductionMethods.get(company.getType(), state.activeTier()),
-                    state.usableEquipment(day, FinanceConfig.facilityScanStaleDays()), facility.productionLevel(),
-                    FinanceConfig.facilityMaxEquipmentPerType(), FinanceConfig.facilityJobsCapPerLevel());
+            return ProductionMethods.jobs(
+                    ProductionMethods.get(company.getType(), state.activeTier()),
+                    state.usableEquipment(day, FinanceConfig.facilityScanStaleDays()),
+                    facility.productionLevel(),
+                    FinanceConfig.facilityMaxEquipmentPerType(),
+                    FinanceConfig.facilityJobsCapPerLevel());
         }
         if (state.provisionalOrUnset(day)) {
             return (long) facility.productionLevel() * Math.max(1, FinanceConfig.macroJobsPerLevel());
@@ -171,19 +176,28 @@ public final class FactoryService {
     static void scanAll(MinecraftServer server, long day) {
         Map<String, List<CompanyFacilityRecord>> byDimension = new LinkedHashMap<>();
         for (CompanyFacilityRecord f : CompanyFacilityManager.all()) {
-            if (operational(f)) byDimension.computeIfAbsent(f.dimensionId(), k -> new ArrayList<>()).add(f);
+            if (operational(f))
+                byDimension
+                        .computeIfAbsent(f.dimensionId(), k -> new ArrayList<>())
+                        .add(f);
         }
         FactoryZone zone = zone();
         int maxPerType = FinanceConfig.facilityMaxEquipmentPerType();
         byDimension.forEach((dimension, facilities) -> {
             ServerLevel level = level(server, dimension);
             if (level == null) return;
-            List<BlockPos> controllers = facilities.stream().map(CompanyFacilityRecord::blockPos).toList();
+            List<BlockPos> controllers =
+                    facilities.stream().map(CompanyFacilityRecord::blockPos).toList();
             for (int i = 0; i < facilities.size(); i++) {
                 BlockPos c = controllers.get(i);
                 if (!zoneLoaded(level, c, zone)) continue; // 区块未加载：沿用旧快照
-                facilities.get(i).factory().recordScan(zone.count(i, controllers, pos -> equipmentAt(level, pos), maxPerType),
-                        day, maxPerType);
+                facilities
+                        .get(i)
+                        .factory()
+                        .recordScan(
+                                zone.count(i, controllers, pos -> equipmentAt(level, pos), maxPerType),
+                                day,
+                                maxPerType);
             }
         });
     }
@@ -193,12 +207,16 @@ public final class FactoryService {
         if (facility == null) return Map.of();
         if (level == null) return facility.factory().equipment(); // 没有世界可扫：用最近一次快照
         List<CompanyFacilityRecord> same = CompanyFacilityManager.all().stream()
-                .filter(f -> operational(f) && f.dimensionId().equals(facility.dimensionId())).toList();
-        List<BlockPos> controllers = same.stream().map(CompanyFacilityRecord::blockPos).toList();
+                .filter(f -> operational(f) && f.dimensionId().equals(facility.dimensionId()))
+                .toList();
+        List<BlockPos> controllers =
+                same.stream().map(CompanyFacilityRecord::blockPos).toList();
         int self = same.indexOf(facility);
         FactoryZone zone = zone();
-        if (self < 0 || !zoneLoaded(level, facility.blockPos(), zone)) return facility.factory().equipment();
-        return zone.count(self, controllers, pos -> equipmentAt(level, pos), FinanceConfig.facilityMaxEquipmentPerType());
+        if (self < 0 || !zoneLoaded(level, facility.blockPos(), zone))
+            return facility.factory().equipment();
+        return zone.count(
+                self, controllers, pos -> equipmentAt(level, pos), FinanceConfig.facilityMaxEquipmentPerType());
     }
 
     /** 运转表现：随机抽几格，是设备就在上方冒对应的工作粒子（烟熏炉、熔炉冒烟，织布机冒绒毛……）。 */
@@ -208,36 +226,47 @@ public final class FactoryService {
         BlockPos c = facility.blockPos();
         var random = level.getRandom();
         for (int i = 0; i < 6; i++) {
-            BlockPos pos = c.offset(random.nextInt(zone.radius() * 2 + 1) - zone.radius(),
+            BlockPos pos = c.offset(
+                    random.nextInt(zone.radius() * 2 + 1) - zone.radius(),
                     random.nextInt(zone.below() + zone.above() + 1) - zone.below(),
                     random.nextInt(zone.radius() * 2 + 1) - zone.radius());
             FactoryEquipment e = equipmentAt(level, pos);
-            net.minecraft.core.particles.ParticleOptions particle = e == null ? null : switch (e) {
-                case SMOKER, FURNACE, BLAST_FURNACE -> net.minecraft.core.particles.ParticleTypes.SMOKE;
-                case LOOM -> net.minecraft.core.particles.ParticleTypes.WHITE_ASH;
-                case COMPOSTER, HAY_BLOCK -> net.minecraft.core.particles.ParticleTypes.COMPOSTER;
-                case GRINDSTONE, STONECUTTER, ANVIL -> net.minecraft.core.particles.ParticleTypes.CRIT;
-                case PISTON, OBSERVER, REDSTONE_LAMP, HOPPER -> net.minecraft.core.particles.DustParticleOptions.REDSTONE;
-                default -> null;
-            };
+            net.minecraft.core.particles.ParticleOptions particle = e == null
+                    ? null
+                    : switch (e) {
+                        case SMOKER, FURNACE, BLAST_FURNACE -> net.minecraft.core.particles.ParticleTypes.SMOKE;
+                        case LOOM -> net.minecraft.core.particles.ParticleTypes.WHITE_ASH;
+                        case COMPOSTER, HAY_BLOCK -> net.minecraft.core.particles.ParticleTypes.COMPOSTER;
+                        case GRINDSTONE, STONECUTTER, ANVIL -> net.minecraft.core.particles.ParticleTypes.CRIT;
+                        case PISTON, OBSERVER, REDSTONE_LAMP, HOPPER -> net.minecraft.core.particles.DustParticleOptions
+                                .REDSTONE;
+                        default -> null;
+                    };
             if (particle != null) {
-                level.sendParticles(particle, pos.getX() + 0.5, pos.getY() + 1.1, pos.getZ() + 0.5, 3, 0.2, 0.1, 0.2, 0.01);
+                level.sendParticles(
+                        particle, pos.getX() + 0.5, pos.getY() + 1.1, pos.getZ() + 0.5, 3, 0.2, 0.1, 0.2, 0.01);
             }
         }
     }
 
     static boolean zoneLoaded(ServerLevel level, BlockPos controller, FactoryZone zone) {
-        return level.hasChunksAt(controller.getX() - zone.radius(), controller.getZ() - zone.radius(),
-                controller.getX() + zone.radius(), controller.getZ() + zone.radius());
+        return level.hasChunksAt(
+                controller.getX() - zone.radius(),
+                controller.getZ() - zone.radius(),
+                controller.getX() + zone.radius(),
+                controller.getZ() + zone.radius());
     }
 
     static FactoryEquipment equipmentAt(ServerLevel level, BlockPos pos) {
-        ResourceLocation id = BuiltInRegistries.BLOCK.getKey(level.getBlockState(pos).getBlock());
+        ResourceLocation id =
+                BuiltInRegistries.BLOCK.getKey(level.getBlockState(pos).getBlock());
         return id == null ? null : FactoryEquipment.fromBlockId(id.toString());
     }
 
     static ServerLevel level(MinecraftServer server, String dimensionId) {
         ResourceLocation id = ResourceLocation.tryParse(dimensionId);
-        return id == null ? null : server.getLevel(ResourceKey.create(net.minecraft.core.registries.Registries.DIMENSION, id));
+        return id == null
+                ? null
+                : server.getLevel(ResourceKey.create(net.minecraft.core.registries.Registries.DIMENSION, id));
     }
 }

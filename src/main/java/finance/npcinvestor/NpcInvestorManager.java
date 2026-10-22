@@ -1,10 +1,7 @@
 package finance.npcinvestor;
 
 import finance.account.AccountManager;
-
 import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
@@ -16,8 +13,15 @@ public final class NpcInvestorManager {
     public static final int MAX_DECISIONS = 256;
 
     /** 一条可展示的决策记录。action：BUY / SELL / HOLD / FUND。 */
-    public record Decision(long day, NpcInvestorArchetype archetype, UUID companyId, String symbol,
-                           String action, long quantity, long price, NpcReason reason) { }
+    public record Decision(
+            long day,
+            NpcInvestorArchetype archetype,
+            UUID companyId,
+            String symbol,
+            String action,
+            long quantity,
+            long price,
+            NpcReason reason) {}
 
     private static final Map<NpcInvestorArchetype, NpcInvestorState> STATES = new EnumMap<>(NpcInvestorArchetype.class);
     private static final ArrayDeque<Decision> DECISIONS = new ArrayDeque<>();
@@ -27,15 +31,19 @@ public final class NpcInvestorManager {
         resetStates();
     }
 
-    private NpcInvestorManager() { }
+    private NpcInvestorManager() {}
 
     public static synchronized NpcInvestorState state(NpcInvestorArchetype archetype) {
         return STATES.get(archetype);
     }
 
-    public static synchronized long lastProcessedDay() { return lastProcessedDay; }
+    public static synchronized long lastProcessedDay() {
+        return lastProcessedDay;
+    }
 
-    static synchronized void setLastProcessedDay(long day) { lastProcessedDay = day; }
+    static synchronized void setLastProcessedDay(long day) {
+        lastProcessedDay = day;
+    }
 
     /**
      * 确保四个原型账户都以系统账户身份存在。
@@ -53,11 +61,16 @@ public final class NpcInvestorManager {
         DECISIONS.addLast(decision);
     }
 
+    public static synchronized List<Decision> decisionsDirect() {
+        return List.copyOf(DECISIONS);
+    }
 
-    public static synchronized List<Decision> decisionsDirect() { return List.copyOf(DECISIONS); }
-
-    public static synchronized void restoreState(NpcInvestorArchetype archetype, boolean funded, long contributed,
-                                                 Map<UUID, Integer> sentiments, Map<UUID, Integer> targets) {
+    public static synchronized void restoreState(
+            NpcInvestorArchetype archetype,
+            boolean funded,
+            long contributed,
+            Map<UUID, Integer> sentiments,
+            Map<UUID, Integer> targets) {
         NpcInvestorState state = STATES.get(archetype);
         if (state != null) state.restore(funded, contributed, sentiments, targets);
     }

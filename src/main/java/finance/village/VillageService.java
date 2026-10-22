@@ -1,5 +1,6 @@
 package finance.village;
 
+import com.mojang.logging.LogUtils;
 import finance.account.AccountManager;
 import finance.account.TransactionRecord;
 import finance.account.TransactionType;
@@ -17,12 +18,6 @@ import finance.settlement.SettlementStatus;
 import finance.util.MathUtil;
 import finance.warehouse.CommodityItemResolver;
 import finance.warehouse.InventoryTransactionService;
-import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.item.ItemStack;
-import org.slf4j.Logger;
-import com.mojang.logging.LogUtils;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -31,6 +26,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.item.ItemStack;
+import org.slf4j.Logger;
 
 /**
  * 村庄集市服务：每日一次的村民集中采购（设计文档 §4）。
@@ -50,7 +49,7 @@ import java.util.UUID;
  * 结果 ≤ 0 直接跳过该笔（防溢出印钱）。
  */
 public final class VillageService {
-    private VillageService() { }
+    private VillageService() {}
 
     private static final Logger LOGGER = LogUtils.getLogger();
 
@@ -162,8 +161,8 @@ public final class VillageService {
             if (need <= 0) {
                 continue;
             }
-            caravanSoldToday += procureCommodity(village, settlementId, commodity, need,
-                    caravanPresent, netBuy, fairFavorGiven, dumpFavorGiven);
+            caravanSoldToday += procureCommodity(
+                    village, settlementId, commodity, need, caravanPresent, netBuy, fairFavorGiven, dumpFavorGiven);
         }
 
         // 行商进退：只有行商在场时的零成交才计入连续天数；
@@ -223,8 +222,13 @@ public final class VillageService {
             return;
         }
         AccountManager.addTransactionRecord(new TransactionRecord(
-                NpcMarketMaker.NPC_UUID, budget, amount,
-                TransactionType.VILLAGE_BUDGET_TOPUP, NpcMarketMaker.NPC_UUID, "", 0));
+                NpcMarketMaker.NPC_UUID,
+                budget,
+                amount,
+                TransactionType.VILLAGE_BUDGET_TOPUP,
+                NpcMarketMaker.NPC_UUID,
+                "",
+                0));
     }
 
     // ================================================================
@@ -234,11 +238,15 @@ public final class VillageService {
     /**
      * 对一种商品执行村民采购，返回本商品行商成交量。
      */
-    private static long procureCommodity(VillageRecord village, UUID settlementId, String commodity,
-                                         long need, boolean caravanPresent,
-                                         Map<String, Long> netBuy,
-                                         Map<UUID, Integer> fairFavorGiven,
-                                         Map<UUID, Integer> dumpFavorGiven) {
+    private static long procureCommodity(
+            VillageRecord village,
+            UUID settlementId,
+            String commodity,
+            long need,
+            boolean caravanPresent,
+            Map<String, Long> netBuy,
+            Map<UUID, Integer> fairFavorGiven,
+            Map<UUID, Integer> dumpFavorGiven) {
         MarketPrice mp = NpcMarketMaker.getMarketPrice(commodity);
         Commodity def = CommodityRegistry.getCommodity(commodity);
         if (mp == null || def == null) {
@@ -250,8 +258,8 @@ public final class VillageService {
         // 库存覆盖率 → 溢价（直接计算目标值，钳制 [minBps, maxBps]；不做跨日平滑）
         int villageStock = Math.max(0, CommodityInventoryManager.getCommodityAmount(settlementId, commodity));
         double coverage = (double) villageStock / Math.max(1L, need);
-        int premium = finance.macro.MacroEconomyService.premiumBps(settlementId, commodity,
-                premiumForCoverage(coverage));
+        int premium =
+                finance.macro.MacroEconomyService.premiumBps(settlementId, commodity, premiumForCoverage(coverage));
         long wtp = computeWtp(mid, base, premium);
         if (wtp <= 0) {
             return 0;
@@ -259,8 +267,7 @@ public final class VillageService {
 
         long caravanBasePrice = caravanPriceOf(mp, premium);
         long caravanPrice = caravanBasePrice;
-        boolean caravanAvailable = caravanPresent && caravanPrice > 0
-                && !SUSPENDED_CARAVAN.contains(settlementId);
+        boolean caravanAvailable = caravanPresent && caravanPrice > 0 && !SUSPENDED_CARAVAN.contains(settlementId);
 
         // 候选摊位：抵制（favor ≤ boycott）直接排除
         int boycottFavor = FinanceConfig.villageBoycottFavor();
@@ -297,8 +304,10 @@ public final class VillageService {
 
         long stallSupply = 0;
         for (VillageStall s : stalls) stallSupply += Math.max(0, s.stock());
-        long caravanSupply = caravanAvailable ? Math.min(need * 12 / 10, (long) Math.max(0,
-                CommodityInventoryManager.getCommodityAmount(NpcMarketMaker.NPC_UUID, commodity))) : 0;
+        long caravanSupply = caravanAvailable
+                ? Math.min(need * 12 / 10, (long)
+                        Math.max(0, CommodityInventoryManager.getCommodityAmount(NpcMarketMaker.NPC_UUID, commodity)))
+                : 0;
         long supplySeen = stallSupply + villageStock + caravanSupply;
 
         long fairLine = multiplyDivide(wtp, FinanceConfig.villageFairToleranceBps());
@@ -336,8 +345,13 @@ public final class VillageService {
             netBuy.merge(commodity, (long) qty, Long::sum);
             finance.macro.EconomyAchievements.recordStallSale(stall.ownerId(), settlementId, commodity, qty);
             AccountManager.addTransactionRecord(new TransactionRecord(
-                    village.budgetAccountId(), stall.ownerId(), payment,
-                    TransactionType.VILLAGE_STALL_SALE, stall.ownerId(), commodity, qty));
+                    village.budgetAccountId(),
+                    stall.ownerId(),
+                    payment,
+                    TransactionType.VILLAGE_STALL_SALE,
+                    stall.ownerId(),
+                    commodity,
+                    qty));
             // 公允交易：favor +2（每日每村庄每玩家上限 +6）
             int given = fairFavorGiven.getOrDefault(stall.ownerId(), 0);
             if (given < FAIR_FAVOR_DAILY_CAP) {
@@ -358,8 +372,8 @@ public final class VillageService {
         long caravanSold = 0;
         if (remaining > 0 && caravanAvailable) {
             long capL = need * 12 / 10;
-            int npcStock = Math.max(0,
-                    CommodityInventoryManager.getCommodityAmount(NpcMarketMaker.NPC_UUID, commodity));
+            int npcStock =
+                    Math.max(0, CommodityInventoryManager.getCommodityAmount(NpcMarketMaker.NPC_UUID, commodity));
             long qtyL = Math.min(remaining, Math.min(capL, (long) npcStock));
             int qty = qtyL > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) qtyL;
             if (qty > 0) {
@@ -369,8 +383,13 @@ public final class VillageService {
                     caravanSold += qty;
                     netBuy.merge(commodity, (long) qty, Long::sum);
                     AccountManager.addTransactionRecord(new TransactionRecord(
-                            village.budgetAccountId(), NpcMarketMaker.NPC_UUID, payment,
-                            TransactionType.VILLAGE_CARAVAN_SALE, NpcMarketMaker.NPC_UUID, commodity, qty));
+                            village.budgetAccountId(),
+                            NpcMarketMaker.NPC_UUID,
+                            payment,
+                            TransactionType.VILLAGE_CARAVAN_SALE,
+                            NpcMarketMaker.NPC_UUID,
+                            commodity,
+                            qty));
                 }
             }
         }
@@ -391,8 +410,8 @@ public final class VillageService {
      * 摊位扣库存 → 村庄收货 → 预算付款。回滚补偿本身的结果必须检查：
      * 补偿失败记 error 日志，同一摊位连续失败达到阈值则熔断（当日暂停该摊位结算并告警）。
      */
-    private static boolean buyFromStall(VillageRecord village, UUID settlementId,
-                                        VillageStall stall, String commodity, int qty, long payment) {
+    private static boolean buyFromStall(
+            VillageRecord village, UUID settlementId, VillageStall stall, String commodity, int qty, long payment) {
         UUID budget = village.budgetAccountId();
         if (budget == null || qty <= 0 || payment <= 0) {
             return false;
@@ -410,8 +429,7 @@ public final class VillageService {
         if (!AccountManager.moveFunds(budget, stall.ownerId(), payment)) {
             boolean invOk = CommodityInventoryManager.removeCommodity(settlementId, commodity, qty);
             boolean stockOk = addStockQuiet(stall, qty);
-            if ((!invOk || !stockOk)
-                    && onCompensationFailure(STALL_COMP_FAILURES, stall.id(), "buyFromStall/refund")) {
+            if ((!invOk || !stockOk) && onCompensationFailure(STALL_COMP_FAILURES, stall.id(), "buyFromStall/refund")) {
                 SUSPENDED_STALLS.add(stall.id());
             }
             return false;
@@ -425,8 +443,8 @@ public final class VillageService {
      * NPC 扣库存 → 预算付款 → 村庄收货。行商永不印货。
      * 回滚补偿失败记 error 日志，同一聚落连续失败达到阈值则熔断（当日暂停该聚落行商采购并告警）。
      */
-    private static boolean buyFromCaravan(VillageRecord village, UUID settlementId,
-                                          String commodity, int qty, long payment) {
+    private static boolean buyFromCaravan(
+            VillageRecord village, UUID settlementId, String commodity, int qty, long payment) {
         UUID budget = village.budgetAccountId();
         UUID npc = NpcMarketMaker.NPC_UUID;
         if (budget == null || qty <= 0 || payment <= 0) {
@@ -472,11 +490,12 @@ public final class VillageService {
     private static boolean onCompensationFailure(Map<UUID, Integer> counters, UUID key, String stage) {
         int n = counters.getOrDefault(key, 0) + 1;
         counters.put(key, n);
-        LOGGER.error("[village] rollback compensation FAILED at {} (key={}, consecutive={})",
-                stage, key, n);
+        LOGGER.error("[village] rollback compensation FAILED at {} (key={}, consecutive={})", stage, key, n);
         if (n >= COMPENSATION_FAILURE_TRIP) {
-            LOGGER.error("[village] CIRCUIT BREAKER tripped at {}: suspended for today, "
-                    + "admin check required (key={})", stage, key);
+            LOGGER.error(
+                    "[village] CIRCUIT BREAKER tripped at {}: suspended for today, " + "admin check required (key={})",
+                    stage,
+                    key);
             return true;
         }
         return false;
@@ -617,10 +636,8 @@ public final class VillageService {
      *
      * @return 摊位（已存在/非法返回 null）
      */
-    public static VillageStall registerStall(ServerPlayer player, UUID settlementId,
-                                             String commodityId, long price) {
-        if (player == null || settlementId == null || commodityId == null
-                || commodityId.isBlank() || price < 1) {
+    public static VillageStall registerStall(ServerPlayer player, UUID settlementId, String commodityId, long price) {
+        if (player == null || settlementId == null || commodityId == null || commodityId.isBlank() || price < 1) {
             return null;
         }
         if (!ModuleHealthRegistry.mayWrite(ModuleHealthRegistry.Module.VILLAGE_ECONOMY)) {
@@ -665,13 +682,12 @@ public final class VillageService {
         if (stall == null || !player.getUUID().equals(stall.ownerId())) {
             return false;
         }
-        CommodityItemResolver.Resolution resolution =
-                CommodityItemResolver.resolve(stall.commodityId());
+        CommodityItemResolver.Resolution resolution = CommodityItemResolver.resolve(stall.commodityId());
         if (!resolution.valid()) {
             return false;
         }
-        InventoryTransactionService.RemovalPlan plan = InventoryTransactionService.planRemoval(
-                player.getInventory(), resolution.item(), quantity);
+        InventoryTransactionService.RemovalPlan plan =
+                InventoryTransactionService.planRemoval(player.getInventory(), resolution.item(), quantity);
         if (plan == null) {
             return false;
         }
@@ -725,8 +741,7 @@ public final class VillageService {
         if (stall == null || !player.getUUID().equals(stall.ownerId())) {
             return false;
         }
-        CommodityItemResolver.Resolution resolution =
-                CommodityItemResolver.resolve(stall.commodityId());
+        CommodityItemResolver.Resolution resolution = CommodityItemResolver.resolve(stall.commodityId());
         if (!resolution.valid()) {
             return false;
         }
@@ -734,8 +749,8 @@ public final class VillageService {
             return false;
         }
         int remaining = quantity;
-        InventoryTransactionService.InsertionPlan plan = InventoryTransactionService.planInsertion(
-                player.getInventory(), resolution.item(), quantity);
+        InventoryTransactionService.InsertionPlan plan =
+                InventoryTransactionService.planInsertion(player.getInventory(), resolution.item(), quantity);
         if (plan != null && InventoryTransactionService.commitInsertion(player.getInventory(), plan)) {
             remaining = 0;
         }

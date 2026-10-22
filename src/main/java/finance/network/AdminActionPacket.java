@@ -7,29 +7,28 @@ import finance.commodity.CommodityInventoryManager;
 import finance.commodity.CommodityRegistry;
 import finance.company.Company;
 import finance.company.CompanyManager;
-import finance.market.MarketPrice;
 import finance.data.CommodityInventorySavedData;
 import finance.data.EconomySavedData;
 import finance.market.MarketManager;
+import finance.market.MarketPrice;
 import finance.market.NpcMarketMaker;
 import finance.stock.Stock;
 import finance.stock.StockMarketManager;
 import finance.stock.StockPortfolioManager;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+import java.util.function.Supplier;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.network.NetworkEvent;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
-import java.util.function.Supplier;
 
 /**
  * 管理员操作数据包 —— 添加/删除商品，支持从手持物品自动识别。
@@ -70,8 +69,8 @@ public class AdminActionPacket {
     }
 
     /** 添加商品（手动填写） */
-    public AdminActionPacket(String commodityId, String itemId, String displayName,
-                             long basePrice, CommodityCategory category) {
+    public AdminActionPacket(
+            String commodityId, String itemId, String displayName, long basePrice, CommodityCategory category) {
         this.actionType = ActionType.ADD_COMMODITY;
         this.commodityId = commodityId;
         this.itemId = itemId;
@@ -162,8 +161,7 @@ public class AdminActionPacket {
             case ADD_FROM_HAND -> {
                 buffer.writeLong(packet.basePrice);
             }
-            case CLEAR_COMMODITY_PRICE_HISTORY, CLEAR_STOCK_PRICE_HISTORY, CLEAR_ALL_PRICE_HISTORY -> {
-            }
+            case CLEAR_COMMODITY_PRICE_HISTORY, CLEAR_STOCK_PRICE_HISTORY, CLEAR_ALL_PRICE_HISTORY -> {}
             case SET_DIVIDEND_RATIO, SET_DIVIDEND_CYCLE -> {
                 buffer.writeLong(packet.basePrice);
             }
@@ -226,16 +224,21 @@ public class AdminActionPacket {
                 GuiFeedbackPacket.send(player, "管理员请求参数无效。");
                 return;
             }
-            if(!MarketDataRequestLimiter.allow(player.getUUID(),player.server.getTickCount(),"admin:"+packet.actionType)){
-                GuiFeedbackPacket.send(player,"管理员操作过于频繁。");return;
+            if (!MarketDataRequestLimiter.allow(
+                    player.getUUID(), player.server.getTickCount(), "admin:" + packet.actionType)) {
+                GuiFeedbackPacket.send(player, "管理员操作过于频繁。");
+                return;
             }
             if (requiresConfirmation(packet.actionType)) {
-                String subject=packet.commodityId==null?"":packet.commodityId;
-                long tick=player.server.getTickCount();
-                if(!finance.admin.AdminOperationGuard.confirm(player.getUUID(),packet.actionType.name(),subject,tick)){
-                    GuiFeedbackPacket.send(player,"高风险操作：请在 10 秒内再次执行以确认影响范围。");return;
+                String subject = packet.commodityId == null ? "" : packet.commodityId;
+                long tick = player.server.getTickCount();
+                if (!finance.admin.AdminOperationGuard.confirm(
+                        player.getUUID(), packet.actionType.name(), subject, tick)) {
+                    GuiFeedbackPacket.send(player, "高风险操作：请在 10 秒内再次执行以确认影响范围。");
+                    return;
                 }
-                finance.admin.AdminOperationGuard.audit(player.getUUID(),packet.actionType.name(),subject,tick,true);
+                finance.admin.AdminOperationGuard.audit(
+                        player.getUUID(), packet.actionType.name(), subject, tick, true);
             }
 
             switch (packet.actionType) {
@@ -292,9 +295,10 @@ public class AdminActionPacket {
         EconomySavedData.markDirty();
         CommodityInventorySavedData.markDirty();
 
-        GuiFeedbackPacket.send(player,
-                "已从手中添加: " + commodityId + " (" + displayName + ") 物品: " + fullItemId + " 分类: " + category.getDisplayName());
-
+        GuiFeedbackPacket.send(
+                player,
+                "已从手中添加: " + commodityId + " (" + displayName + ") 物品: " + fullItemId + " 分类: "
+                        + category.getDisplayName());
     }
 
     /** 从物品注册名生成简短的商品 ID */
@@ -329,38 +333,70 @@ public class AdminActionPacket {
         }
 
         // 工具类
-        if (name.contains("sword") || name.contains("bow") || name.contains("crossbow")
-                || name.contains("trident") || name.contains("shield") || name.contains("armor")
-                || name.contains("helmet") || name.contains("chestplate") || name.contains("leggings")
+        if (name.contains("sword")
+                || name.contains("bow")
+                || name.contains("crossbow")
+                || name.contains("trident")
+                || name.contains("shield")
+                || name.contains("armor")
+                || name.contains("helmet")
+                || name.contains("chestplate")
+                || name.contains("leggings")
                 || name.contains("boots")) {
             return CommodityCategory.COMBAT;
         }
-        if (name.contains("pickaxe") || name.contains("axe") || name.contains("shovel")
-                || name.contains("hoe") || name.contains("shears") || name.contains("fishing")
-                || name.contains("flint_and_steel") || name.contains("compass") || name.contains("clock")
-                || name.contains("spyglass") || name.contains("brush")) {
+        if (name.contains("pickaxe")
+                || name.contains("axe")
+                || name.contains("shovel")
+                || name.contains("hoe")
+                || name.contains("shears")
+                || name.contains("fishing")
+                || name.contains("flint_and_steel")
+                || name.contains("compass")
+                || name.contains("clock")
+                || name.contains("spyglass")
+                || name.contains("brush")) {
             return CommodityCategory.TOOLS;
         }
 
         // 红石相关
-        if (name.contains("redstone") || name.contains("piston") || name.contains("observer")
-                || name.contains("hopper") || name.contains("dispenser") || name.contains("dropper")
-                || name.contains("repeater") || name.contains("comparator") || name.contains("lever")
-                || name.contains("button") || name.contains("pressure_plate") || name.contains("tripwire")
-                || name.contains("daylight") || name.contains("note_block")) {
+        if (name.contains("redstone")
+                || name.contains("piston")
+                || name.contains("observer")
+                || name.contains("hopper")
+                || name.contains("dispenser")
+                || name.contains("dropper")
+                || name.contains("repeater")
+                || name.contains("comparator")
+                || name.contains("lever")
+                || name.contains("button")
+                || name.contains("pressure_plate")
+                || name.contains("tripwire")
+                || name.contains("daylight")
+                || name.contains("note_block")) {
             return CommodityCategory.REDSTONE;
         }
 
         // 药水相关
-        if (name.contains("potion") || name.contains("brewing") || name.contains("blaze")
-                || name.contains("nether_wart") || name.contains("glowstone") || name.contains("fermented")
-                || name.contains("spider_eye") || name.contains("ghast") || name.contains("magma_cream")) {
+        if (name.contains("potion")
+                || name.contains("brewing")
+                || name.contains("blaze")
+                || name.contains("nether_wart")
+                || name.contains("glowstone")
+                || name.contains("fermented")
+                || name.contains("spider_eye")
+                || name.contains("ghast")
+                || name.contains("magma_cream")) {
             return CommodityCategory.BREWING;
         }
 
         // 交通运输
-        if (name.contains("minecart") || name.contains("boat") || name.contains("rail")
-                || name.contains("saddle") || name.contains("elytra") || name.contains("carpet")) {
+        if (name.contains("minecart")
+                || name.contains("boat")
+                || name.contains("rail")
+                || name.contains("saddle")
+                || name.contains("elytra")
+                || name.contains("carpet")) {
             return CommodityCategory.TRANSPORTATION;
         }
 
@@ -375,10 +411,12 @@ public class AdminActionPacket {
             return;
         }
 
-        Commodity commodity = new Commodity(id,
+        Commodity commodity = new Commodity(
+                id,
                 packet.itemId == null ? null : packet.itemId.trim(),
                 packet.displayName.trim(),
-                packet.category, packet.basePrice);
+                packet.category,
+                packet.basePrice);
         CommodityRegistry.register(commodity);
 
         seedInitialStock(id);
@@ -387,7 +425,6 @@ public class AdminActionPacket {
         CommodityInventorySavedData.markDirty();
 
         GuiFeedbackPacket.send(player, "已添加商品: " + id + " (" + packet.displayName + ")");
-
     }
 
     private static void handleRemove(ServerPlayer player, AdminActionPacket packet) {
@@ -431,9 +468,7 @@ public class AdminActionPacket {
                 Stock removedStock = StockMarketManager.removeStockByCompanyId(company.getCompanyId());
                 if (removedStock != null) {
                     liquidatedHoldings += StockPortfolioManager.liquidateHolding(
-                            removedStock.getSymbol(),
-                            removedStock.getLastPrice()
-                    );
+                            removedStock.getSymbol(), removedStock.getLastPrice());
                 }
                 CompanyManager.removeCompany(company.getCompanyId());
 
@@ -453,16 +488,16 @@ public class AdminActionPacket {
         EconomySavedData.markDirty();
         CommodityInventorySavedData.markDirty();
 
-        GuiFeedbackPacket.send(player, "已删除商品: " + id
-                + (toDelist.isEmpty() ? "" : "（同时强制退市 " + toDelist.size() + " 家公司）"));
-
+        GuiFeedbackPacket.send(
+                player, "已删除商品: " + id + (toDelist.isEmpty() ? "" : "（同时强制退市 " + toDelist.size() + " 家公司）"));
     }
 
     private static void seedInitialStock(String commodityId) {
         MarketPrice mp = NpcMarketMaker.getMarketPrice(commodityId);
         int currentStock = CommodityInventoryManager.getCommodityAmount(NpcMarketMaker.NPC_UUID, commodityId);
         long refill = finance.centralbank.ReserveService.managed(commodityId)
-                ? finance.centralbank.ReserveService.referenceStock(commodityId) : MarketPrice.REFERENCE_STOCK;
+                ? finance.centralbank.ReserveService.referenceStock(commodityId)
+                : MarketPrice.REFERENCE_STOCK;
         if (currentStock < refill) {
             CommodityInventoryManager.setCommodity(NpcMarketMaker.NPC_UUID, commodityId, (int) refill);
         }
@@ -505,8 +540,7 @@ public class AdminActionPacket {
      * 并写入 AdminOperationGuard 审计日志。
      */
     private static void handleToggleMarketMakerPause(ServerPlayer player, String marketKey) {
-        finance.market.MarketMakerLedger.SubMarket market =
-                finance.market.MarketMakerPauseState.fromKey(marketKey);
+        finance.market.MarketMakerLedger.SubMarket market = finance.market.MarketMakerPauseState.fromKey(marketKey);
         if (market == null) {
             GuiFeedbackPacket.send(player, "未知的做市商市场：" + marketKey);
             return;
@@ -517,10 +551,15 @@ public class AdminActionPacket {
                 ? finance.account.TransactionType.MARKET_MAKER_PAUSE
                 : finance.account.TransactionType.MARKET_MAKER_RESUME;
         AccountManager.addTransactionRecord(new finance.account.TransactionRecord(
-                player.getUUID(), finance.market.MarketMakerLedger.MASTER_UUID, 0,
-                type, player.getUUID(), "做市商" + marketName, 0));
-        finance.admin.AdminOperationGuard.audit(player.getUUID(), "TOGGLE_MM_PAUSE",
-                marketKey + "=" + paused, player.server.getTickCount(), true);
+                player.getUUID(),
+                finance.market.MarketMakerLedger.MASTER_UUID,
+                0,
+                type,
+                player.getUUID(),
+                "做市商" + marketName,
+                0));
+        finance.admin.AdminOperationGuard.audit(
+                player.getUUID(), "TOGGLE_MM_PAUSE", marketKey + "=" + paused, player.server.getTickCount(), true);
         EconomySavedData.markDirty();
         GuiFeedbackPacket.send(player, "做市商（" + marketName + "）已" + (paused ? "暂停报价" : "恢复报价") + "。");
     }
@@ -548,10 +587,14 @@ public class AdminActionPacket {
             case CLEAR_COMMODITY_PRICE_HISTORY, CLEAR_STOCK_PRICE_HISTORY, CLEAR_ALL_PRICE_HISTORY -> true;
             case SET_DIVIDEND_RATIO -> packet.basePrice >= 0 && packet.basePrice <= 10_000;
             case SET_DIVIDEND_CYCLE -> packet.basePrice >= 1 && packet.basePrice <= 365;
-            case TOGGLE_MM_PAUSE ->
-                    finance.market.MarketMakerPauseState.fromKey(packet.commodityId) != null;
+            case TOGGLE_MM_PAUSE -> finance.market.MarketMakerPauseState.fromKey(packet.commodityId) != null;
         };
     }
 
-    private static boolean requiresConfirmation(ActionType type){return type==ActionType.REMOVE_COMMODITY||type==ActionType.CLEAR_COMMODITY_PRICE_HISTORY||type==ActionType.CLEAR_STOCK_PRICE_HISTORY||type==ActionType.CLEAR_ALL_PRICE_HISTORY;}
+    private static boolean requiresConfirmation(ActionType type) {
+        return type == ActionType.REMOVE_COMMODITY
+                || type == ActionType.CLEAR_COMMODITY_PRICE_HISTORY
+                || type == ActionType.CLEAR_STOCK_PRICE_HISTORY
+                || type == ActionType.CLEAR_ALL_PRICE_HISTORY;
+    }
 }

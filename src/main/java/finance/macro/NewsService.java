@@ -4,11 +4,6 @@ import finance.config.FinanceConfig;
 import finance.data.EconomySavedData;
 import finance.item.NewspaperData;
 import finance.registry.ModItems;
-import net.minecraft.network.chat.Component;
-import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.item.ItemStack;
-
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -18,6 +13,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.item.ItemStack;
 
 /**
  * 《金融周报》报社：一周里发生的事先进新闻池，每 {@code newsIntervalDays} 天出一期周刊；
@@ -25,15 +24,24 @@ import java.util.UUID;
  * 赶上冷却时只在聊天栏简短提一句，详情等周刊。报纸是实体物品（{@link finance.item.NewspaperItem}），到贸易站右键、金融中心“更多操作”或 {@code /macro news} 领取，每期每人一份。
  */
 public final class NewsService {
-    public static final int MAX_POOL = 64, MAX_ARCHIVE = 8, MAX_CLAIMS = 512, MAX_PERSONAL_PLAYERS = 512, MAX_PERSONAL_LINES = 8;
+    public static final int MAX_POOL = 64,
+            MAX_ARCHIVE = 8,
+            MAX_CLAIMS = 512,
+            MAX_PERSONAL_PLAYERS = 512,
+            MAX_PERSONAL_LINES = 8;
     public static final int MAX_RADAR_PLAYERS = 1_024;
 
     /** 新闻池里的一条新闻。 */
-    public record Item(long day, int score, String headline, String body) { }
+    public record Item(long day, int score, String headline, String body) {}
 
     /** 已出版的一期。personal 是出版时记下的各玩家个人新闻。 */
-    public record Issue(int number, long day, boolean extra, String headline, List<String> pages,
-                        Map<UUID, List<String>> personal) { }
+    public record Issue(
+            int number,
+            long day,
+            boolean extra,
+            String headline,
+            List<String> pages,
+            Map<UUID, List<String>> personal) {}
 
     private static final List<Item> POOL = new ArrayList<>();
     private static final Map<UUID, List<String>> PERSONAL = new LinkedHashMap<>();
@@ -45,7 +53,7 @@ public final class NewsService {
     private static long lastWeeklyDay = Long.MIN_VALUE;
     private static long lastExtraDay = Long.MIN_VALUE;
 
-    private NewsService() { }
+    private NewsService() {}
 
     public static boolean enabled() {
         return FinanceConfig.macroNewsEnabled() && MacroEconomyService.active();
@@ -80,10 +88,14 @@ public final class NewsService {
 
     private static long observedDay = 0;
 
-    static long currentDay() { return observedDay; }
+    static long currentDay() {
+        return observedDay;
+    }
 
     /** 宏观日结开始时记下今天是第几天，供 report 打日期。 */
-    static void observeDay(long day) { observedDay = Math.max(0, day); }
+    static void observeDay(long day) {
+        observedDay = Math.max(0, day);
+    }
 
     // ================================================================ 出版
 
@@ -106,7 +118,8 @@ public final class NewsService {
             return;
         }
         if (extra == null) return;
-        boolean allowed = lastExtraDay == Long.MIN_VALUE || day - lastExtraDay >= Math.max(1, FinanceConfig.macroNewsExtraGapDays());
+        boolean allowed = lastExtraDay == Long.MIN_VALUE
+                || day - lastExtraDay >= Math.max(1, FinanceConfig.macroNewsExtraGapDays());
         if (allowed) {
             lastExtraDay = day;
             publish(server, NewsWriter.extra(++counter, day, extra));
@@ -122,8 +135,11 @@ public final class NewsService {
             CLAIMED.remove(old.number());
         }
         String key = issue.extra() ? "finance.macro.announce.extra" : "finance.macro.announce.weekly";
-        MacroWorldFeedback.announce(key, issue.extra() ? MacroWorldFeedback.Tone.BAD : MacroWorldFeedback.Tone.GOOD,
-                String.valueOf(issue.number()), issue.headline());
+        MacroWorldFeedback.announce(
+                key,
+                issue.extra() ? MacroWorldFeedback.Tone.BAD : MacroWorldFeedback.Tone.GOOD,
+                String.valueOf(issue.number()),
+                issue.headline());
         EconomySavedData.markDirty();
     }
 
@@ -195,23 +211,54 @@ public final class NewsService {
     static void markRadar(UUID player, long day) {
         if (player == null) return;
         RADAR_DAY.remove(player);
-        while (RADAR_DAY.size() >= MAX_RADAR_PLAYERS) RADAR_DAY.remove(RADAR_DAY.keySet().iterator().next());
+        while (RADAR_DAY.size() >= MAX_RADAR_PLAYERS)
+            RADAR_DAY.remove(RADAR_DAY.keySet().iterator().next());
         RADAR_DAY.put(player, day);
     }
 
     // ================================================================ 存档与隔离
 
-    public static List<Issue> archive() { return new ArrayList<>(ARCHIVE); }
-    public static List<Item> pool() { return new ArrayList<>(POOL); }
-    public static int counter() { return counter; }
-    public static long lastWeeklyDay() { return lastWeeklyDay; }
-    public static long lastExtraDay() { return lastExtraDay; }
-    public static Map<Integer, Set<UUID>> claimedDirect() { return CLAIMED; }
-    public static Map<UUID, List<String>> personalDirect() { return PERSONAL; }
-    public static Map<UUID, Long> radarDirect() { return RADAR_DAY; }
+    public static List<Issue> archive() {
+        return new ArrayList<>(ARCHIVE);
+    }
 
-    static void restore(int count, long weekly, long extra, List<Item> pool, List<Issue> issues,
-                        Map<Integer, Set<UUID>> claimed, Map<UUID, List<String>> personal, Map<UUID, Long> radar) {
+    public static List<Item> pool() {
+        return new ArrayList<>(POOL);
+    }
+
+    public static int counter() {
+        return counter;
+    }
+
+    public static long lastWeeklyDay() {
+        return lastWeeklyDay;
+    }
+
+    public static long lastExtraDay() {
+        return lastExtraDay;
+    }
+
+    public static Map<Integer, Set<UUID>> claimedDirect() {
+        return CLAIMED;
+    }
+
+    public static Map<UUID, List<String>> personalDirect() {
+        return PERSONAL;
+    }
+
+    public static Map<UUID, Long> radarDirect() {
+        return RADAR_DAY;
+    }
+
+    static void restore(
+            int count,
+            long weekly,
+            long extra,
+            List<Item> pool,
+            List<Issue> issues,
+            Map<Integer, Set<UUID>> claimed,
+            Map<UUID, List<String>> personal,
+            Map<UUID, Long> radar) {
         clearDirect();
         counter = Math.max(0, count);
         lastWeeklyDay = weekly;
@@ -221,9 +268,15 @@ public final class NewsService {
             ARCHIVE.addLast(i);
             while (ARCHIVE.size() > MAX_ARCHIVE) ARCHIVE.removeFirst();
         }
-        claimed.forEach((k, v) -> { if (ARCHIVE.stream().anyMatch(i -> i.number() == k)) CLAIMED.put(k, new LinkedHashSet<>(v)); });
-        personal.forEach((k, v) -> { if (PERSONAL.size() < MAX_PERSONAL_PLAYERS) PERSONAL.put(k, new ArrayList<>(v)); });
-        radar.forEach((k, v) -> { if (RADAR_DAY.size() < MAX_RADAR_PLAYERS) RADAR_DAY.put(k, v); });
+        claimed.forEach((k, v) -> {
+            if (ARCHIVE.stream().anyMatch(i -> i.number() == k)) CLAIMED.put(k, new LinkedHashSet<>(v));
+        });
+        personal.forEach((k, v) -> {
+            if (PERSONAL.size() < MAX_PERSONAL_PLAYERS) PERSONAL.put(k, new ArrayList<>(v));
+        });
+        radar.forEach((k, v) -> {
+            if (RADAR_DAY.size() < MAX_RADAR_PLAYERS) RADAR_DAY.put(k, v);
+        });
     }
 
     public static void clearDirect() {

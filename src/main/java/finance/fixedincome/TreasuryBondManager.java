@@ -8,10 +8,9 @@ import finance.config.FinanceConfig;
 import finance.data.EconomySavedData;
 import finance.market.CentralBank;
 import finance.util.MathUtil;
-import org.slf4j.Logger;
-
 import java.math.BigInteger;
 import java.util.*;
+import org.slf4j.Logger;
 
 /**
  * 央行债券管理器 —— 央行长期限无风险债券（30/90/180 天），玩家认购持有到期。
@@ -28,20 +27,28 @@ public final class TreasuryBondManager {
     public static final int MAX_BONDS = 4_096;
     /** 期限白名单（MC 天），与票据/定存错开定位；有意写死，期限相关的耗时/数值参数走 config。 */
     public static final java.util.List<Integer> TERM_DAYS = java.util.List.of(30, 90, 180);
+
     private static final Set<Integer> TERMS = Set.copyOf(TERM_DAYS);
     private static final Map<UUID, TreasuryBond> BONDS = new LinkedHashMap<>();
     private static long cumulativeIssuance;
     private static long lastIssuance;
     private static long lastIssuanceDay = -1;
-    private TreasuryBondManager() { }
+
+    private TreasuryBondManager() {}
 
     public static Result subscribe(UUID playerId, int termDays, long principal, long currentDay) {
-        if (playerId == null || playerId.equals(CentralBank.UUID) || !TERMS.contains(termDays)
-                || principal <= 0 || currentDay < 0) return Result.fail("央行债券认购参数无效");
+        if (playerId == null
+                || playerId.equals(CentralBank.UUID)
+                || !TERMS.contains(termDays)
+                || principal <= 0
+                || currentDay < 0) return Result.fail("央行债券认购参数无效");
         if (principal < FinanceConfig.treasuryBondMinAmount()) return Result.fail("央行债券未达起认金额");
         long maturity;
-        try { maturity = Math.addExact(currentDay, termDays); }
-        catch (ArithmeticException ignored) { return Result.fail("到期日溢出"); }
+        try {
+            maturity = Math.addExact(currentDay, termDays);
+        } catch (ArithmeticException ignored) {
+            return Result.fail("到期日溢出");
+        }
         // 单人 ACTIVE 本金上限
         long playerActive = activePrincipalByPlayer(playerId);
         if (playerActive > Long.MAX_VALUE - principal
@@ -54,8 +61,12 @@ public final class TreasuryBondManager {
             return Result.fail("本期限央行债券发行额度已满");
         int rate = YieldCurveService.treasuryYieldBasisPoints(termDays);
         if (rate <= 0) return Result.fail("央行债券收益率异常");
-        TreasuryBond bond = BONDS.values().stream().filter(b -> b.status() == TreasuryBondStatus.ACTIVE
-                && b.issueDay() == currentDay && b.termDays() == termDays).findFirst().orElse(null);
+        TreasuryBond bond = BONDS.values().stream()
+                .filter(b -> b.status() == TreasuryBondStatus.ACTIVE
+                        && b.issueDay() == currentDay
+                        && b.termDays() == termDays)
+                .findFirst()
+                .orElse(null);
         if (bond == null) {
             if (BONDS.size() >= MAX_BONDS) return Result.fail("央行债券数量达到上限");
             bond = new TreasuryBond(UUID.randomUUID(), termDays, rate, currentDay, maturity, TreasuryBondStatus.ACTIVE);
@@ -72,8 +83,14 @@ public final class TreasuryBondManager {
             return Result.fail("央行债券持仓结算失败");
         }
         // 审计 quantity 统一为 0：资金划转无物品数量概念（见 TransactionRecord 文档）
-        AccountManager.addTransactionRecord(new TransactionRecord(playerId, CentralBank.UUID, principal,
-                TransactionType.TREASURY_BOND_SUBSCRIBE, playerId, "央行债券/" + termDays + "日", 0));
+        AccountManager.addTransactionRecord(new TransactionRecord(
+                playerId,
+                CentralBank.UUID,
+                principal,
+                TransactionType.TREASURY_BOND_SUBSCRIBE,
+                playerId,
+                "央行债券/" + termDays + "日",
+                0));
         EconomySavedData.markDirty();
         return Result.ok(bond.id(), "央行债券认购成功");
     }
@@ -100,8 +117,14 @@ public final class TreasuryBondManager {
             return Result.fail("央行债券赎回结算失败");
         }
         if (bond.principalByPlayer().isEmpty()) BONDS.remove(bond.id());
-        AccountManager.addTransactionRecord(new TransactionRecord(CentralBank.UUID, playerId, payout,
-                TransactionType.TREASURY_BOND_EARLY_REDEEM, playerId, "央行债券提前赎回/" + bond.termDays() + "日", 0));
+        AccountManager.addTransactionRecord(new TransactionRecord(
+                CentralBank.UUID,
+                playerId,
+                payout,
+                TransactionType.TREASURY_BOND_EARLY_REDEEM,
+                playerId,
+                "央行债券提前赎回/" + bond.termDays() + "日",
+                0));
         EconomySavedData.markDirty();
         return Result.ok(bondId, fee > 0 ? "央行债券提前赎回完成，已扣除手续费" : "央行债券提前赎回完成，仅返还本金");
     }
@@ -121,8 +144,10 @@ public final class TreasuryBondManager {
         int skipped = 0;
         for (Map.Entry<UUID, Long> holding : bond.principalByPlayer().entrySet()) {
             BigInteger principal = BigInteger.valueOf(holding.getValue());
-            BigInteger interest = principal.multiply(BigInteger.valueOf(bond.annualRateBasisPoints()))
-                    .multiply(BigInteger.valueOf(bond.termDays())).divide(denominator);
+            BigInteger interest = principal
+                    .multiply(BigInteger.valueOf(bond.annualRateBasisPoints()))
+                    .multiply(BigInteger.valueOf(bond.termDays()))
+                    .divide(denominator);
             BigInteger due = principal.add(interest);
             long amount = due.compareTo(BigInteger.valueOf(Long.MAX_VALUE)) > 0 ? -1 : due.longValue();
             if (amount <= 0 || !AccountManager.canDeposit(holding.getKey(), amount)) {
@@ -131,7 +156,8 @@ public final class TreasuryBondManager {
                 LOGGER.warn("央行债券 {} 持有人 {} 本期跳过兑付（份额留待次日）", bond.id(), holding.getKey());
                 continue;
             }
-            payouts.put(holding.getKey(), amount); total = total.add(due);
+            payouts.put(holding.getKey(), amount);
+            total = total.add(due);
         }
         if (payouts.isEmpty()) return false; // 全部跳过：保持 ACTIVE，次日重试
         if (total.compareTo(BigInteger.valueOf(Long.MAX_VALUE)) > 0) return false;
@@ -144,8 +170,11 @@ public final class TreasuryBondManager {
                 boolean rollbackOk = true;
                 for (Map.Entry<UUID, Long> rollback : paid) {
                     if (!AccountManager.moveFunds(rollback.getKey(), CentralBank.UUID, rollback.getValue())) {
-                        LOGGER.error("央行债券兑付回滚失败：债券 {} 持有人 {} 已收款 {} 无法追回，暂停自动重试",
-                                bond.id(), rollback.getKey(), rollback.getValue());
+                        LOGGER.error(
+                                "央行债券兑付回滚失败：债券 {} 持有人 {} 已收款 {} 无法追回，暂停自动重试",
+                                bond.id(),
+                                rollback.getKey(),
+                                rollback.getValue());
                         rollbackOk = false;
                     }
                 }
@@ -156,9 +185,14 @@ public final class TreasuryBondManager {
                 if (!rollbackOk) {
                     // 回滚再失败：债券已部分兑付，标记异常并暂停自动重试，防次日重复全额兑付
                     bond.setStatus(TreasuryBondStatus.SETTLEMENT_FAILED);
-                    AccountManager.addTransactionRecord(new TransactionRecord(CentralBank.UUID, CentralBank.UUID, 0,
-                            TransactionType.TREASURY_BOND_MATURITY, CentralBank.UUID,
-                            "央行债券兑付异常/暂停自动重试:" + bond.id(), 0));
+                    AccountManager.addTransactionRecord(new TransactionRecord(
+                            CentralBank.UUID,
+                            CentralBank.UUID,
+                            0,
+                            TransactionType.TREASURY_BOND_MATURITY,
+                            CentralBank.UUID,
+                            "央行债券兑付异常/暂停自动重试:" + bond.id(),
+                            0));
                     EconomySavedData.markDirty();
                 }
                 return false;
@@ -167,13 +201,26 @@ public final class TreasuryBondManager {
         }
         if (issuance > 0) {
             cumulativeIssuance = MathUtil.saturatedAddNonNegative(cumulativeIssuance, issuance);
-            lastIssuance = issuance; lastIssuanceDay = day;
-            AccountManager.addTransactionRecord(new TransactionRecord(CentralBank.UUID, CentralBank.UUID, issuance,
-                    TransactionType.CENTRAL_BANK_MONETARY_ISSUE, CentralBank.UUID, "央行债券兑付缺口投放", 0));
+            lastIssuance = issuance;
+            lastIssuanceDay = day;
+            AccountManager.addTransactionRecord(new TransactionRecord(
+                    CentralBank.UUID,
+                    CentralBank.UUID,
+                    issuance,
+                    TransactionType.CENTRAL_BANK_MONETARY_ISSUE,
+                    CentralBank.UUID,
+                    "央行债券兑付缺口投放",
+                    0));
         }
         for (Map.Entry<UUID, Long> payout : payouts.entrySet()) {
-            AccountManager.addTransactionRecord(new TransactionRecord(CentralBank.UUID, payout.getKey(), payout.getValue(),
-                    TransactionType.TREASURY_BOND_MATURITY, payout.getKey(), "央行债券到期/" + bond.termDays() + "日", 0));
+            AccountManager.addTransactionRecord(new TransactionRecord(
+                    CentralBank.UUID,
+                    payout.getKey(),
+                    payout.getValue(),
+                    TransactionType.TREASURY_BOND_MATURITY,
+                    payout.getKey(),
+                    "央行债券到期/" + bond.termDays() + "日",
+                    0));
             bond.removePrincipal(payout.getKey());
         }
         if (bond.principalByPlayer().isEmpty()) {
@@ -183,7 +230,8 @@ public final class TreasuryBondManager {
         } else {
             LOGGER.warn("央行债券 {} 本期部分兑付：{} 人已兑付，{} 人份额留待次日", bond.id(), payouts.size(), skipped);
         }
-        EconomySavedData.markDirty(); return true;
+        EconomySavedData.markDirty();
+        return true;
     }
 
     /** 玩家在 ACTIVE 债券中的本金合计（用于个人上限）。 */
@@ -210,21 +258,37 @@ public final class TreasuryBondManager {
     public static long expectedMaturityValue(TreasuryBond bond, UUID player) {
         if (bond == null || player == null) return 0;
         long principal = bond.principalByPlayer().getOrDefault(player, 0L);
-        BigInteger interest = BigInteger.valueOf(principal).multiply(BigInteger.valueOf(bond.annualRateBasisPoints()))
+        BigInteger interest = BigInteger.valueOf(principal)
+                .multiply(BigInteger.valueOf(bond.annualRateBasisPoints()))
                 .multiply(BigInteger.valueOf(bond.termDays()))
                 .divide(BigInteger.valueOf((long) FinanceConfig.annualMcDays() * 10_000L));
-        return interest.add(BigInteger.valueOf(principal)).min(BigInteger.valueOf(Long.MAX_VALUE)).longValue();
+        return interest.add(BigInteger.valueOf(principal))
+                .min(BigInteger.valueOf(Long.MAX_VALUE))
+                .longValue();
     }
 
-    public static Map<UUID, TreasuryBond> bonds() { return Collections.unmodifiableMap(BONDS); }
-    public static long cumulativeIssuance() { return cumulativeIssuance; }
-    public static long lastIssuance() { return lastIssuance; }
-    public static long lastIssuanceDay() { return lastIssuanceDay; }
+    public static Map<UUID, TreasuryBond> bonds() {
+        return Collections.unmodifiableMap(BONDS);
+    }
+
+    public static long cumulativeIssuance() {
+        return cumulativeIssuance;
+    }
+
+    public static long lastIssuance() {
+        return lastIssuance;
+    }
+
+    public static long lastIssuanceDay() {
+        return lastIssuanceDay;
+    }
+
     public static void restoreIssuance(long cumulative, long last, long day) {
         cumulativeIssuance = Math.max(0, cumulative);
         lastIssuance = Math.min(cumulativeIssuance, Math.max(0, last));
         lastIssuanceDay = lastIssuance > 0 ? Math.max(0, day) : -1;
     }
+
     public static void putDirect(TreasuryBond bond) {
         if (bond == null) return;
         if (BONDS.size() >= MAX_BONDS) {
@@ -234,9 +298,21 @@ public final class TreasuryBondManager {
         }
         BONDS.put(bond.id(), bond);
     }
-    public static void clearDirect() { BONDS.clear(); cumulativeIssuance = 0; lastIssuance = 0; lastIssuanceDay = -1; }
+
+    public static void clearDirect() {
+        BONDS.clear();
+        cumulativeIssuance = 0;
+        lastIssuance = 0;
+        lastIssuanceDay = -1;
+    }
+
     public record Result(boolean success, UUID bondId, String message) {
-        static Result ok(UUID id, String message) { return new Result(true, id, message); }
-        static Result fail(String message) { return new Result(false, null, message); }
+        static Result ok(UUID id, String message) {
+            return new Result(true, id, message);
+        }
+
+        static Result fail(String message) {
+            return new Result(false, null, message);
+        }
     }
 }

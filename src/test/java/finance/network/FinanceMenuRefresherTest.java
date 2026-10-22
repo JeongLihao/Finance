@@ -1,14 +1,14 @@
 package finance.network;
 
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.Test;
 
 class FinanceMenuRefresherTest {
 
-    @Test void periodicRefreshFiresOncePerPeriodForEachPlayer() {
+    @Test
+    void periodicRefreshFiresOncePerPeriodForEachPlayer() {
         UUID player = UUID.randomUUID();
         int due = 0;
         for (long tick = 0; tick < FinanceMenuRefresher.PERIOD_TICKS * 5L; tick++) {
@@ -17,7 +17,8 @@ class FinanceMenuRefresherTest {
         assertEquals(5, due);
     }
 
-    @Test void dirtyFlagIsConsumedOnce() {
+    @Test
+    void dirtyFlagIsConsumedOnce() {
         FinanceMenuRefresher.clear();
         UUID player = UUID.randomUUID();
         assertFalse(FinanceMenuRefresher.takeDirty(player));

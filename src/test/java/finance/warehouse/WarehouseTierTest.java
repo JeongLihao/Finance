@@ -1,9 +1,9 @@
 package finance.warehouse;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import finance.config.FinanceConfig;
 import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 class WarehouseTierTest {
     @Test

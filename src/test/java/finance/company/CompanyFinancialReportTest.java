@@ -1,20 +1,18 @@
 package finance.company;
 
-import finance.commodity.CommodityCategory;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import finance.commodity.CommodityRegistry;
 import finance.data.EconomySavedData;
 import finance.market.MarketPrice;
 import finance.market.NpcMarketMaker;
 import finance.stock.Stock;
 import finance.stock.StockMarketManager;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class CompanyFinancialReportTest {
 
@@ -51,17 +49,13 @@ class CompanyFinancialReportTest {
         Company company = new Company(COMPANY_ID, "Report Stock Inc", CompanyType.RAW_MATERIALS, 1_000);
         company.setPublic(true);
         company.addFinancialReportDirect(new CompanyFinancialReport(
-                1, 500, 100, 400, 2_000, 200, 1_200, 100, 50,
-                "盈利400，资产增加100，现金余额1200",
-                java.time.LocalDateTime.now()));
+                1, 500, 100, 400, 2_000, 200, 1_200, 100, 50, "盈利400，资产增加100，现金余额1200", java.time.LocalDateTime.now()));
         CompanyManager.registerDirect(company);
-        Stock stock = new Stock("RPT", "Report Stock Inc", COMPANY_ID,
-                100, 100, 0, 10, 10);
+        Stock stock = new Stock("RPT", "Report Stock Inc", COMPANY_ID, 100, 100, 0, 10, 10);
         StockMarketManager.putStockDirect(stock);
 
         StockMarketManager.updateFairValuesAndResetDay();
 
-        assertTrue(stock.getFairValue() > 10,
-                "财报中的净资产和利润应进入股票 fair value，而不是继续停留在旧估值");
+        assertTrue(stock.getFairValue() > 10, "财报中的净资产和利润应进入股票 fair value，而不是继续停留在旧估值");
     }
 }

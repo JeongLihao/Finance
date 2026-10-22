@@ -1,23 +1,22 @@
 package finance.market;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import finance.account.AccountManager;
+import finance.chart.CandlestickService;
+import finance.chart.MarketInstrumentType;
 import finance.commodity.Commodity;
 import finance.commodity.CommodityCategory;
 import finance.commodity.CommodityInventoryManager;
 import finance.commodity.CommodityRegistry;
 import finance.data.EconomySavedData;
 import finance.metrics.EconomyMetricsService;
-import finance.chart.CandlestickService;
-import finance.chart.MarketInstrumentType;
+import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MarketManagerMetricsTest {
 
@@ -32,8 +31,7 @@ class MarketManagerMetricsTest {
         CommodityInventoryManager.clearInventoriesDirect();
         CommodityRegistry.resetToDefaults();
         CommodityRegistry.register(new Commodity(
-                COMMODITY_ID, "minecraft:iron_ingot", "Metrics Commodity",
-                CommodityCategory.RAW_MATERIALS, 10));
+                COMMODITY_ID, "minecraft:iron_ingot", "Metrics Commodity", CommodityCategory.RAW_MATERIALS, 10));
     }
 
     @AfterEach
@@ -55,9 +53,21 @@ class MarketManagerMetricsTest {
         assertEquals(5, EconomyMetricsService.getCurrentCommodityVolume());
         assertEquals(2, MarketManager.getTradeHistory().size());
         assertEquals(5, CommodityInventoryManager.getCommodityAmount(BUYER, COMMODITY_ID));
-        assertEquals(10, CandlestickService.getBars(MarketInstrumentType.COMMODITY, COMMODITY_ID, 30).get(0).open());
-        assertEquals(11, CandlestickService.getBars(MarketInstrumentType.COMMODITY, COMMODITY_ID, 30).get(0).close());
-        assertEquals(5, CandlestickService.getBars(MarketInstrumentType.COMMODITY, COMMODITY_ID, 30).get(0).volume());
+        assertEquals(
+                10,
+                CandlestickService.getBars(MarketInstrumentType.COMMODITY, COMMODITY_ID, 30)
+                        .get(0)
+                        .open());
+        assertEquals(
+                11,
+                CandlestickService.getBars(MarketInstrumentType.COMMODITY, COMMODITY_ID, 30)
+                        .get(0)
+                        .close());
+        assertEquals(
+                5,
+                CandlestickService.getBars(MarketInstrumentType.COMMODITY, COMMODITY_ID, 30)
+                        .get(0)
+                        .volume());
     }
 
     @Test
@@ -65,12 +75,16 @@ class MarketManagerMetricsTest {
         CommodityInventoryManager.addCommodity(SELLER_A, COMMODITY_ID, 4);
         assertTrue(MarketManager.placeOrder(new Order(SELLER_A, COMMODITY_ID, OrderType.SELL, 5, 4)));
 
-        MarketManager.TakeOrderResult result = MarketManager.takeOrder(
-                MarketManager.getOrders().get(0).getOrderId(), BUYER);
+        MarketManager.TakeOrderResult result =
+                MarketManager.takeOrder(MarketManager.getOrders().get(0).getOrderId(), BUYER);
 
         assertTrue(result.success());
         assertEquals(4, EconomyMetricsService.getCurrentCommodityVolume());
-        assertEquals(4, CandlestickService.getBars(MarketInstrumentType.COMMODITY, COMMODITY_ID, 30).get(0).volume());
+        assertEquals(
+                4,
+                CandlestickService.getBars(MarketInstrumentType.COMMODITY, COMMODITY_ID, 30)
+                        .get(0)
+                        .volume());
     }
 
     @Test
@@ -83,7 +97,11 @@ class MarketManagerMetricsTest {
         assertTrue(NpcMarketMaker.npcSell(BUYER, COMMODITY_ID, 2));
 
         assertEquals(5, EconomyMetricsService.getCurrentCommodityVolume());
-        assertEquals(5, CandlestickService.getBars(MarketInstrumentType.COMMODITY, COMMODITY_ID, 30).get(0).volume());
+        assertEquals(
+                5,
+                CandlestickService.getBars(MarketInstrumentType.COMMODITY, COMMODITY_ID, 30)
+                        .get(0)
+                        .volume());
     }
 
     @Test
@@ -94,7 +112,8 @@ class MarketManagerMetricsTest {
 
         assertEquals(0, EconomyMetricsService.getCurrentCommodityVolume());
         assertEquals(0, MarketManager.getTradeHistory().size());
-        assertTrue(CandlestickService.getBars(MarketInstrumentType.COMMODITY, COMMODITY_ID, 30).isEmpty());
+        assertTrue(CandlestickService.getBars(MarketInstrumentType.COMMODITY, COMMODITY_ID, 30)
+                .isEmpty());
     }
 
     @Test

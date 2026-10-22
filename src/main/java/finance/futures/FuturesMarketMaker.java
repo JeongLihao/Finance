@@ -15,7 +15,6 @@ import finance.market.MarketMakerLedger;
 import finance.market.MarketPrice;
 import finance.market.NpcMarketMaker;
 import finance.policy.MonetaryPolicyService;
-
 import java.math.BigInteger;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -73,8 +72,7 @@ public final class FuturesMarketMaker {
     /** 时间源；测试可覆盖以模拟对敲窗口/冷却。 */
     static LongSupplier wallClock = System::currentTimeMillis;
 
-    private FuturesMarketMaker() {
-    }
+    private FuturesMarketMaker() {}
 
     // ================================================================
     // 对外 API（Phase 4 GUI 用，方法名固定）
@@ -100,8 +98,7 @@ public final class FuturesMarketMaker {
         if (paused) {
             return true;
         }
-        return finance.market.MarketMakerPauseState.isPaused(
-                finance.market.MarketMakerLedger.SubMarket.FUTURES);
+        return finance.market.MarketMakerPauseState.isPaused(finance.market.MarketMakerLedger.SubMarket.FUTURES);
     }
 
     /** 手动暂停/恢复（Phase 4 管理后台服主工具）。 */
@@ -219,7 +216,7 @@ public final class FuturesMarketMaker {
         if (bid < 1 || ask <= bid) {
             return null;
         }
-        return new long[]{bid, ask};
+        return new long[] {bid, ask};
     }
 
     private static long floorToTick(long price, long tick) {
@@ -329,8 +326,8 @@ public final class FuturesMarketMaker {
         }
         long currentRequirement = MarginManager.initialRequirement(MARKET_MAKER_ID);
         long available = account.cashBalance() - account.frozenForOrders() - Math.max(0, currentRequirement);
-        long affordable = FuturesMath.maxOpenQuantity(Math.max(0, available), price, c.contractSize(),
-                FinanceConfig.futuresInitialMarginBps(), qty);
+        long affordable = FuturesMath.maxOpenQuantity(
+                Math.max(0, available), price, c.contractSize(), FinanceConfig.futuresInitialMarginBps(), qty);
         return Math.min(qty, affordable);
     }
 
@@ -360,8 +357,14 @@ public final class FuturesMarketMaker {
             AccountManager.deposit(MarketMakerLedger.MASTER_UUID, move); // 回滚
             return;
         }
-        AccountManager.addTransactionRecord(new TransactionRecord(MarketMakerLedger.MASTER_UUID, MARKET_MAKER_ID,
-                move, TransactionType.FUTURES_MARGIN_DEPOSIT, MARKET_MAKER_ID, "做市商保证金注资", 1));
+        AccountManager.addTransactionRecord(new TransactionRecord(
+                MarketMakerLedger.MASTER_UUID,
+                MARKET_MAKER_ID,
+                move,
+                TransactionType.FUTURES_MARGIN_DEPOSIT,
+                MARKET_MAKER_ID,
+                "做市商保证金注资",
+                1));
         EconomySavedData.markDirty();
     }
 
@@ -370,13 +373,11 @@ public final class FuturesMarketMaker {
     // ================================================================
 
     /** 对敲追踪事件（玩家视角方向）。 */
-    private record WashEvent(UUID contractId, boolean playerBought, long notional, long atMillis) {
-    }
+    private record WashEvent(UUID contractId, boolean playerBought, long notional, long atMillis) {}
 
     /** 对敲告警（有界历史，供管理后台审计）。 */
-    public record WashTradeAlert(UUID playerId, UUID contractId, long mcDay, long tradeCount, long notional,
-                                 String message) {
-    }
+    public record WashTradeAlert(
+            UUID playerId, UUID contractId, long mcDay, long tradeCount, long notional, String message) {}
 
     private static void trackWashTrade(UUID player, FuturesContract c, boolean playerBought, long price, long qty) {
         long notional = FuturesMath.notional(price, c.contractSize(), qty);
@@ -404,9 +405,10 @@ public final class FuturesMarketMaker {
                 }
                 total = total > Long.MAX_VALUE - e.notional() ? Long.MAX_VALUE : total + e.notional();
             }
-            if (buys > 0 && sells > 0
+            if (buys > 0
+                    && sells > 0
                     && (count > FinanceConfig.futuresMmWashTradeMaxTrades()
-                        || total > FinanceConfig.futuresMmWashTradeMaxNotional())) {
+                            || total > FinanceConfig.futuresMmWashTradeMaxNotional())) {
                 long cooldownMs = Math.max(1, FinanceConfig.futuresMmWashTradeCooldownMinutes()) * 60_000L;
                 WASH_COOLDOWN_UNTIL.put(player, now + cooldownMs);
                 long windowMinutes = FinanceConfig.futuresMmWashTradeWindowMinutes();
@@ -416,14 +418,21 @@ public final class FuturesMarketMaker {
                 if (ALERTS.size() >= MAX_ALERTS) {
                     ALERTS.remove(0);
                 }
-                ALERTS.add(new WashTradeAlert(player, c.id(), CandlestickService.currentMcDay(), count, total, message));
+                ALERTS.add(
+                        new WashTradeAlert(player, c.id(), CandlestickService.currentMcDay(), count, total, message));
                 // 走仓库现有告警总线（无需在线服务器即可记录，管理后台可见）
                 WorldEconomyFeedbackService.record(new WorldEconomyEvent(
-                        "wash-trade:" + player, WorldFeedbackType.MAJOR_MARKET_EVENT, FeedbackSeverity.WARNING,
-                        c.id().toString(), CandlestickService.currentMcDay(), "", null,
+                        "wash-trade:" + player,
+                        WorldFeedbackType.MAJOR_MARKET_EVENT,
+                        FeedbackSeverity.WARNING,
+                        c.id().toString(),
+                        CandlestickService.currentMcDay(),
+                        "",
+                        null,
                         "finance.feedback.wash_trade_alert",
                         List.of(player.toString(), c.code(), Long.toString(count)),
-                        FeedbackAudience.ADMIN, Set.of(player)));
+                        FeedbackAudience.ADMIN,
+                        Set.of(player)));
                 EconomySavedData.markDirty();
             }
         }

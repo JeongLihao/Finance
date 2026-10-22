@@ -5,23 +5,21 @@ import finance.account.AccountManager;
 import finance.account.AssetSnapshotManager;
 import finance.account.TransactionRecord;
 import finance.account.TransactionType;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.Tag;
-
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.Tag;
 
 /** Persists account balances, asset baselines and the account transaction journal. */
 public final class AccountDataSerializer {
 
     private static final int MAX_TRANSACTION_RECORDS = 500;
 
-    private AccountDataSerializer() {
-    }
+    private AccountDataSerializer() {}
 
     public static void save(CompoundTag root) {
         ListTag accountsTag = new ListTag();
@@ -35,8 +33,8 @@ public final class AccountDataSerializer {
         root.put("Accounts", accountsTag);
 
         ListTag assetSnapshotsTag = new ListTag();
-        for (Map.Entry<UUID, AssetSnapshotManager.AssetSnapshot> entry
-                : AssetSnapshotManager.getSnapshots().entrySet()) {
+        for (Map.Entry<UUID, AssetSnapshotManager.AssetSnapshot> entry :
+                AssetSnapshotManager.getSnapshots().entrySet()) {
             CompoundTag snapshotTag = new CompoundTag();
             snapshotTag.putUUID("PlayerUUID", entry.getKey());
             snapshotTag.putLong("McDay", entry.getValue().mcDay());
@@ -107,8 +105,10 @@ public final class AccountDataSerializer {
             CompoundTag snapshotTag = (CompoundTag) rawTag;
             UUID playerId = NbtDataSupport.readUuidOrNull(snapshotTag, "PlayerUUID");
             if (playerId != null) {
-                AssetSnapshotManager.putSnapshotDirect(playerId, new AssetSnapshotManager.AssetSnapshot(
-                        snapshotTag.getLong("McDay"), snapshotTag.getLong("TotalAsset")));
+                AssetSnapshotManager.putSnapshotDirect(
+                        playerId,
+                        new AssetSnapshotManager.AssetSnapshot(
+                                snapshotTag.getLong("McDay"), snapshotTag.getLong("TotalAsset")));
             }
         }
     }
@@ -122,13 +122,15 @@ public final class AccountDataSerializer {
             CompoundTag recordTag = (CompoundTag) rawTag;
             UUID from = NbtDataSupport.readUuidOrNull(recordTag, "From");
             UUID to = NbtDataSupport.readUuidOrNull(recordTag, "To");
-            TransactionType type = NbtDataSupport.safeEnum(
-                    TransactionType.class, recordTag.getString("Type"), null);
+            TransactionType type = NbtDataSupport.safeEnum(TransactionType.class, recordTag.getString("Type"), null);
             if (from == null || to == null || type == null) {
                 continue;
             }
             AccountManager.addTransactionRecord(new TransactionRecord(
-                    from, to, recordTag.getLong("Amount"), type,
+                    from,
+                    to,
+                    recordTag.getLong("Amount"),
+                    type,
                     LocalDateTime.ofEpochSecond(recordTag.getLong("Timestamp"), 0, ZoneOffset.UTC),
                     NbtDataSupport.readUuidOrNull(recordTag, "PlayerUUID"),
                     recordTag.contains("ObjectName") ? recordTag.getString("ObjectName") : "",

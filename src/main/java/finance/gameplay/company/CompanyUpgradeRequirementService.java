@@ -1,17 +1,19 @@
 package finance.gameplay.company;
 
 import finance.company.CompanyType;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
 
-import java.util.LinkedHashMap;
-import java.util.Map;
-
 public final class CompanyUpgradeRequirementService {
     public record Requirement(long cash, Map<Item, Integer> materials) {}
+
     private CompanyUpgradeRequirementService() {}
+
     public static Requirement requirement(CompanyType type, CompanyFacilityType facilityType, int currentLevel) {
-        if (type == null || facilityType == null || currentLevel < 1 || currentLevel >= CompanyFacilityRecord.MAX_LEVEL) return null;
+        if (type == null || facilityType == null || currentLevel < 1 || currentLevel >= CompanyFacilityRecord.MAX_LEVEL)
+            return null;
         Map<Item, Integer> materials = new LinkedHashMap<>();
         if (currentLevel == 1) {
             materials.put(Items.IRON_INGOT, 12);

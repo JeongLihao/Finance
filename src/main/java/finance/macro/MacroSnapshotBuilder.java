@@ -7,14 +7,13 @@ import finance.settlement.SettlementManager;
 import finance.settlement.SettlementRecord;
 import finance.village.VillageManager;
 import finance.village.VillageRecord;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
 /** 把宏观经济状态整理成 GUI 页签用的公开快照。 */
 public final class MacroSnapshotBuilder {
-    private MacroSnapshotBuilder() { }
+    private MacroSnapshotBuilder() {}
 
     /** 中央银行概况（宏观页签顶部和“更多操作”的央行页共用）。 */
     public static MacroResponsePacket.CentralBankRow centralBankRow() {
@@ -24,10 +23,15 @@ public final class MacroSnapshotBuilder {
             if (stabilization.size() >= MacroResponsePacket.MAX_STABILIZATION) break;
             stabilization.add((a.sold() ? "抛售" : "收储") + MacroRadar.name(a.commodityId()) + " " + a.quantity());
         }
-        return new MacroResponsePacket.CentralBankRow(finance.policy.MonetaryPolicyService.benchmarkRateBasisPoints(),
-                finance.centralbank.CentralBankService.inflationTargetBps(), finance.centralbank.CentralBankService.inflationBps(),
-                finance.centralbank.CentralBankService.demandReserveBps(), outlook.nextMeetingDay(), outlook.guidanceDirection(),
-                finance.centralbank.CentralBankService.outstandingAbsorbed(), finance.centralbank.CentralBankService.outstandingInjected(),
+        return new MacroResponsePacket.CentralBankRow(
+                finance.policy.MonetaryPolicyService.benchmarkRateBasisPoints(),
+                finance.centralbank.CentralBankService.inflationTargetBps(),
+                finance.centralbank.CentralBankService.inflationBps(),
+                finance.centralbank.CentralBankService.demandReserveBps(),
+                outlook.nextMeetingDay(),
+                outlook.guidanceDirection(),
+                finance.centralbank.CentralBankService.outstandingAbsorbed(),
+                finance.centralbank.CentralBankService.outstandingInjected(),
                 stabilization);
     }
 
@@ -51,16 +55,34 @@ public final class MacroSnapshotBuilder {
                 if (goods.size() >= MacroResponsePacket.MAX_GOODS) break;
                 Commodity def = CommodityRegistry.getCommodity(e.getKey());
                 GoodBook b = e.getValue();
-                goods.add(new MacroResponsePacket.GoodRow(def == null ? e.getKey() : def.getDisplayName(), b.factorBps,
-                        b.lastDemand, b.lastSupply, MacroEconomyService.localPrice(econ, e.getKey())));
+                goods.add(new MacroResponsePacket.GoodRow(
+                        def == null ? e.getKey() : def.getDisplayName(),
+                        b.factorBps,
+                        b.lastDemand,
+                        b.lastSupply,
+                        MacroEconomyService.localPrice(econ, e.getKey())));
             }
-            rows.add(new MacroResponsePacket.SettlementRow(settlement.displayName(), village.population(), econ.solBps,
-                    econ.employed, econ.lastIncome, fulfil, goods));
+            rows.add(new MacroResponsePacket.SettlementRow(
+                    settlement.displayName(),
+                    village.population(),
+                    econ.solBps,
+                    econ.employed,
+                    econ.lastIncome,
+                    fulfil,
+                    goods));
         }
-        return new MacroResponsePacket(requestId, enabled, cpi < 0 ? 0 : Math.round(cpi * 100),
+        return new MacroResponsePacket(
+                requestId,
+                enabled,
+                cpi < 0 ? 0 : Math.round(cpi * 100),
                 (int) Math.round(MacroIndicators.annualizedInflationPct() * 10),
-                s == null ? 0 : s.population(), s == null ? 0 : s.avgSol(), s == null ? 0 : s.employed(),
-                s == null ? 0 : s.wages(), centralBankRow(), rows, finance.gameplay.company.factory.FactoryService.tierCounts(),
+                s == null ? 0 : s.population(),
+                s == null ? 0 : s.avgSol(),
+                s == null ? 0 : s.employed(),
+                s == null ? 0 : s.wages(),
+                centralBankRow(),
+                rows,
+                finance.gameplay.company.factory.FactoryService.tierCounts(),
                 finance.rival.RivalService.snapshotRows(MacroResponsePacket.MAX_RIVALS));
     }
 }

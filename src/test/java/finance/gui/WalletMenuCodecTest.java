@@ -1,14 +1,13 @@
 package finance.gui;
 
-import io.netty.buffer.Unpooled;
-import net.minecraft.network.FriendlyByteBuf;
-import org.junit.jupiter.api.Test;
-
-import java.util.ArrayList;
-import java.util.List;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+
+import io.netty.buffer.Unpooled;
+import java.util.ArrayList;
+import java.util.List;
+import net.minecraft.network.FriendlyByteBuf;
+import org.junit.jupiter.api.Test;
 
 class WalletMenuCodecTest {
     @Test

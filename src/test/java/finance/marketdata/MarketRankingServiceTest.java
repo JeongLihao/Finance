@@ -1,17 +1,17 @@
 package finance.marketdata;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import finance.chart.CandlestickSeries;
 import finance.chart.MarketInstrumentKey;
 import finance.chart.MarketInstrumentType;
-import org.junit.jupiter.api.Test;
-
 import java.util.LinkedHashMap;
 import java.util.Map;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import org.junit.jupiter.api.Test;
 
 class MarketRankingServiceTest {
-    @Test void buildsFourStableTopListsFromLatestBars() {
+    @Test
+    void buildsFourStableTopListsFromLatestBars() {
         Map<MarketInstrumentKey, CandlestickSeries> values = new LinkedHashMap<>();
         values.put(new MarketInstrumentKey(MarketInstrumentType.STOCK, "UP"), series(100, 120, 10, 40));
         values.put(new MarketInstrumentKey(MarketInstrumentType.STOCK, "DOWN"), series(100, 80, 20, 10));

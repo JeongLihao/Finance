@@ -1,13 +1,14 @@
 package finance.network;
 
-import org.junit.jupiter.api.Test;
-
 import static org.junit.jupiter.api.Assertions.*;
+
+import org.junit.jupiter.api.Test;
 
 /** 进阶玩法的开关只拦新开仓，平仓、取回、还款永远放行。 */
 class SimpleActionGateTest {
 
-    @Test void openingAdvancedPositionsNeedsTheSwitch() {
+    @Test
+    void openingAdvancedPositionsNeedsTheSwitch() {
         assertEquals("futures", SimpleActionPacket.gate(SimpleActionPacket.Action.LOCK_BUY, ""));
         assertEquals("margin", SimpleActionPacket.gate(SimpleActionPacket.Action.LEVER_BUY, "S"));
         assertEquals("margin", SimpleActionPacket.gate(SimpleActionPacket.Action.SHORT_SELL, "S"));
@@ -23,19 +24,26 @@ class SimpleActionGateTest {
         assertEquals("fund", SimpleActionPacket.gate(SimpleActionPacket.Action.BUY_PRODUCT, "tier:growth"), "进取理财");
     }
 
-    @Test void betTargetsAreValidated() {
+    @Test
+    void betTargetsAreValidated() {
         assertEquals("s:ABC", SimpleActionPacket.betTarget("s:ABC"));
         assertNull(SimpleActionPacket.betTarget("s:"));
         assertNull(SimpleActionPacket.betTarget("x:ABC"));
         assertNull(SimpleActionPacket.betTarget("f:../../etc"), "商品 ID 要合法");
     }
 
-    @Test void coreActionsAndUnwindingAreNeverBlocked() {
-        for (SimpleActionPacket.Action a : new SimpleActionPacket.Action[]{
-                SimpleActionPacket.Action.QUICK_BUY, SimpleActionPacket.Action.QUICK_SELL, SimpleActionPacket.Action.PLACE_SELL_ORDER,
-                SimpleActionPacket.Action.CLOSE_LOCK, SimpleActionPacket.Action.WITHDRAW_MARGIN, SimpleActionPacket.Action.LEVER_REPAY,
-                SimpleActionPacket.Action.SHORT_COVER, SimpleActionPacket.Action.COLLATERAL_WITHDRAW, SimpleActionPacket.Action.REDEEM_PRODUCT,
-                SimpleActionPacket.Action.COMPANY_LOAN, SimpleActionPacket.Action.SET_DIVIDEND, SimpleActionPacket.Action.BET_END}) {
+    @Test
+    void coreActionsAndUnwindingAreNeverBlocked() {
+        for (SimpleActionPacket.Action a : new SimpleActionPacket.Action[] {
+            SimpleActionPacket.Action.QUICK_BUY, SimpleActionPacket.Action.QUICK_SELL,
+                    SimpleActionPacket.Action.PLACE_SELL_ORDER,
+            SimpleActionPacket.Action.CLOSE_LOCK, SimpleActionPacket.Action.WITHDRAW_MARGIN,
+                    SimpleActionPacket.Action.LEVER_REPAY,
+            SimpleActionPacket.Action.SHORT_COVER, SimpleActionPacket.Action.COLLATERAL_WITHDRAW,
+                    SimpleActionPacket.Action.REDEEM_PRODUCT,
+            SimpleActionPacket.Action.COMPANY_LOAN, SimpleActionPacket.Action.SET_DIVIDEND,
+                    SimpleActionPacket.Action.BET_END
+        }) {
             assertNull(SimpleActionPacket.gate(a, "cbond:1"), a.name());
         }
         assertNull(SimpleActionPacket.gate(SimpleActionPacket.Action.BUY_PRODUCT, "time:30"));

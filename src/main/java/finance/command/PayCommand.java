@@ -16,82 +16,36 @@ public class PayCommand {
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
 
-        dispatcher.register(
-                Commands.literal("pay")
+        dispatcher.register(Commands.literal("pay")
+                .then(Commands.argument("target", EntityArgument.player())
+                        .then(Commands.argument("amount", LongArgumentType.longArg(1))
+                                .executes(context -> {
+                                    ServerPlayer sender = context.getSource().getPlayerOrException();
 
-                        .then(
-                                Commands.argument(
-                                                "target",
-                                                EntityArgument.player()
-                                        )
+                                    ServerPlayer target = EntityArgument.getPlayer(context, "target");
 
-                                        .then(
-                                                Commands.argument(
-                                                                "amount",
-                                                                LongArgumentType.longArg(1)
-                                                        )
+                                    long amount = LongArgumentType.getLong(context, "amount");
 
-                                                        .executes(context -> {
+                                    boolean success =
+                                            AccountManager.transfer(sender.getUUID(), target.getUUID(), amount);
 
-                                                            ServerPlayer sender =
-                                                                    context.getSource().getPlayerOrException();
+                                    if (!success) {
 
-                                                            ServerPlayer target =
-                                                                    EntityArgument.getPlayer(
-                                                                            context,
-                                                                            "target"
-                                                                    );
+                                        String reason =
+                                                sender.getUUID().equals(target.getUUID()) ? "不能向自己转账。" : "余额不足。";
 
-                                                            long amount =
-                                                                    LongArgumentType.getLong(
-                                                                            context,
-                                                                            "amount"
-                                                                    );
+                                        sender.sendSystemMessage(Component.literal(reason));
 
-                                                            boolean success =
-                                                                    AccountManager.transfer(
-                                                                            sender.getUUID(),
-                                                                            target.getUUID(),
-                                                                            amount
-                                                                    );
+                                        return 0;
+                                    }
 
-                                                            if (!success) {
+                                    sender.sendSystemMessage(Component.literal(
+                                            "已向 " + target.getName().getString() + " 支付 " + amount));
 
-                                                                String reason = sender.getUUID().equals(target.getUUID())
-                                                                        ? "不能向自己转账。"
-                                                                        : "余额不足。";
+                                    target.sendSystemMessage(Component.literal(
+                                            "收到来自 " + sender.getName().getString() + " 的 " + amount));
 
-                                                                sender.sendSystemMessage(
-                                                                        Component.literal(
-                                                                                reason
-                                                                        )
-                                                                );
-
-                                                                return 0;
-                                                            }
-
-                                                            sender.sendSystemMessage(
-                                                                    Component.literal(
-                                                                            "已向 "
-                                                                                    + target.getName().getString()
-                                                                                    + " 支付 "
-                                                                                    + amount
-                                                                    )
-                                                            );
-
-                                                            target.sendSystemMessage(
-                                                                    Component.literal(
-                                                                            "收到来自 "
-                                                                                    + sender.getName().getString()
-                                                                                    + " 的 "
-                                                                                    + amount
-                                                                    )
-                                                            );
-
-                                                            return 1;
-                                                        })
-                                        )
-                        )
-        );
+                                    return 1;
+                                }))));
     }
 }

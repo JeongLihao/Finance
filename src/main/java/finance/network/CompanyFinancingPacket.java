@@ -2,12 +2,11 @@ package finance.network;
 
 import finance.company.CompanyFinancingManager;
 import finance.cycle.EconomyCycleService;
+import java.util.UUID;
+import java.util.function.Supplier;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.network.NetworkEvent;
-
-import java.util.UUID;
-import java.util.function.Supplier;
 
 public class CompanyFinancingPacket {
 
@@ -23,8 +22,8 @@ public class CompanyFinancingPacket {
     private final long fundingTarget;
     private final long subscribeQuantity;
 
-    public static CompanyFinancingPacket start(UUID companyId, long issueQuantity,
-                                               long issuePrice, long fundingTarget) {
+    public static CompanyFinancingPacket start(
+            UUID companyId, long issueQuantity, long issuePrice, long fundingTarget) {
         return new CompanyFinancingPacket(Action.START, companyId, issueQuantity, issuePrice, fundingTarget, 0);
     }
 
@@ -32,8 +31,8 @@ public class CompanyFinancingPacket {
         return new CompanyFinancingPacket(Action.SUBSCRIBE, projectId, 0, 0, 0, subscribeQuantity);
     }
 
-    private CompanyFinancingPacket(Action action, UUID id, long issueQuantity,
-                                   long issuePrice, long fundingTarget, long subscribeQuantity) {
+    private CompanyFinancingPacket(
+            Action action, UUID id, long issueQuantity, long issuePrice, long fundingTarget, long subscribeQuantity) {
         this.action = action;
         this.id = id;
         this.issueQuantity = issueQuantity;
@@ -94,7 +93,10 @@ public class CompanyFinancingPacket {
                     GuiFeedbackPacket.send(player, "认购数量必须为正。");
                     return;
                 }
-                result = CompanyFinancingManager.subscribe(player.getUUID(), packet.id, packet.subscribeQuantity,
+                result = CompanyFinancingManager.subscribe(
+                        player.getUUID(),
+                        packet.id,
+                        packet.subscribeQuantity,
                         finance.cycle.EconomyCycleService.currentMcDay(player.server));
             }
             GuiFeedbackPacket.send(player, result.message());

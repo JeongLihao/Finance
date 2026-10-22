@@ -6,15 +6,14 @@ import finance.config.FinanceConfig;
 import finance.margin.MarginPoolManager;
 import finance.stock.StockHolding;
 import finance.stock.StockPortfolioManager;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.server.level.ServerPlayer;
-
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.server.level.ServerPlayer;
 
 /**
  * 进阶玩法按进度解锁：存过理财 → 进取理财，买过股票 → 押注，公司上市 → 大老板。
@@ -27,16 +26,24 @@ public final class SimpleUnlocks {
 
     /** 三组进阶玩法；members 是旧配置里的单项名，服务端校验和客户端按钮都按单项名判断。 */
     public enum Group {
-        GROWTH("growth", "进取理财", "存过一次理财后解锁",
+        GROWTH(
+                "growth",
+                "进取理财",
+                "存过一次理财后解锁",
                 "理财多了「进取」一档：买基金跟着股市涨跌，「均衡」一档也能买央行债券。收益更高，也可能亏。",
                 List.of("bonds", "fund")),
-        BET("bet", "押注", "买过一次股票后解锁",
+        BET(
+                "bet",
+                "押注",
+                "买过一次股票后解锁",
                 "在股票或商品详情里点「看涨」「看跌」：投一点钱押价格方向，押对了赚翻倍，押错会亏，亏太多会被强制结束。",
                 List.of("margin", "futures")),
-        BOSS("boss", "大老板", "公司上市后解锁",
+        BOSS(
+                "boss",
+                "大老板",
+                "公司上市后解锁",
                 "「我的公司 → 当老板」会提醒你什么时候该收购、回购、投保、开银行，点一下就办。",
                 List.of("shareholder", "takeover", "bank", "insurance", "wage"));
-
         public final String id, label, howTo, intro;
         public final List<String> members;
 
@@ -131,7 +138,8 @@ public final class SimpleUnlocks {
     public static List<Group> takeNew(ServerPlayer player, Set<Group> unlocked) {
         CompoundTag data = player.getPersistentData();
         EnumSet<Group> seen = read(data.getString(SEEN_TAG));
-        List<String> locked = lockedIds(EnumSet.noneOf(Group.class), FinanceConfig.simpleExtras(), FinanceConfig.simpleDisabled());
+        List<String> locked =
+                lockedIds(EnumSet.noneOf(Group.class), FinanceConfig.simpleExtras(), FinanceConfig.simpleDisabled());
         List<Group> fresh = new ArrayList<>();
         for (Group g : unlocked) {
             if (seen.contains(g)) continue;
@@ -158,7 +166,9 @@ public final class SimpleUnlocks {
     static boolean holdsStock(UUID player) {
         for (StockHolding h : StockPortfolioManager.getPortfolio(player).values()) if (h.getQuantity() > 0) return true;
         var margin = MarginPoolManager.accounts().get(player);
-        return margin != null && (!margin.getFinancedShares().isEmpty() || !margin.getShortPositions().isEmpty());
+        return margin != null
+                && (!margin.getFinancedShares().isEmpty()
+                        || !margin.getShortPositions().isEmpty());
     }
 
     static boolean ownsPublicCompany(UUID player) {

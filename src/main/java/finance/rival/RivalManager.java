@@ -2,7 +2,6 @@ package finance.rival;
 
 import finance.company.Company;
 import finance.company.CompanyManager;
-
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -18,12 +17,13 @@ public final class RivalManager {
     private static final Map<UUID, RivalProfile> PROFILES = new LinkedHashMap<>();
     /** 投资账户 → 竞争公司，随 PROFILES 一起维护，避免每次查询都重算 MD5。 */
     private static final Map<UUID, UUID> ACCOUNT_TO_COMPANY = new HashMap<>();
+
     private static long lastProcessedDay = Long.MIN_VALUE;
     private static long lastSpawnDay = Long.MIN_VALUE;
     private static long lastBankruptcyDay = Long.MIN_VALUE;
     private static long lastHostileDay = Long.MIN_VALUE;
 
-    private RivalManager() { }
+    private RivalManager() {}
 
     /** 该 UUID 是否是某家竞争公司的投资账户。 */
     public static synchronized boolean isInvestmentAccount(UUID id) {
@@ -35,21 +35,53 @@ public final class RivalManager {
         return id == null ? null : ACCOUNT_TO_COMPANY.get(id);
     }
 
-    public static synchronized RivalProfile get(UUID companyId) { return companyId == null ? null : PROFILES.get(companyId); }
-    public static synchronized Collection<RivalProfile> all() { return List.copyOf(PROFILES.values()); }
-    public static synchronized int size() { return PROFILES.size(); }
-    public static synchronized long lastProcessedDay() { return lastProcessedDay; }
-    public static synchronized long lastSpawnDay() { return lastSpawnDay; }
-    public static synchronized long lastBankruptcyDay() { return lastBankruptcyDay; }
+    public static synchronized RivalProfile get(UUID companyId) {
+        return companyId == null ? null : PROFILES.get(companyId);
+    }
 
-    static synchronized void setLastProcessedDay(long day) { lastProcessedDay = day; }
-    static synchronized void setLastSpawnDay(long day) { lastSpawnDay = day; }
-    static synchronized void setLastBankruptcyDay(long day) { lastBankruptcyDay = day; }
-    public static synchronized long lastHostileDay() { return lastHostileDay; }
-    static synchronized void setLastHostileDay(long day) { lastHostileDay = day; }
+    public static synchronized Collection<RivalProfile> all() {
+        return List.copyOf(PROFILES.values());
+    }
+
+    public static synchronized int size() {
+        return PROFILES.size();
+    }
+
+    public static synchronized long lastProcessedDay() {
+        return lastProcessedDay;
+    }
+
+    public static synchronized long lastSpawnDay() {
+        return lastSpawnDay;
+    }
+
+    public static synchronized long lastBankruptcyDay() {
+        return lastBankruptcyDay;
+    }
+
+    static synchronized void setLastProcessedDay(long day) {
+        lastProcessedDay = day;
+    }
+
+    static synchronized void setLastSpawnDay(long day) {
+        lastSpawnDay = day;
+    }
+
+    static synchronized void setLastBankruptcyDay(long day) {
+        lastBankruptcyDay = day;
+    }
+
+    public static synchronized long lastHostileDay() {
+        return lastHostileDay;
+    }
+
+    static synchronized void setLastHostileDay(long day) {
+        lastHostileDay = day;
+    }
 
     static synchronized boolean put(RivalProfile profile) {
-        if (profile == null || PROFILES.size() >= MAX_PROFILES && !PROFILES.containsKey(profile.companyId())) return false;
+        if (profile == null || PROFILES.size() >= MAX_PROFILES && !PROFILES.containsKey(profile.companyId()))
+            return false;
         PROFILES.put(profile.companyId(), profile);
         ACCOUNT_TO_COMPANY.put(RivalProfile.investmentAccount(profile.companyId()), profile.companyId());
         return true;
@@ -61,7 +93,9 @@ public final class RivalManager {
     static synchronized void ensureProfiles(long day) {
         for (Company c : CompanyManager.getCompanies()) {
             if (c.isPlayerOwned() || PROFILES.containsKey(c.getCompanyId())) continue;
-            String commodity = c.getType().getCommodityIds().isEmpty() ? "" : c.getType().getCommodityIds().get(0);
+            String commodity = c.getType().getCommodityIds().isEmpty()
+                    ? ""
+                    : c.getType().getCommodityIds().get(0);
             put(new RivalProfile(c.getCompanyId(), RivalPersonality.forCompany(c.getCompanyId()), commodity, day));
         }
     }
@@ -74,8 +108,8 @@ public final class RivalManager {
         return before - PROFILES.size();
     }
 
-    public static synchronized void restoreDirect(long processed, long spawn, long bankruptcy, long hostile,
-                                                  List<RivalProfile> profiles) {
+    public static synchronized void restoreDirect(
+            long processed, long spawn, long bankruptcy, long hostile, List<RivalProfile> profiles) {
         clearDirect();
         lastProcessedDay = processed;
         lastHostileDay = hostile;

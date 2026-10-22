@@ -1,5 +1,7 @@
 package finance.caravan;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import finance.account.AccountManager;
 import finance.account.TransactionType;
 import finance.commodity.Commodity;
@@ -14,15 +16,12 @@ import finance.settlement.SettlementRecord;
 import finance.settlement.SettlementStatus;
 import finance.testutil.MinecraftTestBootstrap;
 import finance.util.MathUtil;
+import java.util.UUID;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * 商队商路测试：建路线校验、定价/风险纯函数、保险精算、负反馈、持久化，
@@ -39,8 +38,7 @@ class CaravanServiceTest {
         MinecraftTestBootstrap.ensureStarted();
         EconomySavedData.resetRuntimeState();
         CommodityRegistry.resetToDefaults();
-        CommodityRegistry.register(new Commodity("wheat", "minecraft:wheat", "小麦",
-                CommodityCategory.FOOD, 8));
+        CommodityRegistry.register(new Commodity("wheat", "minecraft:wheat", "小麦", CommodityCategory.FOOD, 8));
         ModuleHealthRegistry.clear();
         SettlementManager.clearDirect();
         CaravanManager.clearDirect();
@@ -59,15 +57,14 @@ class CaravanServiceTest {
     }
 
     private SettlementRecord record(String dim, BlockPos pos, String name) {
-        SettlementRecord s = new SettlementRecord(UUID.randomUUID(), dim, pos, name,
-                SettlementStatus.ACTIVE, -1, -1, "");
+        SettlementRecord s =
+                new SettlementRecord(UUID.randomUUID(), dim, pos, name, SettlementStatus.ACTIVE, -1, -1, "");
         assertTrue(SettlementManager.restoreSettlement(s));
         return s;
     }
 
     private CaravanService.Result createOk() {
-        CaravanService.Result r = CaravanService.createRoute(
-                owner, "源村", "终村", "wheat", 100, 1, true, 0L);
+        CaravanService.Result r = CaravanService.createRoute(owner, "源村", "终村", "wheat", 100, 1, true, 0L);
         assertTrue(r.ok(), r.message());
         return r;
     }
@@ -86,65 +83,65 @@ class CaravanServiceTest {
 
     @Test
     void createRouteRejectsNullOwner() {
-        assertFalse(CaravanService.createRoute((UUID) null, "源村", "终村",
-                "wheat", 100, 0, false, 0L).ok());
+        assertFalse(CaravanService.createRoute((UUID) null, "源村", "终村", "wheat", 100, 0, false, 0L)
+                .ok());
     }
 
     @Test
     void createRouteRejectsSameSourceAndDest() {
-        assertFalse(CaravanService.createRoute(owner, "源村", "源村",
-                "wheat", 100, 0, false, 0L).ok());
+        assertFalse(CaravanService.createRoute(owner, "源村", "源村", "wheat", 100, 0, false, 0L)
+                .ok());
     }
 
     @Test
     void createRouteRejectsUnknownSettlement() {
-        assertFalse(CaravanService.createRoute(owner, "不存在", "终村",
-                "wheat", 100, 0, false, 0L).ok());
+        assertFalse(CaravanService.createRoute(owner, "不存在", "终村", "wheat", 100, 0, false, 0L)
+                .ok());
     }
 
     @Test
     void createRouteRejectsAmbiguousName() {
         record("minecraft:overworld", new BlockPos(50_000, 64, 0), "源村");
-        assertFalse(CaravanService.createRoute(owner, "源村", "终村",
-                "wheat", 100, 0, false, 0L).ok());
+        assertFalse(CaravanService.createRoute(owner, "源村", "终村", "wheat", 100, 0, false, 0L)
+                .ok());
     }
 
     @Test
     void createRouteRejectsCrossDimension() {
         record("minecraft:the_nether", new BlockPos(10_000, 64, 0), "下界村");
-        assertFalse(CaravanService.createRoute(owner, "源村", "下界村",
-                "wheat", 100, 0, false, 0L).ok());
+        assertFalse(CaravanService.createRoute(owner, "源村", "下界村", "wheat", 100, 0, false, 0L)
+                .ok());
     }
 
     @Test
     void createRouteRejectsDisabledSettlement() {
-        SettlementRecord dead = record("minecraft:overworld",
-                new BlockPos(20_000, 64, 0), "死村");
+        SettlementRecord dead = record("minecraft:overworld", new BlockPos(20_000, 64, 0), "死村");
         dead.disable();
-        assertFalse(CaravanService.createRoute(owner, "源村", "死村",
-                "wheat", 100, 0, false, 0L).ok());
+        assertFalse(CaravanService.createRoute(owner, "源村", "死村", "wheat", 100, 0, false, 0L)
+                .ok());
     }
 
     @Test
     void createRouteRejectsUnknownCommodity() {
-        assertFalse(CaravanService.createRoute(owner, "源村", "终村",
-                "nope", 100, 0, false, 0L).ok());
+        assertFalse(CaravanService.createRoute(owner, "源村", "终村", "nope", 100, 0, false, 0L)
+                .ok());
     }
 
     @Test
     void createRouteRejectsBadQty() {
-        assertFalse(CaravanService.createRoute(owner, "源村", "终村",
-                "wheat", 0, 0, false, 0L).ok());
-        assertFalse(CaravanService.createRoute(owner, "源村", "终村",
-                "wheat", FinanceConfig.caravanMaxQtyPerTrip() + 1, 0, false, 0L).ok());
+        assertFalse(CaravanService.createRoute(owner, "源村", "终村", "wheat", 0, 0, false, 0L)
+                .ok());
+        assertFalse(CaravanService.createRoute(
+                        owner, "源村", "终村", "wheat", FinanceConfig.caravanMaxQtyPerTrip() + 1, 0, false, 0L)
+                .ok());
     }
 
     @Test
     void createRouteRejectsBadGuardLevel() {
-        assertFalse(CaravanService.createRoute(owner, "源村", "终村",
-                "wheat", 100, -1, false, 0L).ok());
-        assertFalse(CaravanService.createRoute(owner, "源村", "终村",
-                "wheat", 100, 4, false, 0L).ok());
+        assertFalse(CaravanService.createRoute(owner, "源村", "终村", "wheat", 100, -1, false, 0L)
+                .ok());
+        assertFalse(CaravanService.createRoute(owner, "源村", "终村", "wheat", 100, 4, false, 0L)
+                .ok());
     }
 
     @Test
@@ -152,13 +149,12 @@ class CaravanServiceTest {
         int max = FinanceConfig.caravanMaxRoutesPerPlayer();
         for (int i = 0; i < max; i++) {
             record("minecraft:overworld", new BlockPos(30_000 + i * 1000, 64, 0), "村" + i);
-            CaravanService.Result r = CaravanService.createRoute(
-                    owner, "源村", "村" + i, "wheat", 10, 0, false, 0L);
+            CaravanService.Result r = CaravanService.createRoute(owner, "源村", "村" + i, "wheat", 10, 0, false, 0L);
             assertTrue(r.ok(), r.message());
         }
         record("minecraft:overworld", new BlockPos(99_000, 64, 0), "村X");
-        assertFalse(CaravanService.createRoute(owner, "源村", "村X",
-                "wheat", 10, 0, false, 0L).ok());
+        assertFalse(CaravanService.createRoute(owner, "源村", "村X", "wheat", 10, 0, false, 0L)
+                .ok());
     }
 
     @Test
@@ -191,8 +187,7 @@ class CaravanServiceTest {
 
     @Test
     void distanceBlocksRejectsCrossDimensionAndNull() {
-        SettlementRecord nether = record("minecraft:the_nether",
-                new BlockPos(10_000, 64, 0), "下界村");
+        SettlementRecord nether = record("minecraft:the_nether", new BlockPos(10_000, 64, 0), "下界村");
         assertEquals(-1, CaravanPricing.distanceBlocks(src, nether));
         assertEquals(-1, CaravanPricing.distanceBlocks(null, dst));
         assertEquals(10_000L, CaravanPricing.distanceBlocks(src, dst));
@@ -237,8 +232,7 @@ class CaravanServiceTest {
                 raids++;
             }
         }
-        assertTrue(raids > n * 0.4 && raids < n * 0.6,
-                "被劫率应接近设定值，实际 " + raids + "/" + n);
+        assertTrue(raids > n * 0.4 && raids < n * 0.6, "被劫率应接近设定值，实际 " + raids + "/" + n);
     }
 
     // ================= 保险精算 =================
@@ -249,10 +243,8 @@ class CaravanServiceTest {
         long qty = 100, unit = 500;
         int raidBps = 800;
         long premium = CaravanPricing.insurancePremium(qty, unit, raidBps);
-        long expectedPayout = qty * unit * raidBps / 10_000
-                * FinanceConfig.caravanRaidLossRatioBps() / 10_000;
-        assertTrue(premium >= expectedPayout,
-                "保费 " + premium + " 必须 ≥ 期望赔付 " + expectedPayout);
+        long expectedPayout = qty * unit * raidBps / 10_000 * FinanceConfig.caravanRaidLossRatioBps() / 10_000;
+        assertTrue(premium >= expectedPayout, "保费 " + premium + " 必须 ≥ 期望赔付 " + expectedPayout);
         assertTrue(premium > 0);
         assertEquals(0, CaravanPricing.insurancePremium(qty, unit, 0));
         assertEquals(0, CaravanPricing.insurancePremium(0, unit, raidBps));
@@ -308,8 +300,8 @@ class CaravanServiceTest {
     void shipmentCannotBeDoubleCounted() {
         // 在途货运结算后必须从注册表移除：同一天 arrivalsOn 不再返回
         CaravanRoute route = createOk().route();
-        CaravanShipment s = new CaravanShipment(UUID.randomUUID(), route.id(), owner,
-                "wheat", 100, 8L, 0L, 3L, 1, 800, 8L, 1300L);
+        CaravanShipment s =
+                new CaravanShipment(UUID.randomUUID(), route.id(), owner, "wheat", 100, 8L, 0L, 3L, 1, 800, 8L, 1300L);
         CaravanManager.putShipmentDirect(s);
         assertEquals(1, CaravanManager.arrivalsOn(3L).size());
         s.markArrived();
@@ -334,14 +326,24 @@ class CaravanServiceTest {
         // A 趟快照 10000 → 必被劫；B 趟快照 0 → 永不被劫。
         // 途中把终点置为 RAID_ALERT：若结算用"到货日重算"，B 也会被高概率打劫；用快照则 B 安然无恙。
         CaravanRoute routeA = createOk().route();
-        CaravanShipment a = new CaravanShipment(UUID.randomUUID(), routeA.id(), owner,
-                "wheat", 100, 8L, 0L, 3L, routeA.guardLevel(), 10_000, 8L, 1_500L);
+        CaravanShipment a = new CaravanShipment(
+                UUID.randomUUID(),
+                routeA.id(),
+                owner,
+                "wheat",
+                100,
+                8L,
+                0L,
+                3L,
+                routeA.guardLevel(),
+                10_000,
+                8L,
+                1_500L);
         CaravanManager.putShipmentDirect(a);
-        CaravanService.Result rb = CaravanService.createRoute(
-                owner, "源村", "终村", "wheat", 100, 1, true, 0L);
+        CaravanService.Result rb = CaravanService.createRoute(owner, "源村", "终村", "wheat", 100, 1, true, 0L);
         assertTrue(rb.ok(), rb.message());
-        CaravanShipment b = new CaravanShipment(UUID.randomUUID(), rb.route().id(), owner,
-                "wheat", 100, 8L, 0L, 3L, 1, 0, 8L, 1_500L);
+        CaravanShipment b = new CaravanShipment(
+                UUID.randomUUID(), rb.route().id(), owner, "wheat", 100, 8L, 0L, 3L, 1, 0, 8L, 1_500L);
         CaravanManager.putShipmentDirect(b);
         // 关闭路线：结算不受影响，但 processDay 不再为这两条路线发新车（测试隔离）
         CaravanService.closeRoute(owner, routeA.id());
@@ -352,9 +354,11 @@ class CaravanServiceTest {
 
         assertEquals(0, CaravanManager.inTransitCount(), "两趟都应结算完毕");
         long losses = AccountManager.getTransactions().stream()
-                .filter(t -> t.getType() == TransactionType.CARAVAN_LOSS).count();
+                .filter(t -> t.getType() == TransactionType.CARAVAN_LOSS)
+                .count();
         long payouts = AccountManager.getTransactions().stream()
-                .filter(t -> t.getType() == TransactionType.CARAVAN_INSURANCE_PAYOUT).count();
+                .filter(t -> t.getType() == TransactionType.CARAVAN_INSURANCE_PAYOUT)
+                .count();
         assertEquals(1, losses, "只有快照 10000 的货运应被劫");
         assertEquals(1, payouts, "只有被劫且投保的货运应获赔");
     }
@@ -367,16 +371,14 @@ class CaravanServiceTest {
         assertEquals(Long.MAX_VALUE, r1.totalProfit());
         r1.addProfit(1);
         assertEquals(Long.MAX_VALUE, r1.totalProfit(), "上溢应钳制而非回绕");
-        CaravanService.Result r2res = CaravanService.createRoute(
-                owner, "源村", "终村", "wheat", 100, 0, false, 0L);
+        CaravanService.Result r2res = CaravanService.createRoute(owner, "源村", "终村", "wheat", 100, 0, false, 0L);
         assertTrue(r2res.ok(), r2res.message());
         CaravanRoute r2 = r2res.route();
         r2.addProfit(Long.MIN_VALUE);
         assertEquals(Long.MIN_VALUE, r2.totalProfit());
         r2.addProfit(-1);
         assertEquals(Long.MIN_VALUE, r2.totalProfit(), "下溢应钳制而非回绕");
-        CaravanService.Result r3res = CaravanService.createRoute(
-                owner, "源村", "终村", "wheat", 100, 0, false, 0L);
+        CaravanService.Result r3res = CaravanService.createRoute(owner, "源村", "终村", "wheat", 100, 0, false, 0L);
         assertTrue(r3res.ok(), r3res.message());
         CaravanRoute r3 = r3res.route();
         r3.addProfit(1000);
@@ -387,8 +389,8 @@ class CaravanServiceTest {
     @Test
     void dispatchCostRecordedForExactAccounting() {
         long dispatchCost = 1300L;
-        CaravanShipment s = new CaravanShipment(UUID.randomUUID(), UUID.randomUUID(), owner,
-                "wheat", 100, 8L, 0L, 3L, 1, 800, 8L, dispatchCost);
+        CaravanShipment s = new CaravanShipment(
+                UUID.randomUUID(), UUID.randomUUID(), owner, "wheat", 100, 8L, 0L, 3L, 1, 800, 8L, dispatchCost);
         assertEquals(dispatchCost, s.dispatchCost());
         // 利润公式：到账 − 发车总成本（精确，不重算）
         long revenue = 900L, payout = 240L;
@@ -402,8 +404,8 @@ class CaravanServiceTest {
         CaravanRoute route = createOk().route();
         route.addSaturation(1234);
         route.addProfit(5678);
-        CaravanShipment s = new CaravanShipment(UUID.randomUUID(), route.id(), owner,
-                "wheat", 100, 8L, 5L, 8L, 2, 800, 8L, 1500L);
+        CaravanShipment s =
+                new CaravanShipment(UUID.randomUUID(), route.id(), owner, "wheat", 100, 8L, 5L, 8L, 2, 800, 8L, 1500L);
         CaravanManager.putShipmentDirect(s);
 
         CompoundTag root = new CompoundTag();
@@ -419,8 +421,7 @@ class CaravanServiceTest {
         assertEquals(CaravanRoute.Status.ACTIVE, back.status());
         assertEquals(1, CaravanManager.arrivalsOn(8L).size());
         assertEquals(1500L, CaravanManager.arrivalsOn(8L).get(0).dispatchCost());
-        assertEquals(800, CaravanManager.arrivalsOn(8L).get(0).raidBpsSnapshot(),
-                "发车日 raidBps 快照必须随 NBT 往返保留");
+        assertEquals(800, CaravanManager.arrivalsOn(8L).get(0).raidBpsSnapshot(), "发车日 raidBps 快照必须随 NBT 往返保留");
     }
 
     @Test
@@ -429,8 +430,10 @@ class CaravanServiceTest {
         CompoundTag root = new CompoundTag();
         CaravanDataSerializer.save(root);
         // 损坏一条路线（非法状态枚举）
-        root.getCompound(CaravanDataSerializer.ROOT).getList("Routes", 10)
-                .getCompound(0).putString("Status", "NOT_A_STATUS");
+        root.getCompound(CaravanDataSerializer.ROOT)
+                .getList("Routes", 10)
+                .getCompound(0)
+                .putString("Status", "NOT_A_STATUS");
         CaravanManager.clearDirect();
         CaravanDataSerializer.load(root);
         assertTrue(CaravanManager.routes().isEmpty());

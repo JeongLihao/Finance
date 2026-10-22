@@ -1,16 +1,15 @@
 package finance.earnings;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import finance.company.Company;
 import finance.company.CompanyType;
 import finance.stock.StockPriceEngine;
-import org.junit.jupiter.api.Test;
-
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.Test;
 
 /**
  * 财报季测试：预期模型、预期差、股价联动、季度累加、反做假账。
@@ -18,9 +17,24 @@ import static org.junit.jupiter.api.Assertions.*;
 class EarningsSeasonTest {
 
     private static QuarterlyEarningsReport report(long netProfit) {
-        return new QuarterlyEarningsReport(UUID.randomUUID(), "TST", "测试公司", 1, 30, 30,
-                1000, 1000 - netProfit, netProfit, netProfit / 100, 0, 0, 0,
-                true, 0, 0, LocalDateTime.now());
+        return new QuarterlyEarningsReport(
+                UUID.randomUUID(),
+                "TST",
+                "测试公司",
+                1,
+                30,
+                30,
+                1000,
+                1000 - netProfit,
+                netProfit,
+                netProfit / 100,
+                0,
+                0,
+                0,
+                true,
+                0,
+                0,
+                LocalDateTime.now());
     }
 
     // ---- 预期模型 ----
@@ -155,8 +169,7 @@ class EarningsSeasonTest {
         StockPriceEngine engine = new StockPriceEngine("TST", 450, 1000);
         engine.applyExDividend(100);
         assertEquals(900, engine.getFairValue()); // fairValue 同步下调
-        assertTrue(engine.getCurrentPrice() < 450,
-                "除权后价格应低于除权前 450，实际 " + engine.getCurrentPrice());
+        assertTrue(engine.getCurrentPrice() < 450, "除权后价格应低于除权前 450，实际 " + engine.getCurrentPrice());
     }
 
     @Test
@@ -196,9 +209,24 @@ class EarningsSeasonTest {
     void earningsHistory_appendOnlyAndTrimmed() {
         Company company = new Company(UUID.randomUUID(), "测试公司", CompanyType.FOOD, 10_000);
         for (int i = 1; i <= 10; i++) {
-            QuarterlyEarningsReport r = new QuarterlyEarningsReport(UUID.randomUUID(), "TST",
-                    "测试公司", i, i * 30L, 30, 100, 50, 50, 1, 0, 0, 0,
-                    true, 0, 0, LocalDateTime.now());
+            QuarterlyEarningsReport r = new QuarterlyEarningsReport(
+                    UUID.randomUUID(),
+                    "TST",
+                    "测试公司",
+                    i,
+                    i * 30L,
+                    30,
+                    100,
+                    50,
+                    50,
+                    1,
+                    0,
+                    0,
+                    0,
+                    true,
+                    0,
+                    0,
+                    LocalDateTime.now());
             company.addEarningsReportDirect(r, 8);
         }
         List<QuarterlyEarningsReport> history = company.getEarningsHistory();

@@ -15,8 +15,13 @@ public class StockHolding {
         this.averageCost = averageCost;
     }
 
-    public long getQuantity() { return quantity; }
-    public long getAverageCost() { return averageCost; }
+    public long getQuantity() {
+        return quantity;
+    }
+
+    public long getAverageCost() {
+        return averageCost;
+    }
 
     public boolean add(long addQuantity, long price) {
         if (!canAdd(addQuantity)) return false;

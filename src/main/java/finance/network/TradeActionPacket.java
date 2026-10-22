@@ -9,11 +9,10 @@ import finance.market.NpcMarketMaker;
 import finance.market.Order;
 import finance.market.OrderType;
 import finance.util.MathUtil;
+import java.util.function.Supplier;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.network.NetworkEvent;
-
-import java.util.function.Supplier;
 
 /**
  * 交易操作数据包 —— 支持 P2P 买卖和国际市场买卖。
@@ -21,7 +20,10 @@ import java.util.function.Supplier;
 public class TradeActionPacket {
 
     public enum ActionType {
-        P2P_BUY, P2P_SELL, INTL_BUY, INTL_SELL
+        P2P_BUY,
+        P2P_SELL,
+        INTL_BUY,
+        INTL_SELL
     }
 
     private final ActionType actionType;
@@ -48,19 +50,22 @@ public class TradeActionPacket {
                 buffer.readEnum(ActionType.class),
                 buffer.readUtf(NetworkValidation.MAX_COMMODITY_ID_LENGTH),
                 buffer.readLong(),
-                buffer.readVarInt()
-        );
+                buffer.readVarInt());
     }
 
     public static void handle(TradeActionPacket packet, Supplier<NetworkEvent.Context> ctx) {
         ctx.get().enqueueWork(() -> {
             ServerPlayer player = ctx.get().getSender();
             if (player == null) return;
-            if (!finance.diagnostic.ModuleHealthRegistry.mayWrite(finance.diagnostic.ModuleHealthRegistry.Module.MARKET)) {
-                GuiFeedbackPacket.send(player, "商品市场已因一致性问题暂停。"); return;
+            if (!finance.diagnostic.ModuleHealthRegistry.mayWrite(
+                    finance.diagnostic.ModuleHealthRegistry.Module.MARKET)) {
+                GuiFeedbackPacket.send(player, "商品市场已因一致性问题暂停。");
+                return;
             }
-            if (!MarketDataRequestLimiter.allow(player.getUUID(), player.server.getTickCount(), "commodity-action:" + packet.actionType)) {
-                GuiFeedbackPacket.send(player, "操作过于频繁。"); return;
+            if (!MarketDataRequestLimiter.allow(
+                    player.getUUID(), player.server.getTickCount(), "commodity-action:" + packet.actionType)) {
+                GuiFeedbackPacket.send(player, "操作过于频繁。");
+                return;
             }
             if (!isValidRequest(packet)) {
                 GuiFeedbackPacket.send(player, "交易请求参数无效。");
@@ -73,16 +78,21 @@ public class TradeActionPacket {
                     packet.price,
                     packet.quantity);
 
-            finance.market.Trade previousLast = MarketManager.getTradeHistory().isEmpty() ? null
-                    : MarketManager.getTradeHistory().get(MarketManager.getTradeHistory().size() - 1);
-            boolean changed = switch (safePacket.actionType) {
-                case P2P_BUY -> handleP2pBuy(player, safePacket);
-                case P2P_SELL -> handleP2pSell(player, safePacket);
-                case INTL_BUY -> handleIntlBuy(player, safePacket);
-                case INTL_SELL -> handleIntlSell(player, safePacket);
-            };
-            finance.market.Trade currentLast = MarketManager.getTradeHistory().isEmpty() ? null
-                    : MarketManager.getTradeHistory().get(MarketManager.getTradeHistory().size() - 1);
+            finance.market.Trade previousLast = MarketManager.getTradeHistory().isEmpty()
+                    ? null
+                    : MarketManager.getTradeHistory()
+                            .get(MarketManager.getTradeHistory().size() - 1);
+            boolean changed =
+                    switch (safePacket.actionType) {
+                        case P2P_BUY -> handleP2pBuy(player, safePacket);
+                        case P2P_SELL -> handleP2pSell(player, safePacket);
+                        case INTL_BUY -> handleIntlBuy(player, safePacket);
+                        case INTL_SELL -> handleIntlSell(player, safePacket);
+                    };
+            finance.market.Trade currentLast = MarketManager.getTradeHistory().isEmpty()
+                    ? null
+                    : MarketManager.getTradeHistory()
+                            .get(MarketManager.getTradeHistory().size() - 1);
             if (changed && currentLast != null && currentLast != previousLast)
                 finance.advancement.FinanceAdvancementTriggers.trigger(player, "first_trade");
         });
@@ -90,7 +100,8 @@ public class TradeActionPacket {
     }
 
     private static boolean isValidRequest(TradeActionPacket packet) {
-        if (packet.actionType == null || !NetworkValidation.isValidCommodityId(packet.commodityId)
+        if (packet.actionType == null
+                || !NetworkValidation.isValidCommodityId(packet.commodityId)
                 || !NetworkValidation.isPositive(packet.quantity)) {
             return false;
         }
@@ -122,7 +133,8 @@ public class TradeActionPacket {
 
         Order order = new Order(player.getUUID(), packet.commodityId, OrderType.BUY, packet.price, packet.quantity);
         if (MarketManager.placeOrder(order)) {
-            GuiFeedbackPacket.send(player, "买单已挂: " + packet.quantity + "x " + packet.commodityId + " @" + packet.price);
+            GuiFeedbackPacket.send(
+                    player, "买单已挂: " + packet.quantity + "x " + packet.commodityId + " @" + packet.price);
             return true;
         } else {
             GuiFeedbackPacket.send(player, "买单提交失败。");
@@ -148,7 +160,8 @@ public class TradeActionPacket {
 
         Order order = new Order(player.getUUID(), packet.commodityId, OrderType.SELL, packet.price, packet.quantity);
         if (MarketManager.placeOrder(order)) {
-            GuiFeedbackPacket.send(player, "卖单已挂: " + packet.quantity + "x " + packet.commodityId + " @" + packet.price);
+            GuiFeedbackPacket.send(
+                    player, "卖单已挂: " + packet.quantity + "x " + packet.commodityId + " @" + packet.price);
             return true;
         } else {
             GuiFeedbackPacket.send(player, "卖单提交失败。");
@@ -185,7 +198,10 @@ public class TradeActionPacket {
         }
 
         if (NpcMarketMaker.npcSell(player.getUUID(), packet.commodityId, packet.quantity)) {
-            GuiFeedbackPacket.send(player, "已从国际市场买入 " + packet.quantity + "x " + packet.commodityId + "，单价: " + askPrice + "  支付: " + totalCost);
+            GuiFeedbackPacket.send(
+                    player,
+                    "已从国际市场买入 " + packet.quantity + "x " + packet.commodityId + "，单价: " + askPrice + "  支付: "
+                            + totalCost);
             return true;
         } else {
             GuiFeedbackPacket.send(player, "国际市场交易失败。");
@@ -213,7 +229,10 @@ public class TradeActionPacket {
         long bidPrice = mp.getBidPrice();
         if (NpcMarketMaker.npcBuy(player.getUUID(), packet.commodityId, packet.quantity)) {
             long received = MathUtil.multiplyExactOrNegative1(bidPrice, packet.quantity);
-            GuiFeedbackPacket.send(player, "已向国际市场卖出 " + packet.quantity + "x " + packet.commodityId + "，单价: " + bidPrice + "  收入: " + received);
+            GuiFeedbackPacket.send(
+                    player,
+                    "已向国际市场卖出 " + packet.quantity + "x " + packet.commodityId + "，单价: " + bidPrice + "  收入: "
+                            + received);
             return true;
         } else {
             GuiFeedbackPacket.send(player, "国际市场交易失败。");

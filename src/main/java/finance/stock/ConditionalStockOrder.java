@@ -13,13 +13,19 @@ public class ConditionalStockOrder {
     private final long quantity;
     private final LocalDateTime createdAt;
 
-    public ConditionalStockOrder(UUID playerId, String symbol, ConditionalStockOrderType type,
-                                 long triggerPrice, long quantity) {
+    public ConditionalStockOrder(
+            UUID playerId, String symbol, ConditionalStockOrderType type, long triggerPrice, long quantity) {
         this(UUID.randomUUID(), playerId, symbol, type, triggerPrice, quantity, LocalDateTime.now());
     }
 
-    public ConditionalStockOrder(UUID orderId, UUID playerId, String symbol, ConditionalStockOrderType type,
-                                 long triggerPrice, long quantity, LocalDateTime createdAt) {
+    public ConditionalStockOrder(
+            UUID orderId,
+            UUID playerId,
+            String symbol,
+            ConditionalStockOrderType type,
+            long triggerPrice,
+            long quantity,
+            LocalDateTime createdAt) {
         this.orderId = orderId;
         this.playerId = playerId;
         this.symbol = StockMarketManager.normalizeSymbol(symbol);

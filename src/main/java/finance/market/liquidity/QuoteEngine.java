@@ -13,17 +13,13 @@ import java.util.Optional;
 public final class QuoteEngine {
 
     /** 默认策略链（顺序固定）。 */
-    private static final List<LiquidityStrategy> DEFAULT_CHAIN = List.of(
-            new TargetPriceStrategy(),
-            new InventorySkewStrategy(),
-            new VolatilitySpreadStrategy()
-    );
+    private static final List<LiquidityStrategy> DEFAULT_CHAIN =
+            List.of(new TargetPriceStrategy(), new InventorySkewStrategy(), new VolatilitySpreadStrategy());
 
     /** 策略链之后的兜底最小价差（相对 mid），保证往返必亏。 */
     private static final double MIN_SPREAD_RATIO = 0.005;
 
-    private QuoteEngine() {
-    }
+    private QuoteEngine() {}
 
     /**
      * 按当前启用的策略链构建报价。

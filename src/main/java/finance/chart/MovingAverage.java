@@ -5,8 +5,7 @@ import java.util.List;
 
 public final class MovingAverage {
 
-    private MovingAverage() {
-    }
+    private MovingAverage() {}
 
     /** Returns NaN until enough closes exist for the requested simple moving average. */
     public static double[] simple(List<Candlestick> bars, int period) {

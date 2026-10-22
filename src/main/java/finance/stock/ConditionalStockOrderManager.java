@@ -6,25 +6,29 @@ import finance.account.TransactionType;
 import finance.config.FinanceConfig;
 import finance.data.EconomySavedData;
 import finance.util.MathUtil;
-import net.minecraft.network.chat.Component;
-import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.level.ServerPlayer;
-
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.UUID;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerPlayer;
 
 public final class ConditionalStockOrderManager {
 
     private static final List<ConditionalStockOrder> ORDERS = new ArrayList<>();
-    private ConditionalStockOrderManager() {
-    }
 
-    public static OrderResult addOrder(UUID playerId, String symbol, ConditionalStockOrderType type,
-                                       long triggerPrice, long quantity) {
-        if (playerId == null || symbol == null || symbol.isBlank() || type == null
-                || triggerPrice <= 0 || quantity <= 0 || quantity > Integer.MAX_VALUE) {
+    private ConditionalStockOrderManager() {}
+
+    public static OrderResult addOrder(
+            UUID playerId, String symbol, ConditionalStockOrderType type, long triggerPrice, long quantity) {
+        if (playerId == null
+                || symbol == null
+                || symbol.isBlank()
+                || type == null
+                || triggerPrice <= 0
+                || quantity <= 0
+                || quantity > Integer.MAX_VALUE) {
             return OrderResult.fail("条件委托参数无效。");
         }
         String normalized = StockMarketManager.normalizeSymbol(symbol);
@@ -34,7 +38,9 @@ public final class ConditionalStockOrderManager {
         if (StockPortfolioManager.getHolding(playerId, normalized).getQuantity() < quantity) {
             return OrderResult.fail("持仓不足，不能设置条件委托。");
         }
-        long count = ORDERS.stream().filter(order -> order.getPlayerId().equals(playerId)).count();
+        long count = ORDERS.stream()
+                .filter(order -> order.getPlayerId().equals(playerId))
+                .count();
         int limit = FinanceConfig.maxConditionalStockOrdersPerPlayer();
         if (count >= limit) {
             return OrderResult.fail("条件委托数量已达上限 " + limit + "。");
@@ -75,7 +81,8 @@ public final class ConditionalStockOrderManager {
                 changed = true;
                 continue;
             }
-            long holding = StockPortfolioManager.getHolding(order.getPlayerId(), order.getSymbol()).getQuantity();
+            long holding = StockPortfolioManager.getHolding(order.getPlayerId(), order.getSymbol())
+                    .getQuantity();
             if (holding < order.getQuantity()) {
                 iterator.remove();
                 addCancelRecord(order, "持仓不足");
@@ -87,17 +94,15 @@ public final class ConditionalStockOrderManager {
                 continue;
             }
             StockMarketManager.TradeResult result = StockMarketManager.placeLimitSell(
-                    order.getPlayerId(),
-                    order.getSymbol(),
-                    currentPrice,
-                    order.getQuantity());
+                    order.getPlayerId(), order.getSymbol(), currentPrice, order.getQuantity());
             if (result.success()) {
                 iterator.remove();
                 addTriggerRecord(order, currentPrice);
                 notifyPlayer(server, order, currentPrice, "已触发，自动提交卖单。");
                 changed = true;
             } else {
-                long afterCheckHolding = StockPortfolioManager.getHolding(order.getPlayerId(), order.getSymbol()).getQuantity();
+                long afterCheckHolding = StockPortfolioManager.getHolding(order.getPlayerId(), order.getSymbol())
+                        .getQuantity();
                 if (afterCheckHolding < order.getQuantity() || StockMarketManager.getStock(order.getSymbol()) == null) {
                     iterator.remove();
                     addCancelRecord(order, result.message());
@@ -117,7 +122,10 @@ public final class ConditionalStockOrderManager {
         while (iterator.hasNext()) {
             ConditionalStockOrder order = iterator.next();
             Stock stock = StockMarketManager.getStock(order.getSymbol());
-            if (stock == null || StockPortfolioManager.getHolding(order.getPlayerId(), order.getSymbol()).getQuantity() < order.getQuantity()) {
+            if (stock == null
+                    || StockPortfolioManager.getHolding(order.getPlayerId(), order.getSymbol())
+                                    .getQuantity()
+                            < order.getQuantity()) {
                 iterator.remove();
                 addCancelRecord(order, stock == null ? "股票不存在" : "持仓不足");
                 changed = true;
@@ -207,7 +215,8 @@ public final class ConditionalStockOrderManager {
                 order.getQuantity()));
     }
 
-    private static void notifyPlayer(MinecraftServer server, ConditionalStockOrder order, long currentPrice, String suffix) {
+    private static void notifyPlayer(
+            MinecraftServer server, ConditionalStockOrder order, long currentPrice, String suffix) {
         if (server == null) {
             return;
         }

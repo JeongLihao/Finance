@@ -14,8 +14,7 @@ public record FinanceAccessPolicy(
         boolean allowLegacyAutomaticCompanyProduction,
         boolean advancedFinanceRequiresTerminal,
         boolean adminConsoleRequiresPermission,
-        double terminalInteractionDistance
-) {
+        double terminalInteractionDistance) {
     public FinanceAccessPolicy {
         if (!Double.isFinite(terminalInteractionDistance) || terminalInteractionDistance <= 0) {
             terminalInteractionDistance = 8.0D;

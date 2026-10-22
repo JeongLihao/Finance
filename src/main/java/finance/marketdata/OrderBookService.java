@@ -1,5 +1,7 @@
 package finance.marketdata;
 
+import finance.bondmarket.BondMarketManager;
+import finance.bondmarket.BondOrderSide;
 import finance.chart.MarketInstrumentType;
 import finance.market.MarketManager;
 import finance.market.OrderType;
@@ -7,9 +9,6 @@ import finance.stock.StockMarketManager;
 import finance.stock.StockOrderManager;
 import finance.stock.StockOrderType;
 import finance.util.MathUtil;
-import finance.bondmarket.BondMarketManager;
-import finance.bondmarket.BondOrderSide;
-
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -28,34 +27,46 @@ public final class OrderBookService {
         List<BookOrder> orders = new ArrayList<>();
         if (type == MarketInstrumentType.COMMODITY) {
             for (finance.market.Order order : MarketManager.getOrders()) {
-                if (id.equals(order.getCommodityId())) orders.add(new BookOrder(
-                        order.getType() == OrderType.BUY ? OrderBookSide.BUY : OrderBookSide.SELL,
-                        order.getPrice(), order.getQuantity()));
+                if (id.equals(order.getCommodityId()))
+                    orders.add(new BookOrder(
+                            order.getType() == OrderType.BUY ? OrderBookSide.BUY : OrderBookSide.SELL,
+                            order.getPrice(),
+                            order.getQuantity()));
             }
         } else if (type == MarketInstrumentType.STOCK) {
             String symbol = StockMarketManager.normalizeSymbol(id);
             for (finance.stock.StockOrder order : StockOrderManager.getOrdersBySymbol(symbol)) {
-                orders.add(new BookOrder(order.getType() == StockOrderType.BUY ? OrderBookSide.BUY : OrderBookSide.SELL,
-                        order.getPrice(), order.getQuantity()));
+                orders.add(new BookOrder(
+                        order.getType() == StockOrderType.BUY ? OrderBookSide.BUY : OrderBookSide.SELL,
+                        order.getPrice(),
+                        order.getQuantity()));
             }
         } else if (type == MarketInstrumentType.BOND) {
             try {
                 java.util.UUID bondId = java.util.UUID.fromString(id);
                 for (finance.bondmarket.BondOrder order : BondMarketManager.orders()) {
-                    if (bondId.equals(order.bondId())) orders.add(new BookOrder(
-                            order.side() == BondOrderSide.BUY ? OrderBookSide.BUY : OrderBookSide.SELL,
-                            order.limitPricePerUnit(), order.remainingQuantity()));
+                    if (bondId.equals(order.bondId()))
+                        orders.add(new BookOrder(
+                                order.side() == BondOrderSide.BUY ? OrderBookSide.BUY : OrderBookSide.SELL,
+                                order.limitPricePerUnit(),
+                                order.remainingQuantity()));
                 }
-            } catch (IllegalArgumentException ignored) { }
+            } catch (IllegalArgumentException ignored) {
+            }
         } else if (type == MarketInstrumentType.FUTURES) {
             try {
                 java.util.UUID contractId = java.util.UUID.fromString(id);
                 for (finance.futures.FuturesOrder order : finance.futures.FuturesMarketManager.orders()) {
-                    if (contractId.equals(order.contractId())) orders.add(new BookOrder(
-                            order.side() == finance.futures.FuturesOrderSide.BUY ? OrderBookSide.BUY : OrderBookSide.SELL,
-                            order.limitPrice(), order.remainingQuantity()));
+                    if (contractId.equals(order.contractId()))
+                        orders.add(new BookOrder(
+                                order.side() == finance.futures.FuturesOrderSide.BUY
+                                        ? OrderBookSide.BUY
+                                        : OrderBookSide.SELL,
+                                order.limitPrice(),
+                                order.remainingQuantity()));
                 }
-            } catch (IllegalArgumentException ignored) { }
+            } catch (IllegalArgumentException ignored) {
+            }
         }
         return aggregate(orders, DEFAULT_DEPTH);
     }
@@ -64,16 +75,19 @@ public final class OrderBookService {
         int safeDepth = Math.max(0, Math.min(20, depth));
         Map<Long, Long> bids = new TreeMap<>(Comparator.reverseOrder());
         Map<Long, Long> asks = new TreeMap<>();
-        if (orders != null) for (BookOrder order : orders) {
-            if (order == null || order.side == null || order.price <= 0 || order.quantity <= 0) continue;
-            Map<Long, Long> levels = order.side == OrderBookSide.BUY ? bids : asks;
-            levels.merge(order.price, order.quantity, MathUtil::saturatedAddNonNegative);
-        }
+        if (orders != null)
+            for (BookOrder order : orders) {
+                if (order == null || order.side == null || order.price <= 0 || order.quantity <= 0) continue;
+                Map<Long, Long> levels = order.side == OrderBookSide.BUY ? bids : asks;
+                levels.merge(order.price, order.quantity, MathUtil::saturatedAddNonNegative);
+            }
         return new OrderBookSnapshot(toLevels(bids, safeDepth), toLevels(asks, safeDepth));
     }
 
     private static List<OrderBookLevel> toLevels(Map<Long, Long> values, int depth) {
-        return values.entrySet().stream().limit(depth)
-                .map(entry -> new OrderBookLevel(entry.getKey(), entry.getValue())).toList();
+        return values.entrySet().stream()
+                .limit(depth)
+                .map(entry -> new OrderBookLevel(entry.getKey(), entry.getValue()))
+                .toList();
     }
 }

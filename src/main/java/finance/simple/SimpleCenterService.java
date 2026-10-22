@@ -25,13 +25,12 @@ import finance.market.MarketPrice;
 import finance.market.NpcMarketMaker;
 import finance.util.InventoryUtil;
 import finance.util.MoneyFormat;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.server.level.ServerPlayer;
-
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.server.level.ServerPlayer;
 
 /**
  * 简单模式金融中心（首页、买卖、我的公司、投资）的服务端操作。
@@ -43,14 +42,20 @@ public final class SimpleCenterService {
     public static final int MAX_FACTORY_LEVEL = 15;
     /** 一键上市：发行 4000 股（占总股本 40%），发行价按估值折算。 */
     static final long QUICK_IPO_SHARES = 4_000L;
+
     private static final String STARTER_TAG = "finance_starter_granted";
 
     private SimpleCenterService() {}
 
     /** 操作结果；moneyDelta 是钱包变化，客户端据此飘字和播放音效。 */
     public record Result(boolean success, String message, long moneyDelta) {
-        static Result ok(String message, long delta) { return new Result(true, message, delta); }
-        static Result fail(String message) { return new Result(false, message, 0); }
+        static Result ok(String message, long delta) {
+            return new Result(true, message, delta);
+        }
+
+        static Result fail(String message) {
+            return new Result(false, message, 0);
+        }
     }
 
     // ------------------------------------------------------------ 买卖
@@ -58,7 +63,9 @@ public final class SimpleCenterService {
     /** 把背包里的东西直接卖给市场。市场今天收不完的部分原样还给玩家。 */
     public static Result quickSell(ServerPlayer player, String commodityId, int quantity) {
         Commodity commodity = CommodityRegistry.getCommodity(commodityId);
-        if (commodity == null || commodity.getItemId() == null || commodity.getItemId().isEmpty()) {
+        if (commodity == null
+                || commodity.getItemId() == null
+                || commodity.getItemId().isEmpty()) {
             return Result.fail("这种东西市场不收。");
         }
         String name = commodity.getDisplayName();
@@ -94,7 +101,9 @@ public final class SimpleCenterService {
     /** 从市场买东西，直接放进背包（背包满了掉在脚下）。 */
     public static Result quickBuy(ServerPlayer player, String commodityId, int quantity) {
         Commodity commodity = CommodityRegistry.getCommodity(commodityId);
-        if (commodity == null || commodity.getItemId() == null || commodity.getItemId().isEmpty()) {
+        if (commodity == null
+                || commodity.getItemId() == null
+                || commodity.getItemId().isEmpty()) {
             return Result.fail("市场不卖这种东西。");
         }
         String name = commodity.getDisplayName();
@@ -106,7 +115,8 @@ public final class SimpleCenterService {
         if (price != null && AccountManager.getBalance(id) < price.getAskPrice()) {
             return Result.fail("钱不够，" + name + "一个要 " + MoneyFormat.pounds(price.getAskPrice()) + "。");
         }
-        int affordable = price == null || price.getAskPrice() <= 0 ? quantity
+        int affordable = price == null || price.getAskPrice() <= 0
+                ? quantity
                 : (int) Math.min(quantity, AccountManager.getBalance(id) / price.getAskPrice());
         long before = AccountManager.getBalance(id);
         int filled = NpcMarketMaker.npcSellFilled(id, commodityId, Math.max(1, affordable));
@@ -133,20 +143,22 @@ public final class SimpleCenterService {
             if (commodity.getItemId() == null || commodity.getItemId().isEmpty()) return Result.fail("这种东西不能挂单。");
             int owned = InventoryUtil.countItemInInventory(player, commodity.getItemId());
             if (owned < quantity) return Result.fail("背包里只有 " + owned + " 个" + name + "。");
-            if (!CommodityInventoryManager.canAddCommodity(id, commodityId, quantity)) return Result.fail("一次挂太多了，少挂一点。");
+            if (!CommodityInventoryManager.canAddCommodity(id, commodityId, quantity))
+                return Result.fail("一次挂太多了，少挂一点。");
             int removed = InventoryUtil.removeFromInventory(player, commodity.getItemId(), quantity);
             if (removed < quantity || !CommodityInventoryManager.addCommodity(id, commodityId, removed)) {
                 InventoryUtil.addToInventory(player, commodity.getItemId(), removed);
                 return Result.fail("挂单失败，东西已还给你。");
             }
-            if (!finance.market.MarketManager.placeOrder(new finance.market.Order(id, commodityId, finance.market.OrderType.SELL, price, quantity))) {
+            if (!finance.market.MarketManager.placeOrder(
+                    new finance.market.Order(id, commodityId, finance.market.OrderType.SELL, price, quantity))) {
                 if (CommodityInventoryManager.removeCommodity(id, commodityId, quantity)) {
                     InventoryUtil.addToInventory(player, commodity.getItemId(), quantity);
                 }
                 return Result.fail("挂单失败，东西已还给你。");
             }
-            return Result.ok("已挂卖单：" + quantity + " 个" + name + "，每个 " + MoneyFormat.pounds(price)
-                    + "。市场收购价涨到这个数就自动卖出。", 0);
+            return Result.ok(
+                    "已挂卖单：" + quantity + " 个" + name + "，每个 " + MoneyFormat.pounds(price) + "。市场收购价涨到这个数就自动卖出。", 0);
         }
         long total;
         try {
@@ -154,12 +166,16 @@ public final class SimpleCenterService {
         } catch (ArithmeticException e) {
             return Result.fail("金额太大了。");
         }
-        if (AccountManager.getBalance(id) < total) return Result.fail("钱不够，这张买单要先冻结 " + MoneyFormat.pounds(total) + "。");
-        if (!finance.market.MarketManager.placeOrder(new finance.market.Order(id, commodityId, finance.market.OrderType.BUY, price, quantity))) {
+        if (AccountManager.getBalance(id) < total)
+            return Result.fail("钱不够，这张买单要先冻结 " + MoneyFormat.pounds(total) + "。");
+        if (!finance.market.MarketManager.placeOrder(
+                new finance.market.Order(id, commodityId, finance.market.OrderType.BUY, price, quantity))) {
             return Result.fail("挂单失败。");
         }
-        return Result.ok("已挂买单：" + quantity + " 个" + name + "，每个 " + MoneyFormat.pounds(price)
-                + "，先冻结 " + MoneyFormat.pounds(total) + "。市场出售价跌到这个数就自动买入。", 0);
+        return Result.ok(
+                "已挂买单：" + quantity + " 个" + name + "，每个 " + MoneyFormat.pounds(price) + "，先冻结 "
+                        + MoneyFormat.pounds(total) + "。市场出售价跌到这个数就自动买入。",
+                0);
     }
 
     public static Result cancelOrder(ServerPlayer player, UUID orderId) {
@@ -171,7 +187,9 @@ public final class SimpleCenterService {
     /** 把暂存在市场账上的某种货全部取回背包（背包满了掉在脚下）。 */
     public static Result takeGoods(ServerPlayer player, String commodityId) {
         Commodity commodity = CommodityRegistry.getCommodity(commodityId);
-        if (commodity == null || commodity.getItemId() == null || commodity.getItemId().isEmpty()) return Result.fail("这种东西取不出来。");
+        if (commodity == null
+                || commodity.getItemId() == null
+                || commodity.getItemId().isEmpty()) return Result.fail("这种东西取不出来。");
         UUID id = player.getUUID();
         int amount = Math.min(64 * 36, CommodityInventoryManager.getCommodityAmount(id, commodityId));
         if (amount <= 0) return Result.fail("没有暂存的" + commodity.getDisplayName() + "。");
@@ -189,7 +207,8 @@ public final class SimpleCenterService {
         if (!FinanceConfig.futuresEnabled() || day < 0 || day == listedDay) return;
         listedDay = day;
         for (String commodityId : NpcMarketMaker.getAllMarketPrices().keySet()) {
-            if (finance.futures.FuturesMarketManager.contracts().size() >= finance.futures.FuturesMarketManager.MAX_CONTRACTS - 8) return;
+            if (finance.futures.FuturesMarketManager.contracts().size()
+                    >= finance.futures.FuturesMarketManager.MAX_CONTRACTS - 8) return;
             if (!finance.futures.FuturesMarketManager.hasLiveContractForCommodity(commodityId)) {
                 finance.futures.FuturesMarketManager.createStandard(commodityId, day, day + 6, day + 7);
             }
@@ -198,45 +217,58 @@ public final class SimpleCenterService {
 
     /** 锁价：sell=true 锁定卖价（担心降价），false 锁定买价（担心涨价）。保证金不够时自动从钱包补。 */
     public static Result lockPrice(ServerPlayer player, UUID contractId, boolean sell, long quantity) {
-        finance.futures.FuturesContract c = contractId == null ? null : finance.futures.FuturesMarketManager.contract(contractId);
+        finance.futures.FuturesContract c =
+                contractId == null ? null : finance.futures.FuturesMarketManager.contract(contractId);
         if (c == null || !c.canTrade()) return Result.fail("这份合同现在不能交易。");
         if (quantity <= 0) return Result.fail("份数要大于 0。");
         long[] quote = finance.futures.FuturesMarketMaker.getQuote(contractId);
         if (quote == null) return Result.fail("市场暂时不报价，稍后再试。");
         long price = sell ? quote[0] : quote[1];
         UUID id = player.getUUID();
-        long need = finance.futures.FuturesMath.margin(price, c.contractSize(), quantity, FinanceConfig.futuresInitialMarginBps());
+        long need = finance.futures.FuturesMath.margin(
+                price, c.contractSize(), quantity, FinanceConfig.futuresInitialMarginBps());
         if (need < 0) return Result.fail("金额太大了。");
         long shortfall = need - finance.futures.MarginManager.availableToWithdraw(id);
         long deposited = 0;
         if (shortfall > 0) {
-            if (AccountManager.getBalance(id) < shortfall) return Result.fail("钱不够交保证金，需要 " + MoneyFormat.pounds(shortfall) + "。");
+            if (AccountManager.getBalance(id) < shortfall)
+                return Result.fail("钱不够交保证金，需要 " + MoneyFormat.pounds(shortfall) + "。");
             if (!finance.futures.MarginManager.deposit(id, shortfall)) return Result.fail("保证金转入失败。");
             deposited = shortfall;
         }
-        var result = finance.futures.FuturesMarketManager.place(id, contractId,
-                sell ? finance.futures.FuturesOrderSide.SELL : finance.futures.FuturesOrderSide.BUY, price, quantity);
+        var result = finance.futures.FuturesMarketManager.place(
+                id,
+                contractId,
+                sell ? finance.futures.FuturesOrderSide.SELL : finance.futures.FuturesOrderSide.BUY,
+                price,
+                quantity);
         if (!result.success()) return Result.fail(result.message());
         Commodity commodity = CommodityRegistry.getCommodity(c.commodityId());
         String name = commodity == null ? c.commodityId() : commodity.getDisplayName();
         String what = sell ? "锁定卖价" : "锁定买价";
-        return Result.ok(what + "：" + quantity + " 份" + name + "（每份 " + c.contractSize() + " 个），每个 "
-                + MoneyFormat.pounds(price) + "，第 " + c.maturityDay() + " 天按差价结算。"
-                + (deposited > 0 ? "已从钱包转入保证金 " + MoneyFormat.pounds(deposited) + "。" : ""), -deposited);
+        return Result.ok(
+                what + "：" + quantity + " 份" + name + "（每份 " + c.contractSize() + " 个），每个 "
+                        + MoneyFormat.pounds(price) + "，第 " + c.maturityDay() + " 天按差价结算。"
+                        + (deposited > 0 ? "已从钱包转入保证金 " + MoneyFormat.pounds(deposited) + "。" : ""),
+                -deposited);
     }
 
     /** 提前平掉一份合同：按当前报价反向成交。 */
     public static Result closeLock(ServerPlayer player, UUID contractId) {
         UUID id = player.getUUID();
-        finance.futures.FuturesPosition position = contractId == null ? null : finance.futures.MarginManager.findPosition(id, contractId);
+        finance.futures.FuturesPosition position =
+                contractId == null ? null : finance.futures.MarginManager.findPosition(id, contractId);
         if (position == null || position.signedQuantity() == 0) return Result.fail("你没有这份合同。");
         long[] quote = finance.futures.FuturesMarketMaker.getQuote(contractId);
         if (quote == null) return Result.fail("市场暂时不报价，稍后再试。");
         boolean wasSeller = position.signedQuantity() < 0;
         long quantity = Math.abs(position.signedQuantity());
-        var result = finance.futures.FuturesMarketManager.place(id, contractId,
+        var result = finance.futures.FuturesMarketManager.place(
+                id,
+                contractId,
                 wasSeller ? finance.futures.FuturesOrderSide.BUY : finance.futures.FuturesOrderSide.SELL,
-                wasSeller ? quote[1] : quote[0], quantity);
+                wasSeller ? quote[1] : quote[0],
+                quantity);
         if (!result.success()) return Result.fail(result.message());
         return Result.ok("已平掉合同。不用的保证金可以点“取回保证金”。", 0);
     }
@@ -270,11 +302,12 @@ public final class SimpleCenterService {
     public static long nextUpgradeCost(Company company) {
         CompanyManagementAction next = nextUpgrade(company);
         if (next == null) return 0;
-        return company.getUpgradeCost(switch (next) {
-            case UPGRADE_PRODUCTION -> "PRODUCTION";
-            case UPGRADE_STORAGE -> "STORAGE";
-            default -> "MANAGEMENT";
-        });
+        return company.getUpgradeCost(
+                switch (next) {
+                    case UPGRADE_PRODUCTION -> "PRODUCTION";
+                    case UPGRADE_STORAGE -> "STORAGE";
+                    default -> "MANAGEMENT";
+                });
     }
 
     public static Result upgradeFactory(UUID playerId) {
@@ -286,8 +319,10 @@ public final class SimpleCenterService {
         int before = factoryLevel(company);
         CompanyManagementService.Result result = CompanyManagementService.apply(playerId, company, next, null, 0, 0);
         if (!result.success()) {
-            return Result.fail(AccountManager.getBalance(playerId) < cost
-                    ? "钱不够，升级要 " + MoneyFormat.pounds(cost) + "。" : result.message());
+            return Result.fail(
+                    AccountManager.getBalance(playerId) < cost
+                            ? "钱不够，升级要 " + MoneyFormat.pounds(cost) + "。"
+                            : result.message());
         }
         return Result.ok("工厂升到 " + (before + 1) + " 级，花了 " + MoneyFormat.pounds(cost) + "。", -cost);
     }
@@ -298,13 +333,18 @@ public final class SimpleCenterService {
         if (company == null) return Result.fail("你还没有公司。");
         if (company.isPublic()) return Result.fail("公司已经上市了。");
         long totalShares = Math.round(QUICK_IPO_SHARES / CompanyIPOService.DEFAULT_FLOAT_RATIO);
-        long price = Math.max(1, Math.min(CompanyIPOService.MAX_ISSUE_PRICE, finance.stock.StockValuation.companyValue(company) / totalShares));
+        long price = Math.max(
+                1,
+                Math.min(
+                        CompanyIPOService.MAX_ISSUE_PRICE,
+                        finance.stock.StockValuation.companyValue(company) / totalShares));
         long quantity = Math.min(QUICK_IPO_SHARES, Math.max(1, CompanyIPOService.MAX_TOTAL_RAISE / price));
         long before = AccountManager.getBalance(playerId);
         CompanyIPOService.IPOResult result = CompanyIPOService.ipo(playerId, company.getCompanyId(), price, quantity);
         if (!result.success()) return Result.fail(result.message());
-        return Result.ok("公司上市了！卖出 " + quantity + " 股，每股 " + MoneyFormat.pounds(price)
-                + "，募到的钱进了公司账上。", AccountManager.getBalance(playerId) - before);
+        return Result.ok(
+                "公司上市了！卖出 " + quantity + " 股，每股 " + MoneyFormat.pounds(price) + "，募到的钱进了公司账上。",
+                AccountManager.getBalance(playerId) - before);
     }
 
     // ------------------------------------------------------------ 银行
@@ -312,8 +352,10 @@ public final class SimpleCenterService {
     /** 简单模式只用一家银行：第一家正常营业的。 */
     public static CommercialBank mainBank() {
         BankingManager.ensureDefaultBanks();
-        return BankingManager.banks().values().stream().filter(CommercialBank::acceptsNewBusiness)
-                .min(Comparator.comparing(CommercialBank::code)).orElse(null);
+        return BankingManager.banks().values().stream()
+                .filter(CommercialBank::acceptsNewBusiness)
+                .min(Comparator.comparing(CommercialBank::code))
+                .orElse(null);
     }
 
     public static BankCustomerAccount demandAccount(UUID player, CommercialBank bank, long day, boolean create) {
@@ -351,8 +393,14 @@ public final class SimpleCenterService {
         if (amount <= 0 || data.getBoolean(STARTER_TAG)) return 0;
         if (!AccountManager.deposit(player.getUUID(), amount)) return 0;
         data.putBoolean(STARTER_TAG, true);
-        AccountManager.addTransactionRecord(new TransactionRecord(CashService.ISSUER, player.getUUID(), amount,
-                TransactionType.STARTER_GRANT, player.getUUID(), "启动资金", 1));
+        AccountManager.addTransactionRecord(new TransactionRecord(
+                CashService.ISSUER,
+                player.getUUID(),
+                amount,
+                TransactionType.STARTER_GRANT,
+                player.getUUID(),
+                "启动资金",
+                1));
         return amount;
     }
 
@@ -363,15 +411,32 @@ public final class SimpleCenterService {
      * extras：这个玩家现在能用的进阶玩法（组名和单项名）；locked：还没解锁、做到进度就能解锁的组；
      * unlockedNow：刚解锁、要弹出介绍的组；cards：机会卡；bets：押注；futuresMarginBps：商品押注每份要交的保证金比例。
      */
-    public record Status(long bankBalance, int bankRateBps, int factoryLevel, long nextUpgradeCost,
-                         long companyValuation, long ipoMinValuation, long stockUnlockBalance,
-                         String advancedMode, List<String> extras, List<String> locked, List<String> unlockedNow,
-                         List<SimpleOpportunityService.Card> cards, List<String> weather,
-                         List<String> summary, List<SimpleInvestService.Product> products,
-                         List<SimpleInvestService.Holding> holdings, SimpleInvestService.MarginInfo margin,
-                         List<SimpleBetService.Bet> bets, int futuresMarginBps,
-                         SimpleBossService.BossInfo boss, finance.network.PlayerServicesResponsePacket.Cash cash,
-                         List<Valuation> valuations, List<Long> worth, List<String> ranks, String betStats) {}
+    public record Status(
+            long bankBalance,
+            int bankRateBps,
+            int factoryLevel,
+            long nextUpgradeCost,
+            long companyValuation,
+            long ipoMinValuation,
+            long stockUnlockBalance,
+            String advancedMode,
+            List<String> extras,
+            List<String> locked,
+            List<String> unlockedNow,
+            List<SimpleOpportunityService.Card> cards,
+            List<String> weather,
+            List<String> summary,
+            List<SimpleInvestService.Product> products,
+            List<SimpleInvestService.Holding> holdings,
+            SimpleInvestService.MarginInfo margin,
+            List<SimpleBetService.Bet> bets,
+            int futuresMarginBps,
+            SimpleBossService.BossInfo boss,
+            finance.network.PlayerServicesResponsePacket.Cash cash,
+            List<Valuation> valuations,
+            List<Long> worth,
+            List<String> ranks,
+            String betStats) {}
 
     /** 一只股票“股价怎么来的”：家底、日利润、倍数（× 10）、总股数。 */
     public record Valuation(String symbol, long netAssets, long dailyProfit, int multipleX10, long shares) {}
@@ -393,7 +458,8 @@ public final class SimpleCenterService {
             Company c = CompanyManager.getCompany(stock.getCompanyId());
             if (c == null) continue;
             var b = finance.stock.StockValuation.of(c);
-            out.add(new Valuation(stock.getSymbol(), b.netAssets(), b.dailyProfit(), b.multipleX10(), stock.getTotalShares()));
+            out.add(new Valuation(
+                    stock.getSymbol(), b.netAssets(), b.dailyProfit(), b.multipleX10(), stock.getTotalShares()));
             if (out.size() >= 32) break;
         }
         return out;
@@ -413,29 +479,43 @@ public final class SimpleCenterService {
         SimpleBetService.sweepIdle(id);
         CommercialBank bank = mainBank();
         BankCustomerAccount account = demandAccount(id, bank, day, false);
-        long bankBalance = account != null && account.status() == BankAccountStatus.ACTIVE
-                && account.type() == BankAccountType.DEMAND_DEPOSIT ? account.available() : 0;
+        long bankBalance = account != null
+                        && account.status() == BankAccountStatus.ACTIVE
+                        && account.type() == BankAccountType.DEMAND_DEPOSIT
+                ? account.available()
+                : 0;
         int rate = bank == null ? 0 : PublicBankViewService.crop(bank, false).demandRateBps();
         Company company = CompanyManager.getCompanyByOwner(id);
 
         java.util.EnumSet<SimpleUnlocks.Group> unlocked = SimpleUnlocks.unlocked(player);
         java.util.Set<String> instant = FinanceConfig.simpleExtras(), disabled = FinanceConfig.simpleDisabled();
         java.util.function.Predicate<String> allowed = name -> SimpleUnlocks.allowed(unlocked, instant, disabled, name);
-        List<String> unlockedNow = SimpleUnlocks.takeNew(player, unlocked).stream().map(g -> g.id).toList();
+        List<String> unlockedNow =
+                SimpleUnlocks.takeNew(player, unlocked).stream().map(g -> g.id).toList();
         List<SimpleInvestService.Holding> holdings = SimpleInvestService.holdings(player);
         SimpleInvestService.MarginInfo margin = SimpleInvestService.marginInfo(id);
         SimpleBossService.BossInfo boss = SimpleBossService.info(player);
-        return new Status(bankBalance, rate,
+        return new Status(
+                bankBalance,
+                rate,
                 company == null ? 0 : factoryLevel(company),
                 company == null ? 0 : nextUpgradeCost(company),
                 company == null ? 0 : finance.stock.StockValuation.companyValue(company),
-                FinanceConfig.simpleIpoMinValuation(), FinanceConfig.simpleStockUnlockBalance(),
+                FinanceConfig.simpleIpoMinValuation(),
+                FinanceConfig.simpleStockUnlockBalance(),
                 FinanceConfig.simpleAdvancedMode(),
-                SimpleUnlocks.allowedNames(unlocked, instant, disabled), SimpleUnlocks.lockedIds(unlocked, instant, disabled), unlockedNow,
-                SimpleOpportunityService.cards(player, allowed, boss, margin, !holdings.isEmpty(), AccountManager.getBalance(id)),
-                weather(player), summary,
-                SimpleInvestService.products(allowed), holdings, margin,
-                SimpleBetService.bets(player), FinanceConfig.futuresInitialMarginBps(),
+                SimpleUnlocks.allowedNames(unlocked, instant, disabled),
+                SimpleUnlocks.lockedIds(unlocked, instant, disabled),
+                unlockedNow,
+                SimpleOpportunityService.cards(
+                        player, allowed, boss, margin, !holdings.isEmpty(), AccountManager.getBalance(id)),
+                weather(player),
+                summary,
+                SimpleInvestService.products(allowed),
+                holdings,
+                margin,
+                SimpleBetService.bets(player),
+                FinanceConfig.futuresInitialMarginBps(),
                 boss,
                 finance.playerservice.PlayerServicesService.cash(id, new finance.cash.PlayerCashPurse(player), day),
                 valuations(player.server.getTickCount()),
@@ -454,17 +534,21 @@ public final class SimpleCenterService {
         out.add("利率 " + pct(rate) + "：" + rateMeaning);
         int inflation = finance.centralbank.CentralBankService.inflationBps();
         int target = finance.centralbank.CentralBankService.inflationTargetBps();
-        String priceMeaning = inflation > target + 100 ? "东西在变贵：手里的货会升值，放着的现金会变不值钱。"
+        String priceMeaning = inflation > target + 100
+                ? "东西在变贵：手里的货会升值，放着的现金会变不值钱。"
                 : inflation < 0 ? "东西在变便宜：现金更值钱，囤货可能亏。" : "物价稳定。";
         out.add("物价一年涨 " + pct(inflation) + "（央行目标 " + pct(target) + "）：" + priceMeaning);
         finance.policy.PolicyMeetingService.PolicyOutlook outlook = finance.policy.PolicyMeetingService.outlook();
         long today = EconomyCycleService.currentMcDay(player.server);
-        String when = outlook.nextMeetingDay() < 0 ? "日程未定" : outlook.nextMeetingDay() <= today ? "今天"
-                : (outlook.nextMeetingDay() - today) + " 天后";
-        String lean = outlook.recommendedBps() > outlook.currentBps() ? "可能加息：存款利息会涨，贷款会变贵。"
+        String when = outlook.nextMeetingDay() < 0
+                ? "日程未定"
+                : outlook.nextMeetingDay() <= today ? "今天" : (outlook.nextMeetingDay() - today) + " 天后";
+        String lean = outlook.recommendedBps() > outlook.currentBps()
+                ? "可能加息：存款利息会涨，贷款会变贵。"
                 : outlook.recommendedBps() < outlook.currentBps() ? "可能降息：贷款会变便宜，存款利息会降。" : "大概率不变。";
         out.add("央行下次开会：" + when + "，" + lean);
-        List<finance.centralbank.CentralBankService.Decision> decisions = finance.centralbank.CentralBankService.decisions();
+        List<finance.centralbank.CentralBankService.Decision> decisions =
+                finance.centralbank.CentralBankService.decisions();
         if (!decisions.isEmpty()) {
             finance.centralbank.CentralBankService.Decision d = decisions.get(decisions.size() - 1);
             out.add("上次开会（第 " + d.day() + " 天）：利率 " + pct(d.rateBefore()) + " → " + pct(d.rateAfter()) + "。");

@@ -1,13 +1,14 @@
 package finance.client;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import finance.client.PlayerServicesForm.InvalidInput;
 import finance.client.PlayerServicesForm.Page;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.*;
-
 class PlayerServicesFormTest {
-    @Test void everyPageHasFourBoxSlotsAndAtLeastOneInput() {
+    @Test
+    void everyPageHasFourBoxSlotsAndAtLeastOneInput() {
         for (Page page : Page.values()) {
             String[] labels = PlayerServicesForm.labels(page, null);
             assertEquals(4, labels.length);
@@ -16,7 +17,8 @@ class PlayerServicesFormTest {
         assertEquals("代码 名称", PlayerServicesForm.labels(Page.BANK, null)[0], "没有数据时按还没有银行显示");
     }
 
-    @Test void numbersAreParsedStrictly() {
+    @Test
+    void numbersAreParsedStrictly() {
         assertEquals(1_200, PlayerServicesForm.positive("1,200", "金额"));
         assertEquals(0, PlayerServicesForm.number("  ", "数量", true));
         assertThrows(InvalidInput.class, () -> PlayerServicesForm.positive("0", "金额"));

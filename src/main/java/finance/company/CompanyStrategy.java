@@ -15,16 +15,30 @@ public enum CompanyStrategy {
     private final double operatingCostMultiplier;
     private final double sellRatioMultiplier;
 
-    CompanyStrategy(String displayName, double productionMultiplier,
-                    double operatingCostMultiplier, double sellRatioMultiplier) {
+    CompanyStrategy(
+            String displayName,
+            double productionMultiplier,
+            double operatingCostMultiplier,
+            double sellRatioMultiplier) {
         this.displayName = displayName;
         this.productionMultiplier = productionMultiplier;
         this.operatingCostMultiplier = operatingCostMultiplier;
         this.sellRatioMultiplier = sellRatioMultiplier;
     }
 
-    public String getDisplayName() { return displayName; }
-    public double getProductionMultiplier() { return productionMultiplier; }
-    public double getOperatingCostMultiplier() { return operatingCostMultiplier; }
-    public double getSellRatioMultiplier() { return sellRatioMultiplier; }
+    public String getDisplayName() {
+        return displayName;
+    }
+
+    public double getProductionMultiplier() {
+        return productionMultiplier;
+    }
+
+    public double getOperatingCostMultiplier() {
+        return operatingCostMultiplier;
+    }
+
+    public double getSellRatioMultiplier() {
+        return sellRatioMultiplier;
+    }
 }

@@ -2,11 +2,11 @@ package finance.warehouse;
 
 import finance.commodity.Commodity;
 import finance.commodity.CommodityRegistry;
+import java.util.Comparator;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
-import java.util.Comparator;
 
 public final class CommodityItemResolver {
     public record Resolution(boolean valid, Item item, String messageKey) {}
@@ -33,8 +33,12 @@ public final class CommodityItemResolver {
                 .sorted(Comparator.comparing(Commodity::getId))
                 .filter(commodity -> {
                     ResourceLocation id = ResourceLocation.tryParse(commodity.getItemId());
-                    return id != null && BuiltInRegistries.ITEM.containsKey(id)
+                    return id != null
+                            && BuiltInRegistries.ITEM.containsKey(id)
                             && BuiltInRegistries.ITEM.get(id) == item;
-                }).map(Commodity::getId).findFirst().orElse(null);
+                })
+                .map(Commodity::getId)
+                .findFirst()
+                .orElse(null);
     }
 }

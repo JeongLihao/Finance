@@ -1,12 +1,11 @@
 package finance.network;
 
 import finance.market.MarketManager;
+import java.util.UUID;
+import java.util.function.Supplier;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.network.NetworkEvent;
-
-import java.util.UUID;
-import java.util.function.Supplier;
 
 /**
  * 取消订单数据包（按订单 UUID 精确取消）。

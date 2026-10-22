@@ -1,10 +1,10 @@
 package finance.market;
 
+import finance.event.MarketEvent;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
-import finance.event.MarketEvent;
 
 /**
  * 商品中间价 —— 国际市场的报价基准。
@@ -67,7 +67,6 @@ public class MarketPrice {
     /** 动量衰减到低于此阈值则归零 */
     private static final double MOMENTUM_MIN = 0.001;
 
-
     // ---- 字段 ----
 
     private final String commodityId;
@@ -113,6 +112,7 @@ public class MarketPrice {
 
     /** 这件商品的参考库存、价格弹性、成交冲击：旧规则用类常量；央行储备商品由 ReserveService 调小。 */
     private long referenceStock = REFERENCE_STOCK;
+
     private double elasticity = SUPPLY_ELASTICITY;
     private double momentumScale = MOMENTUM_SCALE;
     private double maxTradeImpact = Double.MAX_VALUE;
@@ -180,10 +180,21 @@ public class MarketPrice {
 
     // ---- 24h 统计 getter ----
 
-    public long getDayHigh() { return dayHigh; }
-    public long getDayLow() { return dayLow; }
-    public int getDayVolume() { return dayVolume; }
-    public long getDayOpen() { return dayOpen; }
+    public long getDayHigh() {
+        return dayHigh;
+    }
+
+    public long getDayLow() {
+        return dayLow;
+    }
+
+    public int getDayVolume() {
+        return dayVolume;
+    }
+
+    public long getDayOpen() {
+        return dayOpen;
+    }
 
     /** 24h 涨跌幅（相对于 dayOpen 的百分比，正=涨，负=跌，0=持平） */
     public double getDayChange() {
@@ -239,9 +250,17 @@ public class MarketPrice {
         this.activeEvent = null;
     }
 
-    public double getTradeMomentum() { return tradeMomentum; }
-    public double getTrendMomentum() { return trendMomentum; }
-    public int getNoiseOffset() { return noiseOffset; }
+    public double getTradeMomentum() {
+        return tradeMomentum;
+    }
+
+    public double getTrendMomentum() {
+        return trendMomentum;
+    }
+
+    public int getNoiseOffset() {
+        return noiseOffset;
+    }
 
     public boolean hasActiveEvent() {
         return activeEvent != null;
@@ -276,8 +295,7 @@ public class MarketPrice {
 
         // 3. 趋势：目标价持续高/低于现价时缓慢形成，而不是一次交易立刻打满。
         double trendSignal = (fundamental - midPrice) / Math.max(1.0, basePrice);
-        trendMomentum = clamp(trendMomentum * TREND_DECAY + trendSignal * (1.0 - TREND_DECAY),
-                -MAX_TREND, MAX_TREND);
+        trendMomentum = clamp(trendMomentum * TREND_DECAY + trendSignal * (1.0 - TREND_DECAY), -MAX_TREND, MAX_TREND);
 
         // 4. 动能 + 趋势 + 噪音。交易动能是短期冲击，趋势是慢变量。
         double targetPrice = fundamental * (1.0 + tradeMomentum + trendMomentum * 0.35) + noiseOffset;
@@ -347,7 +365,6 @@ public class MarketPrice {
         this.midPrice = midPrice;
     }
 
-
     public void setTradeMomentum(double tradeMomentum) {
         this.tradeMomentum = tradeMomentum;
     }
@@ -386,7 +403,6 @@ public class MarketPrice {
         noiseOffset = 0;
     }
 
-
     /** 每个 MC 天结束时调用，重置日内统计并记录新一天的开盘价 */
     public void newDayReset() {
         dayOpen = midPrice;
@@ -400,7 +416,6 @@ public class MarketPrice {
         snapshots.add(snap);
         trimSnapshots();
     }
-
 
     private static double clamp(double value, double min, double max) {
         return Math.max(min, Math.min(max, value));
@@ -448,8 +463,16 @@ public class MarketPrice {
             this.volume = volume;
         }
 
-        public LocalDateTime getTimestamp() { return timestamp; }
-        public long getPrice() { return price; }
-        public int getVolume() { return volume; }
+        public LocalDateTime getTimestamp() {
+            return timestamp;
+        }
+
+        public long getPrice() {
+            return price;
+        }
+
+        public int getVolume() {
+            return volume;
+        }
     }
 }

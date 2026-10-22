@@ -2,10 +2,8 @@ package finance.npcinvestor;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -17,24 +15,41 @@ public final class NpcGovernanceManager {
     public static final int MAX_TENDER_RECORDS = 256;
 
     /** choice 为 SUPPORT / OPPOSE / ABSTAIN；power 为快照投票权。 */
-    public record VoteRecord(UUID proposalId, NpcInvestorArchetype archetype, NpcVotingRules.Choice choice,
-                             NpcVotingRules.VoteReason reason, long power, long day) { }
+    public record VoteRecord(
+            UUID proposalId,
+            NpcInvestorArchetype archetype,
+            NpcVotingRules.Choice choice,
+            NpcVotingRules.VoteReason reason,
+            long power,
+            long day) {}
 
     /** accepted 为 true 时 shares 是申报的股数；为 false 表示溢价不足而拒绝。 */
-    public record TenderRecord(UUID offerId, NpcInvestorArchetype archetype, boolean accepted, long shares,
-                               long offerPrice, long thresholdPrice, long day) { }
+    public record TenderRecord(
+            UUID offerId,
+            NpcInvestorArchetype archetype,
+            boolean accepted,
+            long shares,
+            long offerPrice,
+            long thresholdPrice,
+            long day) {}
 
     private static final Map<String, VoteRecord> VOTES = new LinkedHashMap<>();
     private static final Map<String, TenderRecord> TENDERS = new LinkedHashMap<>();
     private static long lastProcessedDay = Long.MIN_VALUE;
 
-    private NpcGovernanceManager() { }
+    private NpcGovernanceManager() {}
 
-    static String key(UUID id, NpcInvestorArchetype archetype) { return id + "/" + archetype.name(); }
+    static String key(UUID id, NpcInvestorArchetype archetype) {
+        return id + "/" + archetype.name();
+    }
 
-    public static synchronized long lastProcessedDay() { return lastProcessedDay; }
+    public static synchronized long lastProcessedDay() {
+        return lastProcessedDay;
+    }
 
-    static synchronized void setLastProcessedDay(long day) { lastProcessedDay = day; }
+    static synchronized void setLastProcessedDay(long day) {
+        lastProcessedDay = day;
+    }
 
     static synchronized boolean hasVote(UUID proposalId, NpcInvestorArchetype archetype) {
         return VOTES.containsKey(key(proposalId, archetype));
@@ -48,7 +63,8 @@ public final class NpcGovernanceManager {
     static synchronized void putVote(VoteRecord r) {
         if (r == null) return;
         VOTES.remove(key(r.proposalId(), r.archetype()));
-        while (VOTES.size() >= MAX_VOTE_RECORDS) VOTES.remove(VOTES.keySet().iterator().next());
+        while (VOTES.size() >= MAX_VOTE_RECORDS)
+            VOTES.remove(VOTES.keySet().iterator().next());
         VOTES.put(key(r.proposalId(), r.archetype()), r);
     }
 
@@ -56,7 +72,8 @@ public final class NpcGovernanceManager {
     static synchronized void putTender(TenderRecord r) {
         if (r == null) return;
         TENDERS.remove(key(r.offerId(), r.archetype()));
-        while (TENDERS.size() >= MAX_TENDER_RECORDS) TENDERS.remove(TENDERS.keySet().iterator().next());
+        while (TENDERS.size() >= MAX_TENDER_RECORDS)
+            TENDERS.remove(TENDERS.keySet().iterator().next());
         TENDERS.put(key(r.offerId(), r.archetype()), r);
     }
 
@@ -72,9 +89,13 @@ public final class NpcGovernanceManager {
         return out;
     }
 
-    public static synchronized List<VoteRecord> votesDirect() { return List.copyOf(VOTES.values()); }
+    public static synchronized List<VoteRecord> votesDirect() {
+        return List.copyOf(VOTES.values());
+    }
 
-    public static synchronized List<TenderRecord> tendersDirect() { return List.copyOf(TENDERS.values()); }
+    public static synchronized List<TenderRecord> tendersDirect() {
+        return List.copyOf(TENDERS.values());
+    }
 
     public static synchronized void restoreDirect(long day, List<VoteRecord> votes, List<TenderRecord> tenders) {
         clearDirect();
@@ -88,5 +109,4 @@ public final class NpcGovernanceManager {
         TENDERS.clear();
         lastProcessedDay = Long.MIN_VALUE;
     }
-
 }

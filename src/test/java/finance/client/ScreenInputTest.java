@@ -1,16 +1,15 @@
 package finance.client;
 
-import finance.network.CompanyGameplayActionPacket;
-import finance.network.WarehouseActionPacket;
-import org.junit.jupiter.api.Test;
-import org.lwjgl.glfw.GLFW;
-
-import java.util.UUID;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import finance.network.CompanyGameplayActionPacket;
+import finance.network.WarehouseActionPacket;
+import java.util.UUID;
+import org.junit.jupiter.api.Test;
+import org.lwjgl.glfw.GLFW;
 
 class ScreenInputTest {
     @Test
@@ -50,8 +49,10 @@ class ScreenInputTest {
         assertEquals(0L, ScreenInput.parseInRange("0", 0, 20_000).getAsLong());
         assertTrue(ScreenInput.parseInRange("abc", 1, 3650).isEmpty());
         assertTrue(ScreenInput.parseInRange("0", 1, 3650).isEmpty());
-        assertTrue(ScreenInput.parseInRange("99", 100, FinanceScreen.MAX_INPUT_AMOUNT).isEmpty());
-        assertTrue(ScreenInput.parseInRange("1000000000000", 1, FinanceScreen.MAX_INPUT_AMOUNT).isEmpty());
+        assertTrue(ScreenInput.parseInRange("99", 100, FinanceScreen.MAX_INPUT_AMOUNT)
+                .isEmpty());
+        assertTrue(ScreenInput.parseInRange("1000000000000", 1, FinanceScreen.MAX_INPUT_AMOUNT)
+                .isEmpty());
     }
 
     @Test

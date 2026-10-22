@@ -7,13 +7,12 @@ import finance.account.AccountManager;
 import finance.margin.MarginAccount;
 import finance.margin.MarginPoolManager;
 import finance.margin.MarginService;
+import java.util.Map;
+import java.util.UUID;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
-
-import java.util.Map;
-import java.util.UUID;
 
 /**
  * /margin —— 融资融券。
@@ -26,36 +25,33 @@ import java.util.UUID;
 public class MarginCommand {
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
-        dispatcher.register(
-                Commands.literal("margin")
-                        .then(Commands.literal("info").executes(MarginCommand::info))
-                        .then(Commands.literal("deposit")
-                                .then(Commands.argument("amount", LongArgumentType.longArg(1))
-                                        .executes(MarginCommand::deposit)))
-                        .then(Commands.literal("withdraw")
-                                .then(Commands.argument("amount", LongArgumentType.longArg(1))
-                                        .executes(MarginCommand::withdraw)))
-                        .then(Commands.literal("buy")
-                                .then(Commands.argument("symbol", StringArgumentType.word())
-                                        .then(Commands.argument("qty", LongArgumentType.longArg(1))
-                                                .executes(MarginCommand::buy))))
-                        .then(Commands.literal("repay")
-                                .then(Commands.argument("amount", LongArgumentType.longArg(1))
-                                        .executes(MarginCommand::repay)))
-                        .then(Commands.literal("short")
-                                .then(Commands.argument("symbol", StringArgumentType.word())
-                                        .then(Commands.argument("qty", LongArgumentType.longArg(1))
-                                                .executes(MarginCommand::shortSell))))
-                        .then(Commands.literal("cover")
-                                .then(Commands.argument("symbol", StringArgumentType.word())
-                                        .executes(ctx -> cover(ctx, 0))
-                                        .then(Commands.argument("qty", LongArgumentType.longArg(1))
-                                                .executes(ctx -> cover(ctx,
-                                                        LongArgumentType.getLong(ctx, "qty"))))))
-                        .then(Commands.literal("repaybaddebt")
-                                .then(Commands.argument("amount", LongArgumentType.longArg(1))
-                                        .executes(MarginCommand::repayBadDebt)))
-        );
+        dispatcher.register(Commands.literal("margin")
+                .then(Commands.literal("info").executes(MarginCommand::info))
+                .then(Commands.literal("deposit")
+                        .then(Commands.argument("amount", LongArgumentType.longArg(1))
+                                .executes(MarginCommand::deposit)))
+                .then(Commands.literal("withdraw")
+                        .then(Commands.argument("amount", LongArgumentType.longArg(1))
+                                .executes(MarginCommand::withdraw)))
+                .then(Commands.literal("buy")
+                        .then(Commands.argument("symbol", StringArgumentType.word())
+                                .then(Commands.argument("qty", LongArgumentType.longArg(1))
+                                        .executes(MarginCommand::buy))))
+                .then(Commands.literal("repay")
+                        .then(Commands.argument("amount", LongArgumentType.longArg(1))
+                                .executes(MarginCommand::repay)))
+                .then(Commands.literal("short")
+                        .then(Commands.argument("symbol", StringArgumentType.word())
+                                .then(Commands.argument("qty", LongArgumentType.longArg(1))
+                                        .executes(MarginCommand::shortSell))))
+                .then(Commands.literal("cover")
+                        .then(Commands.argument("symbol", StringArgumentType.word())
+                                .executes(ctx -> cover(ctx, 0))
+                                .then(Commands.argument("qty", LongArgumentType.longArg(1))
+                                        .executes(ctx -> cover(ctx, LongArgumentType.getLong(ctx, "qty"))))))
+                .then(Commands.literal("repaybaddebt")
+                        .then(Commands.argument("amount", LongArgumentType.longArg(1))
+                                .executes(MarginCommand::repayBadDebt))));
     }
 
     private static ServerPlayer playerOrNull(com.mojang.brigadier.context.CommandContext<CommandSourceStack> ctx) {
@@ -81,7 +77,8 @@ public class MarginCommand {
         sb.append("\n现金保证金：").append(acct.getCashCollateral());
         sb.append(" | 融资负债：").append(acct.getFinancedDebt());
         sb.append(" | 融资利息：").append(acct.getFinancedInterestOwed());
-        if (acct.getBadDebt() > 0) sb.append("\n⚠ 不良债务：").append(acct.getBadDebt()).append("（还清前不可新开仓）");
+        if (acct.getBadDebt() > 0)
+            sb.append("\n⚠ 不良债务：").append(acct.getBadDebt()).append("（还清前不可新开仓）");
         if (!acct.getFinancedShares().isEmpty()) {
             sb.append("\n融资持仓：");
             for (Map.Entry<String, Long> e : acct.getFinancedShares().entrySet()) {

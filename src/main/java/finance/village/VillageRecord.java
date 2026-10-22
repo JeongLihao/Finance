@@ -37,14 +37,18 @@ public final class VillageRecord {
      * @param caravanZeroSaleDays 行商连续零成交天数
      * @throws IllegalArgumentException 校验失败时抛出（沿用 LocalDemand 风格）
      */
-    public VillageRecord(UUID settlementId, int population, Map<VillageProfession, Integer> professionMix,
-                         UUID budgetAccountId, long caravanRetreatUntilDay, int caravanZeroSaleDays) {
+    public VillageRecord(
+            UUID settlementId,
+            int population,
+            Map<VillageProfession, Integer> professionMix,
+            UUID budgetAccountId,
+            long caravanRetreatUntilDay,
+            int caravanZeroSaleDays) {
         if (settlementId == null || budgetAccountId == null)
             throw new IllegalArgumentException("settlementId/budgetAccountId 不能为空");
         if (population < MIN_POPULATION || population > MAX_POPULATION)
             throw new IllegalArgumentException("population 越界: " + population);
-        if (professionMix == null || professionMix.isEmpty())
-            throw new IllegalArgumentException("professionMix 不能为空");
+        if (professionMix == null || professionMix.isEmpty()) throw new IllegalArgumentException("professionMix 不能为空");
         long sum = 0;
         EnumMap<VillageProfession, Integer> copy = new EnumMap<>(VillageProfession.class);
         for (Map.Entry<VillageProfession, Integer> e : professionMix.entrySet()) {
@@ -62,9 +66,13 @@ public final class VillageRecord {
         this.caravanZeroSaleDays = caravanZeroSaleDays;
     }
 
-    public UUID settlementId() { return settlementId; }
+    public UUID settlementId() {
+        return settlementId;
+    }
 
-    public int population() { return population; }
+    public int population() {
+        return population;
+    }
 
     /**
      * 宏观经济的人口增长与迁移：整体替换职业人数。校验规则与构造函数相同，
@@ -88,9 +96,13 @@ public final class VillageRecord {
     }
 
     /** 职业人数（防御性拷贝，修改返回值不影响内部状态）。 */
-    public Map<VillageProfession, Integer> professionMix() { return new EnumMap<>(professionMix); }
+    public Map<VillageProfession, Integer> professionMix() {
+        return new EnumMap<>(professionMix);
+    }
 
-    public UUID budgetAccountId() { return budgetAccountId; }
+    public UUID budgetAccountId() {
+        return budgetAccountId;
+    }
 
     /** 玩家好感度，缺省 0（player 为 null 也返回 0）。 */
     public int favorOf(UUID player) {
@@ -99,7 +111,9 @@ public final class VillageRecord {
     }
 
     /** 好感度快照（不可修改的拷贝，供持久化遍历）。 */
-    public Map<UUID, Integer> favor() { return Collections.unmodifiableMap(new HashMap<>(favor)); }
+    public Map<UUID, Integer> favor() {
+        return Collections.unmodifiableMap(new HashMap<>(favor));
+    }
 
     /**
      * 增减好感度并钳制到 [-100, 100]，返回新值。
@@ -117,7 +131,9 @@ public final class VillageRecord {
         return next;
     }
 
-    public long lastMarketDay() { return lastMarketDay; }
+    public long lastMarketDay() {
+        return lastMarketDay;
+    }
 
     /**
      * 推进集市结算日（幂等）：只有 {@code day > lastMarketDay} 时才推进并返回 true，
@@ -131,11 +147,19 @@ public final class VillageRecord {
         return false;
     }
 
-    public long caravanRetreatUntilDay() { return caravanRetreatUntilDay; }
+    public long caravanRetreatUntilDay() {
+        return caravanRetreatUntilDay;
+    }
 
-    public void setCaravanRetreatUntilDay(long d) { this.caravanRetreatUntilDay = d; }
+    public void setCaravanRetreatUntilDay(long d) {
+        this.caravanRetreatUntilDay = d;
+    }
 
-    public int caravanZeroSaleDays() { return caravanZeroSaleDays; }
+    public int caravanZeroSaleDays() {
+        return caravanZeroSaleDays;
+    }
 
-    public void setCaravanZeroSaleDays(int n) { this.caravanZeroSaleDays = n; }
+    public void setCaravanZeroSaleDays(int n) {
+        this.caravanZeroSaleDays = n;
+    }
 }

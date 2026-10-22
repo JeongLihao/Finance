@@ -1,5 +1,7 @@
 package finance.npcinvestor;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import finance.account.Account;
 import finance.account.AccountManager;
 import finance.account.TransactionRecord;
@@ -14,14 +16,11 @@ import finance.stock.Stock;
 import finance.stock.StockMarketManager;
 import finance.stock.StockOrder;
 import finance.stock.StockPortfolioManager;
+import java.util.UUID;
 import net.minecraft.nbt.CompoundTag;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 class NpcInvestorServiceTest {
     private static final UUID COMPANY_ID = UUID.fromString("00000000-0000-0000-0000-00000000a001");
@@ -79,7 +78,8 @@ class NpcInvestorServiceTest {
         return total;
     }
 
-    @Test void fundingComesFromPoolWithoutStarterMoney() {
+    @Test
+    void fundingComesFromPoolWithoutStarterMoney() {
         NpcInvestorService.processDay(1, SETTINGS);
         for (NpcInvestorArchetype a : NpcInvestorArchetype.values()) {
             NpcInvestorState state = NpcInvestorManager.state(a);
@@ -91,7 +91,8 @@ class NpcInvestorServiceTest {
         assertEquals(POOL + 500_000L, totalMoney() + burned());
     }
 
-    @Test void poolBelowReserveFloorSkipsFunding() {
+    @Test
+    void poolBelowReserveFloorSkipsFunding() {
         AccountManager.getOrCreateSystemAccount(NpcMarketMaker.NPC_UUID).withdraw(POOL - 1_010_000L);
         NpcInvestorService.processDay(1, SETTINGS);
         for (NpcInvestorArchetype a : NpcInvestorArchetype.values()) {
@@ -101,14 +102,16 @@ class NpcInvestorServiceTest {
         assertEquals(1_010_000L, AccountManager.getBalance(NpcMarketMaker.NPC_UUID));
     }
 
-    @Test void dailyTradeVolumeIsCapped() {
+    @Test
+    void dailyTradeVolumeIsCapped() {
         NpcInvestorService.processDay(1, SETTINGS);
         // 流通股 2% = 200 股
         assertTrue(combined() > 0);
         assertTrue(combined() <= 200, "第一天合计买入不能超过 200 股，实际 " + combined());
     }
 
-    @Test void holdingsRespectPerArchetypeAndCombinedCaps() {
+    @Test
+    void holdingsRespectPerArchetypeAndCombinedCaps() {
         for (long day = 1; day <= 60; day++) {
             NpcInvestorService.processDay(day, SETTINGS);
             for (NpcInvestorArchetype a : NpcInvestorArchetype.values()) {
@@ -122,7 +125,8 @@ class NpcInvestorServiceTest {
         assertEquals(POOL + 500_000L, totalMoney() + burned(), "货币只能流向配售水槽");
     }
 
-    @Test void sameDayIsIdempotent() {
+    @Test
+    void sameDayIsIdempotent() {
         NpcInvestorService.processDay(5, SETTINGS);
         long before = combined();
         long pool = AccountManager.getBalance(NpcMarketMaker.NPC_UUID);
@@ -132,8 +136,10 @@ class NpcInvestorServiceTest {
         assertEquals(pool, AccountManager.getBalance(NpcMarketMaker.NPC_UUID));
     }
 
-    @Test void disabledIsCompleteNoOpAndKeepsHoldings() {
-        NpcInvestorService.Settings off = new NpcInvestorService.Settings(false, 50_000L, 5_000L, 1_000_000L, 2_000, 4_900, 200);
+    @Test
+    void disabledIsCompleteNoOpAndKeepsHoldings() {
+        NpcInvestorService.Settings off =
+                new NpcInvestorService.Settings(false, 50_000L, 5_000L, 1_000_000L, 2_000, 4_900, 200);
         NpcInvestorService.processDay(1, off);
         for (NpcInvestorArchetype a : NpcInvestorArchetype.values()) {
             assertFalse(AccountManager.getAccounts().containsKey(a.accountId()), "关闭时不应创建账户");
@@ -145,7 +151,8 @@ class NpcInvestorServiceTest {
         assertEquals(held, held(NpcInvestorArchetype.VALUE), "关闭后持仓保留");
     }
 
-    @Test void bankruptcyRiskMakesInvestorsSellThroughOrderBook() {
+    @Test
+    void bankruptcyRiskMakesInvestorsSellThroughOrderBook() {
         for (long day = 1; day <= 30; day++) NpcInvestorService.processDay(day, SETTINGS);
         long before = held(NpcInvestorArchetype.VALUE);
         assertEquals(2_000L, before);
@@ -177,25 +184,29 @@ class NpcInvestorServiceTest {
         return false;
     }
 
-    @Test void restingBuyOrderIsLoggedAsOrderNotFill() {
+    @Test
+    void restingBuyOrderIsLoggedAsOrderNotFill() {
         // 残差为 0（全部股份在玩家手里），做市商没有库存：NPC 买单只能挂进订单簿
         assertTrue(StockPortfolioManager.addHolding(PLAYER, SYMBOL, TOTAL, 10L));
         // 第 3 天轮换顺序以价值派开头，当日额度不会先被其他原型用完
         NpcInvestorService.processDay(3, SETTINGS);
         NpcInvestorArchetype value = NpcInvestorArchetype.VALUE;
-        long resting = NpcInvestorService.openOrderQuantity(value.accountId(), SYMBOL, finance.stock.StockOrderType.BUY);
+        long resting =
+                NpcInvestorService.openOrderQuantity(value.accountId(), SYMBOL, finance.stock.StockOrderType.BUY);
         assertTrue(resting > 0, "价值派应有未成交的挂单");
         assertEquals(held(value), logged(value, "BUY"), "BUY 只记真实成交的股数");
         assertEquals(resting, logged(value, "BUY_ORDER"), "未成交部分记为 BUY_ORDER");
     }
 
-    @Test void sellIsCappedByFreeSharesAndLockedSharesAreLogged() {
+    @Test
+    void sellIsCappedByFreeSharesAndLockedSharesAreLogged() {
         for (long day = 1; day <= 30; day++) NpcInvestorService.processDay(day, SETTINGS);
         NpcInvestorArchetype value = NpcInvestorArchetype.VALUE;
         UUID account = value.accountId();
         assertEquals(2_000L, held(value));
         // 全部持股挂高价卖单锁定：名册仍算 2000 股，但可卖持仓为 0
-        assertTrue(finance.stock.StockOrderManager.placeSellOrder(account, SYMBOL, 1_000_000L, 2_000).success());
+        assertTrue(finance.stock.StockOrderManager.placeSellOrder(account, SYMBOL, 1_000_000L, 2_000)
+                .success());
         assertEquals(0, held(value));
         // 第 31、35 天轮换顺序以价值派开头，当日额度不会先被其他原型用完
         company.setBankruptcyRisk(true, 31);
@@ -205,13 +216,15 @@ class NpcInvestorServiceTest {
 
         // 只锁一部分：卖出数量不超过可用持股
         NpcInvestorService.cancelOpenOrders();
-        assertTrue(finance.stock.StockOrderManager.placeSellOrder(account, SYMBOL, 1_000_000L, 1_950).success());
+        assertTrue(finance.stock.StockOrderManager.placeSellOrder(account, SYMBOL, 1_000_000L, 1_950)
+                .success());
         NpcInvestorService.processStock(stock, company, 35, SETTINGS);
         assertEquals(50, logged(value, "SELL") + logged(value, "SELL_ORDER"), "只能卖出未锁定的 50 股");
         assertTrue(ShareholderRegistryService.snapshot(COMPANY_ID, 35).consistent());
     }
 
-    @Test void placementRejectsPlayersAndResidualShortfall() {
+    @Test
+    void placementRejectsPlayersAndResidualShortfall() {
         AccountManager.deposit(PLAYER, 1_000_000L);
         assertFalse(NpcFloatPlacementService.place(PLAYER, SYMBOL, 10, 0).success(), "玩家不能走残差配售");
         NpcInvestorManager.ensureAccounts();
@@ -224,7 +237,8 @@ class NpcInvestorServiceTest {
         assertEquals(TOTAL - 100, NpcFloatPlacementService.availableResidual(stock, 0));
     }
 
-    @Test void stateSurvivesSaveLoadAndLegacySavesLoadClean() {
+    @Test
+    void stateSurvivesSaveLoadAndLegacySavesLoadClean() {
         for (long day = 1; day <= 3; day++) NpcInvestorService.processDay(day, SETTINGS);
         long held = held(NpcInvestorArchetype.VALUE);
         int decisions = NpcInvestorManager.decisionsDirect().size();
@@ -234,7 +248,10 @@ class NpcInvestorServiceTest {
         assertEquals(3, NpcInvestorManager.lastProcessedDay());
         assertTrue(NpcInvestorManager.state(NpcInvestorArchetype.VALUE).initialFunded());
         assertEquals(decisions, NpcInvestorManager.decisionsDirect().size());
-        assertEquals(held, StockPortfolioManager.getHolding(NpcInvestorArchetype.VALUE.accountId(), SYMBOL).getQuantity());
+        assertEquals(
+                held,
+                StockPortfolioManager.getHolding(NpcInvestorArchetype.VALUE.accountId(), SYMBOL)
+                        .getQuantity());
         assertTrue(NpcInvestorManager.state(NpcInvestorArchetype.VALUE).targetBpsFor(COMPANY_ID) > 0);
 
         // 旧存档（DataVersion 37）没有 NpcEconomy 标签：按"刚启用"初始化，不报错
@@ -242,10 +259,12 @@ class NpcInvestorServiceTest {
         EconomySavedData.load(saved);
         assertEquals(Long.MIN_VALUE, NpcInvestorManager.lastProcessedDay());
         assertFalse(NpcInvestorManager.state(NpcInvestorArchetype.VALUE).initialFunded());
-        assertTrue(finance.diagnostic.ModuleHealthRegistry.mayWrite(finance.diagnostic.ModuleHealthRegistry.Module.NPC_ECONOMY));
+        assertTrue(finance.diagnostic.ModuleHealthRegistry.mayWrite(
+                finance.diagnostic.ModuleHealthRegistry.Module.NPC_ECONOMY));
     }
 
-    @Test void corruptRecordsAreIsolated() {
+    @Test
+    void corruptRecordsAreIsolated() {
         NpcInvestorService.processDay(1, SETTINGS);
         CompoundTag saved = new EconomySavedData().save(new CompoundTag());
         CompoundTag npc = saved.getCompound(finance.data.serializer.NpcEconomyDataSerializer.ROOT);
@@ -254,7 +273,9 @@ class NpcInvestorServiceTest {
         npc.getList("Investors", 10).add(bad);
         EconomySavedData.load(saved);
         assertEquals(1, NpcInvestorManager.lastProcessedDay(), "坏记录不影响其他数据");
-        assertFalse(finance.diagnostic.ModuleHealthRegistry.mayWrite(finance.diagnostic.ModuleHealthRegistry.Module.NPC_ECONOMY),
+        assertFalse(
+                finance.diagnostic.ModuleHealthRegistry.mayWrite(
+                        finance.diagnostic.ModuleHealthRegistry.Module.NPC_ECONOMY),
                 "有坏记录时模块降为只读");
     }
 }

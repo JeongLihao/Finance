@@ -2,8 +2,6 @@ package finance.client.simple;
 
 import finance.simple.SimpleCenterService;
 import finance.simple.SimpleUnlocks;
-import net.minecraft.client.Minecraft;
-
 import java.io.IOException;
 import java.io.Reader;
 import java.io.Writer;
@@ -13,6 +11,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
+import net.minecraft.client.Minecraft;
 
 /** 简单模式金融中心在客户端的状态：服务端推来的首页数据、飘字、玩家是否显示高级功能。 */
 public final class SimpleClientState {
@@ -23,6 +22,7 @@ public final class SimpleClientState {
 
     /** 一条飘字：“+8 磅 32 便士”，显示约 1.6 秒。 */
     public record Floater(long delta, long createdAt) {}
+
     private static final List<Floater> FLOATERS = new ArrayList<>();
     public static final long FLOAT_MILLIS = 1_600;
 
@@ -43,14 +43,24 @@ public final class SimpleClientState {
         pendingSummary = List.copyOf(lines.subList(0, Math.min(6, lines.size())));
     }
 
-    public static List<String> pendingSummary() { return pendingSummary; }
+    public static List<String> pendingSummary() {
+        return pendingSummary;
+    }
 
-    public static void dismissSummary() { pendingSummary = List.of(); }
+    public static void dismissSummary() {
+        pendingSummary = List.of();
+    }
 
     /** 还没收到时返回 null。 */
-    public static SimpleCenterService.Status status() { return status; }
+    public static SimpleCenterService.Status status() {
+        return status;
+    }
 
-    public static void clear() { status = null; FLOATERS.clear(); pendingSummary = List.of(); }
+    public static void clear() {
+        status = null;
+        FLOATERS.clear();
+        pendingSummary = List.of();
+    }
 
     public static void pushMoney(long delta) {
         if (delta == 0) return;
@@ -68,7 +78,9 @@ public final class SimpleClientState {
 
     private static String pendingCommodity;
 
-    public static void setPendingCommodity(String commodityId) { pendingCommodity = commodityId; }
+    public static void setPendingCommodity(String commodityId) {
+        pendingCommodity = commodityId;
+    }
 
     /** 取出后清空；没有返回 null。 */
     public static String takePendingCommodity() {
@@ -84,7 +96,8 @@ public final class SimpleClientState {
     public static java.util.Set<String> favorites() {
         if (favorites == null) {
             favorites = new java.util.LinkedHashSet<>();
-            for (String id : load().getProperty("favorites", "").split(",")) if (!id.isBlank()) favorites.add(id.trim());
+            for (String id : load().getProperty("favorites", "").split(","))
+                if (!id.isBlank()) favorites.add(id.trim());
         }
         return java.util.Collections.unmodifiableSet(favorites);
     }
@@ -137,7 +150,10 @@ public final class SimpleClientState {
         Properties props = new Properties();
         try {
             Path f = file();
-            if (Files.exists(f)) try (Reader r = Files.newBufferedReader(f, StandardCharsets.UTF_8)) { props.load(r); }
+            if (Files.exists(f))
+                try (Reader r = Files.newBufferedReader(f, StandardCharsets.UTF_8)) {
+                    props.load(r);
+                }
         } catch (IOException | RuntimeException ignored) {
         }
         return props;

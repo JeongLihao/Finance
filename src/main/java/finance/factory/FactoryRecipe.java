@@ -1,13 +1,12 @@
 package finance.factory;
 
 import finance.config.FinanceConfig;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
-
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 
 /**
  * 工厂方块配方注册表 —— 第一期 3 条写死配方。
@@ -32,11 +31,25 @@ public final class FactoryRecipe {
         this.defaultCookTime = Math.max(1, defaultCookTime);
     }
 
-    public String id() { return id; }
-    public Item input() { return input; }
-    public int inputCount() { return inputCount; }
-    public Item output() { return output; }
-    public int outputCount() { return outputCount; }
+    public String id() {
+        return id;
+    }
+
+    public Item input() {
+        return input;
+    }
+
+    public int inputCount() {
+        return inputCount;
+    }
+
+    public Item output() {
+        return output;
+    }
+
+    public int outputCount() {
+        return outputCount;
+    }
 
     /** 实际耗时（tick），读配置，钳制 [1, 72000]。 */
     public int cookTime() {
@@ -53,6 +66,7 @@ public final class FactoryRecipe {
     }
 
     private static final Map<Item, FactoryRecipe> BY_INPUT;
+
     static {
         Map<Item, FactoryRecipe> map = new LinkedHashMap<>();
         register(map, new FactoryRecipe("wheat_to_bread", Items.WHEAT, 3, Items.BREAD, 1, 200));

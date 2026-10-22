@@ -1,7 +1,6 @@
 package finance.macro;
 
 import finance.village.VillageProfession;
-
 import java.util.EnumMap;
 import java.util.Map;
 
@@ -10,7 +9,7 @@ import java.util.Map;
  * 两种情况都用最大余数法保证总数精确。
  */
 public final class PopulationMix {
-    private PopulationMix() { }
+    private PopulationMix() {}
 
     public static EnumMap<VillageProfession, Integer> resized(Map<VillageProfession, Integer> current, int newTotal) {
         EnumMap<VillageProfession, Integer> out = new EnumMap<>(VillageProfession.class);

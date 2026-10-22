@@ -1,40 +1,45 @@
 package finance.alert;
 
-import finance.data.EconomySavedData;
+import finance.chart.Candlestick;
+import finance.chart.CandlestickService;
+import finance.chart.MarketInstrumentType;
 import finance.config.FinanceConfig;
+import finance.cycle.EconomyCycleService;
+import finance.data.EconomySavedData;
+import finance.feedback.FeedbackNotification;
+import finance.feedback.FeedbackSeverity;
+import finance.feedback.WorldEconomyFeedbackService;
 import finance.market.MarketPrice;
 import finance.market.NpcMarketMaker;
 import finance.stock.Stock;
 import finance.stock.StockMarketManager;
-import finance.chart.Candlestick;
-import finance.chart.CandlestickService;
-import finance.chart.MarketInstrumentType;
-import finance.cycle.EconomyCycleService;
-import finance.feedback.FeedbackNotification;
-import finance.feedback.FeedbackSeverity;
-import finance.feedback.WorldEconomyFeedbackService;
-import net.minecraft.network.chat.Component;
-import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.level.ServerPlayer;
-
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.UUID;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerPlayer;
 
 public final class PriceAlertManager {
 
     private static final List<PriceAlert> ALERTS = new ArrayList<>();
-    private PriceAlertManager() {
-    }
 
-    public static AddResult addAlert(UUID playerId, PriceAlertType type, String targetId,
-                                     PriceAlertDirection direction, long targetPrice) {
-        if (playerId == null || type == null || direction == null || targetId == null
-                || targetId.isBlank() || (isFixedPrice(direction) && targetPrice <= 0)) {
+    private PriceAlertManager() {}
+
+    public static AddResult addAlert(
+            UUID playerId, PriceAlertType type, String targetId, PriceAlertDirection direction, long targetPrice) {
+        if (playerId == null
+                || type == null
+                || direction == null
+                || targetId == null
+                || targetId.isBlank()
+                || (isFixedPrice(direction) && targetPrice <= 0)) {
             return new AddResult(false, "提醒参数无效。", null);
         }
-        long count = ALERTS.stream().filter(alert -> alert.getPlayerId().equals(playerId)).count();
+        long count = ALERTS.stream()
+                .filter(alert -> alert.getPlayerId().equals(playerId))
+                .count();
         int limit = FinanceConfig.maxPriceAlertsPerPlayer();
         if (count >= limit) {
             return new AddResult(false, "提醒数量已达上限 " + limit + "。", null);
@@ -99,16 +104,22 @@ public final class PriceAlertManager {
                 continue;
             }
             ServerPlayer player = server.getPlayerList().getPlayer(alert.getPlayerId());
-            List<String> arguments = List.of(displayType(alert.getType()), alert.getTargetId(),
-                    displayDirection(alert.getDirection()), Long.toString(alert.getTargetPrice()),
+            List<String> arguments = List.of(
+                    displayType(alert.getType()),
+                    alert.getTargetId(),
+                    displayDirection(alert.getDirection()),
+                    Long.toString(alert.getTargetPrice()),
                     Long.toString(currentPrice));
             if (player == null) {
-                WorldEconomyFeedbackService.queue(alert.getPlayerId(), new FeedbackNotification(
-                        EconomyCycleService.currentMcDay(server), FeedbackSeverity.INFO,
-                        "finance.feedback.price_alert", arguments));
+                WorldEconomyFeedbackService.queue(
+                        alert.getPlayerId(),
+                        new FeedbackNotification(
+                                EconomyCycleService.currentMcDay(server),
+                                FeedbackSeverity.INFO,
+                                "finance.feedback.price_alert",
+                                arguments));
             } else {
-                player.sendSystemMessage(Component.translatable("finance.feedback.price_alert",
-                        arguments.toArray()));
+                player.sendSystemMessage(Component.translatable("finance.feedback.price_alert", arguments.toArray()));
             }
             iterator.remove();
             changed = true;
@@ -165,13 +176,15 @@ public final class PriceAlertManager {
     private static boolean shouldTrigger(PriceAlert alert, long currentPrice, long currentMcDay) {
         if (isFixedPrice(alert.getDirection())) return alert.shouldTrigger(currentPrice);
         MarketInstrumentType instrumentType = alert.getType() == PriceAlertType.COMMODITY
-                ? MarketInstrumentType.COMMODITY : MarketInstrumentType.STOCK;
+                ? MarketInstrumentType.COMMODITY
+                : MarketInstrumentType.STOCK;
         List<Candlestick> bars = CandlestickService.getBars(instrumentType, alert.getTargetId(), 120);
         Candlestick previous = null;
         for (Candlestick bar : bars) if (bar.mcDay() < currentMcDay) previous = bar;
         if (previous == null) return false;
         return alert.getDirection() == PriceAlertDirection.PREVIOUS_HIGH_BREAKOUT
-                ? currentPrice > previous.high() : currentPrice < previous.low();
+                ? currentPrice > previous.high()
+                : currentPrice < previous.low();
     }
 
     private static boolean isFixedPrice(PriceAlertDirection direction) {
@@ -200,6 +213,5 @@ public final class PriceAlertManager {
         return direction == PriceAlertDirection.ABOVE ? "涨到" : "跌到";
     }
 
-    public record AddResult(boolean success, String message, PriceAlert alert) {
-    }
+    public record AddResult(boolean success, String message, PriceAlert alert) {}
 }

@@ -5,11 +5,10 @@ import finance.caravan.CaravanRoute;
 import finance.caravan.CaravanShipment;
 import finance.diagnostic.ModuleHealthRegistry;
 import finance.diagnostic.ModuleRunState;
+import java.util.UUID;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
-
-import java.util.UUID;
 
 /**
  * 商队持久化：路线与在途货运的存取。
@@ -23,9 +22,10 @@ public final class CaravanDataSerializer {
     public static final int VERSION = 1;
     /** 防损坏存档无限膨胀。 */
     private static final int MAX_ROUTES = 4096;
+
     private static final int MAX_SHIPMENTS = 65536;
 
-    private CaravanDataSerializer() { }
+    private CaravanDataSerializer() {}
 
     public static void save(CompoundTag root) {
         CompoundTag data = new CompoundTag();
@@ -98,8 +98,7 @@ public final class CaravanDataSerializer {
                 boolean insured = t.getBoolean("Insured");
                 CaravanRoute.Status status = CaravanRoute.Status.valueOf(t.getString("Status"));
                 long createdDay = t.getLong("CreatedDay");
-                CaravanRoute r = new CaravanRoute(id, owner, source, dest, commodity,
-                        qty, guard, insured, createdDay);
+                CaravanRoute r = new CaravanRoute(id, owner, source, dest, commodity, qty, guard, insured, createdDay);
                 r.setStatus(status);
                 long sat = t.getLong("SaturationBps");
                 if (sat > 0) {
@@ -123,12 +122,18 @@ public final class CaravanDataSerializer {
             try {
                 CompoundTag t = (CompoundTag) raw;
                 CaravanShipment s = new CaravanShipment(
-                        t.getUUID("Id"), t.getUUID("Route"), t.getUUID("Owner"),
-                        t.getString("Commodity"), t.getInt("Qty"),
-                        t.getLong("BuyUnitPrice"), t.getLong("DepartDay"),
-                        t.getLong("ArriveDay"), t.getInt("Guard"),
+                        t.getUUID("Id"),
+                        t.getUUID("Route"),
+                        t.getUUID("Owner"),
+                        t.getString("Commodity"),
+                        t.getInt("Qty"),
+                        t.getLong("BuyUnitPrice"),
+                        t.getLong("DepartDay"),
+                        t.getLong("ArriveDay"),
+                        t.getInt("Guard"),
                         t.getInt("RaidBps"),
-                        t.getLong("InsuredValuePerUnit"), t.getLong("DispatchCost"));
+                        t.getLong("InsuredValuePerUnit"),
+                        t.getLong("DispatchCost"));
                 if ("ARRIVED".equals(t.getString("Status"))) {
                     s.markArrived();
                 }
@@ -139,8 +144,8 @@ public final class CaravanDataSerializer {
             }
         }
         if (invalid || skipped > 0) {
-            ModuleHealthRegistry.restrict(ModuleHealthRegistry.Module.CARAVAN,
-                    ModuleRunState.READ_ONLY, "商队存档 " + skipped + " 条损坏已跳过", -1);
+            ModuleHealthRegistry.restrict(
+                    ModuleHealthRegistry.Module.CARAVAN, ModuleRunState.READ_ONLY, "商队存档 " + skipped + " 条损坏已跳过", -1);
         }
     }
 }

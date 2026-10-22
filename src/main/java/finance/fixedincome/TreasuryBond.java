@@ -18,20 +18,54 @@ public final class TreasuryBond {
     private TreasuryBondStatus status;
     private final Map<UUID, Long> principalByPlayer = new LinkedHashMap<>();
 
-    public TreasuryBond(UUID id, int termDays, int annualRateBasisPoints, long issueDay,
-                        long maturityDay, TreasuryBondStatus status) {
-        this.id = id; this.termDays = termDays; this.annualRateBasisPoints = annualRateBasisPoints;
-        this.issueDay = issueDay; this.maturityDay = maturityDay; this.status = status;
+    public TreasuryBond(
+            UUID id,
+            int termDays,
+            int annualRateBasisPoints,
+            long issueDay,
+            long maturityDay,
+            TreasuryBondStatus status) {
+        this.id = id;
+        this.termDays = termDays;
+        this.annualRateBasisPoints = annualRateBasisPoints;
+        this.issueDay = issueDay;
+        this.maturityDay = maturityDay;
+        this.status = status;
     }
-    public UUID id() { return id; } public int termDays() { return termDays; }
-    public int annualRateBasisPoints() { return annualRateBasisPoints; }
-    public long issueDay() { return issueDay; } public long maturityDay() { return maturityDay; }
-    public TreasuryBondStatus status() { return status; }
-    public Map<UUID, Long> principalByPlayer() { return Collections.unmodifiableMap(principalByPlayer); }
+
+    public UUID id() {
+        return id;
+    }
+
+    public int termDays() {
+        return termDays;
+    }
+
+    public int annualRateBasisPoints() {
+        return annualRateBasisPoints;
+    }
+
+    public long issueDay() {
+        return issueDay;
+    }
+
+    public long maturityDay() {
+        return maturityDay;
+    }
+
+    public TreasuryBondStatus status() {
+        return status;
+    }
+
+    public Map<UUID, Long> principalByPlayer() {
+        return Collections.unmodifiableMap(principalByPlayer);
+    }
+
     boolean addPrincipal(UUID player, long amount) {
         long old = principalByPlayer.getOrDefault(player, 0L);
         if (player == null || amount <= 0 || old > Long.MAX_VALUE - amount) return false;
-        principalByPlayer.put(player, old + amount); return true;
+        principalByPlayer.put(player, old + amount);
+        return true;
     }
     /** 提前赎回：移除玩家持仓并返回本金；无持仓返回 -1。 */
     long removePrincipal(UUID player) {
@@ -39,6 +73,12 @@ public final class TreasuryBond {
         Long removed = principalByPlayer.remove(player);
         return removed == null ? -1 : removed;
     }
-    public void putPrincipalDirect(UUID player, long amount) { if (player != null && amount > 0) principalByPlayer.put(player, amount); }
-    void setStatus(TreasuryBondStatus value) { status = value; }
+
+    public void putPrincipalDirect(UUID player, long amount) {
+        if (player != null && amount > 0) principalByPlayer.put(player, amount);
+    }
+
+    void setStatus(TreasuryBondStatus value) {
+        status = value;
+    }
 }

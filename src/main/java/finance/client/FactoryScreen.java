@@ -53,15 +53,16 @@ public final class FactoryScreen extends AbstractContainerScreen<FactoryMenu> {
 
     @Override
     protected void renderLabels(GuiGraphics graphics, int mouseX, int mouseY) {
-        graphics.drawString(font, Component.translatable("screen.finance.factory.input").getString(),
-                56, 24, 0xFF555555, false);
-        graphics.drawString(font, Component.translatable("screen.finance.factory.output").getString(),
-                116, 24, 0xFF555555, false);
-        String statusKey = switch (menu.status()) {
-            case 0 -> "screen.finance.factory.working";
-            case 2 -> "screen.finance.factory.output_full";
-            default -> "screen.finance.factory.idle";
-        };
+        graphics.drawString(
+                font, Component.translatable("screen.finance.factory.input").getString(), 56, 24, 0xFF555555, false);
+        graphics.drawString(
+                font, Component.translatable("screen.finance.factory.output").getString(), 116, 24, 0xFF555555, false);
+        String statusKey =
+                switch (menu.status()) {
+                    case 0 -> "screen.finance.factory.working";
+                    case 2 -> "screen.finance.factory.output_full";
+                    default -> "screen.finance.factory.idle";
+                };
         String status = Component.translatable(statusKey).getString();
         int progressPct = Math.round(menu.progressFraction() * 100);
         if (menu.status() == 0) status += " " + progressPct + "%";

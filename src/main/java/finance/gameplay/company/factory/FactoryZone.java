@@ -1,11 +1,10 @@
 package finance.gameplay.company.factory;
 
-import net.minecraft.core.BlockPos;
-
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
+import net.minecraft.core.BlockPos;
 
 /**
  * 厂区几何（纯函数）：以控制器为中心，水平 (2r+1)×(2r+1)，垂直从控制器下方 {@code below} 格到上方 {@code above} 格。
@@ -71,8 +70,8 @@ public record FactoryZone(int radius, int below, int above) {
      * @param equipmentAt 坐标 → 设备（不是设备返回 null）
      * @param maxPerType  每种设备最多计数
      */
-    public Map<FactoryEquipment, Integer> count(int self, List<BlockPos> controllers,
-                                                Function<BlockPos, FactoryEquipment> equipmentAt, int maxPerType) {
+    public Map<FactoryEquipment, Integer> count(
+            int self, List<BlockPos> controllers, Function<BlockPos, FactoryEquipment> equipmentAt, int maxPerType) {
         Map<FactoryEquipment, Integer> counts = new EnumMap<>(FactoryEquipment.class);
         if (self < 0 || self >= controllers.size()) return counts;
         BlockPos controller = controllers.get(self);

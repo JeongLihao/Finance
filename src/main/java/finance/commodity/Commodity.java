@@ -22,22 +22,11 @@ public class Commodity {
     /** 央行储备分档：1~3 由央行投放（2、3 随全服成交额解锁），0 = 只有玩家卖了才上架，-1 = 旧规则。 */
     private int reserveTier = -1;
 
-    public Commodity(
-            String id,
-            String displayName,
-            CommodityCategory category,
-            long basePrice
-    ) {
+    public Commodity(String id, String displayName, CommodityCategory category, long basePrice) {
         this(id, null, displayName, category, basePrice);
     }
 
-    public Commodity(
-            String id,
-            String itemId,
-            String displayName,
-            CommodityCategory category,
-            long basePrice
-    ) {
+    public Commodity(String id, String itemId, String displayName, CommodityCategory category, long basePrice) {
         this.id = id;
         this.itemId = itemId;
         this.displayName = displayName;
@@ -74,5 +63,4 @@ public class Commodity {
     public long getBasePrice() {
         return basePrice;
     }
-
 }

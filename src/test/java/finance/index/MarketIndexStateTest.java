@@ -1,13 +1,13 @@
 package finance.index;
 
-import org.junit.jupiter.api.Test;
-
-import java.math.BigDecimal;
-
 import static org.junit.jupiter.api.Assertions.*;
 
+import java.math.BigDecimal;
+import org.junit.jupiter.api.Test;
+
 class MarketIndexStateTest {
-    @Test void startsAtOneThousandAndTracksPriceMovement() {
+    @Test
+    void startsAtOneThousandAndTracksPriceMovement() {
         MarketIndexState state = new MarketIndexState("test");
         assertTrue(state.close(0, BigDecimal.valueOf(5000), "A:10;"));
         assertEquals(1000, state.latest().value(), 0.00001);
@@ -15,7 +15,8 @@ class MarketIndexStateTest {
         assertEquals(1100, state.latest().value(), 0.00001);
     }
 
-    @Test void constituentAndShareChangesAdjustDivisorWithoutArtificialJump() {
+    @Test
+    void constituentAndShareChangesAdjustDivisorWithoutArtificialJump() {
         MarketIndexState state = new MarketIndexState("test");
         state.close(0, BigDecimal.valueOf(5000), "A:10;");
         state.close(1, BigDecimal.valueOf(9000), "A:10;B:10;");
@@ -24,10 +25,11 @@ class MarketIndexStateTest {
         assertEquals(1000, state.latest().value(), 0.00001);
     }
 
-    @Test void invalidAndDuplicateDaysAreRejectedAndHistoryIsBounded() {
+    @Test
+    void invalidAndDuplicateDaysAreRejectedAndHistoryIsBounded() {
         MarketIndexState state = new MarketIndexState("test");
         assertFalse(state.close(0, BigDecimal.ZERO, "A"));
-        for (int day=0; day<150; day++) state.close(day, BigDecimal.valueOf(100+day), "A");
+        for (int day = 0; day < 150; day++) state.close(day, BigDecimal.valueOf(100 + day), "A");
         assertEquals(MarketIndexState.MAX_HISTORY, state.history().size());
         assertFalse(state.close(149, BigDecimal.TEN, "A"));
     }

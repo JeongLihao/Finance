@@ -11,7 +11,6 @@ import finance.debt.CompanyLoan;
 import finance.debt.CompanyLoanManager;
 import finance.debt.LoanLenderType;
 import finance.debt.LoanStatus;
-
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -35,14 +34,21 @@ import java.util.UUID;
 public final class PlayerBankService {
     /** bankId -> ownerPlayerId */
     private static final Map<UUID, UUID> OWNERS = new LinkedHashMap<>();
+
     private static final Map<UUID, Long> CHARTER_DAYS = new LinkedHashMap<>();
     /** 牌照费被销毁：审计记录的收款方记系统账户（UUID 0），而非银行，避免虚增银行流入。 */
     private static final UUID SYSTEM_ACCOUNT = new UUID(0L, 0L);
-    private PlayerBankService() { }
+
+    private PlayerBankService() {}
 
     /** 是否为玩家银行；中性查询。 */
-    public static UUID ownerOf(UUID bankId) { return bankId == null ? null : OWNERS.get(bankId); }
-    public static boolean isPlayerBank(UUID bankId) { return ownerOf(bankId) != null; }
+    public static UUID ownerOf(UUID bankId) {
+        return bankId == null ? null : OWNERS.get(bankId);
+    }
+
+    public static boolean isPlayerBank(UUID bankId) {
+        return ownerOf(bankId) != null;
+    }
     /** 玩家名下的第一家银行（每人限开，config 可调）。 */
     public static UUID bankOfOwner(UUID playerId) {
         if (playerId == null) return null;
@@ -56,20 +62,25 @@ public final class PlayerBankService {
         for (UUID owner : OWNERS.values()) if (playerId.equals(owner)) n++;
         return n;
     }
-    public static long charterDay(UUID bankId) { return CHARTER_DAYS.getOrDefault(bankId, -1L); }
+
+    public static long charterDay(UUID bankId) {
+        return CHARTER_DAYS.getOrDefault(bankId, -1L);
+    }
 
     /**
      * 申请银行牌照：牌照费（销毁）＋实缴资本金（进银行账本），全部来自玩家钱包。
      * 注资来源检查：牌照时银行尚不存在，"资本金来自自家贷款"在构造上不可能。
      */
-    public static synchronized BankingManager.Result charter(UUID player, String code, String name, long capital, long day) {
+    public static synchronized BankingManager.Result charter(
+            UUID player, String code, String name, long capital, long day) {
         if (!FinanceConfig.bankingEnabled() || player == null) return BankingManager.Result.fail("银行系统未启用");
         BankingManager.ensureDefaultBanks();
         String c = code == null ? "" : code.trim().toUpperCase(Locale.ROOT);
         String n = name == null ? "" : name.trim();
         long minCapital = Math.max(1, FinanceConfig.playerBankMinCapital());
         long fee = Math.max(0, FinanceConfig.playerBankCharterFee());
-        if (c.length() < 2 || c.length() > 16 || !c.matches("[A-Z0-9]+")) return BankingManager.Result.fail("银行代码须为2-16位字母数字");
+        if (c.length() < 2 || c.length() > 16 || !c.matches("[A-Z0-9]+"))
+            return BankingManager.Result.fail("银行代码须为2-16位字母数字");
         if (n.isBlank() || n.length() > 64) return BankingManager.Result.fail("银行名称无效");
         if (capital < minCapital || day < 0) return BankingManager.Result.fail("实缴资本金不足（最低 " + minCapital + "）");
         int maxBanks = Math.max(1, FinanceConfig.playerBankMaxPerPlayer());
@@ -81,14 +92,25 @@ public final class PlayerBankService {
             if (b.name().equalsIgnoreCase(n)) return BankingManager.Result.fail("银行名称已存在");
         }
         long total;
-        try { total = Math.addExact(fee, capital); } catch (ArithmeticException e) { return BankingManager.Result.fail("金额溢出"); }
-        if (AccountManager.getBalance(player) < total) return BankingManager.Result.fail("钱包余额不足（需牌照费 " + fee + " ＋资本金 " + capital + "）");
+        try {
+            total = Math.addExact(fee, capital);
+        } catch (ArithmeticException e) {
+            return BankingManager.Result.fail("金额溢出");
+        }
+        if (AccountManager.getBalance(player) < total)
+            return BankingManager.Result.fail("钱包余额不足（需牌照费 " + fee + " ＋资本金 " + capital + "）");
         UUID bankId = UUID.randomUUID();
         CommercialBank bank = new CommercialBank(bankId, c, n, BankStatus.ACTIVE, capital, BankPolicy.standard());
         UUID ref = UUID.randomUUID();
         if (!AccountManager.withdraw(player, total)) return BankingManager.Result.fail("钱包扣款失败");
-        boolean posted = bank.ledger().post(day, ref, BankLedgerAccount.ASSET_RESERVE, BankLedgerAccount.EQUITY_PAID_IN,
-                capital, BankLedgerReason.CHARTER_CAPITAL);
+        boolean posted = bank.ledger()
+                .post(
+                        day,
+                        ref,
+                        BankLedgerAccount.ASSET_RESERVE,
+                        BankLedgerAccount.EQUITY_PAID_IN,
+                        capital,
+                        BankLedgerReason.CHARTER_CAPITAL);
         if (!posted || !bank.ledger().balanceSheet().balanced()) {
             AccountManager.deposit(player, total);
             return BankingManager.Result.fail("银行建账失败，已退款");
@@ -109,10 +131,13 @@ public final class PlayerBankService {
     }
 
     /** 所有者自定存贷利差；全部定价链路实时读 bank.policy()，自动生效。bankId 为空时默认名下第一家银行。 */
-    public static synchronized BankingManager.Result setSpreads(UUID player, int demandSpreadBps, int timeSpreadBps, int loanSpreadBps) {
+    public static synchronized BankingManager.Result setSpreads(
+            UUID player, int demandSpreadBps, int timeSpreadBps, int loanSpreadBps) {
         return setSpreads(player, null, demandSpreadBps, timeSpreadBps, loanSpreadBps);
     }
-    public static synchronized BankingManager.Result setSpreads(UUID player, UUID bankId, int demandSpreadBps, int timeSpreadBps, int loanSpreadBps) {
+
+    public static synchronized BankingManager.Result setSpreads(
+            UUID player, UUID bankId, int demandSpreadBps, int timeSpreadBps, int loanSpreadBps) {
         UUID target = bankId != null ? bankId : bankOfOwner(player);
         CommercialBank bank = target == null ? null : BankingManager.bank(target);
         if (bank == null) return BankingManager.Result.fail(bankId != null ? "银行不存在" : "名下没有银行");
@@ -121,8 +146,8 @@ public final class PlayerBankService {
         if (!validSpread(demandSpreadBps) || !validSpread(timeSpreadBps) || !validSpread(loanSpreadBps))
             return BankingManager.Result.fail("利差须在 0–10000 基点之间");
         BankPolicy old = bank.policy();
-        bank.updatePolicy(new BankPolicy(demandSpreadBps, timeSpreadBps, loanSpreadBps,
-                old.targetReserveBps(), old.singleBorrowerLimitBps()));
+        bank.updatePolicy(new BankPolicy(
+                demandSpreadBps, timeSpreadBps, loanSpreadBps, old.targetReserveBps(), old.singleBorrowerLimitBps()));
         EconomySavedData.markDirty();
         return BankingManager.Result.ok(target, "利率政策已更新");
     }
@@ -137,6 +162,7 @@ public final class PlayerBankService {
     public static synchronized BankingManager.Result dividend(UUID player, long amount, long day) {
         return dividend(player, null, amount, day);
     }
+
     public static synchronized BankingManager.Result dividend(UUID player, UUID bankId, long amount, long day) {
         UUID target = bankId != null ? bankId : bankOfOwner(player);
         CommercialBank bank = target == null ? null : BankingManager.bank(target);
@@ -151,27 +177,43 @@ public final class PlayerBankService {
         if (amount > equity || amount > reserve) return BankingManager.Result.fail("可分红金额不足");
         long rwa = BankRegulatoryService.riskWeightedAssets(bank);
         long equityAfter;
-        try { equityAfter = Math.subtractExact(equity, amount); } catch (ArithmeticException e) { return BankingManager.Result.fail("金额溢出"); }
-        int carAfter = rwa == 0 ? (equityAfter >= 0 ? 100_000 : Integer.MIN_VALUE)
-                : BigInteger.valueOf(equityAfter).multiply(BigInteger.valueOf(10_000)).divide(BigInteger.valueOf(rwa))
-                        .max(BigInteger.valueOf(Integer.MIN_VALUE)).min(BigInteger.valueOf(Integer.MAX_VALUE)).intValue();
+        try {
+            equityAfter = Math.subtractExact(equity, amount);
+        } catch (ArithmeticException e) {
+            return BankingManager.Result.fail("金额溢出");
+        }
+        int carAfter = rwa == 0
+                ? (equityAfter >= 0 ? 100_000 : Integer.MIN_VALUE)
+                : BigInteger.valueOf(equityAfter)
+                        .multiply(BigInteger.valueOf(10_000))
+                        .divide(BigInteger.valueOf(rwa))
+                        .max(BigInteger.valueOf(Integer.MIN_VALUE))
+                        .min(BigInteger.valueOf(Integer.MAX_VALUE))
+                        .intValue();
         if (carAfter < FinanceConfig.bankMinimumCapitalBps()) return BankingManager.Result.fail("分红后资本充足率不达标");
-        long deposits = BigInteger.valueOf(Math.max(0, sheet.demandDeposits())).add(BigInteger.valueOf(Math.max(0, sheet.timeDeposits())))
-                .min(BigInteger.valueOf(Long.MAX_VALUE)).longValue();
+        long deposits = BigInteger.valueOf(Math.max(0, sheet.demandDeposits()))
+                .add(BigInteger.valueOf(Math.max(0, sheet.timeDeposits())))
+                .min(BigInteger.valueOf(Long.MAX_VALUE))
+                .longValue();
         int leverageBps = Math.max(0, Math.min(10_000, FinanceConfig.playerBankDividendLeverageBps()));
-        long minEquityAfter = BigInteger.valueOf(deposits).multiply(BigInteger.valueOf(leverageBps))
-                .divide(BigInteger.valueOf(10_000)).longValue();
-        if (equityAfter < minEquityAfter) return BankingManager.Result.fail("分红后杠杆率不达标（权益须 ≥ 存款总额 " + (leverageBps / 100) + "%）");
+        long minEquityAfter = BigInteger.valueOf(deposits)
+                .multiply(BigInteger.valueOf(leverageBps))
+                .divide(BigInteger.valueOf(10_000))
+                .longValue();
+        if (equityAfter < minEquityAfter)
+            return BankingManager.Result.fail("分红后杠杆率不达标（权益须 ≥ 存款总额 " + (leverageBps / 100) + "%）");
         // P1-16：拆分 draft——先冲减当期损益（INCOME_*）、再冲留存收益、最后冲实收资本。
         List<BankLedger.Draft> drafts = new ArrayList<>();
         long rest = amount, paidInTake = 0;
-        for (BankLedgerAccount acct : new BankLedgerAccount[]{
-                BankLedgerAccount.INCOME_INTEREST, BankLedgerAccount.INCOME_FEE,
-                BankLedgerAccount.EQUITY_RETAINED, BankLedgerAccount.EQUITY_PAID_IN}) {
+        for (BankLedgerAccount acct : new BankLedgerAccount[] {
+            BankLedgerAccount.INCOME_INTEREST, BankLedgerAccount.INCOME_FEE,
+            BankLedgerAccount.EQUITY_RETAINED, BankLedgerAccount.EQUITY_PAID_IN
+        }) {
             if (rest <= 0) break;
             long take = Math.min(rest, Math.max(0, bank.ledger().balance(acct)));
             if (take <= 0) continue;
-            drafts.add(new BankLedger.Draft(acct, BankLedgerAccount.ASSET_RESERVE, take, BankLedgerReason.BANK_DIVIDEND));
+            drafts.add(
+                    new BankLedger.Draft(acct, BankLedgerAccount.ASSET_RESERVE, take, BankLedgerReason.BANK_DIVIDEND));
             if (acct == BankLedgerAccount.EQUITY_PAID_IN) paidInTake = take;
             rest -= take;
         }
@@ -184,9 +226,11 @@ public final class PlayerBankService {
         if (!AccountManager.deposit(player, amount)) {
             // P2：玩家未到账则反向冲销，把扣款冲回银行，避免资金销毁。
             List<BankLedger.Draft> reverse = new ArrayList<>();
-            for (BankLedger.Draft d : drafts) reverse.add(new BankLedger.Draft(d.credit(), d.debit(), d.amount(), BankLedgerReason.BANK_DIVIDEND));
+            for (BankLedger.Draft d : drafts)
+                reverse.add(new BankLedger.Draft(d.credit(), d.debit(), d.amount(), BankLedgerReason.BANK_DIVIDEND));
             bank.adjustPaidInCapital(-paidInDelta);
-            if (!bank.ledger().postBatch(day, UUID.randomUUID(), reverse)) throw new IllegalStateException("dividend reversal failed");
+            if (!bank.ledger().postBatch(day, UUID.randomUUID(), reverse))
+                throw new IllegalStateException("dividend reversal failed");
             return BankingManager.Result.fail("钱包入账失败，已撤销银行扣款");
         }
         BankRegulatoryService.evaluate(bank);
@@ -203,7 +247,10 @@ public final class PlayerBankService {
         if (bank == null || !isPlayerBank(bank.id())) return 0;
         long equity = Math.max(0, bank.ledger().balanceSheet().equity());
         int bps = Math.max(0, Math.min(10_000, FinanceConfig.playerBankRelatedPartyLimitBps()));
-        return BigInteger.valueOf(equity).multiply(BigInteger.valueOf(bps)).divide(BigInteger.valueOf(10_000)).longValue();
+        return BigInteger.valueOf(equity)
+                .multiply(BigInteger.valueOf(bps))
+                .divide(BigInteger.valueOf(10_000))
+                .longValue();
     }
 
     /** 该银行已贷给某 owner 名下公司的未结清本金（关联敞口）。 */
@@ -214,9 +261,11 @@ public final class PlayerBankService {
         UUID companyId = company.getCompanyId();
         long sum = 0;
         for (CompanyLoan l : CompanyLoanManager.loans().values()) {
-            if (l.lenderType() == LoanLenderType.COMMERCIAL_BANK && bankId.equals(l.lenderId())
+            if (l.lenderType() == LoanLenderType.COMMERCIAL_BANK
+                    && bankId.equals(l.lenderId())
                     && companyId.equals(l.companyId())
-                    && l.status() != LoanStatus.REPAID && l.status() != LoanStatus.CANCELLED) {
+                    && l.status() != LoanStatus.REPAID
+                    && l.status() != LoanStatus.CANCELLED) {
                 sum = sum > Long.MAX_VALUE - l.outstandingPrincipal() ? Long.MAX_VALUE : sum + l.outstandingPrincipal();
             }
         }
@@ -237,8 +286,14 @@ public final class PlayerBankService {
         long actual = Math.min(fine, bank.ledger().balance(BankLedgerAccount.ASSET_RESERVE));
         if (actual <= 0) return;
         UUID ref = UUID.nameUUIDFromBytes((bank.id() + ":fine:" + day).getBytes(StandardCharsets.UTF_8));
-        if (bank.ledger().post(day, ref, BankLedgerAccount.EXPENSE_FINE, BankLedgerAccount.ASSET_RESERVE,
-                actual, BankLedgerReason.REGULATORY_FINE)) {
+        if (bank.ledger()
+                .post(
+                        day,
+                        ref,
+                        BankLedgerAccount.EXPENSE_FINE,
+                        BankLedgerAccount.ASSET_RESERVE,
+                        actual,
+                        BankLedgerReason.REGULATORY_FINE)) {
             BankRegulatoryService.evaluate(bank);
             EconomySavedData.markDirty();
         }
@@ -258,10 +313,20 @@ public final class PlayerBankService {
             CHARTER_DAYS.remove(bankId);
         }
     }
-    public static synchronized void clearDirect() { OWNERS.clear(); CHARTER_DAYS.clear(); }
-    public static synchronized Map<UUID, UUID> ownersView() { return Map.copyOf(OWNERS); }
 
-    private static boolean validSpread(int bps) { return bps >= 0 && bps <= 10_000; }
+    public static synchronized void clearDirect() {
+        OWNERS.clear();
+        CHARTER_DAYS.clear();
+    }
+
+    public static synchronized Map<UUID, UUID> ownersView() {
+        return Map.copyOf(OWNERS);
+    }
+
+    private static boolean validSpread(int bps) {
+        return bps >= 0 && bps <= 10_000;
+    }
+
     private static void record(UUID from, UUID to, long amount, TransactionType type, String object) {
         AccountManager.addTransactionRecord(new TransactionRecord(from, to, amount, type, null, object, 1));
     }

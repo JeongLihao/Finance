@@ -1,16 +1,19 @@
 package finance.logistics;
 
+import static org.junit.jupiter.api.Assertions.*;
+
+import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.*;
-
 class ShipmentManagerTest {
-    @AfterEach void cleanup() { ShipmentManager.clearDirect(); }
+    @AfterEach
+    void cleanup() {
+        ShipmentManager.clearDirect();
+    }
 
-    @Test void shipmentMetadataAndTransportCustodyHaveOneAuthoritativeAssociation() {
+    @Test
+    void shipmentMetadataAndTransportCustodyHaveOneAuthoritativeAssociation() {
         UUID player = UUID.randomUUID();
         Shipment shipment = shipment(player, 12);
         TransportCargo cargo = new TransportCargo(shipment.id(), "iron", 12);
@@ -20,11 +23,11 @@ class ShipmentManagerTest {
         assertFalse(ShipmentManager.addLoaded(shipment, cargo, player + ":load"));
     }
 
-    @Test void lossRecoveryRotatesTokenWithoutMovingOrDuplicatingCargo() {
+    @Test
+    void lossRecoveryRotatesTokenWithoutMovingOrDuplicatingCargo() {
         UUID player = UUID.randomUUID();
         Shipment shipment = shipment(player, 7);
-        assertTrue(ShipmentManager.addLoaded(shipment,
-                new TransportCargo(shipment.id(), "iron", 7), player + ":load"));
+        assertTrue(ShipmentManager.addLoaded(shipment, new TransportCargo(shipment.id(), "iron", 7), player + ":load"));
         UUID oldToken = shipment.tokenId();
         assertTrue(shipment.markLossPending("destroyed"));
         assertFalse(shipment.markLossPending("duplicate"));
@@ -35,12 +38,13 @@ class ShipmentManagerTest {
         assertEquals(1, TransportCustodyManager.all().size());
     }
 
-    @Test void activeLimitsAreBoundedAndTerminalHistoryDoesNotOccupyPlayerLimit() {
+    @Test
+    void activeLimitsAreBoundedAndTerminalHistoryDoesNotOccupyPlayerLimit() {
         UUID player = UUID.randomUUID();
         for (int i = 0; i < ShipmentManager.MAX_ACTIVE_PER_PLAYER; i++) {
             Shipment shipment = shipment(player, 1);
-            assertTrue(ShipmentManager.addLoaded(shipment,
-                    new TransportCargo(shipment.id(), "iron", 1), player + ":" + i));
+            assertTrue(ShipmentManager.addLoaded(
+                    shipment, new TransportCargo(shipment.id(), "iron", 1), player + ":" + i));
         }
         assertFalse(ShipmentManager.canCreate(player, null));
         Shipment first = ShipmentManager.relatedTo(player, false).get(0);
@@ -50,8 +54,20 @@ class ShipmentManagerTest {
     }
 
     private static Shipment shipment(UUID player, int quantity) {
-        return new Shipment(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), null,
-                "iron", quantity, player, player, null, ShipmentStatus.IN_TRANSIT,
-                1, 15, UUID.randomUUID(), "");
+        return new Shipment(
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                null,
+                "iron",
+                quantity,
+                player,
+                player,
+                null,
+                ShipmentStatus.IN_TRANSIT,
+                1,
+                15,
+                UUID.randomUUID(),
+                "");
     }
 }
