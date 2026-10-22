@@ -1,0 +1,1 @@
+{"parent": "minecraft:block/cube_bottom_top", "textures": {"side": "finance:block/factory_side", "top": "minecraft:block/blast_furnace_top", "bottom": "finance:block/factory_top"}}

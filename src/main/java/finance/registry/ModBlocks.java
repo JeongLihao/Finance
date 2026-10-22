@@ -84,6 +84,26 @@ public final class ModBlocks {
                     .mapColor(MapColor.WOOD)
                     .strength(2.5F)
                     .sound(SoundType.WOOD)));
+    public static final RegistryObject<Block> FARM_MACHINE =
+            harvester("farm_machine", finance.factory.HarvestMode.FARM);
+    public static final RegistryObject<Block> LUMBER_MACHINE =
+            harvester("lumber_machine", finance.factory.HarvestMode.LUMBER);
+    public static final RegistryObject<Block> MINING_MACHINE =
+            harvester("mining_machine", finance.factory.HarvestMode.MINE);
+    public static final RegistryObject<Block> SHEARING_MACHINE =
+            harvester("shearing_machine", finance.factory.HarvestMode.SHEAR);
+
+    private static RegistryObject<Block> harvester(String id, finance.factory.HarvestMode mode) {
+        return BLOCKS.register(
+                id,
+                () -> new finance.block.HarvesterBlock(
+                        mode,
+                        BlockBehaviour.Properties.of()
+                                .mapColor(MapColor.METAL)
+                                .strength(3.5F)
+                                .sound(SoundType.METAL)
+                                .requiresCorrectToolForDrops()));
+    }
 
     private ModBlocks() {}
 

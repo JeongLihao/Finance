@@ -36,6 +36,8 @@ public class ModMenus {
             MENUS.register("settlement", () -> IForgeMenuType.create(SettlementMenu::new));
     public static final RegistryObject<MenuType<FactoryMenu>> FACTORY =
             MENUS.register("factory", () -> IForgeMenuType.create(FactoryMenu::new));
+    public static final RegistryObject<MenuType<finance.gui.HarvesterMenu>> HARVESTER =
+            MENUS.register("harvester", () -> IForgeMenuType.create(finance.gui.HarvesterMenu::new));
 
     public static void register(IEventBus eventBus) {
         MENUS.register(eventBus);

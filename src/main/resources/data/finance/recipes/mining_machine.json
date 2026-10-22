@@ -1,0 +1,1 @@
+{"type": "minecraft:crafting_shaped", "pattern": [" P ", "IFI", " D "], "key": {"P": {"item": "minecraft:iron_pickaxe"}, "F": {"item": "minecraft:furnace"}, "I": {"item": "minecraft:iron_ingot"}, "D": {"item": "minecraft:dispenser"}}, "result": {"item": "finance:mining_machine"}}

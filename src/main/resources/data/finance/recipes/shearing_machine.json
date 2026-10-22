@@ -1,0 +1,1 @@
+{"type": "minecraft:crafting_shaped", "pattern": [" S ", "IWI", " I "], "key": {"S": {"item": "minecraft:shears"}, "W": {"item": "minecraft:white_wool"}, "I": {"item": "minecraft:iron_ingot"}}, "result": {"item": "finance:shearing_machine"}}

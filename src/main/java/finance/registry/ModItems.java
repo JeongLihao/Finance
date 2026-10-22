@@ -49,6 +49,14 @@ public final class ModItems {
             ITEMS.register("survey_board", () -> new BlockItem(ModBlocks.SURVEY_BOARD.get(), new Item.Properties()));
     public static final RegistryObject<Item> FACTORY =
             ITEMS.register("factory", () -> new BlockItem(ModBlocks.FACTORY.get(), new Item.Properties()));
+    public static final RegistryObject<Item> FARM_MACHINE =
+            ITEMS.register("farm_machine", () -> new BlockItem(ModBlocks.FARM_MACHINE.get(), new Item.Properties()));
+    public static final RegistryObject<Item> LUMBER_MACHINE = ITEMS.register(
+            "lumber_machine", () -> new BlockItem(ModBlocks.LUMBER_MACHINE.get(), new Item.Properties()));
+    public static final RegistryObject<Item> MINING_MACHINE = ITEMS.register(
+            "mining_machine", () -> new BlockItem(ModBlocks.MINING_MACHINE.get(), new Item.Properties()));
+    public static final RegistryObject<Item> SHEARING_MACHINE = ITEMS.register(
+            "shearing_machine", () -> new BlockItem(ModBlocks.SHEARING_MACHINE.get(), new Item.Properties()));
     public static final RegistryObject<Item> COMPANY_INTAKE = ITEMS.register(
             "company_intake", () -> new BlockItem(ModBlocks.COMPANY_INTAKE.get(), new Item.Properties()));
     public static final RegistryObject<Item> NEWSPAPER =
@@ -96,6 +104,10 @@ public final class ModItems {
             event.accept(SURVEY_NOTE);
             event.accept(FACTORY);
             event.accept(COMPANY_INTAKE);
+            event.accept(FARM_MACHINE);
+            event.accept(LUMBER_MACHINE);
+            event.accept(MINING_MACHINE);
+            event.accept(SHEARING_MACHINE);
             event.accept(PENNY);
             event.accept(TEN_PENCE);
             event.accept(POUND_NOTE);
