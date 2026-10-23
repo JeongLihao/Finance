@@ -22,19 +22,20 @@
 - `RecordTabs` 拆成 `OrdersPanel`、`InventoryPanel`、`TransactionsPanel`、`AssetsPanel`、`AlertsPanel`、`DashboardPanel`，删掉 `RecordTabs`。
 - 三处共用的 K 线视图从 `StockTabs` 拆成 `CandlestickView`。
 - `MarketTabs` 拆成 `MarketPanel`、`TradePanel`、`CommodityDropdown`，删掉 `MarketTabs`。
+- `CompanyGameplayScreen` 拆出实体项目页 `CompanyCapitalPanel`。
+- `PlayerServicesScreen` 拆成外框和七个页面类（`ServicesPage` 及其子类）。
 
 ## 待办
 
 ### 界面大类（按收益排序）
 
-1. **其余界面大类**：`CompanyGameplayScreen`（约 770 行）、`PlayerServicesScreen`（约 720 行）、`StockTabs`（约 470 行，股票页本身，没有子页签）。前两个是独立界面，拆之前先看有没有按区域拆的自然边界。
-2. **面板里的点击坐标**：各面板的 `click` 用写死的坐标判断点了哪个按钮（`mx >= 244 && mx < 274`），和 `render` 里画按钮的坐标各写一遍。可以让按钮画的时候登记点击区域，点击时查表，坐标只写一处（简单模式的 `UiBuilder` 已经是这种做法）。
+1. **面板里的点击坐标**：各面板的 `click` 用写死的坐标判断点了哪个按钮（`mx >= 244 && mx < 274`），和 `render` 里画按钮的坐标各写一遍。可以让按钮画的时候登记点击区域，点击时查表，坐标只写一处（简单模式的 `UiBuilder` 已经是这种做法）。
 
 ### 服务端
 
-3. **公司经营模式**：`CompanyOperatingMode`（`LEGACY_AUTOMATIC` / `HYBRID` / `PLAYER_DRIVEN`）在机器改版后对玩家公司基本没意义了，但还决定库存放在哪（托管账户还是公司库存）、NPC 公司怎么跑、能不能抵押。简化前要先理清 `CompanyInventoryFacade` 里两种库存的迁移。
-4. **大服务类**：`EconomyConsistencyService`（约 980 行）、`VillageService`（约 830 行）、`BankingManager`（约 800 行）、`CorporateActionManager`（约 790 行）、`FinanceGuiOpener`（约 780 行），按职责拆分。服务端逻辑测试比界面多，适合先补测试再拆。
-5. **零散的 UUID 解析**：还有约 20 处手写 `UUID.fromString`，分布在命令（`PlayerBankCommand`、`TakeoverCommand`）、序列化器、网络包（`CandlestickRequestPacket`、`SimpleActionPacket`）、客户端（`CompanyTabs`、`SettlementScreen`）和服务（`OrderBookService`、`CorporateRestructuringService`、`CompanyProposalManager` 等）。各自的失败处理不同，统一前要逐个看。
+2. **公司经营模式**：`CompanyOperatingMode`（`LEGACY_AUTOMATIC` / `HYBRID` / `PLAYER_DRIVEN`）在机器改版后对玩家公司基本没意义了，但还决定库存放在哪（托管账户还是公司库存）、NPC 公司怎么跑、能不能抵押。简化前要先理清 `CompanyInventoryFacade` 里两种库存的迁移。
+3. **大服务类**：`EconomyConsistencyService`（约 980 行）、`VillageService`（约 830 行）、`BankingManager`（约 800 行）、`CorporateActionManager`（约 790 行）、`FinanceGuiOpener`（约 780 行），按职责拆分。服务端逻辑测试比界面多，适合先补测试再拆。
+4. **零散的 UUID 解析**：还有约 20 处手写 `UUID.fromString`，分布在命令（`PlayerBankCommand`、`TakeoverCommand`）、序列化器、网络包（`CandlestickRequestPacket`、`SimpleActionPacket`）、客户端（`CompanyTabs`、`SettlementScreen`）和服务（`OrderBookService`、`CorporateRestructuringService`、`CompanyProposalManager` 等）。各自的失败处理不同，统一前要逐个看。
 
 ## 做法备忘
 
