@@ -45,11 +45,13 @@ public record ExchangeNoteFillPacket(boolean offhand, long amount) {
             reply(player, false, "手里要拿着空白兑换钞。");
             return;
         }
-        CashService.Result r = CashService.issueExchangeNote(player.getUUID(), p.amount);
+        java.util.UUID serial = java.util.UUID.randomUUID();
+        CashService.Result r = CashService.issueExchangeNote(player.getUUID(), p.amount, serial);
         reply(player, r.success(), r.message());
         if (!r.success()) return;
         ItemStack note = ExchangeNoteItem.create(
                 ModItems.EXCHANGE_NOTE.get(),
+                serial,
                 p.amount,
                 player.getGameProfile().getName(),
                 EconomyCycleService.currentMcDay(player.server));

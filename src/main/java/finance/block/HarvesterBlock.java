@@ -57,6 +57,7 @@ public final class HarvesterBlock extends BaseEntityBlock {
             Level level, BlockPos pos, BlockState state, @Nullable LivingEntity placer, ItemStack stack) {
         super.setPlacedBy(level, pos, state, placer, stack);
         if (level.isClientSide || !(level.getBlockEntity(pos) instanceof HarvesterBlockEntity machine)) return;
+        machine.setPlacer(placer);
         Company company = machine.bindCompany(MachineOwnership.companyForPlacer(placer));
         MachineOwnership.announce(placer, company, "block.finance." + mode.blockId());
     }

@@ -185,6 +185,17 @@ class CashServiceTest {
     }
 
     @Test
+    void floodingStopsAtTheFloorAndStillRecovers() {
+        purse.emeralds = 2_048;
+        for (int i = 0; i < 32; i++)
+            assertTrue(CashService.sellEmeralds(player, purse, 64, 1).success());
+        assertEquals(-80, CashService.quote(purse, 1).deviationPercent(), "跌到基准的 1/5 封底");
+        // 卖压封顶，不会因为多卖的 1800 多颗拖着十几天回不来
+        long day9 = -CashService.quote(purse, 9).deviationPercent();
+        assertTrue(day9 < 20, "一周多后基本回到基准附近：-" + day9 + "%");
+    }
+
+    @Test
     void villagerBreadArbitrageClosesItself() {
         // 农民 1 绿宝石卖 6 个面包，面包基准价 20：6 个值 120 便士。低价买绿宝石去换面包有利可图，但越买越贵。
         purse.give(Denomination.POUND, 500);

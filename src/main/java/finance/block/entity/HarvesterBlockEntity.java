@@ -60,7 +60,7 @@ public final class HarvesterBlockEntity extends CompanyMachineBlockEntity {
     /** 只看收获仓的 9 格（干活时往里放东西用）。 */
     private final IItemHandler bin = new net.minecraftforge.items.wrapper.RangedWrapper(slots, 0, BIN_SIZE);
 
-    /** 给漏斗用：从收获仓取，往燃料槽放。 */
+    /** 给漏斗用：从收获仓取，往燃料槽放；燃料槽里烧剩的空桶也能取走。 */
     private final LazyOptional<IItemHandler> automation = LazyOptional.of(() -> new IItemHandler() {
         public int getSlots() {
             return SLOT_COUNT;
@@ -75,7 +75,9 @@ public final class HarvesterBlockEntity extends CompanyMachineBlockEntity {
         }
 
         public @NotNull ItemStack extractItem(int slot, int amount, boolean simulate) {
-            return slot == SLOT_FUEL ? ItemStack.EMPTY : slots.extractItem(slot, amount, simulate);
+            // 燃料槽只能取走烧剩的空桶这类不能烧的东西
+            boolean fuel = slot == SLOT_FUEL && MachineCore.FURNACE_FUEL.applyAsInt(slots.getStackInSlot(slot)) > 0;
+            return fuel ? ItemStack.EMPTY : slots.extractItem(slot, amount, simulate);
         }
 
         public int getSlotLimit(int slot) {
@@ -161,12 +163,12 @@ public final class HarvesterBlockEntity extends CompanyMachineBlockEntity {
         if (mode.needsFuel() && fuelBlocks <= 0 && !burnFuel()) return NO_FUEL;
         Harvesting.Outcome outcome =
                 switch (mode) {
-                    case FARM -> Harvesting.farm(level, worldPosition, bin);
-                    case LUMBER -> Harvesting.lumber(level, worldPosition, bin);
+                    case FARM -> Harvesting.farm(level, worldPosition, bin, (p, s) -> mayBreak(level, p, s));
+                    case LUMBER -> Harvesting.lumber(level, worldPosition, bin, (p, s) -> mayBreak(level, p, s));
                     case SHEAR -> Harvesting.shear(level, worldPosition, bin);
                     case MINE -> {
                         if (shaft[0] == Integer.MIN_VALUE) shaft[0] = worldPosition.getY() - 1;
-                        yield Harvesting.mine(level, worldPosition, bin, shaft);
+                        yield Harvesting.mine(level, worldPosition, bin, shaft, (p, s) -> mayBreak(level, p, s));
                     }
                 };
         if (mode != HarvestMode.MINE

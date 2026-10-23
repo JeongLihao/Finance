@@ -1,5 +1,6 @@
 package finance.block.entity;
 
+import com.mojang.authlib.GameProfile;
 import finance.company.Company;
 import finance.company.CompanyManager;
 import finance.config.FinanceConfig;
@@ -19,11 +20,16 @@ import net.minecraft.network.protocol.game.ClientGamePacketListener;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.MenuProvider;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.common.util.FakePlayerFactory;
+import net.minecraftforge.event.level.BlockEvent;
 import net.minecraftforge.items.IItemHandlerModifiable;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -40,6 +46,9 @@ public abstract class CompanyMachineBlockEntity extends BlockEntity implements M
     public static final int PERSONAL = 0, COMPANY = 1, LINKED = 2;
 
     private @Nullable UUID companyId, facilityId;
+    /** 放下机器的玩家：机器替他改动世界，领地模组按他的身份判断。 */
+    private @Nullable UUID placerId;
+
     private String companyName = "";
     protected int link = PERSONAL;
     /** 速度：10000 = 1 档满员。每秒按档次和在岗比例重算。 */
@@ -143,6 +152,23 @@ public abstract class CompanyMachineBlockEntity extends BlockEntity implements M
         if (!taken.isEmpty()) items.setStackInSlot(slot, new ItemStack(item, current.getCount() + taken.getCount()));
     }
 
+    /** 放下时记下是谁放的。 */
+    public void setPlacer(@Nullable LivingEntity placer) {
+        placerId = placer instanceof Player player ? player.getUUID() : null;
+        setChanged();
+    }
+
+    /**
+     * 能不能替放置者破坏这个方块：发一次 BlockEvent.BreakEvent，领地模组取消了就不能。
+     * 用带放置者 UUID 的假玩家，放置者在自己的领地里照常干活；不知道放置者（旧机器）时用 Forge 默认假玩家。
+     */
+    protected boolean mayBreak(ServerLevel level, BlockPos pos, BlockState state) {
+        Player actor = placerId == null
+                ? FakePlayerFactory.getMinecraft(level)
+                : FakePlayerFactory.get(level, new GameProfile(placerId, "[Finance]"));
+        return !MinecraftForge.EVENT_BUS.post(new BlockEvent.BreakEvent(level, pos, state, actor));
+    }
+
     public @Nullable UUID companyId() {
         return companyId;
     }
@@ -160,6 +186,7 @@ public abstract class CompanyMachineBlockEntity extends BlockEntity implements M
         super.saveAdditional(tag);
         writeOwner(tag);
         if (facilityId != null) tag.putUUID("Facility", facilityId);
+        if (placerId != null) tag.putUUID("Placer", placerId);
     }
 
     @Override
@@ -167,6 +194,7 @@ public abstract class CompanyMachineBlockEntity extends BlockEntity implements M
         super.load(tag);
         readOwner(tag);
         facilityId = tag.hasUUID("Facility") ? tag.getUUID("Facility") : null;
+        placerId = tag.hasUUID("Placer") ? tag.getUUID("Placer") : null;
     }
 
     private void writeOwner(CompoundTag tag) {
