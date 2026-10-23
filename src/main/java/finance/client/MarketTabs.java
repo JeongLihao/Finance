@@ -286,11 +286,14 @@ public final class MarketTabs {
         if (screen.categorizedCacheDirty) screen.rebuildCategorizedCache();
 
         // 交易标签使用库存商品缓存，行情标签使用全部商品缓存
-        Map<CommodityCategory, List<Commodity>> activeMap =
-                (screen.currentTab == 1) ? screen.inventoryCategorizedCommodities : screen.categorizedCommodities;
+        Map<CommodityCategory, List<Commodity>> activeMap = (screen.currentTab == FinanceScreen.TAB_TRADE)
+                ? screen.inventoryCategorizedCommodities
+                : screen.categorizedCommodities;
 
         int localX = 82;
-        int localY = (screen.currentTab == 0) ? FinanceGui.MARKET_TRADE_Y + 14 : FinanceGui.CONTENT_Y + 14;
+        int localY = (screen.currentTab == FinanceScreen.TAB_MARKET)
+                ? FinanceGui.MARKET_TRADE_Y + 14
+                : FinanceGui.CONTENT_Y + 14;
         int ddX = screen.leftPos() + localX;
         int ddY = screen.topPos() + localY;
         int ddW = 200;
@@ -360,8 +363,9 @@ public final class MarketTabs {
     }
 
     public int calcDropdownTotalHeight() {
-        Map<CommodityCategory, List<Commodity>> activeMap =
-                (screen.currentTab == 1) ? screen.inventoryCategorizedCommodities : screen.categorizedCommodities;
+        Map<CommodityCategory, List<Commodity>> activeMap = (screen.currentTab == FinanceScreen.TAB_TRADE)
+                ? screen.inventoryCategorizedCommodities
+                : screen.categorizedCommodities;
         int h = 0;
         for (CommodityCategory cat : CommodityCategory.values()) {
             List<Commodity> items = activeMap.get(cat);
@@ -378,7 +382,9 @@ public final class MarketTabs {
 
     public boolean handleDropdownClick(int mx, int my) {
         int ddX = 82;
-        int ddY = (screen.currentTab == 0) ? FinanceGui.MARKET_TRADE_Y + 14 : FinanceGui.CONTENT_Y + 14;
+        int ddY = (screen.currentTab == FinanceScreen.TAB_MARKET)
+                ? FinanceGui.MARKET_TRADE_Y + 14
+                : FinanceGui.CONTENT_Y + 14;
         int ddW = 200;
         int ddH = 120;
 
@@ -389,8 +395,9 @@ public final class MarketTabs {
         if (screen.categorizedCacheDirty) screen.rebuildCategorizedCache();
 
         // 交易标签使用库存商品缓存，行情标签使用全部商品缓存
-        Map<CommodityCategory, List<Commodity>> activeMap =
-                (screen.currentTab == 1) ? screen.inventoryCategorizedCommodities : screen.categorizedCommodities;
+        Map<CommodityCategory, List<Commodity>> activeMap = (screen.currentTab == FinanceScreen.TAB_TRADE)
+                ? screen.inventoryCategorizedCommodities
+                : screen.categorizedCommodities;
 
         int localMx = mx - ddX;
         int localMy = my - ddY;
@@ -416,7 +423,7 @@ public final class MarketTabs {
                         if (localMx > 0 && localMx < ddW && localMy >= y && localMy < y + 14) {
                             screen.selectedCommodity = c.getId();
                             screen.rememberUiState();
-                            if (screen.currentTab == 1) {
+                            if (screen.currentTab == FinanceScreen.TAB_TRADE) {
                                 finance.market.MarketPrice mp =
                                         NpcMarketMaker.getAllMarketPrices().get(c.getId());
                                 if (mp != null) screen.priceBox.setValue(Long.toString(mp.getMidPrice()));

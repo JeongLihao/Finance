@@ -10,11 +10,15 @@
 - `SimplePages` 按页拆成 `SimpleHomePage` / `SimpleTradePage` / `SimpleCompanyPage` / `SimpleInvestPage`。
 - `ServiceTabs` 按子页签拆成 `FinancialProductPanel`、`FuturesPanel`、`BankPanel`、`FundPanel`、`InsurancePanel`、`RegionalRiskPanel`，子页签编号改成 `ServiceTabs.INDEX` 等常量。
 
+## 已完成（2026-10-24）
+
+- `FinanceScreen` 顶层页签编号改成 `FinanceScreen.TAB_MARKET`、`TAB_STOCK`、`TAB_FINANCIAL`、`TAB_ADMIN` 等常量（`MACRO_TAB` 改名 `TAB_MACRO`），`MarketTabs` 里的判断一起换掉。
+
 ## 待办
 
 ### 界面大类（按收益排序）
 
-1. **`FinanceScreen`（约 1,000 行）**：顶层页签 `currentTab` 还是裸数字（5 = 股票、8 = 提醒、9 = 金融服务、11 = 管理员……），和刚改完的 `financialSubTab` 一样换成常量；`updateInputVisibility` 里一大段输入框显隐和摆放规则，可以让各页签自己声明要哪些输入框、放在哪。
+1. **`FinanceScreen`（约 1,000 行）**：`updateInputVisibility` 里一大段输入框显隐和摆放规则，可以让各页签自己声明要哪些输入框、放在哪。
 2. **`FinanceMenu`（约 1,300 行）**：服务端打包给高级界面的数据行（`MarketRow`、`StockRow` 等）和编解码都挤在一个类里，可以按页签拆出各自的数据记录和编解码。还没细看。
 3. **`SimpleInvestPage`（约 700 行）**：股票详情（`stockDetail`）和商品详情（`commodityDetail`）各拆一个类。
 4. **其余页签类**：`CompanyTabs`（约 880 行）、`RecordTabs`（约 810 行）、`CompanyGameplayScreen`（约 770 行）、`PlayerServicesScreen`（约 720 行）、`StockTabs`（约 690 行）、`MarketTabs`（约 600 行）。思路同 `ServiceTabs`：按子页签拆面板，页签编号换常量。
