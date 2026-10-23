@@ -70,8 +70,8 @@
 - 机器放下时归放置者的公司，在 `CompanyFacilityManager` 登记一条 `CompanyFacilityRecord`（每家最多 64 台），拆掉时注销。归属、登记、速度、掉落和漏斗接口都在 `CompanyMachineBlockEntity`。
 - 机器与公司库存之间只经 `CompanyStock` 搬货：机器离公司绑定的仓库控制器 16 格以内（`CompanyStock.WAREHOUSE_RANGE`）才算连着仓库，每秒把成品存进库存、按配方补原料和煤；只认能对应到商品的普通物品。
 - 速度 = 档次倍率 ×（50% + 50% × 在岗比例）。每档 3 个岗位，从附近村庄招工；升档要材料加公司现金。
-- `CompanyGameplayProfile` 只保存经营模式、成员协作和世界绑定；财报、债务、治理及股票仍由既有领域模型负责。
-- custody UUID 由公司 UUID 确定性派生。它是 PLAYER_DRIVEN/HYBRID 世界库存的唯一权威，不属于任何成员；库存读写都走 `CompanyInventoryFacade`。
+- `CompanyGameplayProfile` 只保存成员协作和世界绑定；财报、债务、治理及股票仍由既有领域模型负责。
+- 玩家公司的货全在 custody 账户（UUID 由公司 UUID 确定性派生，不属于任何成员）；NPC 公司和系统公司没有厂房，货在公司对象自带的旧库存。库存读写、估值和展示都走 `CompanyInventoryFacade`，它按“是不是玩家公司”选一边，不混用。旧版本留在玩家公司旧库存里的货，读档后由 `CompanyGameplayManager.migratePlayerLegacyInventory` 并进 custody。
 - 机器每秒把自己的状态（在干活、缺原料、仓满、停用）写进 `CompanyFacilityRecord.status()`，界面、宏观统计和保险理赔直接读这个状态，不重新推导生产结果。
 - 采购合同取消先聚合预检公司现金容量，再批量退还 escrow。
 

@@ -25,7 +25,8 @@ public final class CompanyRiskService {
     public static Summary calculate(Company c) {
         if (c == null) return new Summary(0, 0, 0, 0, 0, 0, 0, 0, "none", "UNKNOWN", "company missing");
         long inventory = c.inventoryValue(), largest = 0;
-        for (var e : c.getInventory().entrySet()) {
+        for (var e : finance.gameplay.company.CompanyInventoryFacade.inventorySnapshot(c)
+                .entrySet()) {
             var p = NpcMarketMaker.getMarketPrice(e.getKey());
             if (p != null)
                 largest = Math.max(

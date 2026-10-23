@@ -10,10 +10,8 @@ import finance.debt.CompanyLoan;
 import finance.debt.CompanyLoanManager;
 import finance.debt.LoanStatus;
 import finance.diagnostic.ModuleHealthRegistry;
-import finance.gameplay.company.CompanyGameplayManager;
 import finance.gameplay.company.CompanyInventoryFacade;
 import finance.gameplay.company.CompanyMembershipService;
-import finance.gameplay.company.CompanyOperatingMode;
 import finance.gameplay.company.CompanyPermission;
 import finance.market.NpcMarketMaker;
 import finance.money.MoneyEndpoints;
@@ -55,8 +53,7 @@ public final class InventoryCollateralService {
                 || company.isBankruptcyRisk()
                 || BankingManager.bank(bankId) == null
                 || !CompanyMembershipService.hasPermission(companyId, actor, CompanyPermission.SPEND_COMPANY_CASH)
-                || CompanyGameplayManager.profileFor(company).operatingMode() == CompanyOperatingMode.LEGACY_AUTOMATIC)
-            return Result.fail("finance.collateral.denied");
+                || !company.isPlayerOwned()) return Result.fail("finance.collateral.denied");
         var duplicate = InventoryCollateralManager.findOperation(companyId, actor + ":" + operationKey);
         if (duplicate != null) return Result.ok(duplicate.id(), "finance.collateral.duplicate");
         UUID custody = CompanyInventoryFacade.custodyId(companyId);

@@ -49,7 +49,10 @@ final class FinanceRowConverters {
                 privateView ? company.getCash() : (report != null ? report.cashBalance() : 0),
                 publicFinancials ? company.inventoryValue() : 0,
                 publicFinancials ? company.getEstimatedValue() : 0,
-                privateView ? new LinkedHashMap<>(company.getInventory()) : Map.of(),
+                privateView
+                        ? new LinkedHashMap<>(
+                                finance.gameplay.company.CompanyInventoryFacade.inventorySnapshot(company))
+                        : Map.of(),
                 company.isPlayerOwned(),
                 company.isPublic(),
                 company.getStrategy().getDisplayName(),

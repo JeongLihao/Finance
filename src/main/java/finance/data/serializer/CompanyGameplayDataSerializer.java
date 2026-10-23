@@ -26,8 +26,6 @@ public final class CompanyGameplayDataSerializer {
         for (CompanyGameplayProfile profile : CompanyGameplayManager.profiles().values()) {
             CompoundTag tag = new CompoundTag();
             tag.putUUID("Company", profile.companyId());
-            tag.putString("Mode", profile.operatingMode().name());
-            tag.putLong("LastFallback", profile.lastLegacyFallbackDay());
             ListTag members = new ListTag();
             for (CompanyMemberRecord member : profile.members().values()) {
                 CompoundTag m = new CompoundTag();
@@ -89,11 +87,10 @@ public final class CompanyGameplayDataSerializer {
             try {
                 UUID companyId = NbtDataSupport.readUuidOrNull(tag, "Company");
                 Company company = CompanyManager.getCompany(companyId);
-                CompanyOperatingMode mode =
-                        NbtDataSupport.safeEnum(CompanyOperatingMode.class, tag.getString("Mode"), null);
-                if (company == null || mode == null) continue;
-                CompanyGameplayProfile profile = new CompanyGameplayProfile(companyId, mode);
-                profile.setLastLegacyFallbackDay(Math.max(-1, tag.getLong("LastFallback")));
+                // 旧存档里的 "Mode"（经营模式）已废弃：玩家公司一律用托管库存，读档后由
+                // CompanyGameplayManager.migratePlayerLegacyInventory 把旧库存并过去
+                if (company == null) continue;
+                CompanyGameplayProfile profile = new CompanyGameplayProfile(companyId);
                 ListTag members = tag.getList("Members", Tag.TAG_COMPOUND);
                 for (int i = 0; i < Math.min(CompanyGameplayProfile.MAX_MEMBERS, members.size()); i++) {
                     CompoundTag m = members.getCompound(i);

@@ -278,9 +278,11 @@ public class Company {
     // ---- 估值 ----
 
     /** 库存市值 —— 按国际市场当前 midPrice 实时计价 */
+    /** 库存市值：玩家公司算托管账户，NPC 公司算自带库存（见 {@link finance.gameplay.company.CompanyInventoryFacade}）。 */
     public long inventoryValue() {
         long total = 0;
-        for (Map.Entry<String, Integer> entry : inventory.entrySet()) {
+        for (Map.Entry<String, Integer> entry : finance.gameplay.company.CompanyInventoryFacade.inventorySnapshot(this)
+                .entrySet()) {
             MarketPrice mp = NpcMarketMaker.getMarketPrice(entry.getKey());
             if (mp != null) {
                 long value = MathUtil.saturatedMultiplyNonNegative(mp.getMidPrice(), entry.getValue());

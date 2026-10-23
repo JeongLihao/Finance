@@ -25,13 +25,11 @@ class CompanyGameplayPersistenceTest {
     }
 
     @Test
-    void legacySaveWithoutGameplayRootDefaultsExistingCompanyToLegacy() {
+    void legacySaveWithoutGameplayRootStillGivesExistingCompanyAProfile() {
         Company c = new Company(UUID.randomUUID(), "Old", CompanyType.FOOD, 1000, UUID.randomUUID());
         CompanyManager.registerDirect(c);
         CompanyGameplayDataSerializer.load(new CompoundTag());
-        assertEquals(
-                CompanyOperatingMode.LEGACY_AUTOMATIC,
-                CompanyGameplayManager.get(c.getCompanyId()).operatingMode());
+        assertNotNull(CompanyGameplayManager.get(c.getCompanyId()));
     }
 
     @Test
@@ -41,7 +39,6 @@ class CompanyGameplayPersistenceTest {
         CompanyManager.registerDirect(c);
         CompanyGameplayProfile p = CompanyGameplayManager.createForNewCompany(c);
         p.putMember(new CompanyMemberRecord(member, CompanyMemberRole.MANAGER, 2));
-        p.setLastLegacyFallbackDay(5);
         WarehouseRecord w = new WarehouseRecord(
                 UUID.randomUUID(),
                 "minecraft:overworld",
@@ -73,10 +70,8 @@ class CompanyGameplayPersistenceTest {
         WarehouseDataSerializer.load(root);
         CompanyGameplayDataSerializer.load(root);
         CompanyGameplayProfile loaded = CompanyGameplayManager.get(c.getCompanyId());
-        assertEquals(CompanyOperatingMode.HYBRID, loaded.operatingMode());
         assertEquals(CompanyMemberRole.MANAGER, loaded.members().get(member).role());
         assertTrue(loaded.warehouseIds().contains(w.warehouseId()));
-        assertEquals(5, loaded.lastLegacyFallbackDay());
         assertEquals(2, CompanyFacilityManager.get(f.facilityId()).productionLevel());
     }
 }

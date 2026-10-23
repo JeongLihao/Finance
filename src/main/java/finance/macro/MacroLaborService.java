@@ -10,8 +10,6 @@ import finance.data.EconomySavedData;
 import finance.gameplay.company.CompanyFacilityManager;
 import finance.gameplay.company.CompanyFacilityRecord;
 import finance.gameplay.company.CompanyFacilityStatus;
-import finance.gameplay.company.CompanyGameplayManager;
-import finance.gameplay.company.CompanyOperatingMode;
 import finance.settlement.SettlementManager;
 import finance.settlement.SettlementRecord;
 import finance.util.MathUtil;
@@ -114,8 +112,8 @@ public final class MacroLaborService {
             if (company == null
                     || facility.status() == CompanyFacilityStatus.DISABLED
                     || facility.status() == CompanyFacilityStatus.ORPHANED) continue;
-            if (CompanyGameplayManager.profileFor(company).operatingMode() == CompanyOperatingMode.LEGACY_AUTOMATIC)
-                continue;
+            // NPC 公司没有厂房，机器只属于玩家公司
+            if (!company.isPlayerOwned()) continue;
             live.add(facility.facilityId());
             SettlementRecord source = nearestSettlement(facility);
             if (source == null) {

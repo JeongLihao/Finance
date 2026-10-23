@@ -2,7 +2,6 @@ package finance.gui;
 
 import finance.gameplay.FinanceGameplayOpener;
 import finance.gameplay.FinanceTerminalType;
-import finance.gameplay.company.CompanyOperatingMode;
 import finance.registry.ModMenus;
 import java.util.ArrayList;
 import java.util.List;
@@ -59,7 +58,6 @@ public final class CompanyGameplayMenu extends AbstractContainerMenu {
     private final double autoSellRatio;
     private final int activeShipments;
     private final boolean inventoryValuationDegraded, risk;
-    private final CompanyOperatingMode mode;
     private final BlockPos pos;
     private final List<MemberRow> members;
     private final List<WarehouseRow> warehouses;
@@ -74,7 +72,6 @@ public final class CompanyGameplayMenu extends AbstractContainerMenu {
                 b.readUtf(64),
                 b.readLong(),
                 b.readDouble(),
-                b.readEnum(CompanyOperatingMode.class),
                 b.readUtf(24),
                 b.readBoolean(),
                 b.readUtf(128),
@@ -101,7 +98,6 @@ public final class CompanyGameplayMenu extends AbstractContainerMenu {
             String name,
             long cash,
             double autoSellRatio,
-            CompanyOperatingMode mode,
             String role,
             boolean risk,
             String dimension,
@@ -125,7 +121,6 @@ public final class CompanyGameplayMenu extends AbstractContainerMenu {
         this.name = name;
         this.cash = cash;
         this.autoSellRatio = Double.isFinite(autoSellRatio) ? Math.max(0, Math.min(1, autoSellRatio)) : 0;
-        this.mode = mode;
         this.role = role;
         this.risk = risk;
         this.dimension = dimension;
@@ -152,7 +147,6 @@ public final class CompanyGameplayMenu extends AbstractContainerMenu {
             String name,
             long cash,
             double autoSellRatio,
-            CompanyOperatingMode mode,
             String role,
             boolean risk,
             String dimension,
@@ -175,7 +169,6 @@ public final class CompanyGameplayMenu extends AbstractContainerMenu {
         b.writeUtf(limit(name, 64), 64);
         b.writeLong(Math.max(0, cash));
         b.writeDouble(Double.isFinite(autoSellRatio) ? Math.max(0, Math.min(1, autoSellRatio)) : 0);
-        b.writeEnum(mode);
         b.writeUtf(limit(role, 24), 24);
         b.writeBoolean(risk);
         b.writeUtf(limit(dimension, 128), 128);
@@ -335,10 +328,6 @@ public final class CompanyGameplayMenu extends AbstractContainerMenu {
 
     public double autoSellRatio() {
         return autoSellRatio;
-    }
-
-    public CompanyOperatingMode mode() {
-        return mode;
     }
 
     public String role() {

@@ -109,7 +109,9 @@ final class CompanyChecks {
                             warehouseId.toString(),
                             "公司仓库绑定缺失或指向其他公司");
             }
-            if (profile.operatingMode() == finance.gameplay.company.CompanyOperatingMode.PLAYER_DRIVEN
+            finance.company.Company owner = finance.company.CompanyManager.getCompany(profile.companyId());
+            if (owner != null
+                    && owner.isPlayerOwned()
                     && finance.gameplay.company.CompanyFacilityManager.forCompany(profile.companyId()).stream()
                             .noneMatch(f -> f.status() != finance.gameplay.company.CompanyFacilityStatus.DISABLED
                                     && f.status() != finance.gameplay.company.CompanyFacilityStatus.ORPHANED))

@@ -64,14 +64,14 @@ class CompanyMembershipServiceTest {
     @Test
     void automaticSalePolicyRequiresProductionPermissionAndIsIdempotent() {
         double before = company.getAutoSellRatio();
-        assertFalse(CompanyOperatingModeService.cycleAutoSell(member, company.getCompanyId(), "denied")
+        assertFalse(CompanyAutoSellService.cycleAutoSell(member, company.getCompanyId(), "denied")
                 .success());
         assertEquals(before, company.getAutoSellRatio());
-        assertTrue(CompanyOperatingModeService.cycleAutoSell(owner, company.getCompanyId(), "policy")
+        assertTrue(CompanyAutoSellService.cycleAutoSell(owner, company.getCompanyId(), "policy")
                 .success());
         double changed = company.getAutoSellRatio();
         assertNotEquals(before, changed);
-        assertFalse(CompanyOperatingModeService.cycleAutoSell(owner, company.getCompanyId(), "policy")
+        assertFalse(CompanyAutoSellService.cycleAutoSell(owner, company.getCompanyId(), "policy")
                 .success());
         assertEquals(changed, company.getAutoSellRatio());
     }

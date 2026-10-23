@@ -5,32 +5,9 @@ import finance.company.CompanyManager;
 import finance.data.EconomySavedData;
 import java.util.UUID;
 
-public final class CompanyOperatingModeService {
-    private CompanyOperatingModeService() {}
-
-    public static synchronized CompanyGameplayActionResult setMode(
-            UUID actor, UUID companyId, CompanyOperatingMode mode, String key) {
-        Company company = CompanyManager.getCompany(companyId);
-        CompanyGameplayProfile profile = CompanyGameplayManager.get(companyId);
-        if (company == null
-                || profile == null
-                || actor == null
-                || !actor.equals(company.getOwnerId())
-                || mode == null
-                || key == null
-                || key.isBlank()
-                || key.length() > 64) return CompanyGameplayActionResult.fail("finance.company_gameplay.mode_denied");
-        if (mode == CompanyOperatingMode.LEGACY_AUTOMATIC
-                && !finance.config.FinanceConfig.allowLegacyAutomaticCompanyProduction())
-            return CompanyGameplayActionResult.fail("finance.company_gameplay.mode_denied");
-        String scoped = actor + ":" + key;
-        if (profile.hasOperation(scoped))
-            return CompanyGameplayActionResult.fail("finance.company_gameplay.duplicate_operation");
-        profile.setOperatingMode(mode);
-        profile.recordOperation(scoped);
-        EconomySavedData.markDirty();
-        return CompanyGameplayActionResult.ok("finance.company_gameplay.mode_changed");
-    }
+/** 公司经营界面的“自动卖出比例”按钮：每点一次在 25% / 50% / 75% / 95% / 5% 之间循环。 */
+public final class CompanyAutoSellService {
+    private CompanyAutoSellService() {}
 
     public static synchronized CompanyGameplayActionResult cycleAutoSell(UUID actor, UUID companyId, String key) {
         Company company = CompanyManager.getCompany(companyId);

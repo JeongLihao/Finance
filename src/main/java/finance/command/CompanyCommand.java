@@ -84,9 +84,10 @@ public class CompanyCommand {
         boolean isOwner = c.getOwnerId() != null && c.getOwnerId().equals(player.getUUID());
         boolean canSeeInventory = c.isPublic() || isOwner;
 
-        if (canSeeInventory && !c.getInventory().isEmpty()) {
+        Map<String, Integer> stock = finance.gameplay.company.CompanyInventoryFacade.inventorySnapshot(c);
+        if (canSeeInventory && !stock.isEmpty()) {
             player.sendSystemMessage(Component.literal("--- 库存 ---"));
-            for (Map.Entry<String, Integer> entry : c.getInventory().entrySet()) {
+            for (Map.Entry<String, Integer> entry : stock.entrySet()) {
                 player.sendSystemMessage(Component.literal("  " + entry.getKey() + ": " + entry.getValue()));
             }
         }

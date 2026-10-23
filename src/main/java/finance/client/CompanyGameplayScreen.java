@@ -86,13 +86,7 @@ public final class CompanyGameplayScreen extends AbstractContainerScreen<Company
     @Override
     protected void renderLabels(GuiGraphics graphics, int mouseX, int mouseY) {
         clicks.clear();
-        drawClipped(
-                graphics,
-                menu.name() + "  " + menu.mode() + "  " + menu.role(),
-                10,
-                9,
-                300,
-                menu.risk() ? 0xFFA02020 : 0xFF202020);
+        drawClipped(graphics, menu.name() + "  " + menu.role(), 10, 9, 300, menu.risk() ? 0xFFA02020 : 0xFF202020);
         drawClipped(
                 graphics,
                 Component.translatable("screen.finance.company_gameplay.cash", menu.cash())
@@ -202,10 +196,9 @@ public final class CompanyGameplayScreen extends AbstractContainerScreen<Company
                     menu.statusKey().isBlank() ? 0xFF666666 : 0xFF8A4B18);
         }
         boolean invited = "INVITED".equals(menu.role());
-        button(graphics, 10, 204, 72, "mode");
-        button(graphics, 86, 204, 72, invited ? "accept" : "leave");
-        button(graphics, 162, 204, 72, invited ? "reject" : "invite");
-        button(graphics, 238, 204, 72, "role");
+        button(graphics, 10, 204, 72, invited ? "accept" : "leave");
+        button(graphics, 86, 204, 72, invited ? "reject" : "invite");
+        button(graphics, 162, 204, 72, "role");
         button(graphics, 10, 222, 72, "remove");
         contractButton(graphics, 86, 222, 72);
         button(graphics, 162, 222, 72, "advanced");
@@ -277,7 +270,6 @@ public final class CompanyGameplayScreen extends AbstractContainerScreen<Company
 
     private CompanyGameplayActionPacket.Action actionForKey(String key) {
         return switch (key) {
-            case "mode" -> CompanyGameplayActionPacket.Action.MODE_NEXT;
             case "autosell" -> CompanyGameplayActionPacket.Action.AUTO_SELL_NEXT;
             case "accept" -> CompanyGameplayActionPacket.Action.ACCEPT_INVITE;
             case "reject" -> CompanyGameplayActionPacket.Action.REJECT_INVITE;
@@ -302,7 +294,6 @@ public final class CompanyGameplayScreen extends AbstractContainerScreen<Company
             return false;
         }
         return switch (action) {
-            case MODE_NEXT -> role == CompanyMemberRole.OWNER;
             case AUTO_SELL_NEXT -> role.allows(CompanyPermission.MANAGE_PRODUCTION);
             case LEAVE -> role != CompanyMemberRole.OWNER;
             case INVITE, ROLE_NEXT, REMOVE_MEMBER -> role.allows(CompanyPermission.MANAGE_MEMBERS);

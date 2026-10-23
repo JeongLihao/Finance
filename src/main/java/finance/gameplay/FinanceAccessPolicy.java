@@ -10,8 +10,6 @@ public record FinanceAccessPolicy(
         boolean legacyFullScreenKeybind,
         boolean warehouseCapacityEnabled,
         boolean contractsEnabled,
-        boolean playerDrivenCompanyProduction,
-        boolean allowLegacyAutomaticCompanyProduction,
         boolean advancedFinanceRequiresTerminal,
         boolean adminConsoleRequiresPermission,
         double terminalInteractionDistance) {
@@ -29,8 +27,6 @@ public record FinanceAccessPolicy(
                 FinanceConfig.legacyFullScreenKeybind(),
                 FinanceConfig.warehouseCapacityEnabled(),
                 FinanceConfig.contractsEnabled(),
-                FinanceConfig.playerDrivenCompanyProduction(),
-                FinanceConfig.allowLegacyAutomaticCompanyProduction(),
                 FinanceConfig.advancedFinanceRequiresTerminal(),
                 FinanceConfig.adminConsoleRequiresPermission(),
                 FinanceConfig.terminalInteractionDistance());

@@ -9,6 +9,7 @@ import finance.company.CompanyProposal;
 import finance.company.CompanyProposalManager;
 import finance.company.CompanyProposalType;
 import finance.data.EconomySavedData;
+import finance.gameplay.company.CompanyInventoryFacade;
 import finance.util.Uuids;
 import java.util.UUID;
 
@@ -117,16 +118,19 @@ public final class CorporateRestructuringService {
                 || !GovernanceAuthorizationService.mayManage(sellerApprover, sellerCompanyId)
                 || buyer.getCash() < price
                 || !seller.canDeposit(price)
-                || seller.getInventoryAmount(commodityId) < quantity
-                || !buyer.canAddInventory(commodityId, quantity)) {
+                || CompanyInventoryFacade.availableInput(seller, commodityId) < quantity
+                || !CompanyInventoryFacade.canReceive(buyer, commodityId, quantity)) {
             return CorporateActionManager.Result.fail("资产收购请求无效或未获授权");
         }
-        if (!buyer.withdraw(price) || !seller.removeInventory(commodityId, quantity)) {
+        if (!buyer.withdraw(price)) return CorporateActionManager.Result.fail("资产预留失败");
+        CompanyInventoryFacade.Consumption taken =
+                CompanyInventoryFacade.consumeInputAtomically(seller, java.util.Map.of(commodityId, quantity));
+        if (taken == null) {
             if (buyer.canDeposit(price)) buyer.deposit(price);
             return CorporateActionManager.Result.fail("资产预留失败");
         }
-        if (!buyer.addInventory(commodityId, quantity) || !seller.deposit(price)) {
-            seller.addInventory(commodityId, quantity);
+        if (!CompanyInventoryFacade.receive(buyer, commodityId, quantity) || !seller.deposit(price)) {
+            CompanyInventoryFacade.rollback(seller, taken);
             buyer.deposit(price);
             return CorporateActionManager.Result.fail("资产交割失败");
         }

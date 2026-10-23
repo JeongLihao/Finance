@@ -22,18 +22,28 @@ public final class CompanyGameplayManager {
 
     public static CompanyGameplayProfile profileFor(Company company) {
         if (company == null) return null;
-        return PROFILES.computeIfAbsent(
-                company.getCompanyId(), id -> new CompanyGameplayProfile(id, CompanyOperatingMode.LEGACY_AUTOMATIC));
+        return PROFILES.computeIfAbsent(company.getCompanyId(), CompanyGameplayProfile::new);
+    }
+
+    /**
+     * 读档后调用：玩家公司留在旧库存里的货全部并进托管账户。两份存档（经济数据、商品库存）都读完后才能调，
+     * 可以重复调用（已经搬完的公司不再动）。返回搬了货的公司数。
+     */
+    public static int migratePlayerLegacyInventory() {
+        int companies = 0;
+        for (Company company : CompanyManager.getCompanies()) {
+            if (CompanyInventoryFacade.migrateLegacyToCustody(company) > 0) companies++;
+        }
+        if (companies > 0) {
+            EconomySavedData.markDirty();
+            finance.data.CommodityInventorySavedData.markDirty();
+        }
+        return companies;
     }
 
     public static CompanyGameplayProfile createForNewCompany(Company company) {
         if (company == null) return null;
-        CompanyOperatingMode mode = !finance.config.FinanceConfig.playerDrivenCompanyProduction()
-                ? CompanyOperatingMode.LEGACY_AUTOMATIC
-                : finance.config.FinanceConfig.newCompaniesPlayerDrivenOnly()
-                        ? CompanyOperatingMode.PLAYER_DRIVEN
-                        : CompanyOperatingMode.HYBRID;
-        CompanyGameplayProfile profile = new CompanyGameplayProfile(company.getCompanyId(), mode);
+        CompanyGameplayProfile profile = new CompanyGameplayProfile(company.getCompanyId());
         PROFILES.put(company.getCompanyId(), profile);
         EconomySavedData.markDirty();
         return profile;

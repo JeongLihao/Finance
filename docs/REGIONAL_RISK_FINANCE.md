@@ -24,7 +24,7 @@ NPC 市场账户 → LocalDemand escrow → 完成交付的玩家账户
 
 ## 库存质押
 
-- 只允许 PLAYER_DRIVEN/HYBRID 公司的真实 custody 商品。`InventoryCollateralManager` 的 reservation 是唯一冻结索引，生产、提取、销售、运输和重组最终都受 `CommodityInventoryManager.removeCommodity` 的可用量检查约束。
+- 只允许玩家公司 custody 里的真实商品。`InventoryCollateralManager` 的 reservation 是唯一冻结索引，生产、提取、销售、运输和重组最终都受 `CommodityInventoryManager.removeCommodity` 的可用量检查约束。
 - 创建顺序固定为：估值与权限预检 → PENDING reservation → 真实商业银行贷款 → ACTIVE；贷款失败删除 PENDING reservation。
 - 估值采用全局 NPC 中间价与 3000～7000 基点 haircut，使用 `BigInteger`。缺价拒绝新质押。
 - 追保至少保留一个完整 MC 日。清算会把已冻结商品移动到协议 UUID custody，再调用 NPC 真实买入；卖不掉时保持 `LIQUIDATING`，不会删除商品或银行债权。
