@@ -60,23 +60,27 @@
 ## 公司世界经营
 
 ```text
-成员背包 ──仓库原子事务──> company custody ──每日设施──> company custody 产品
-                                      │                         │
-公司现金 ──公司采购合同──> escrow ──交付┘                         └──NPC 市场──> 公司现金
+世界资源 ──采集机──┐
+原料（漏斗/仓库）──加工机──┼──16 格内有公司仓库，每秒──> company custody ──每日按比例自动卖──NPC 市场──> 公司现金
+公司收货箱 ─────────────┘           │
+公司现金 ──公司采购合同──> escrow ──交付┘
 ```
 
+- 玩家公司的产量全部来自实物：加工机（`FactoryBlockEntity` + `MachineCore`）按配方把原料和燃料变成成品，采集机（`HarvesterBlockEntity`，农场 / 伐木 / 采矿 / 剪毛）只收世界里真实存在的东西，公司收货箱（`CompanyIntakeBlockEntity`）收玩家放进去的商品。玩家公司不再每天凭空生产，NPC 公司照旧。
+- 机器放下时归放置者的公司，在 `CompanyFacilityManager` 登记一条 `CompanyFacilityRecord`（每家最多 64 台），拆掉时注销。归属、登记、速度、掉落和漏斗接口都在 `CompanyMachineBlockEntity`。
+- 机器与公司库存之间只经 `CompanyStock` 搬货：机器离公司绑定的仓库控制器 16 格以内（`CompanyStock.WAREHOUSE_RANGE`）才算连着仓库，每秒把成品存进库存、按配方补原料和煤；只认能对应到商品的普通物品。
+- 速度 = 档次倍率 ×（50% + 50% × 在岗比例）。每档 3 个岗位，从附近村庄招工；升档要材料加公司现金。
 - `CompanyGameplayProfile` 只保存经营模式、成员协作和世界绑定；财报、债务、治理及股票仍由既有领域模型负责。
-- custody UUID 由公司 UUID 确定性派生。它是 PLAYER_DRIVEN/HYBRID 世界库存的唯一权威，不属于任何成员。
-- 每日顺序为设施预检与生产、可选自动销售、利润日结、融资/治理、破产检查、世界状态灯刷新。设施和 HYBRID 兜底共同使用每日标记防止重复调度。
-- 升级事务顺序为材料预检/扣除、公司现金扣除、等级提交；后两步失败时材料与现金按原端点恢复。采购合同取消先聚合预检公司现金容量，再批量退还 escrow。
-- 世界反馈只在日结后同步已加载的设施方块，并直接读取 `CompanyFacilityRecord.status()`、`lastProcessedDay()` 和 `CompanyFactoryControllerBlock.INDICATOR`，无需重新推导生产结果。
+- custody UUID 由公司 UUID 确定性派生。它是 PLAYER_DRIVEN/HYBRID 世界库存的唯一权威，不属于任何成员；库存读写都走 `CompanyInventoryFacade`。
+- 机器每秒把自己的状态（在干活、缺原料、仓满、停用）写进 `CompanyFacilityRecord.status()`，界面、宏观统计和保险理赔直接读这个状态，不重新推导生产结果。
+- 采购合同取消先聚合预检公司现金容量，再批量退还 escrow。
 
 ## 公司实体资本项目
 
 ```text
 治理授权 ─┐
 贷款/债券/增发/留存收益 ──> 项目 escrow ──┐
-公司 custody + 执行者背包 ────────────────┼──原子施工──> 仓库/工厂等级
+公司 custody + 执行者背包 ────────────────┼──原子施工──> 仓库等级/机器档次
 目标控制器会话、距离与方块身份 ───────────┘                 │
                                                            └──> 下一期财报──> 平滑估值
 ```
