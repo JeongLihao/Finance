@@ -681,11 +681,7 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         int contentY = my + FinanceGui.CONTENT_SHIFT;
         boolean handled;
         try {
-            handled = contentClicks.click(mx, contentY)
-                    || switch (currentTab) {
-                        case TAB_ADMIN -> isAdmin && this.adminTabs.handleAdminClick(mx, contentY);
-                        default -> false;
-                    };
+            handled = contentClicks.click(mx, contentY);
         } catch (InvalidInput invalid) {
             // 提示已写入状态栏，不发包
             handled = true;
