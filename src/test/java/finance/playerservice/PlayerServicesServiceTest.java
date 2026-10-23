@@ -150,6 +150,14 @@ class PlayerServicesServiceTest {
     }
 
     @Test
+    void detailIsDroppedWhenWorldResets() {
+        assertTrue(act(Action.EARNINGS_REPORT, "tgtc", 0, 0, 0, 0).success());
+        assertFalse(snapshot().detailTitle().isEmpty());
+        EconomySavedData.resetRuntimeState();
+        assertEquals("", snapshot().detailTitle(), "换存档后不该显示上一个存档的查询结果");
+    }
+
+    @Test
     void responseAndActionPacketsRoundTrip() {
         assertTrue(StockPortfolioManager.addHolding(player, "TGTC", 3_000, 10));
         act(Action.TENDER_OFFER, "Target Corp", 12, 2_100, 0, 7);

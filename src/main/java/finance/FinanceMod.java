@@ -226,6 +226,7 @@ public class FinanceMod {
         CommodityInventorySavedData.unload();
         CommodityRegistry.resetToDefaults();
         MarketDataRequestLimiter.clear();
+        finance.network.FinanceMenuRefresher.clear();
         finance.admin.AdminOperationGuard.clear();
     }
 

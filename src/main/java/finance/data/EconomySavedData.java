@@ -568,6 +568,10 @@ public class EconomySavedData extends SavedData {
         finance.feedback.WorldEconomyFeedbackService.clearDirect();
         finance.gameplay.WorldTerminalRegistry.clearDirect();
         finance.feedback.WorldTerminalStateService.clearDirect();
+        finance.simple.SimpleWealthService.clearDirect();
+        finance.simple.SimpleBetService.clearPendingDirect();
+        finance.simple.BetNotices.clearDirect();
+        finance.playerservice.PlayerServicesService.clearDirect();
     }
 
     private static EconomySavedData createFresh() {

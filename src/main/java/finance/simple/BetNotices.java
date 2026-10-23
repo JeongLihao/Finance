@@ -110,4 +110,8 @@ public final class BetNotices {
         }
         if (WARNED.size() > 4_096) WARNED.clear();
     }
+
+    public static void clearDirect() {
+        WARNED.clear();
+    }
 }

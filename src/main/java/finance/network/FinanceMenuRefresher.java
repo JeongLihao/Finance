@@ -60,7 +60,7 @@ public final class FinanceMenuRefresher {
         }
     }
 
-    static synchronized void clear() {
+    public static synchronized void clear() {
         DIRTY.clear();
     }
 }

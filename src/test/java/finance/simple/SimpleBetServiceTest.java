@@ -31,6 +31,15 @@ class SimpleBetServiceTest {
                 new Stock(SYMBOL, "Bet Co", company.getCompanyId(), 10_000L, 10_000L, 0L, 100L, 100L));
     }
 
+    @Test
+    void pendingStatsDoNotCarryIntoNextWorld() {
+        UUID id = UUID.randomUUID();
+        SimpleBetService.defer(id, "s:BETS:up", 500, true);
+        assertTrue(SimpleBetService.hasPending(id));
+        EconomySavedData.resetRuntimeState();
+        assertFalse(SimpleBetService.hasPending(id), "换存档后不该补记上一个存档的战绩");
+    }
+
     private UUID player(long wallet) {
         UUID id = UUID.randomUUID();
         AccountManager.deposit(id, wallet);
