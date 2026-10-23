@@ -30,11 +30,11 @@ import org.jetbrains.annotations.Nullable;
 /**
  * 加工机：生产逻辑在 {@link MachineCore}，这里管界面、存档和公司仓库存取。
  * 连着公司仓库时，每秒把成品存进公司库存，并按选定的配方从库存补原料和煤。
- * 漏斗能往原料槽和燃料槽送料，只能从成品槽取货。
+ * 漏斗能往原料槽和燃料槽送料，能从成品槽取货，也能取走燃料槽里烧剩的空桶。
  */
 public final class FactoryBlockEntity extends CompanyMachineBlockEntity {
 
-    /** 给漏斗和管道用：只能往原料、燃料槽放，只能从成品槽取。 */
+    /** 给漏斗和管道用：只能往原料、燃料槽放；从成品槽取，燃料槽只能取走不能烧的东西（空桶）。 */
     private record AutomationHandler(MachineCore.Items items) implements IItemHandler {
         public int getSlots() {
             return MachineCore.SLOT_COUNT;
@@ -49,7 +49,12 @@ public final class FactoryBlockEntity extends CompanyMachineBlockEntity {
         }
 
         public @NotNull ItemStack extractItem(int slot, int amount, boolean simulate) {
-            return slot == MachineCore.SLOT_OUTPUT ? items.extractItem(slot, amount, simulate) : ItemStack.EMPTY;
+            // 成品随便取；燃料槽里烧剩的空桶这类不能烧的东西也能取走，免得堵住燃料槽
+            boolean spentFuel = slot == MachineCore.SLOT_FUEL
+                    && MachineCore.FURNACE_FUEL.applyAsInt(items.getStackInSlot(slot)) <= 0;
+            return slot == MachineCore.SLOT_OUTPUT || spentFuel
+                    ? items.extractItem(slot, amount, simulate)
+                    : ItemStack.EMPTY;
         }
 
         public int getSlotLimit(int slot) {

@@ -286,10 +286,19 @@ public final class SimpleBossService {
                 : fail(r.message());
     }
 
+    /** 债券代码：公司 ID 前 4 位 + B + 天数；同一天再发就加 -2、-3……，不和已有代码重复。 */
     private static String bondCode(Company company, long day) {
         String prefix = company.getCompanyId().toString().substring(0, 4).toUpperCase(java.util.Locale.ROOT);
-        String code = prefix + "B" + day;
-        return code.length() > 16 ? code.substring(0, 16) : code;
+        String base = prefix + "B" + day;
+        if (base.length() > 12) base = base.substring(0, 12);
+        String code = base;
+        for (int n = 2; codeTaken(code) && n < 1_000; n++) code = base + "-" + n;
+        return code;
+    }
+
+    private static boolean codeTaken(String code) {
+        return finance.debt.CorporateBondManager.bonds().values().stream()
+                .anyMatch(b -> b.code().equalsIgnoreCase(code));
     }
 
     /** 用公司仓库里最值钱的一种库存抵押借钱（全部可用数量，按 60% 估值放款）。 */

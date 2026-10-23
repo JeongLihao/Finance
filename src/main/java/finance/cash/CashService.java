@@ -140,6 +140,17 @@ public final class CashService {
         }
     }
 
+    /**
+     * 卖压不超过价格到顶 / 到底时的值：再往外累积价格也不会变，只会让回落拖得更久。
+     * 冲击为 0（固定汇率）时卖压不影响价格，归零。
+     */
+    static double clampPressure(double p) {
+        double impact = impact();
+        if (impact <= 0) return 0;
+        double max = Math.log(1 / MIN_FACTOR) / impact, min = -Math.log(MAX_FACTOR) / impact;
+        return Math.max(min, Math.min(max, p));
+    }
+
     private static double factor(double p) {
         return Math.max(MIN_FACTOR, Math.min(MAX_FACTOR, Math.exp(-impact() * p)));
     }
@@ -271,7 +282,7 @@ public final class CashService {
             finance.market.NpcMarketMaker.recordNpcTrade(EMERALD, true, (int) count, cash / count);
             finance.centralbank.ReserveService.recordTrade(cash);
         } else {
-            pressure += count;
+            pressure = clampPressure(pressure + count);
         }
         giveAmount(purse, cash);
         notesIssued(cash);
@@ -306,7 +317,7 @@ public final class CashService {
             finance.market.NpcMarketMaker.recordNpcTrade(EMERALD, false, (int) count, cost / count);
             finance.centralbank.ReserveService.recordTrade(cost);
         } else {
-            pressure -= count;
+            pressure = clampPressure(pressure - count);
         }
         notesRetired(cost);
         purse.giveEmeralds(count);

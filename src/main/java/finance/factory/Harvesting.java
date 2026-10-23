@@ -1,6 +1,7 @@
 package finance.factory;
 
 import java.util.List;
+import java.util.function.BiPredicate;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.tags.BlockTags;
@@ -22,6 +23,7 @@ import net.minecraftforge.items.ItemHandlerHelper;
 /**
  * 采集机在世界里干的活：每次只做一件（收一株作物、砍一段原木、挖一块方块、剪一只羊），
  * 收获进机器的仓里；仓放不下就不动世界。
+ * 每次改动方块前先问 mayBreak（机器替放置者发 BlockEvent.BreakEvent，领地模组可以拦），被拦的方块跳过。
  */
 public final class Harvesting {
 
@@ -45,11 +47,12 @@ public final class Harvesting {
 
     // ---------------------------------------------------------------- 农场
 
-    public static Outcome farm(ServerLevel level, BlockPos origin, IItemHandler bin) {
+    public static Outcome farm(
+            ServerLevel level, BlockPos origin, IItemHandler bin, BiPredicate<BlockPos, BlockState> mayBreak) {
         for (BlockPos p :
                 BlockPos.betweenClosed(origin.offset(-RADIUS, -1, -RADIUS), origin.offset(RADIUS, 1, RADIUS))) {
             BlockState state = level.getBlockState(p);
-            if (state.getBlock() instanceof CropBlock crop && crop.isMaxAge(state)) {
+            if (state.getBlock() instanceof CropBlock crop && crop.isMaxAge(state) && mayBreak.test(p, state)) {
                 List<ItemStack> drops = new java.util.ArrayList<>(Block.getDrops(state, level, p, null));
                 ItemStack seed = crop.getCloneItemStack(level, p, state);
                 takeOne(drops, seed);
@@ -60,7 +63,7 @@ public final class Harvesting {
             }
             boolean caneTop = state.is(Blocks.SUGAR_CANE)
                     && level.getBlockState(p.below()).is(Blocks.SUGAR_CANE);
-            if (caneTop || state.is(Blocks.PUMPKIN) || state.is(Blocks.MELON)) {
+            if ((caneTop || state.is(Blocks.PUMPKIN) || state.is(Blocks.MELON)) && mayBreak.test(p, state)) {
                 List<ItemStack> drops = Block.getDrops(state, level, p, null);
                 if (!fits(bin, drops)) return Outcome.FULL;
                 insertAll(bin, drops);
@@ -74,7 +77,8 @@ public final class Harvesting {
 
     // ---------------------------------------------------------------- 伐木
 
-    public static Outcome lumber(ServerLevel level, BlockPos origin, IItemHandler bin) {
+    public static Outcome lumber(
+            ServerLevel level, BlockPos origin, IItemHandler bin, BiPredicate<BlockPos, BlockState> mayBreak) {
         for (BlockPos p :
                 BlockPos.betweenClosed(origin.offset(-RADIUS, 0, -RADIUS), origin.offset(RADIUS, 0, RADIUS))) {
             BlockPos root = p.immutable();
@@ -85,6 +89,7 @@ public final class Harvesting {
                     && level.getBlockState(top.above()).is(BlockTags.LOGS)) top = top.above();
             if (!hasNaturalLeaves(level, top)) continue; // 只砍真正的树，不拆玩家用原木盖的房子
             BlockState log = level.getBlockState(top);
+            if (!mayBreak.test(top, log)) continue;
             List<ItemStack> drops = Block.getDrops(log, level, top, null);
             if (!fits(bin, drops)) return Outcome.FULL;
             insertAll(bin, drops);
@@ -120,9 +125,14 @@ public final class Harvesting {
 
     /**
      * 挖竖井里下一块能挖的方块。cursor[0] = 当前层的 y，cursor[1] = 这一层挖到第几格（0～24）。
-     * 空气、液体、带方块实体的、基岩这类挖不动的、铁镐挖不出东西的都跳过。
+     * 空气、液体、带方块实体的、基岩这类挖不动的、铁镐挖不出东西的、领地不让挖的都跳过。
      */
-    public static Outcome mine(ServerLevel level, BlockPos origin, IItemHandler bin, int[] cursor) {
+    public static Outcome mine(
+            ServerLevel level,
+            BlockPos origin,
+            IItemHandler bin,
+            int[] cursor,
+            BiPredicate<BlockPos, BlockState> mayBreak) {
         int side = SHAFT_RADIUS * 2 + 1;
         for (int tries = 0; tries < side * side * 4; tries++) {
             if (cursor[0] < level.getMinBuildHeight()) return Outcome.DONE;
@@ -133,7 +143,8 @@ public final class Harvesting {
                     && state.getFluidState().isEmpty()
                     && !state.hasBlockEntity()
                     && state.getDestroySpeed(level, p) >= 0
-                    && (!state.requiresCorrectToolForDrops() || PICKAXE.isCorrectToolForDrops(state));
+                    && (!state.requiresCorrectToolForDrops() || PICKAXE.isCorrectToolForDrops(state))
+                    && mayBreak.test(p, state);
             if (minable) {
                 List<ItemStack> drops = Block.getDrops(state, level, p, null, null, PICKAXE);
                 if (!fits(bin, drops)) return Outcome.FULL;
@@ -176,11 +187,15 @@ public final class Harvesting {
 
     // ---------------------------------------------------------------- 捡东西、放进仓
 
-    /** 把周围地上的掉落物捡进仓，返回有没有捡到。 */
+    /**
+     * 把周围地上的掉落物捡进仓，返回有没有捡到。
+     * 玩家扔的、死亡掉的东西（带抛出者）不捡，免得别人的遗物被吸进打不开的机器。
+     */
     public static boolean collect(ServerLevel level, BlockPos origin, IItemHandler bin) {
         boolean any = false;
         AABB area = new AABB(origin).inflate(RADIUS + 1, 3, RADIUS + 1);
-        for (ItemEntity entity : level.getEntitiesOfClass(ItemEntity.class, area, ItemEntity::isAlive)) {
+        for (ItemEntity entity :
+                level.getEntitiesOfClass(ItemEntity.class, area, e -> e.isAlive() && !thrownByPlayer(e))) {
             ItemStack stack = entity.getItem();
             ItemStack left = ItemHandlerHelper.insertItemStacked(bin, stack.copy(), false);
             if (left.getCount() == stack.getCount()) continue;
@@ -189,6 +204,13 @@ public final class Harvesting {
             else entity.setItem(left);
         }
         return any;
+    }
+
+    /** 掉落物有没有抛出者：玩家按 Q 扔的和死亡掉落的都记着抛出者，作物、方块、怪物掉的没有。 */
+    static boolean thrownByPlayer(ItemEntity entity) {
+        net.minecraft.nbt.CompoundTag tag = new net.minecraft.nbt.CompoundTag();
+        entity.addAdditionalSaveData(tag);
+        return tag.hasUUID("Thrower");
     }
 
     static boolean fits(IItemHandler bin, List<ItemStack> drops) {
