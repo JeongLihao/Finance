@@ -24,18 +24,15 @@
 - `MarketTabs` 拆成 `MarketPanel`、`TradePanel`、`CommodityDropdown`，删掉 `MarketTabs`。
 - `CompanyGameplayScreen` 拆出实体项目页 `CompanyCapitalPanel`。
 - `PlayerServicesScreen` 拆成外框和七个页面类（`ServicesPage` 及其子类）。
+- 零散的 UUID 解析统一走 `Uuids.parseOrNull`（18 处），只剩常量定义用 `UUID.fromString`。
+- 大服务类：`EconomyConsistencyService` 按领域拆成五个检查类；`VillageService` 拆出 `VillageStallService`；`FinanceGuiOpener` 拆出 `FinanceRowConverters`、`FinanceAssetBuilder`；`CorporateActionManager` 拆出 `CorporateActionSettlement`；`BankingManager` 拆出 `TimeDepositOps`。后两个的入口方法是 `static synchronized`，入口留在原类保锁，只搬实现。
+- 内容区按钮点击登记表 `ClickRegions` 建好，资产页、订单页已迁移。
 
 ## 待办
 
-### 界面大类（按收益排序）
-
-1. **面板里的点击坐标**：各面板的 `click` 用写死的坐标判断点了哪个按钮（`mx >= 244 && mx < 274`），和 `render` 里画按钮的坐标各写一遍。可以让按钮画的时候登记点击区域，点击时查表，坐标只写一处（简单模式的 `UiBuilder` 已经是这种做法）。
-
-### 服务端
-
-2. **公司经营模式**：`CompanyOperatingMode`（`LEGACY_AUTOMATIC` / `HYBRID` / `PLAYER_DRIVEN`）在机器改版后对玩家公司基本没意义了，但还决定库存放在哪（托管账户还是公司库存）、NPC 公司怎么跑、能不能抵押。简化前要先理清 `CompanyInventoryFacade` 里两种库存的迁移。
-3. **大服务类**：`EconomyConsistencyService`（约 980 行）、`VillageService`（约 830 行）、`BankingManager`（约 800 行）、`CorporateActionManager`（约 790 行）、`FinanceGuiOpener`（约 780 行），按职责拆分。服务端逻辑测试比界面多，适合先补测试再拆。
-4. **零散的 UUID 解析**：还有约 20 处手写 `UUID.fromString`，分布在命令（`PlayerBankCommand`、`TakeoverCommand`）、序列化器、网络包（`CandlestickRequestPacket`、`SimpleActionPacket`）、客户端（`CompanyTabs`、`SettlementScreen`）和服务（`OrderBookService`、`CorporateRestructuringService`、`CompanyProposalManager` 等）。各自的失败处理不同，统一前要逐个看。
+1. **面板点击坐标迁到登记表**：`ClickRegions` 和 `FinanceScreen.button` / `filledButton` 已就绪，资产页、订单页已迁移。剩下的面板（市场、交易、库存、提醒、公司五个视图、股票、金融服务各面板、管理、宏观、仓库界面、公司经营界面）还在用写死的坐标。迁移会让点击区域和画出来的按钮完全一致，原来点击区域比按钮大或小的地方会有细微变化，所以每迁一批最好进游戏点一遍。
+2. **公司经营模式**（要先定玩法）：`CompanyOperatingMode` 决定库存放在哪（LEGACY 只看公司旧库存，PLAYER_DRIVEN 只看托管账户，HYBRID 两边都看）、能不能抵押、机器能不能从村庄招工。**切换模式时不搬库存**：公司主人在经营界面点“模式”会循环切换，切走后另一边的库存（包括已抵押的）就看不见、用不了，切回来才出现（已用探针测试确认）。简化或修复都会改玩法和存档，需要先决定：玩家公司是否固定一种模式、旧库存怎么并进托管账户、NPC 公司保持 LEGACY 还是一起迁。
+3. **完整体检漏了几项**：`EconomyConsistencyService.run()` 没有调用商队、NPC 投资者、竞争公司和宏观经济的检查，这四项只在按模块检查时才跑。是否补进完整体检要看性能和告警噪音，先记下。
 
 ## 做法备忘
 
