@@ -10,7 +10,7 @@
 | 配置档 | 用途 | 主要区别 |
 | --- | --- | --- |
 | `minecraft_first` | 默认新服 | 实体终端、仓库容量、混合公司生产、证券后置 |
-| `casual_server` | 休闲合作服 | 容量和吞吐更大，物流/聚落期限更长，维护费更低，关闭全服广播 |
+| `casual_server` | 休闲合作服 | 容量和吞吐更大，物流/聚落期限更长，关闭全服广播 |
 | `legacy_finance` | 旧版入口 | 恢复完整 GUI 快捷入口和自动公司路径 |
 | `solo_play` | 单人 | 在 `minecraft_first` 基础上打开 NPC 股东投票、竞争公司敌对收购（`rivals.hostileTakeovers`）和股东激进主义（`rivals.activismEnabled`） |
 
@@ -35,8 +35,6 @@
 	allowLegacyAutomaticCompanyProduction = true
 	# 新公司默认 HYBRID；开启后改为纯 PLAYER_DRIVEN。
 	newCompaniesPlayerDrivenOnly = false
-	# HYBRID 当天没有设施成功生产时的低效旧式兜底比例。
-	hybridLegacyFallbackRatio = 0.25
 	advancedFinanceRequiresTerminal = true
 	adminConsoleRequiresPermission = true
 	# 终端菜单的最大持续交互距离（方块）。

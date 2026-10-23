@@ -9,7 +9,6 @@ contractsEnabled = true
 playerDrivenCompanyProduction = true
 allowLegacyAutomaticCompanyProduction = true
 newCompaniesPlayerDrivenOnly = false
-hybridLegacyFallbackRatio = 0.40
 advancedFinanceRequiresTerminal = true
 adminConsoleRequiresPermission = true
 terminalInteractionDistance = 10.0
@@ -23,11 +22,8 @@ warehouseTier2TransferLimit = 512
 warehouseTier3Capacity = 32768
 warehouseTier3TransferLimit = 2048
 factoryTier1Throughput = 1
-factoryTier1MaintenanceBasisPoints = 8000
 factoryTier2Throughput = 2
-factoryTier2MaintenanceBasisPoints = 7000
 factoryTier3Throughput = 4
-factoryTier3MaintenanceBasisPoints = 6000
 
 [gameplay.logistics]
 maxActivePerPlayer = 12

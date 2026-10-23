@@ -80,7 +80,7 @@ import net.minecraft.world.level.storage.DimensionDataStorage;
 public class EconomySavedData extends SavedData {
 
     public static final String DATA_NAME = "finance_data";
-    private static final int DATA_VERSION = 42;
+    private static final int DATA_VERSION = 43;
 
     public static int currentDataVersion() {
         return DATA_VERSION;

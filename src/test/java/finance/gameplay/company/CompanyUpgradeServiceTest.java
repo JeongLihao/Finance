@@ -10,7 +10,10 @@ class CompanyUpgradeServiceTest {
         assertEquals(3, CompanyFacilityRecord.MAX_LEVEL);
         assertTrue(
                 finance.config.FinanceConfig.factoryThroughput(1) < finance.config.FinanceConfig.factoryThroughput(3));
-        assertTrue(finance.config.FinanceConfig.factoryMaintenanceBasisPoints(3)
-                <= finance.config.FinanceConfig.factoryMaintenanceBasisPoints(1));
+        assertTrue(finance.gameplay.company.CompanyUpgradeRequirementService.requirement(1)
+                        .cash()
+                < finance.gameplay.company.CompanyUpgradeRequirementService.requirement(2)
+                        .cash());
+        assertNull(finance.gameplay.company.CompanyUpgradeRequirementService.requirement(3), "3 档是最高档");
     }
 }

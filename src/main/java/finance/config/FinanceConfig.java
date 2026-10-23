@@ -114,16 +114,6 @@ public final class FinanceConfig {
     private static final int NPC_TENDER_PREMIUM_GROWTH_VALUE = 30;
     private static final int NPC_TENDER_PREMIUM_SPECULATOR_VALUE = 10;
     private static final int NPC_TENDER_PREMIUM_VALUE_VALUE = 25;
-    // ---- 公司厂房与生产方式 ----
-    private static final int FACILITY_ZONE_RADIUS_VALUE = 4;
-    private static final int FACILITY_ZONE_BELOW_VALUE = 1;
-    private static final int FACILITY_ZONE_ABOVE_VALUE = 3;
-    private static final int FACILITY_MAX_EQUIPMENT_PER_TYPE_VALUE = 16;
-    private static final int FACILITY_JOBS_CAP_PER_LEVEL_VALUE = 20;
-    private static final int FACILITY_RETOOL_DAYS_VALUE = 3;
-    private static final int FACILITY_RETOOL_OUTPUT_PERCENT_VALUE = 50;
-    private static final int FACILITY_PROVISIONAL_DAYS_VALUE = 14;
-    private static final int FACILITY_SCAN_STALE_DAYS_VALUE = 7;
     // ---- 单人经济：NPC 竞争公司 ----
     private static final boolean RIVALS_ENABLED_VALUE = true;
     private static final int RIVALS_MAX_COMPANIES_VALUE = 6;
@@ -159,7 +149,6 @@ public final class FinanceConfig {
     private static final int MACRO_MIGRATION_GAP_BPS_VALUE = 500;
     private static final int MACRO_PRICE_STEP_BPS_VALUE = 1000;
     private static final int MACRO_LABOR_RADIUS_VALUE = 256;
-    private static final int MACRO_JOBS_PER_LEVEL_VALUE = 10;
     private static final long MACRO_DEFAULT_WAGE_VALUE = 12L;
     private static final long MACRO_BASE_RESERVATION_WAGE_VALUE = 4L;
     private static final boolean MACRO_WORLD_FEEDBACK_VALUE = true;
@@ -235,7 +224,6 @@ public final class FinanceConfig {
     private static final boolean PLAYER_DRIVEN_COMPANY_PRODUCTION_VALUE = true;
     private static final boolean ALLOW_LEGACY_AUTOMATIC_COMPANY_PRODUCTION_VALUE = true;
     private static final boolean NEW_COMPANIES_PLAYER_DRIVEN_ONLY_VALUE = false;
-    private static final double HYBRID_LEGACY_FALLBACK_RATIO_VALUE = 0.25D;
     private static final boolean ADVANCED_FINANCE_REQUIRES_TERMINAL_VALUE = true;
     private static final boolean ADMIN_CONSOLE_REQUIRES_PERMISSION_VALUE = true;
     private static final double TERMINAL_INTERACTION_DISTANCE_VALUE = 8.0D;
@@ -251,7 +239,6 @@ public final class FinanceConfig {
     private static final int[] WAREHOUSE_CAPACITY_VALUES = {1_024, 4_096, 16_384};
     private static final int[] WAREHOUSE_TRANSFER_VALUES = {64, 256, 1_024};
     private static final int[] FACTORY_THROUGHPUT_VALUES = {1, 2, 4};
-    private static final int[] FACTORY_MAINTENANCE_BPS_VALUES = {10_000, 9_000, 8_000};
     private static final int LOGISTICS_MAX_ACTIVE_PLAYER_VALUE = 8;
     private static final int LOGISTICS_MAX_ACTIVE_COMPANY_VALUE = 32;
     private static final int LOGISTICS_MAX_CARGO_UNITS_VALUE = 1_024;
@@ -329,15 +316,6 @@ public final class FinanceConfig {
     private static final ForgeConfigSpec.IntValue NPC_TENDER_PREMIUM_GROWTH;
     private static final ForgeConfigSpec.IntValue NPC_TENDER_PREMIUM_SPECULATOR;
     private static final ForgeConfigSpec.IntValue NPC_TENDER_PREMIUM_VALUE;
-    private static final ForgeConfigSpec.IntValue FACILITY_ZONE_RADIUS;
-    private static final ForgeConfigSpec.IntValue FACILITY_ZONE_BELOW;
-    private static final ForgeConfigSpec.IntValue FACILITY_ZONE_ABOVE;
-    private static final ForgeConfigSpec.IntValue FACILITY_MAX_EQUIPMENT_PER_TYPE;
-    private static final ForgeConfigSpec.IntValue FACILITY_JOBS_CAP_PER_LEVEL;
-    private static final ForgeConfigSpec.IntValue FACILITY_RETOOL_DAYS;
-    private static final ForgeConfigSpec.IntValue FACILITY_RETOOL_OUTPUT_PERCENT;
-    private static final ForgeConfigSpec.IntValue FACILITY_PROVISIONAL_DAYS;
-    private static final ForgeConfigSpec.IntValue FACILITY_SCAN_STALE_DAYS;
     private static final ForgeConfigSpec.BooleanValue RIVALS_ENABLED;
     private static final ForgeConfigSpec.IntValue RIVALS_MAX_COMPANIES;
     private static final ForgeConfigSpec.IntValue RIVALS_SPAWN_COOLDOWN_DAYS;
@@ -376,7 +354,6 @@ public final class FinanceConfig {
     private static final ForgeConfigSpec.IntValue MACRO_MIGRATION_GAP_BPS;
     private static final ForgeConfigSpec.IntValue MACRO_PRICE_STEP_BPS;
     private static final ForgeConfigSpec.IntValue MACRO_LABOR_RADIUS;
-    private static final ForgeConfigSpec.IntValue MACRO_JOBS_PER_LEVEL;
     private static final ForgeConfigSpec.LongValue MACRO_DEFAULT_WAGE;
     private static final ForgeConfigSpec.LongValue MACRO_BASE_RESERVATION_WAGE;
     private static final ForgeConfigSpec.BooleanValue MACRO_WORLD_FEEDBACK;
@@ -523,7 +500,6 @@ public final class FinanceConfig {
     private static final ForgeConfigSpec.BooleanValue PLAYER_DRIVEN_COMPANY_PRODUCTION;
     private static final ForgeConfigSpec.BooleanValue ALLOW_LEGACY_AUTOMATIC_COMPANY_PRODUCTION;
     private static final ForgeConfigSpec.BooleanValue NEW_COMPANIES_PLAYER_DRIVEN_ONLY;
-    private static final ForgeConfigSpec.DoubleValue HYBRID_LEGACY_FALLBACK_RATIO;
     private static final ForgeConfigSpec.BooleanValue ADVANCED_FINANCE_REQUIRES_TERMINAL;
     private static final ForgeConfigSpec.BooleanValue ADMIN_CONSOLE_REQUIRES_PERMISSION;
     private static final ForgeConfigSpec.DoubleValue TERMINAL_INTERACTION_DISTANCE;
@@ -531,7 +507,6 @@ public final class FinanceConfig {
     private static final ForgeConfigSpec.IntValue[] WAREHOUSE_CAPACITIES = new ForgeConfigSpec.IntValue[3];
     private static final ForgeConfigSpec.IntValue[] WAREHOUSE_TRANSFER_LIMITS = new ForgeConfigSpec.IntValue[3];
     private static final ForgeConfigSpec.IntValue[] FACTORY_THROUGHPUT = new ForgeConfigSpec.IntValue[3];
-    private static final ForgeConfigSpec.IntValue[] FACTORY_MAINTENANCE_BPS = new ForgeConfigSpec.IntValue[3];
     private static final ForgeConfigSpec.IntValue LOGISTICS_MAX_ACTIVE_PLAYER;
     private static final ForgeConfigSpec.IntValue LOGISTICS_MAX_ACTIVE_COMPANY;
     private static final ForgeConfigSpec.IntValue LOGISTICS_MAX_CARGO_UNITS;
@@ -584,8 +559,6 @@ public final class FinanceConfig {
                 .define("allowLegacyAutomaticCompanyProduction", ALLOW_LEGACY_AUTOMATIC_COMPANY_PRODUCTION_VALUE);
         NEW_COMPANIES_PLAYER_DRIVEN_ONLY = builder.comment("新公司是否直接使用纯玩家驱动模式；关闭时默认使用带低效兜底的 HYBRID。")
                 .define("newCompaniesPlayerDrivenOnly", NEW_COMPANIES_PLAYER_DRIVEN_ONLY_VALUE);
-        HYBRID_LEGACY_FALLBACK_RATIO = builder.comment("HYBRID 公司当天没有设施成功生产时的旧式兜底产量比例。")
-                .defineInRange("hybridLegacyFallbackRatio", HYBRID_LEGACY_FALLBACK_RATIO_VALUE, 0.0D, 1.0D);
         ADVANCED_FINANCE_REQUIRES_TERMINAL = builder.comment("股票、债券、基金、期货等高级金融界面是否要求证券终端。")
                 .define("advancedFinanceRequiresTerminal", ADVANCED_FINANCE_REQUIRES_TERMINAL_VALUE);
         ADMIN_CONSOLE_REQUIRES_PERMISSION = builder.comment("央行控制台是否要求服务端 2 级管理员权限。")
@@ -603,14 +576,8 @@ public final class FinanceConfig {
             WAREHOUSE_TRANSFER_LIMITS[index] = builder.comment("仓库等级 " + tier + " 的单次存取上限。")
                     .defineInRange(
                             "warehouseTier" + tier + "TransferLimit", WAREHOUSE_TRANSFER_VALUES[index], 1, 1_000_000);
-            FACTORY_THROUGHPUT[index] = builder.comment("工厂等级 " + tier + " 的生产批次倍率。")
+            FACTORY_THROUGHPUT[index] = builder.comment("机器 " + tier + " 档满员时的速度倍率（1 = 每 tick 推进一步）。")
                     .defineInRange("factoryTier" + tier + "Throughput", FACTORY_THROUGHPUT_VALUES[index], 1, 16);
-            FACTORY_MAINTENANCE_BPS[index] = builder.comment("工厂等级 " + tier + " 的维护费倍率，10000 表示 100%。")
-                    .defineInRange(
-                            "factoryTier" + tier + "MaintenanceBasisPoints",
-                            FACTORY_MAINTENANCE_BPS_VALUES[index],
-                            1_000,
-                            20_000);
         }
         builder.pop();
         builder.push("logistics");
@@ -1145,9 +1112,7 @@ public final class FinanceConfig {
         MACRO_PRICE_STEP_BPS =
                 builder.comment("本地价格系数每天最多变化的基点。").defineInRange("priceStepBps", MACRO_PRICE_STEP_BPS_VALUE, 1, 10000);
         MACRO_LABOR_RADIUS =
-                builder.comment("设施从多远（格）以内的聚落招工。").defineInRange("laborRadius", MACRO_LABOR_RADIUS_VALUE, 16, 4096);
-        MACRO_JOBS_PER_LEVEL =
-                builder.comment("设施每级提供的岗位数。").defineInRange("jobsPerLevel", MACRO_JOBS_PER_LEVEL_VALUE, 1, 1000);
+                builder.comment("机器从多远（格）以内的聚落招工。").defineInRange("laborRadius", MACRO_LABOR_RADIUS_VALUE, 16, 4096);
         MACRO_DEFAULT_WAGE = builder.comment("公司未设定工资时的默认日工资（每人每天）。")
                 .defineInRange("defaultWage", MACRO_DEFAULT_WAGE_VALUE, 0L, 1000000L);
         MACRO_BASE_RESERVATION_WAGE = builder.comment("工人接受工作的最低日工资（劳工法可抬高）。")
@@ -1164,27 +1129,6 @@ public final class FinanceConfig {
                 .defineInRange("radarCost", MACRO_RADAR_COST_VALUE, 0L, 100000000L);
         MACRO_RADAR_COOLDOWN_DAYS = builder.comment("同一玩家两次商情调查的最短间隔（MC 天）。")
                 .defineInRange("radarCooldownDays", MACRO_RADAR_COOLDOWN_DAYS_VALUE, 0, 365);
-        builder.pop();
-
-        builder.push("companyFacilities");
-        FACILITY_ZONE_RADIUS = builder.comment("厂区水平半径：4 表示以控制器为中心 9×9。")
-                .defineInRange("zoneRadius", FACILITY_ZONE_RADIUS_VALUE, 1, 8);
-        FACILITY_ZONE_BELOW =
-                builder.comment("厂区向控制器下方延伸的格数。").defineInRange("zoneBelow", FACILITY_ZONE_BELOW_VALUE, 0, 8);
-        FACILITY_ZONE_ABOVE =
-                builder.comment("厂区向控制器上方延伸的格数。").defineInRange("zoneAbove", FACILITY_ZONE_ABOVE_VALUE, 0, 8);
-        FACILITY_MAX_EQUIPMENT_PER_TYPE = builder.comment("每种设备最多计数的台数，堆再多也只算这么多。")
-                .defineInRange("maxEquipmentPerType", FACILITY_MAX_EQUIPMENT_PER_TYPE_VALUE, 1, 64);
-        FACILITY_JOBS_CAP_PER_LEVEL = builder.comment("设施岗位上限 = 等级 × 该值（默认 20/40/60）。")
-                .defineInRange("jobsCapPerLevel", FACILITY_JOBS_CAP_PER_LEVEL_VALUE, 1, 1000);
-        FACILITY_RETOOL_DAYS =
-                builder.comment("切换生产方式后的改造期天数。").defineInRange("retoolDays", FACILITY_RETOOL_DAYS_VALUE, 0, 30);
-        FACILITY_RETOOL_OUTPUT_PERCENT = builder.comment("改造期内的产量百分比（投入同比例缩放）。")
-                .defineInRange("retoolOutputPercent", FACILITY_RETOOL_OUTPUT_PERCENT_VALUE, 0, 100);
-        FACILITY_PROVISIONAL_DAYS = builder.comment("老存档设施的“临时作坊”天数：期间按手工档满产，岗位沿用旧规则。")
-                .defineInRange("provisionalDays", FACILITY_PROVISIONAL_DAYS_VALUE, 0, 365);
-        FACILITY_SCAN_STALE_DAYS = builder.comment("区块未加载时沿用最近一次扫描结果的最长天数，超过按缺少设备处理。")
-                .defineInRange("scanStaleDays", FACILITY_SCAN_STALE_DAYS_VALUE, 0, 365);
         builder.pop();
 
         builder.push("rivals");
@@ -1337,10 +1281,6 @@ public final class FinanceConfig {
         return getBoolean(NEW_COMPANIES_PLAYER_DRIVEN_ONLY, NEW_COMPANIES_PLAYER_DRIVEN_ONLY_VALUE);
     }
 
-    public static double hybridLegacyFallbackRatio() {
-        return getDouble(HYBRID_LEGACY_FALLBACK_RATIO, HYBRID_LEGACY_FALLBACK_RATIO_VALUE);
-    }
-
     public static boolean advancedFinanceRequiresTerminal() {
         return getBoolean(ADVANCED_FINANCE_REQUIRES_TERMINAL, ADVANCED_FINANCE_REQUIRES_TERMINAL_VALUE);
     }
@@ -1373,11 +1313,6 @@ public final class FinanceConfig {
     public static int factoryThroughput(int tier) {
         int index = Math.max(0, Math.min(2, tier - 1));
         return getInt(FACTORY_THROUGHPUT[index], FACTORY_THROUGHPUT_VALUES[index]);
-    }
-
-    public static int factoryMaintenanceBasisPoints(int tier) {
-        int index = Math.max(0, Math.min(2, tier - 1));
-        return getInt(FACTORY_MAINTENANCE_BPS[index], FACTORY_MAINTENANCE_BPS_VALUES[index]);
     }
 
     public static int logisticsMaxActivePerPlayer() {
@@ -1642,43 +1577,6 @@ public final class FinanceConfig {
         return getInt(NPC_MAX_FLOAT_PERCENT_PER_DAY, NPC_MAX_FLOAT_PERCENT_PER_DAY_VALUE);
     }
 
-    // ---- 公司厂房与生产方式 ----
-    public static int facilityZoneRadius() {
-        return getInt(FACILITY_ZONE_RADIUS, FACILITY_ZONE_RADIUS_VALUE);
-    }
-
-    public static int facilityZoneBelow() {
-        return getInt(FACILITY_ZONE_BELOW, FACILITY_ZONE_BELOW_VALUE);
-    }
-
-    public static int facilityZoneAbove() {
-        return getInt(FACILITY_ZONE_ABOVE, FACILITY_ZONE_ABOVE_VALUE);
-    }
-
-    public static int facilityMaxEquipmentPerType() {
-        return getInt(FACILITY_MAX_EQUIPMENT_PER_TYPE, FACILITY_MAX_EQUIPMENT_PER_TYPE_VALUE);
-    }
-
-    public static int facilityJobsCapPerLevel() {
-        return getInt(FACILITY_JOBS_CAP_PER_LEVEL, FACILITY_JOBS_CAP_PER_LEVEL_VALUE);
-    }
-
-    public static int facilityRetoolDays() {
-        return getInt(FACILITY_RETOOL_DAYS, FACILITY_RETOOL_DAYS_VALUE);
-    }
-
-    public static int facilityRetoolOutputPercent() {
-        return getInt(FACILITY_RETOOL_OUTPUT_PERCENT, FACILITY_RETOOL_OUTPUT_PERCENT_VALUE);
-    }
-
-    public static int facilityProvisionalDays() {
-        return getInt(FACILITY_PROVISIONAL_DAYS, FACILITY_PROVISIONAL_DAYS_VALUE);
-    }
-
-    public static int facilityScanStaleDays() {
-        return getInt(FACILITY_SCAN_STALE_DAYS, FACILITY_SCAN_STALE_DAYS_VALUE);
-    }
-
     // ---- 单人经济：NPC 竞争公司 ----
     public static boolean rivalsEnabled() {
         return getBoolean(RIVALS_ENABLED, RIVALS_ENABLED_VALUE);
@@ -1930,10 +1828,6 @@ public final class FinanceConfig {
 
     public static int macroLaborRadius() {
         return getInt(MACRO_LABOR_RADIUS, MACRO_LABOR_RADIUS_VALUE);
-    }
-
-    public static int macroJobsPerLevel() {
-        return getInt(MACRO_JOBS_PER_LEVEL, MACRO_JOBS_PER_LEVEL_VALUE);
     }
 
     public static long macroDefaultWage() {

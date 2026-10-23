@@ -9,7 +9,6 @@ contractsEnabled = true
 playerDrivenCompanyProduction = true
 allowLegacyAutomaticCompanyProduction = true
 newCompaniesPlayerDrivenOnly = false
-hybridLegacyFallbackRatio = 0.25
 advancedFinanceRequiresTerminal = true
 adminConsoleRequiresPermission = true
 terminalInteractionDistance = 8.0

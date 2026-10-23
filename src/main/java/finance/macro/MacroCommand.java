@@ -149,19 +149,24 @@ public final class MacroCommand {
         List<String> lines = new ArrayList<>();
         lines.add("====== " + company.getName() + " 雇工 ======");
         lines.add("日工资 " + MacroLaborService.wageOf(company.getCompanyId()) + "（保留工资 "
-                + MacroLaborService.reservationWage() + "）" + (MacroLaborService.active() ? "" : "  §e雇工未启用，设施按满员生产"));
+                + MacroLaborService.reservationWage() + "）"
+                + (MacroLaborService.active() ? "" : "  §e雇工未启用，机器按满员速度运转"));
         for (CompanyFacilityRecord f : CompanyFacilityManager.forCompany(company.getCompanyId())) {
             var src = SettlementManager.get(MacroEconomyManager.laborSource(f.facilityId()));
             lines.add(String.format(
                     Locale.ROOT,
-                    "设施 %s  等级 %d  在岗 %d/%d  产量 %s  劳动力来源 %s  状态 %s",
+                    "%s %s  %d 档  在岗 %d/%d  速度 %s  劳动力来源 %s  状态 %s  @ %s",
+                    machineName(f.type()),
                     f.facilityId().toString().substring(0, 8),
                     f.productionLevel(),
                     MacroEconomyManager.employment(f.facilityId()),
                     MacroLaborService.jobs(f),
-                    pct(MacroLaborService.staffingBps(f)),
+                    pct(finance.block.entity.CompanyMachineBlockEntity.speedBps(
+                            finance.config.FinanceConfig.factoryThroughput(f.productionLevel()),
+                            MacroLaborService.staffingBps(f))),
                     src == null ? "无（附近没有聚落）" : src.displayName(),
-                    f.status()));
+                    f.status(),
+                    f.blockPos().toShortString()));
         }
         send(source, lines);
         return 1;
@@ -291,6 +296,16 @@ public final class MacroCommand {
             }
         }
         return found;
+    }
+
+    static String machineName(finance.gameplay.company.CompanyFacilityType type) {
+        return switch (type) {
+            case PROCESSOR -> "加工机";
+            case FARM -> "农场机";
+            case LUMBER -> "伐木机";
+            case MINE -> "采矿机";
+            case SHEAR -> "剪毛机";
+        };
     }
 
     static String pct(int bps) {
