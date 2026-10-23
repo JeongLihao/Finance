@@ -3,6 +3,7 @@ package finance.data.serializer;
 import finance.company.Company;
 import finance.company.CompanyManager;
 import finance.gameplay.company.*;
+import finance.util.Uuids;
 import finance.warehouse.WarehouseManager;
 import finance.warehouse.WarehouseRecord;
 import java.util.UUID;
@@ -117,13 +118,11 @@ public final class CompanyGameplayDataSerializer {
                                 player, role, invitedBy, in.getLong("Created"), in.getLong("Expires")));
                 }
                 ListTag warehouses = tag.getList("Warehouses", Tag.TAG_STRING);
-                for (int i = 0; i < Math.min(CompanyGameplayProfile.MAX_WAREHOUSES, warehouses.size()); i++)
-                    try {
-                        UUID id = UUID.fromString(warehouses.getString(i));
-                        WarehouseRecord record = WarehouseManager.get(id);
-                        if (record != null && companyId.equals(record.companyId())) profile.bindWarehouse(id);
-                    } catch (IllegalArgumentException ignored) {
-                    }
+                for (int i = 0; i < Math.min(CompanyGameplayProfile.MAX_WAREHOUSES, warehouses.size()); i++) {
+                    UUID id = Uuids.parseOrNull(warehouses.getString(i));
+                    WarehouseRecord record = id == null ? null : WarehouseManager.get(id);
+                    if (record != null && companyId.equals(record.companyId())) profile.bindWarehouse(id);
+                }
                 ListTag desks = tag.getList("Desks", Tag.TAG_STRING);
                 for (int i = 0; i < Math.min(CompanyGameplayProfile.MAX_DESKS, desks.size()); i++)
                     profile.addDesk(desks.getString(i));

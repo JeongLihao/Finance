@@ -175,20 +175,20 @@ final class CompanyGovernancePanel {
             }
             String target = screen.companyNameBox.getValue().trim();
             if (mx >= 166 && mx < 214) {
-                try {
-                    UUID targetCompany = UUID.fromString(target);
-                    FinancePacketHandler.CHANNEL.sendToServer(new GovernanceActionPacket(
-                            GovernanceActionPacket.Action.START_TENDER,
-                            targetCompany,
-                            price.getAsLong(),
-                            quantity.getAsLong(),
-                            quantity.getAsLong(),
-                            duration.getAsInt(),
-                            UUID.randomUUID().toString()));
-                    screen.setStatus("已提交公开收购要约");
-                } catch (IllegalArgumentException invalid) {
+                UUID targetCompany = ScreenInput.parseUuid(target);
+                if (targetCompany == null) {
                     screen.setStatus("请输入目标公司的完整 UUID");
+                    return true;
                 }
+                FinancePacketHandler.CHANNEL.sendToServer(new GovernanceActionPacket(
+                        GovernanceActionPacket.Action.START_TENDER,
+                        targetCompany,
+                        price.getAsLong(),
+                        quantity.getAsLong(),
+                        quantity.getAsLong(),
+                        duration.getAsInt(),
+                        UUID.randomUUID().toString()));
+                screen.setStatus("已提交公开收购要约");
                 return true;
             }
             if (mx >= 218 && mx < 266) {

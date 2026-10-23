@@ -5,6 +5,7 @@ import finance.company.*;
 import finance.data.EconomySavedData;
 import finance.stock.*;
 import finance.util.ProportionalAllocator;
+import finance.util.Uuids;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
@@ -612,13 +613,9 @@ public final class CorporateActionManager {
 
     private static CompanyProposal approvedProposal(String key, CompanyProposalType type, UUID companyId) {
         if (key == null || !key.startsWith("proposal-")) return null;
-        try {
-            CompanyProposal p =
-                    CompanyProposalManager.getProposal(UUID.fromString(key.substring("proposal-".length())));
-            return p != null && p.isExecutableAuthorization(type, companyId) ? p : null;
-        } catch (IllegalArgumentException ignored) {
-            return null;
-        }
+        UUID proposalId = Uuids.parseOrNull(key.substring("proposal-".length()));
+        CompanyProposal p = proposalId == null ? null : CompanyProposalManager.getProposal(proposalId);
+        return p != null && p.isExecutableAuthorization(type, companyId) ? p : null;
     }
 
     private static boolean ensureCapacity(Map<UUID, ?> actions) {

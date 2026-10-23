@@ -9,6 +9,7 @@ import finance.governance.ShareholderRegistryService;
 import finance.stock.Stock;
 import finance.stock.StockMarketManager;
 import finance.stock.StockPortfolioManager;
+import finance.util.Uuids;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -283,12 +284,7 @@ public final class CompanyProposalManager {
                 || quantity > Integer.MAX_VALUE) return false;
         String[] parts = textValue.split("\\|", 2);
         if (parts.length != 2 || parts[1].isBlank() || parts[1].length() > 64) return false;
-        try {
-            UUID.fromString(parts[0]);
-            return true;
-        } catch (IllegalArgumentException ignored) {
-            return false;
-        }
+        return Uuids.parseOrNull(parts[0]) != null;
     }
 
     public static boolean markExecuted(UUID proposalId, String result) {

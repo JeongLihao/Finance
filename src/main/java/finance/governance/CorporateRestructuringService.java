@@ -9,6 +9,7 @@ import finance.company.CompanyProposal;
 import finance.company.CompanyProposalManager;
 import finance.company.CompanyProposalType;
 import finance.data.EconomySavedData;
+import finance.util.Uuids;
 import java.util.UUID;
 
 /** Transactional execution layer used after governance approval. */
@@ -26,17 +27,14 @@ public final class CorporateRestructuringService {
         String text = proposal.getTextValue();
         int separator = text == null ? -1 : text.indexOf('|');
         if (separator <= 0) return false;
-        try {
-            UUID sellerId = UUID.fromString(text.substring(0, separator));
-            Company buyer = CompanyManager.getCompany(proposal.getCompanyId()),
-                    seller = CompanyManager.getCompany(sellerId);
-            return buyer != null
-                    && seller != null
-                    && buyer != seller
-                    && GovernanceAuthorizationService.mayManage(actor, sellerId);
-        } catch (IllegalArgumentException ignored) {
-            return false;
-        }
+        UUID sellerId = Uuids.parseOrNull(text.substring(0, separator));
+        if (sellerId == null) return false;
+        Company buyer = CompanyManager.getCompany(proposal.getCompanyId()),
+                seller = CompanyManager.getCompany(sellerId);
+        return buyer != null
+                && seller != null
+                && buyer != seller
+                && GovernanceAuthorizationService.mayManage(actor, sellerId);
     }
 
     public static synchronized CorporateActionManager.Result emergencyContribution(
@@ -94,12 +92,7 @@ public final class CorporateRestructuringService {
         String[] asset = proposal == null || proposal.getTextValue() == null
                 ? new String[0]
                 : proposal.getTextValue().split("\\|", 2);
-        UUID sellerCompanyId;
-        try {
-            sellerCompanyId = asset.length == 2 ? UUID.fromString(asset[0]) : null;
-        } catch (IllegalArgumentException ignored) {
-            sellerCompanyId = null;
-        }
+        UUID sellerCompanyId = asset.length == 2 ? Uuids.parseOrNull(asset[0]) : null;
         String commodityId = asset.length == 2 ? asset[1] : "";
         long quantityLong = proposal == null ? 0 : proposal.getValue2();
         int quantity = quantityLong > Integer.MAX_VALUE ? -1 : (int) quantityLong;

@@ -15,6 +15,7 @@ import finance.market.NpcMarketMaker;
 import finance.market.Order;
 import finance.market.OrderType;
 import finance.market.Trade;
+import finance.util.Uuids;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.Map;
@@ -208,10 +209,8 @@ public final class MarketDataSerializer {
             long inventory = itemTag.getLong("Inventory");
             if (market == MarketMakerLedger.SubMarket.FUTURES) {
                 // 期货净持仓有符号（可为负），走专用恢复路径；stock 沿用原逻辑
-                try {
-                    MarketMakerLedger.restoreFuturesNetPosition(UUID.fromString(symbol), inventory);
-                } catch (IllegalArgumentException ignored) {
-                }
+                UUID contractId = Uuids.parseOrNull(symbol);
+                if (contractId != null) MarketMakerLedger.restoreFuturesNetPosition(contractId, inventory);
             } else {
                 MarketMakerLedger.restoreInventory(market, symbol, inventory);
             }

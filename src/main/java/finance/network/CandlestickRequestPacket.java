@@ -53,19 +53,12 @@ public record CandlestickRequestPacket(long requestId, MarketInstrumentType type
                 valid = NetworkValidation.isValidCommodityId(normalized)
                         && CommodityRegistry.getCommodity(normalized) != null;
             else if (packet.type == MarketInstrumentType.FUTURES) {
-                try {
-                    valid = finance.futures.FuturesMarketManager.contract(java.util.UUID.fromString(normalized))
-                            != null;
-                } catch (IllegalArgumentException ex) {
-                    valid = false;
-                }
+                java.util.UUID contractId = finance.util.Uuids.parseOrNull(normalized);
+                valid = contractId != null && finance.futures.FuturesMarketManager.contract(contractId) != null;
             } else if (packet.type == MarketInstrumentType.BOND) {
-                try {
-                    valid = finance.debt.CorporateBondManager.bonds()
-                            .containsKey(java.util.UUID.fromString(normalized));
-                } catch (IllegalArgumentException ex) {
-                    valid = false;
-                }
+                java.util.UUID bondId = finance.util.Uuids.parseOrNull(normalized);
+                valid = bondId != null
+                        && finance.debt.CorporateBondManager.bonds().containsKey(bondId);
             } else valid = false;
             if (!valid) return;
             String requestKey = packet.type.name() + ":" + normalized + ":" + packet.limit;
