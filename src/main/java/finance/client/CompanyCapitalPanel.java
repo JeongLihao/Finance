@@ -51,6 +51,8 @@ final class CompanyCapitalPanel {
         int end = Math.min(menu().projects().size(), projectOffset + 9);
         for (int i = projectOffset; i < end; i++) {
             CompanyGameplayMenu.ProjectRow row = menu().projects().get(i);
+            int projectIndex = i;
+            screen.clicks.add(8, y - 2, 304, 12, () -> selectedProject = projectIndex);
             if (i == selectedProject) graphics.fill(8, y - 2, 312, y + 10, 0xFFD5E3C7);
             String line = row.type() + " L" + row.targetLevel() + "  " + row.funded() + "/" + row.budget() + "  "
                     + row.fundingSource() + "  " + row.status();
@@ -102,6 +104,7 @@ final class CompanyCapitalPanel {
     }
 
     private void capitalButton(GuiGraphics graphics, int x, int y, int width, String key) {
+        screen.clicks.add(x, y, width, 16, () -> act(key));
         boolean enabled = !screen.pending() && canCapital(key);
         graphics.fill(x, y, x + width, y + 16, enabled ? 0xFFD0CAB8 : 0xFFAAA69A);
         String effectiveKey = "fund".equals(key) && selectedProjectFailed() ? "recover" : key;
@@ -152,39 +155,18 @@ final class CompanyCapitalPanel {
                         .equals(menu().projects().get(selectedProject).status());
     }
 
-    boolean click(int mx, int my) {
-        if (mx >= 8
-                && mx < 312
-                && my >= 54
-                && my < 54 + Math.min(9, Math.max(0, menu().projects().size() - projectOffset)) * 12) {
-            selectedProject = Math.min(menu().projects().size() - 1, projectOffset + Math.max(0, (my - 54) / 12));
-            return true;
-        }
-        if (my < 204 || my >= 238 || mx < 10 || mx >= 310)
-            return screen.superMouseClicked(screen.getGuiLeft() + mx, screen.getGuiTop() + my, 0);
-        int column = (mx - 10) / 76;
-        if (column < 0 || column > 3) return true;
-        String key = my < 220
-                ? switch (column) {
-                    case 0 -> "create_warehouse";
-                    case 1 -> "create_factory";
-                    case 2 -> "source";
-                    default -> "authorize";
-                }
-                : switch (column) {
-                    case 0 -> "fund";
-                    case 1 -> "execute";
-                    case 2 -> "cancel";
-                    default -> "advanced";
-                };
-        if (!canCapital(key)) return true;
+    private void act(String key) {
+        if (!canCapital(key)) return;
         if ("source".equals(key)) {
             CapitalFundingSource[] values = CapitalFundingSource.values();
             capitalFundingSource = values[(capitalFundingSource.ordinal() + 1) % values.length];
-            return true;
+            return;
         }
-        if ("advanced".equals(key)) return screen.send(CompanyGameplayActionPacket.Action.OPEN_ADVANCED);
-        return sendCapital(key);
+        if ("advanced".equals(key)) {
+            screen.send(CompanyGameplayActionPacket.Action.OPEN_ADVANCED);
+            return;
+        }
+        sendCapital(key);
     }
 
     private boolean sendCapital(String key) {

@@ -8,6 +8,7 @@ import finance.network.ContractActionPacket;
 import finance.network.FinancePacketHandler;
 import finance.network.WarehouseActionPacket;
 import java.util.UUID;
+import java.util.function.IntConsumer;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
@@ -27,6 +28,9 @@ public final class WarehouseScreen extends AbstractContainerScreen<WarehouseMenu
     private int shipmentOffset;
     private boolean showShipments;
     private boolean pending;
+    /** 画的时候登记的点击区域（面板内坐标）。 */
+    private final ClickRegions clicks = new ClickRegions();
+
     private int pendingTicks;
     /** 客户端预校验失败的提示（已翻译），优先于服务端状态显示。 */
     private String localStatus = "";
@@ -64,6 +68,7 @@ public final class WarehouseScreen extends AbstractContainerScreen<WarehouseMenu
 
     @Override
     protected void renderLabels(GuiGraphics graphics, int mouseX, int mouseY) {
+        clicks.clear();
         drawClipped(graphics, title.getString(), 10, 9, 300, 0xFF202020);
         drawClipped(
                 graphics,
@@ -90,6 +95,8 @@ public final class WarehouseScreen extends AbstractContainerScreen<WarehouseMenu
         int end = Math.min(menu.rows().size(), rowOffset + COMMODITY_ROWS);
         for (int i = rowOffset; i < end; i++) {
             WarehouseMenu.CommodityRow row = menu.rows().get(i);
+            int index = i;
+            clicks.add(8, y - 2, 304, 12, () -> selected = index);
             if (i == selected) graphics.fill(8, y - 2, 312, y + 10, 0xFFD5E3C7);
             String text = row.name() + "  仓库 " + row.custodyAmount()
                     + (row.pledgedAmount() > 0 ? "（押 " + row.pledgedAmount() + "）" : "")
@@ -99,6 +106,8 @@ public final class WarehouseScreen extends AbstractContainerScreen<WarehouseMenu
             y += 12;
         }
 
+        // 点标题行切换“合同 / 在途货物”
+        clicks.add(8, 121, 304, 15, () -> showShipments = !showShipments);
         drawClipped(
                 graphics,
                 Component.translatable(
@@ -123,6 +132,8 @@ public final class WarehouseScreen extends AbstractContainerScreen<WarehouseMenu
             int contractEnd = Math.min(menu.contracts().size(), contractOffset + CONTRACT_ROWS);
             for (int i = contractOffset; i < contractEnd; i++) {
                 WarehouseMenu.ContractRow row = menu.contracts().get(i);
+                int index = i;
+                clicks.add(8, contractY - 2, 304, 12, () -> selectedContract = index);
                 if (i == selectedContract) graphics.fill(8, contractY - 2, 312, contractY + 10, 0xFFD5E3C7);
                 String line = FinanceFormat.commodityDisplayName(row.commodityId()) + " x" + row.quantity() + "  奖励 "
                         + row.reward() + "  第" + row.deadlineDay() + "天前  " + FinanceFormat.label(row.status());
@@ -180,8 +191,20 @@ public final class WarehouseScreen extends AbstractContainerScreen<WarehouseMenu
                 206,
                 38,
                 0xFF555555);
-        drawButton(graphics, 112, 202, 54, Component.translatable("screen.finance.warehouse.deposit"));
-        drawButton(graphics, 170, 202, 54, Component.translatable("screen.finance.warehouse.withdraw"));
+        drawButton(
+                graphics,
+                112,
+                202,
+                54,
+                Component.translatable("screen.finance.warehouse.deposit"),
+                b -> transfer(WarehouseActionPacket.Action.DEPOSIT));
+        drawButton(
+                graphics,
+                170,
+                202,
+                54,
+                Component.translatable("screen.finance.warehouse.withdraw"),
+                b -> transfer(WarehouseActionPacket.Action.WITHDRAW));
         drawButton(
                 graphics,
                 228,
@@ -192,14 +215,41 @@ public final class WarehouseScreen extends AbstractContainerScreen<WarehouseMenu
                                 ? menu.capitalProjectId() == null
                                         ? "screen.finance.warehouse.capital_create"
                                         : "screen.finance.warehouse.capital_execute"
-                                : "screen.finance.warehouse.upgrade"));
-        drawButton(graphics, 10, 221, 66, Component.translatable("screen.finance.warehouse.bind_company"));
-        drawButton(graphics, 80, 221, 66, Component.translatable("screen.finance.warehouse.unbind_company"));
-        drawButton(graphics, 170, 221, 54, Component.translatable("screen.finance.contract.accept"));
-        drawButton(graphics, 228, 221, 82, Component.translatable("screen.finance.contract.complete"));
+                                : "screen.finance.warehouse.upgrade"),
+                this::upgrade);
+        drawButton(
+                graphics,
+                10,
+                221,
+                66,
+                Component.translatable("screen.finance.warehouse.bind_company"),
+                b -> bind(WarehouseActionPacket.Action.BIND_COMPANY));
+        drawButton(
+                graphics,
+                80,
+                221,
+                66,
+                Component.translatable("screen.finance.warehouse.unbind_company"),
+                b -> bind(WarehouseActionPacket.Action.UNBIND_COMPANY));
+        drawButton(
+                graphics,
+                170,
+                221,
+                54,
+                Component.translatable("screen.finance.contract.accept"),
+                b -> contract(ContractActionPacket.Action.ACCEPT));
+        drawButton(
+                graphics,
+                228,
+                221,
+                82,
+                Component.translatable("screen.finance.contract.complete"),
+                b -> contract(ContractActionPacket.Action.COMPLETE));
     }
 
-    private void drawButton(GuiGraphics graphics, int x, int y, int width, Component text) {
+    /** 画按钮并登记点击（参数是鼠标键）。 */
+    private void drawButton(GuiGraphics graphics, int x, int y, int width, Component text, IntConsumer action) {
+        clicks.addWithButton(x, y, width, 16, action);
         graphics.fill(x, y, x + width, y + 16, pending ? 0xFFAAA69A : 0xFFD0CAB8);
         String clipped = clip(text.getString(), width - 6);
         graphics.drawString(
@@ -222,112 +272,76 @@ public final class WarehouseScreen extends AbstractContainerScreen<WarehouseMenu
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (pending) return true;
-        int mx = (int) mouseX - leftPos;
-        int my = (int) mouseY - topPos;
-        if (mx >= 8
-                && mx < 312
-                && my >= 57
-                && my < 57 + Math.min(COMMODITY_ROWS, Math.max(0, menu.rows().size() - rowOffset)) * 12) {
-            selected = Math.min(menu.rows().size() - 1, rowOffset + Math.max(0, (my - 57) / 12));
-            return true;
-        }
-        if (mx >= 8 && mx < 312 && my >= 121 && my < 136) {
-            showShipments = !showShipments;
-            return true;
-        }
-        if (!showShipments
-                && mx >= 8
-                && mx < 312
-                && my >= 137
-                && my
-                        < 137
-                                + Math.min(
-                                                CONTRACT_ROWS,
-                                                Math.max(0, menu.contracts().size() - contractOffset))
-                                        * 12) {
-            selectedContract = Math.min(menu.contracts().size() - 1, contractOffset + Math.max(0, (my - 137) / 12));
-            return true;
-        }
-        if (my >= 202 && my < 218 && mx >= 228 && mx < 310) {
-            if (menu.companyBound()) {
-                if (button == 1 && menu.capitalProjectId() == null) {
-                    CapitalFundingSource[] values = CapitalFundingSource.values();
-                    capitalFundingSource = values[(capitalFundingSource.ordinal() + 1) % values.length];
-                    return true;
-                }
-                CapitalProjectActionPacket.Action action = menu.capitalProjectId() == null
-                        ? CapitalProjectActionPacket.Action.CREATE
-                        : CapitalProjectActionPacket.Action.EXECUTE;
-                FinancePacketHandler.CHANNEL.sendToServer(new CapitalProjectActionPacket(
-                        action,
-                        menu.capitalProjectId(),
-                        menu.warehouseId(),
-                        null,
-                        null,
-                        menu.capitalProjectId() == null ? WorldCapitalProjectType.WAREHOUSE_UPGRADE : null,
-                        capitalFundingSource,
-                        UUID.randomUUID().toString()));
-            } else {
-                FinancePacketHandler.CHANNEL.sendToServer(new WarehouseActionPacket(
-                        WarehouseActionPacket.Action.UPGRADE,
-                        menu.warehouseId(),
-                        "upgrade",
-                        0,
-                        UUID.randomUUID().toString()));
-            }
-            markPending();
-            return true;
-        }
-        if (my >= 202 && my < 218 && selected >= 0 && selected < menu.rows().size()) {
-            WarehouseActionPacket.Action action = mx >= 112 && mx < 166
-                    ? WarehouseActionPacket.Action.DEPOSIT
-                    : mx >= 170 && mx < 224 ? WarehouseActionPacket.Action.WITHDRAW : null;
-            if (action != null) {
-                // 服务端只接受 1..MAX_TRANSFER_AMOUNT，越界的包会被当作非法包断开连接
-                int requested = ScreenInput.parsePositive(amount.getValue(), WarehouseActionPacket.MAX_TRANSFER_AMOUNT);
-                if (requested < 0) {
-                    localStatus = Component.translatable(
-                                    "screen.finance.input.invalid_amount", WarehouseActionPacket.MAX_TRANSFER_AMOUNT)
-                            .getString();
-                    return true;
-                }
-                FinancePacketHandler.CHANNEL.sendToServer(new WarehouseActionPacket(
-                        action,
-                        menu.warehouseId(),
-                        menu.rows().get(selected).id(),
-                        requested,
-                        UUID.randomUUID().toString()));
-                markPending();
-                return true;
-            }
-        }
-        if (!showShipments
-                && my >= 221
-                && my < 237
-                && selectedContract >= 0
-                && selectedContract < menu.contracts().size()) {
-            ContractActionPacket.Action action = mx >= 170 && mx < 224
-                    ? ContractActionPacket.Action.ACCEPT
-                    : mx >= 228 && mx < 310 ? ContractActionPacket.Action.COMPLETE : null;
-            if (action != null) {
-                FinancePacketHandler.CHANNEL.sendToServer(new ContractActionPacket(
-                        action,
-                        menu.contracts().get(selectedContract).id(),
-                        menu.warehouseId(),
-                        UUID.randomUUID().toString()));
-                markPending();
-                return true;
-            }
-        }
-        if (my >= 221 && my < 237 && (mx >= 10 && mx < 76 || mx >= 80 && mx < 146)) {
-            WarehouseActionPacket.Action action =
-                    mx < 76 ? WarehouseActionPacket.Action.BIND_COMPANY : WarehouseActionPacket.Action.UNBIND_COMPANY;
-            FinancePacketHandler.CHANNEL.sendToServer(new WarehouseActionPacket(
-                    action, menu.warehouseId(), "company", 1, UUID.randomUUID().toString()));
-            markPending();
-            return true;
-        }
+        if (clicks.click((int) mouseX - leftPos, (int) mouseY - topPos, button)) return true;
         return super.mouseClicked(mouseX, mouseY, button);
+    }
+
+    /** 升级按钮：绑定公司后右键切换资金来源，左键发起或施工实体项目；未绑定时直接升级。 */
+    private void upgrade(int button) {
+        if (menu.companyBound()) {
+            if (button == 1 && menu.capitalProjectId() == null) {
+                CapitalFundingSource[] values = CapitalFundingSource.values();
+                capitalFundingSource = values[(capitalFundingSource.ordinal() + 1) % values.length];
+                return;
+            }
+            CapitalProjectActionPacket.Action action = menu.capitalProjectId() == null
+                    ? CapitalProjectActionPacket.Action.CREATE
+                    : CapitalProjectActionPacket.Action.EXECUTE;
+            FinancePacketHandler.CHANNEL.sendToServer(new CapitalProjectActionPacket(
+                    action,
+                    menu.capitalProjectId(),
+                    menu.warehouseId(),
+                    null,
+                    null,
+                    menu.capitalProjectId() == null ? WorldCapitalProjectType.WAREHOUSE_UPGRADE : null,
+                    capitalFundingSource,
+                    UUID.randomUUID().toString()));
+        } else {
+            FinancePacketHandler.CHANNEL.sendToServer(new WarehouseActionPacket(
+                    WarehouseActionPacket.Action.UPGRADE,
+                    menu.warehouseId(),
+                    "upgrade",
+                    0,
+                    UUID.randomUUID().toString()));
+        }
+        markPending();
+    }
+
+    private void transfer(WarehouseActionPacket.Action action) {
+        if (selected < 0 || selected >= menu.rows().size()) return;
+        // 服务端只接受 1..MAX_TRANSFER_AMOUNT，越界的包会被当作非法包断开连接
+        int requested = ScreenInput.parsePositive(amount.getValue(), WarehouseActionPacket.MAX_TRANSFER_AMOUNT);
+        if (requested < 0) {
+            localStatus = Component.translatable(
+                            "screen.finance.input.invalid_amount", WarehouseActionPacket.MAX_TRANSFER_AMOUNT)
+                    .getString();
+            return;
+        }
+        FinancePacketHandler.CHANNEL.sendToServer(new WarehouseActionPacket(
+                action,
+                menu.warehouseId(),
+                menu.rows().get(selected).id(),
+                requested,
+                UUID.randomUUID().toString()));
+        markPending();
+    }
+
+    private void contract(ContractActionPacket.Action action) {
+        if (showShipments
+                || selectedContract < 0
+                || selectedContract >= menu.contracts().size()) return;
+        FinancePacketHandler.CHANNEL.sendToServer(new ContractActionPacket(
+                action,
+                menu.contracts().get(selectedContract).id(),
+                menu.warehouseId(),
+                UUID.randomUUID().toString()));
+        markPending();
+    }
+
+    private void bind(WarehouseActionPacket.Action action) {
+        FinancePacketHandler.CHANNEL.sendToServer(new WarehouseActionPacket(
+                action, menu.warehouseId(), "company", 1, UUID.randomUUID().toString()));
+        markPending();
     }
 
     private void markPending() {
