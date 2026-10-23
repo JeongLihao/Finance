@@ -7,6 +7,7 @@ import finance.util.Uuids;
 import finance.village.VillageManager;
 import finance.village.VillageService;
 import finance.village.VillageStall;
+import finance.village.VillageStallService;
 import java.util.UUID;
 import java.util.function.Supplier;
 import net.minecraft.network.FriendlyByteBuf;
@@ -80,7 +81,7 @@ public record VillageActionPacket(
             if (!NetworkValidation.isValidCommodityId(commodityId)) return "finance.village.invalid_commodity";
             long price = p.price > 0 ? p.price : VillageService.fairPrice(settlementUuid, commodityId, 1);
             if (price < 1) return "finance.village.invalid_price";
-            return VillageService.registerStall(player, settlementUuid, commodityId, price) == null
+            return VillageStallService.registerStall(player, settlementUuid, commodityId, price) == null
                     ? "finance.village.register_failed"
                     : "finance.village.registered";
         }
@@ -93,15 +94,16 @@ public record VillageActionPacket(
         return switch (p.action) {
             case STOCK_STALL -> {
                 // 数量填 0 表示把背包里这种东西全摆上
-                int quantity = p.quantity == 0 ? Math.min(4096, VillageService.plainCount(player, stall)) : p.quantity;
+                int quantity =
+                        p.quantity == 0 ? Math.min(4096, VillageStallService.plainCount(player, stall)) : p.quantity;
                 if (!validQuantity(quantity)) yield "finance.village.invalid_quantity";
-                yield VillageService.stockStall(player, stallUuid, quantity)
+                yield VillageStallService.stockStall(player, stallUuid, quantity)
                         ? "finance.village.stocked"
                         : "finance.village.stock_failed";
             }
             case SET_PRICE -> {
                 if (p.price < 1) yield "finance.village.invalid_price";
-                yield VillageService.setStallPrice(player, stallUuid, p.price)
+                yield VillageStallService.setStallPrice(player, stallUuid, p.price)
                         ? "finance.village.price_set"
                         : "finance.village.set_price_failed";
             }
@@ -109,11 +111,11 @@ public record VillageActionPacket(
                 // 数量填 0 表示全部取回
                 int quantity = p.quantity == 0 ? Math.min(4096, stall.stock()) : p.quantity;
                 if (!validQuantity(quantity)) yield "finance.village.invalid_quantity";
-                yield VillageService.withdrawStall(player, stallUuid, quantity)
+                yield VillageStallService.withdrawStall(player, stallUuid, quantity)
                         ? "finance.village.withdrawn"
                         : "finance.village.withdraw_failed";
             }
-            case CLOSE_STALL -> VillageService.closeStall(player, stallUuid)
+            case CLOSE_STALL -> VillageStallService.closeStall(player, stallUuid)
                     ? "finance.village.closed"
                     : "finance.village.close_failed";
             case REGISTER_STALL -> "finance.village.register_failed";
