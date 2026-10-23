@@ -1,6 +1,7 @@
 package finance.item;
 
 import finance.cash.CashService;
+import finance.util.MoneyFormat;
 import java.util.List;
 import java.util.UUID;
 import net.minecraft.ChatFormatting;
@@ -66,7 +67,7 @@ public final class ExchangeNoteItem extends Item {
     public Component getName(ItemStack stack) {
         long amount = amount(stack);
         return amount > 0
-                ? Component.translatable("item.finance.exchange_note.valued", CashService.pounds(amount))
+                ? Component.translatable("item.finance.exchange_note.valued", MoneyFormat.pounds(amount))
                 : super.getName(stack);
     }
 

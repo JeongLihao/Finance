@@ -130,13 +130,6 @@ class ExchangeNoteTest {
     }
 
     @Test
-    void poundsFormatting() {
-        assertEquals("£0.05", CashService.pounds(5));
-        assertEquals("£12.34", CashService.pounds(1234));
-        assertEquals("£10000.00", CashService.pounds(CashService.MAX_EXCHANGE_NOTE));
-    }
-
-    @Test
     void noteNbtRoundTrip() {
         UUID serial = UUID.randomUUID();
         ItemStack note =

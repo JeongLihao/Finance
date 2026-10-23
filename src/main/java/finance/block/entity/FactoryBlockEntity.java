@@ -1,6 +1,7 @@
 package finance.block.entity;
 
 import finance.company.Company;
+import finance.factory.AutomationView;
 import finance.factory.FactoryRecipe;
 import finance.factory.MachineCore;
 import finance.gameplay.company.CompanyFacilityStatus;
@@ -8,24 +9,17 @@ import finance.gameplay.company.CompanyFacilityType;
 import finance.gui.FactoryMenu;
 import finance.registry.ModBlockEntities;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.Container;
-import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ContainerData;
-import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraftforge.common.capabilities.Capability;
-import net.minecraftforge.common.capabilities.ForgeCapabilities;
-import net.minecraftforge.common.util.LazyOptional;
 import net.minecraftforge.items.IItemHandler;
+import net.minecraftforge.items.IItemHandlerModifiable;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -33,48 +27,14 @@ import org.jetbrains.annotations.Nullable;
  * 加工机：生产逻辑在 {@link MachineCore}，这里管界面、存档和公司仓库存取。
  * 连着公司仓库时，每秒把成品存进公司库存，并按选定的配方从库存补原料和煤。
  * 漏斗能往原料槽和燃料槽送料，能从成品槽取货，也能取走燃料槽里烧剩的空桶。
+ * 归属、登记、速度、掉落和漏斗接口在 {@link CompanyMachineBlockEntity}。
  */
 public final class FactoryBlockEntity extends CompanyMachineBlockEntity {
 
-    /** 给漏斗和管道用：只能往原料、燃料槽放；从成品槽取，燃料槽只能取走不能烧的东西（空桶）。 */
-    private record AutomationHandler(MachineCore.Items items) implements IItemHandler {
-        public int getSlots() {
-            return MachineCore.SLOT_COUNT;
-        }
-
-        public @NotNull ItemStack getStackInSlot(int slot) {
-            return items.getStackInSlot(slot);
-        }
-
-        public @NotNull ItemStack insertItem(int slot, @NotNull ItemStack stack, boolean simulate) {
-            return items.insertItem(slot, stack, simulate);
-        }
-
-        public @NotNull ItemStack extractItem(int slot, int amount, boolean simulate) {
-            // 成品随便取；燃料槽里烧剩的空桶这类不能烧的东西也能取走，免得堵住燃料槽
-            boolean spentFuel = slot == MachineCore.SLOT_FUEL
-                    && MachineCore.FURNACE_FUEL.applyAsInt(items.getStackInSlot(slot)) <= 0;
-            return slot == MachineCore.SLOT_OUTPUT || spentFuel
-                    ? items.extractItem(slot, amount, simulate)
-                    : ItemStack.EMPTY;
-        }
-
-        public int getSlotLimit(int slot) {
-            return items.getSlotLimit(slot);
-        }
-
-        public boolean isItemValid(int slot, @NotNull ItemStack stack) {
-            return items.isItemValid(slot, stack);
-        }
-    }
-
     private final MachineCore core = new MachineCore(this::setChanged, MachineCore.FURNACE_FUEL);
-    private final LazyOptional<IItemHandler> automation = LazyOptional.of(() -> new AutomationHandler(core.items()));
 
     private @Nullable String selectedRecipe;
     private long produced;
-    /** 客户端界面显示的档次（服务端从机器记录读）。 */
-    private int clientTier = 1;
 
     private final ContainerData data = new ContainerData() {
         @Override
@@ -126,6 +86,21 @@ public final class FactoryBlockEntity extends CompanyMachineBlockEntity {
         return CompanyFacilityType.PROCESSOR;
     }
 
+    @Override
+    protected IItemHandlerModifiable inventory() {
+        return core.items();
+    }
+
+    /** 漏斗只能往原料、燃料槽放（槽位规则见 MachineCore.Items）；能取成品，燃料槽只能取走烧剩的空桶。 */
+    @Override
+    protected IItemHandler automationView() {
+        return new AutomationView(
+                core.items(),
+                slot -> true,
+                (slot, stack) ->
+                        slot == MachineCore.SLOT_OUTPUT || slot == MachineCore.SLOT_FUEL && !MachineCore.isFuel(stack));
+    }
+
     /** 每秒一次：报状态；连着公司仓库时存成品、补原料和燃料。 */
     private void logistics(ServerLevel level) {
         Company company = refresh(level);
@@ -165,25 +140,8 @@ public final class FactoryBlockEntity extends CompanyMachineBlockEntity {
         return core.status();
     }
 
-    @Override
-    public int tier() {
-        return level != null && level.isClientSide ? clientTier : super.tier();
-    }
-
     public long produced() {
         return produced;
-    }
-
-    public Container inventorySnapshot() {
-        SimpleContainer container = new SimpleContainer(MachineCore.SLOT_COUNT);
-        for (int i = 0; i < MachineCore.SLOT_COUNT; i++)
-            container.setItem(i, core.items().getStackInSlot(i).copy());
-        return container;
-    }
-
-    /** 掉落后清空，防止开着界面的玩家在界面失效前再拿走一次。 */
-    public void clearInventory() {
-        for (int i = 0; i < MachineCore.SLOT_COUNT; i++) core.items().setStackInSlot(i, ItemStack.EMPTY);
     }
 
     public MachineCore.Items itemHandler() {
@@ -192,11 +150,6 @@ public final class FactoryBlockEntity extends CompanyMachineBlockEntity {
 
     public ContainerData data() {
         return data;
-    }
-
-    @Override
-    public @NotNull Component getDisplayName() {
-        return Component.translatable("block.finance.factory");
     }
 
     @Override
@@ -218,16 +171,5 @@ public final class FactoryBlockEntity extends CompanyMachineBlockEntity {
         core.load(tag);
         selectedRecipe = tag.contains("Selected") ? tag.getString("Selected") : null;
         produced = Math.max(0, tag.getLong("Produced"));
-    }
-
-    @Override
-    public void invalidateCaps() {
-        super.invalidateCaps();
-        automation.invalidate();
-    }
-
-    @Override
-    public @NotNull <T> LazyOptional<T> getCapability(@NotNull Capability<T> cap, @Nullable Direction side) {
-        return cap == ForgeCapabilities.ITEM_HANDLER ? automation.cast() : super.getCapability(cap, side);
     }
 }

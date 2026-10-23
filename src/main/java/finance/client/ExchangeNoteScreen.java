@@ -3,6 +3,7 @@ package finance.client;
 import finance.cash.CashService;
 import finance.network.ExchangeNoteFillPacket;
 import finance.network.FinancePacketHandler;
+import finance.util.MoneyFormat;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
@@ -80,7 +81,7 @@ public final class ExchangeNoteScreen extends Screen {
                 FinanceGui.COL_TEXT_DIM,
                 false);
         long v = parsed();
-        String preview = v > 0 ? "= " + CashService.pounds(v) : "";
+        String preview = v > 0 ? "= " + MoneyFormat.pounds(v) : "";
         g.drawString(font, preview, left + 10, top + 62, FinanceGui.COL_GOOD, false);
         if (!status.isEmpty()) {
             FinanceGui.drawClippedString(font, g, status, left + 10, top + 62, W - 20, FinanceGui.COL_BAD);

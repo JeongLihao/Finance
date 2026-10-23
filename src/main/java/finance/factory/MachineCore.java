@@ -5,6 +5,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraftforge.common.ForgeHooks;
+import net.minecraftforge.items.IItemHandlerModifiable;
 import net.minecraftforge.items.ItemStackHandler;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -49,6 +50,24 @@ public final class MachineCore {
 
     /** 游戏里的燃料表：和熔炉一样。 */
     public static final ToIntFunction<ItemStack> FURNACE_FUEL = s -> ForgeHooks.getBurnTime(s, RecipeType.SMELTING);
+
+    public static boolean isFuel(ItemStack stack) {
+        return FURNACE_FUEL.applyAsInt(stack) > 0;
+    }
+
+    /**
+     * 烧掉这一槽里的一个燃料，返回它能烧多少 tick；不是燃料返回 0、什么也不动。
+     * 桶类燃料留下空桶（空桶不能烧，漏斗可以取走）。
+     */
+    public static int burnOne(IItemHandlerModifiable items, int slot, ToIntFunction<ItemStack> fuel) {
+        ItemStack stack = items.getStackInSlot(slot);
+        int burn = fuel.applyAsInt(stack);
+        if (burn <= 0) return 0;
+        ItemStack left = stack.copy();
+        left.shrink(1);
+        items.setStackInSlot(slot, left.isEmpty() ? stack.getCraftingRemainingItem() : left);
+        return burn;
+    }
 
     private final Items items;
     private final ToIntFunction<ItemStack> fuel;
@@ -95,15 +114,10 @@ public final class MachineCore {
         return changed;
     }
 
-    /** 从燃料槽烧掉一个燃料，成功返回 true。桶类燃料留下空桶。 */
+    /** 从燃料槽烧掉一个燃料，成功返回 true。 */
     private boolean igniteFuel() {
-        ItemStack fuel = items.getStackInSlot(SLOT_FUEL);
-        int burn = this.fuel.applyAsInt(fuel);
+        int burn = burnOne(items, SLOT_FUEL, fuel);
         if (burn <= 0) return false;
-        ItemStack remainder = fuel.getCraftingRemainingItem();
-        ItemStack left = fuel.copy();
-        left.shrink(1);
-        items.setStackInSlot(SLOT_FUEL, left.isEmpty() ? remainder : left);
         burnTime = burnDuration = burn;
         return true;
     }

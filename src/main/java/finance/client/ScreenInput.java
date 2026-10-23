@@ -1,5 +1,6 @@
 package finance.client;
 
+import finance.util.Uuids;
 import java.util.OptionalLong;
 import java.util.UUID;
 import net.minecraft.client.gui.components.EditBox;
@@ -61,11 +62,6 @@ final class ScreenInput {
 
     /** 解析 UUID；不合法返回 null。 */
     static UUID parseUuid(String text) {
-        if (text == null || text.isBlank()) return null;
-        try {
-            return UUID.fromString(text.trim());
-        } catch (IllegalArgumentException exception) {
-            return null;
-        }
+        return Uuids.parseOrNull(text);
     }
 }

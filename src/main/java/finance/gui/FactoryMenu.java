@@ -19,7 +19,7 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraftforge.items.SlotItemHandler;
 
 /** 加工机界面：原料、第二原料、燃料、成品四个槽 + 玩家背包；按钮选“要做什么”。 */
-public final class FactoryMenu extends AbstractContainerMenu {
+public final class FactoryMenu extends AbstractContainerMenu implements MachineMenu {
     public static final int INVENTORY_Y = 98;
     /** 选配方按钮的 id：0..配方数-1 选对应配方，NO_RECIPE 取消选择。 */
     public static final int NO_RECIPE = 99;
@@ -61,6 +61,7 @@ public final class FactoryMenu extends AbstractContainerMenu {
         return new FactoryBlockEntity(pos, playerInventory.player.level().getBlockState(pos));
     }
 
+    @Override
     public FactoryBlockEntity blockEntity() {
         return blockEntity;
     }
@@ -77,6 +78,7 @@ public final class FactoryMenu extends AbstractContainerMenu {
         return data.get(4);
     }
 
+    @Override
     public int link() {
         return data.get(5);
     }
@@ -87,6 +89,7 @@ public final class FactoryMenu extends AbstractContainerMenu {
     }
 
     /** 档次 1～3。 */
+    @Override
     public int tier() {
         return Math.max(1, data.get(7));
     }

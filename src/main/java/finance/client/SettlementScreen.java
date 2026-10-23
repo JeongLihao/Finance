@@ -437,8 +437,7 @@ public final class SettlementScreen extends AbstractContainerScreen<SettlementMe
         return super.mouseClicked(x, y, b);
     }
 
-    private String clip(String s, int w) {
-        while (font.width(s) > w && s.length() > 1) s = s.substring(0, s.length() - 2) + "…";
-        return s;
+    private String clip(String text, int width) {
+        return FinanceGui.clipText(font, text, width);
     }
 }

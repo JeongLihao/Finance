@@ -115,11 +115,15 @@ public final class FinanceGui {
         g.drawString(font, clipped, textX, y, color, false);
     }
 
+    /** 超过 maxWidth 时截断并加省略号；放不下省略号时返回空串。null 当空串。 */
     public static String clipText(Font font, String text, int maxWidth) {
-        if (font.width(text) <= maxWidth) return text;
-        if (maxWidth <= font.width("...")) return "";
-        return font.plainSubstrByWidth(text, maxWidth - font.width("...")) + "...";
+        String value = text == null ? "" : text;
+        if (font.width(value) <= maxWidth) return value;
+        if (maxWidth <= font.width(ELLIPSIS)) return "";
+        return font.plainSubstrByWidth(value, maxWidth - font.width(ELLIPSIS)) + ELLIPSIS;
     }
+
+    private static final String ELLIPSIS = "...";
 
     public static int changeColor(double change) {
         if (change > 0) return COL_GOOD;

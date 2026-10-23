@@ -3,6 +3,7 @@ package finance.network;
 import finance.diagnostic.ModuleHealthRegistry;
 import finance.settlement.SettlementManager;
 import finance.settlement.SettlementService;
+import finance.util.Uuids;
 import finance.village.VillageManager;
 import finance.village.VillageService;
 import finance.village.VillageStall;
@@ -43,14 +44,6 @@ public record VillageActionPacket(
         return new VillageActionPacket(a, s, stall, commodity, price, qty);
     }
 
-    private static UUID parseUuid(String text) {
-        try {
-            return UUID.fromString(text);
-        } catch (IllegalArgumentException | NullPointerException ex) {
-            return null;
-        }
-    }
-
     private static boolean validQuantity(int quantity) {
         return quantity >= 1 && quantity <= 4096;
     }
@@ -65,7 +58,7 @@ public record VillageActionPacket(
                 return;
             }
             String message = apply(player, p);
-            UUID settlementUuid = parseUuid(p.settlementId);
+            UUID settlementUuid = Uuids.parseOrNull(p.settlementId);
             var settlement = settlementUuid == null ? null : SettlementManager.get(settlementUuid);
             if (settlement != null && SettlementService.isNearby(player, settlementUuid))
                 finance.gui.SettlementGuiOpener.open(player, settlement.anchor(), message);
@@ -76,8 +69,8 @@ public record VillageActionPacket(
 
     /** 执行摊位操作，返回要显示给玩家的提示（翻译键）。 */
     private static String apply(ServerPlayer player, VillageActionPacket p) {
-        UUID settlementUuid = parseUuid(p.settlementId);
-        UUID stallUuid = parseUuid(p.stallId);
+        UUID settlementUuid = Uuids.parseOrNull(p.settlementId);
+        UUID stallUuid = Uuids.parseOrNull(p.stallId);
         if (p.action == Action.REGISTER_STALL) {
             // 开店：在目标聚落附近才能登记；价格填 0 表示按村民的公道价
             if (settlementUuid == null

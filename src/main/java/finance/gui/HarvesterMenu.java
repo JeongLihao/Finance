@@ -15,7 +15,7 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraftforge.items.SlotItemHandler;
 
 /** 采集机界面：3×3 收获仓（只能取）+ 燃料槽 + 玩家背包。 */
-public final class HarvesterMenu extends AbstractContainerMenu {
+public final class HarvesterMenu extends AbstractContainerMenu implements MachineMenu {
     public static final int INVENTORY_Y = 122, BIN_X = 62, BIN_Y = 38;
 
     private final HarvesterBlockEntity blockEntity;
@@ -54,6 +54,7 @@ public final class HarvesterMenu extends AbstractContainerMenu {
         return new HarvesterBlockEntity(pos, playerInventory.player.level().getBlockState(pos));
     }
 
+    @Override
     public HarvesterBlockEntity blockEntity() {
         return blockEntity;
     }
@@ -62,6 +63,7 @@ public final class HarvesterMenu extends AbstractContainerMenu {
         return data.get(0);
     }
 
+    @Override
     public int link() {
         return data.get(1);
     }
@@ -75,6 +77,7 @@ public final class HarvesterMenu extends AbstractContainerMenu {
     }
 
     /** 档次 1～3。 */
+    @Override
     public int tier() {
         return Math.max(1, data.get(4));
     }

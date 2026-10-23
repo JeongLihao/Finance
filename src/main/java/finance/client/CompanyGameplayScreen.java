@@ -742,12 +742,7 @@ public final class CompanyGameplayScreen extends AbstractContainerScreen<Company
     }
 
     private String clip(String text, int width) {
-        String value = text == null ? "" : text;
-        if (font.width(value) <= width) return value;
-        String ellipsis = "…";
-        return width <= font.width(ellipsis)
-                ? ""
-                : font.plainSubstrByWidth(value, width - font.width(ellipsis)) + ellipsis;
+        return FinanceGui.clipText(font, text, width);
     }
 
     static int clampOffset(int offset, int size, int visibleRows) {

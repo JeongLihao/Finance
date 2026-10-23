@@ -215,14 +215,7 @@ public class MarketOverviewScreen extends AbstractContainerScreen<MarketOverview
 
     private void drawClipped(GuiGraphics graphics, String text, int x, int y, int width, int color) {
         if (width <= 0) return;
-        String value = text == null ? "" : text;
-        if (font.width(value) > width) {
-            String ellipsis = "…";
-            value = width <= font.width(ellipsis)
-                    ? ""
-                    : font.plainSubstrByWidth(value, width - font.width(ellipsis)) + ellipsis;
-        }
-        graphics.drawString(font, value, x, y, color, false);
+        graphics.drawString(font, FinanceGui.clipText(font, text, width), x, y, color, false);
     }
 
     private static int changeColor(double change) {

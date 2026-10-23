@@ -5,6 +5,7 @@ import finance.account.TransactionRecord;
 import finance.account.TransactionType;
 import finance.config.FinanceConfig;
 import finance.diagnostic.ModuleHealthRegistry;
+import finance.util.MoneyFormat;
 import java.util.EnumMap;
 import java.util.Map;
 import java.util.UUID;
@@ -356,7 +357,8 @@ public final class CashService {
         Result blocked = blocked(player);
         if (blocked != null) return blocked;
         if (amount <= 0 || amount > MAX_EXCHANGE_NOTE) {
-            return Result.fail("金额要在 1～" + MAX_EXCHANGE_NOTE + " 便士之间（最多 " + pounds(MAX_EXCHANGE_NOTE) + "）。");
+            return Result.fail(
+                    "金额要在 1～" + MAX_EXCHANGE_NOTE + " 便士之间（最多 " + MoneyFormat.pounds(MAX_EXCHANGE_NOTE) + "）。");
         }
         if (serial == null || EXCHANGE_NOTES.containsKey(serial)) return Result.fail("兑换钞编号无效，请重试。");
         long balance = AccountManager.getBalance(player);
@@ -366,8 +368,8 @@ public final class CashService {
         notesIssued(amount);
         AccountManager.addTransactionRecord(
                 new TransactionRecord(player, ISSUER, amount, TransactionType.EXCHANGE_NOTE_ISSUE, player, "兑换钞", 1));
-        return Result.ok(
-                "已签发 " + amount + " 便士（" + pounds(amount) + "）的兑换钞，账户余额 " + AccountManager.getBalance(player) + "。");
+        return Result.ok("已签发 " + amount + " 便士（" + MoneyFormat.pounds(amount) + "）的兑换钞，账户余额 "
+                + AccountManager.getBalance(player) + "。");
     }
 
     /**
@@ -386,14 +388,8 @@ public final class CashService {
         notesRetired(amount);
         AccountManager.addTransactionRecord(
                 new TransactionRecord(ISSUER, player, amount, TransactionType.EXCHANGE_NOTE_REDEEM, player, "兑换钞", 1));
-        return Result.ok(
-                "兑换钞已兑现，存入 " + amount + " 便士（" + pounds(amount) + "），账户余额 " + AccountManager.getBalance(player) + "。");
-    }
-
-    /** 便士写成英镑：1234 → £12.34。 */
-    public static String pounds(long pence) {
-        long abs = Math.abs(pence);
-        return (pence < 0 ? "-" : "") + "£" + abs / 100 + "." + String.format(java.util.Locale.ROOT, "%02d", abs % 100);
+        return Result.ok("兑换钞已兑现，存入 " + amount + " 便士（" + MoneyFormat.pounds(amount) + "），账户余额 "
+                + AccountManager.getBalance(player) + "。");
     }
 
     // ---------------------------------------------------------------- 面额计算

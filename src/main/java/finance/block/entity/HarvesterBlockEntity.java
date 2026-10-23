@@ -3,6 +3,7 @@ package finance.block.entity;
 import finance.block.HarvesterBlock;
 import finance.company.Company;
 import finance.config.FinanceConfig;
+import finance.factory.AutomationView;
 import finance.factory.HarvestMode;
 import finance.factory.Harvesting;
 import finance.factory.MachineCore;
@@ -11,12 +12,8 @@ import finance.gameplay.company.CompanyFacilityType;
 import finance.gui.HarvesterMenu;
 import finance.registry.ModBlockEntities;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.Container;
-import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
@@ -25,10 +22,8 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraftforge.common.capabilities.Capability;
-import net.minecraftforge.common.capabilities.ForgeCapabilities;
-import net.minecraftforge.common.util.LazyOptional;
 import net.minecraftforge.items.IItemHandler;
+import net.minecraftforge.items.IItemHandlerModifiable;
 import net.minecraftforge.items.ItemStackHandler;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -53,47 +48,16 @@ public final class HarvesterBlockEntity extends CompanyMachineBlockEntity {
 
         @Override
         public boolean isItemValid(int slot, @NotNull ItemStack stack) {
-            return slot == SLOT_FUEL ? MachineCore.FURNACE_FUEL.applyAsInt(stack) > 0 : true;
+            return slot != SLOT_FUEL || MachineCore.isFuel(stack);
         }
     };
 
     /** 只看收获仓的 9 格（干活时往里放东西用）。 */
     private final IItemHandler bin = new net.minecraftforge.items.wrapper.RangedWrapper(slots, 0, BIN_SIZE);
 
-    /** 给漏斗用：从收获仓取，往燃料槽放；燃料槽里烧剩的空桶也能取走。 */
-    private final LazyOptional<IItemHandler> automation = LazyOptional.of(() -> new IItemHandler() {
-        public int getSlots() {
-            return SLOT_COUNT;
-        }
-
-        public @NotNull ItemStack getStackInSlot(int slot) {
-            return slots.getStackInSlot(slot);
-        }
-
-        public @NotNull ItemStack insertItem(int slot, @NotNull ItemStack stack, boolean simulate) {
-            return slot == SLOT_FUEL ? slots.insertItem(slot, stack, simulate) : stack;
-        }
-
-        public @NotNull ItemStack extractItem(int slot, int amount, boolean simulate) {
-            // 燃料槽只能取走烧剩的空桶这类不能烧的东西
-            boolean fuel = slot == SLOT_FUEL && MachineCore.FURNACE_FUEL.applyAsInt(slots.getStackInSlot(slot)) > 0;
-            return fuel ? ItemStack.EMPTY : slots.extractItem(slot, amount, simulate);
-        }
-
-        public int getSlotLimit(int slot) {
-            return slots.getSlotLimit(slot);
-        }
-
-        public boolean isItemValid(int slot, @NotNull ItemStack stack) {
-            return slot == SLOT_FUEL && slots.isItemValid(slot, stack);
-        }
-    });
-
     private final int[] shaft = {Integer.MIN_VALUE, 0};
     private int cooldown, fuelBlocks, status = IDLE;
     private long harvested;
-    /** 客户端界面显示的档次（服务端从机器记录读）。 */
-    private int clientTier = 1;
 
     private final ContainerData data = new ContainerData() {
         @Override
@@ -155,8 +119,15 @@ public final class HarvesterBlockEntity extends CompanyMachineBlockEntity {
     }
 
     @Override
-    public int tier() {
-        return level != null && level.isClientSide ? clientTier : super.tier();
+    protected IItemHandlerModifiable inventory() {
+        return slots;
+    }
+
+    /** 漏斗只能往燃料槽放；收获仓随便取，燃料槽只能取走烧剩的空桶。 */
+    @Override
+    protected IItemHandler automationView() {
+        return new AutomationView(
+                slots, slot -> slot == SLOT_FUEL, (slot, stack) -> slot != SLOT_FUEL || !MachineCore.isFuel(stack));
     }
 
     private int work(ServerLevel level, HarvestMode mode) {
@@ -188,13 +159,8 @@ public final class HarvesterBlockEntity extends CompanyMachineBlockEntity {
 
     /** 烧掉燃料槽里一个燃料，换成能挖的方块数。 */
     private boolean burnFuel() {
-        ItemStack fuel = slots.getStackInSlot(SLOT_FUEL);
-        int burn = MachineCore.FURNACE_FUEL.applyAsInt(fuel);
+        int burn = MachineCore.burnOne(slots, SLOT_FUEL, MachineCore.FURNACE_FUEL);
         if (burn <= 0) return false;
-        ItemStack remainder = fuel.getCraftingRemainingItem();
-        ItemStack left = fuel.copy();
-        left.shrink(1);
-        slots.setStackInSlot(SLOT_FUEL, left.isEmpty() ? remainder : left);
         fuelBlocks = Math.max(1, burn / FUEL_PER_BLOCK);
         return true;
     }
@@ -235,23 +201,6 @@ public final class HarvesterBlockEntity extends CompanyMachineBlockEntity {
         return data;
     }
 
-    public Container inventorySnapshot() {
-        SimpleContainer container = new SimpleContainer(SLOT_COUNT);
-        for (int i = 0; i < SLOT_COUNT; i++)
-            container.setItem(i, slots.getStackInSlot(i).copy());
-        return container;
-    }
-
-    /** 掉落后清空，防止开着界面的玩家在界面失效前再拿走一次。 */
-    public void clearInventory() {
-        for (int i = 0; i < SLOT_COUNT; i++) slots.setStackInSlot(i, ItemStack.EMPTY);
-    }
-
-    @Override
-    public @NotNull Component getDisplayName() {
-        return Component.translatable("block.finance." + mode().blockId());
-    }
-
     @Override
     public @Nullable AbstractContainerMenu createMenu(int id, @NotNull Inventory inventory, @NotNull Player player) {
         return new HarvesterMenu(id, inventory, this);
@@ -277,16 +226,5 @@ public final class HarvesterBlockEntity extends CompanyMachineBlockEntity {
         }
         fuelBlocks = Math.max(0, tag.getInt("FuelBlocks"));
         harvested = Math.max(0, tag.getLong("Harvested"));
-    }
-
-    @Override
-    public void invalidateCaps() {
-        super.invalidateCaps();
-        automation.invalidate();
-    }
-
-    @Override
-    public @NotNull <T> LazyOptional<T> getCapability(@NotNull Capability<T> cap, @Nullable Direction side) {
-        return cap == ForgeCapabilities.ITEM_HANDLER ? automation.cast() : super.getCapability(cap, side);
     }
 }

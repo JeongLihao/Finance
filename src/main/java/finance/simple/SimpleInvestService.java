@@ -26,6 +26,7 @@ import finance.stock.ConditionalStockOrderType;
 import finance.stock.Stock;
 import finance.stock.StockMarketManager;
 import finance.util.MoneyFormat;
+import finance.util.Uuids;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -272,7 +273,7 @@ public final class SimpleInvestService {
             return new Result(r.success(), r.message(), r.moneyDelta());
         }
         if (key.startsWith("time:")) {
-            UUID depositId = parseUuid(key.substring(5));
+            UUID depositId = Uuids.parseOrNull(key.substring(5));
             TimeDeposit t =
                     depositId == null ? null : BankingManager.timeDeposits().get(depositId);
             if (t == null || !t.ownerId().equals(id)) return fail("找不到这笔定期。");
@@ -289,7 +290,7 @@ public final class SimpleInvestService {
             return new Result(true, "定期已取回，钱包 " + MoneyFormat.signed(got) + "。", got);
         }
         if (key.startsWith("cbond:")) {
-            UUID bondId = parseUuid(key.substring(6));
+            UUID bondId = Uuids.parseOrNull(key.substring(6));
             var r = bondId == null ? null : TreasuryBondManager.earlyRedeem(id, bondId, day);
             if (r == null || !r.success()) return fail(r == null ? "找不到这笔债券。" : r.message());
             long got = AccountManager.getBalance(id) - before;
@@ -453,14 +454,6 @@ public final class SimpleInvestService {
             return Integer.parseInt(text);
         } catch (NumberFormatException e) {
             return -1;
-        }
-    }
-
-    private static UUID parseUuid(String text) {
-        try {
-            return UUID.fromString(text);
-        } catch (RuntimeException e) {
-            return null;
         }
     }
 }
