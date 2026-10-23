@@ -5,7 +5,8 @@ import finance.chart.MarketSummary;
 import finance.client.chart.CandlestickChart;
 import finance.client.chart.CandlestickClientCache;
 import finance.client.chart.TechnicalIndicatorChart;
-import finance.gui.FinanceMenu;
+import finance.gui.CompanyRows;
+import finance.gui.StockRows;
 import finance.network.*;
 import finance.stock.ConditionalStockOrderType;
 import finance.util.FormatUtil;
@@ -45,7 +46,7 @@ public final class StockTabs {
 
     public void renderStockTab(GuiGraphics g, int mouseX, int mouseY) {
         if (screen.stockChartVisible) {
-            FinanceMenu.StockRow row = findSelectedStock();
+            StockRows.StockRow row = findSelectedStock();
             renderCandlestickView(
                     g,
                     MarketInstrumentType.STOCK,
@@ -64,7 +65,7 @@ public final class StockTabs {
         FinanceGui.drawHeader(screen.font(), g, "成交", 292, headerY);
         FinanceGui.drawHeader(screen.font(), g, "流通", 334, headerY);
 
-        List<FinanceMenu.StockRow> stocks = screen.menu().getStocks();
+        List<StockRows.StockRow> stocks = screen.menu().getStocks();
         if (stocks.isEmpty()) {
             FinanceGui.drawClippedString(
                     screen.font(),
@@ -81,7 +82,7 @@ public final class StockTabs {
         int maxRows =
                 Math.min(stocks.size(), Math.max(1, (FinanceGui.STOCK_TRADE_Y - rowY - 10) / FinanceGui.ROW_HEIGHT));
         for (int i = 0; i < maxRows; i++) {
-            FinanceMenu.StockRow row = stocks.get(i);
+            StockRows.StockRow row = stocks.get(i);
             int y = rowY + i * FinanceGui.ROW_HEIGHT;
             boolean selected = row.symbol().equals(screen.selectedStock);
             g.fill(
@@ -124,7 +125,7 @@ public final class StockTabs {
         FinanceGui.drawSimpleSeparator(g, 8, tradeY - 6, screen.imageWidth() - 16);
         FinanceGui.drawSectionTitle(screen.font(), g, "限价委托", 10, tradeY);
         FinanceGui.drawButton(screen.font(), g, "K线", 360, tradeY - 2, 30, false);
-        FinanceMenu.StockRow selected = findSelectedStock();
+        StockRows.StockRow selected = findSelectedStock();
         if (selected != null) {
             FinanceGui.drawClippedString(
                     screen.font(),
@@ -155,7 +156,7 @@ public final class StockTabs {
             long total = FinanceFormat.safeMultiply(
                     Math.max(1, FinanceFormat.parseLong(screen.stockPriceBox.getValue())),
                     Math.max(1, FinanceFormat.parseInt(screen.stockQuantityBox.getValue())));
-            FinanceMenu.StockHoldingRow holding = findHolding(selected.symbol());
+            StockRows.StockHoldingRow holding = findHolding(selected.symbol());
             FinanceGui.drawClippedString(screen.font(), g, "总价: " + total, 12, tradeY + 52, 100, FinanceGui.COL_ACCENT);
             if (holding != null) {
                 FinanceGui.drawClippedString(
@@ -199,7 +200,7 @@ public final class StockTabs {
         FinanceGui.drawClippedString(
                 screen.font(), g, "使用上方价格/股数，触发后自动提交卖单", 188, tradeY + 66, 180, FinanceGui.COL_TEXT_DIM);
 
-        FinanceMenu.CompanyFinancingRow financing = selectedFinancingProject();
+        CompanyRows.CompanyFinancingRow financing = selectedFinancingProject();
         if (financing != null) {
             int fy = tradeY + 92;
             FinanceGui.drawClippedString(
@@ -225,7 +226,7 @@ public final class StockTabs {
 
         int orderY = tradeY + (financing != null ? 112 : 96);
         FinanceGui.drawSectionTitle(screen.font(), g, "当前委托", 10, orderY);
-        List<FinanceMenu.StockOrderRow> orders = selectedStockOrders();
+        List<StockRows.StockOrderRow> orders = selectedStockOrders();
         int shownOrders = 0;
         if (orders.isEmpty()) {
             g.drawString(screen.font(), "该股票暂无活跃委托", 12, orderY + 16, FinanceGui.COL_TEXT_DIM, false);
@@ -236,7 +237,7 @@ public final class StockTabs {
                     orders.size(),
                     Math.max(1, (screen.imageHeight() - y - reservedForConditional) / FinanceGui.ROW_HEIGHT));
             for (int i = 0; i < maxOrders; i++) {
-                FinanceMenu.StockOrderRow row = orders.get(i);
+                StockRows.StockOrderRow row = orders.get(i);
                 FinanceGui.drawClippedString(
                         screen.font(),
                         g,
@@ -279,7 +280,7 @@ public final class StockTabs {
             return;
         }
         FinanceGui.drawSectionTitle(screen.font(), g, "条件委托", 10, conditionalY);
-        List<FinanceMenu.ConditionalStockOrderRow> conditionalOrders = selectedConditionalStockOrders();
+        List<StockRows.ConditionalStockOrderRow> conditionalOrders = selectedConditionalStockOrders();
         if (conditionalOrders.isEmpty()) {
             g.drawString(screen.font(), "该股票暂无止盈止损委托", 12, conditionalY + 16, FinanceGui.COL_TEXT_DIM, false);
             return;
@@ -288,7 +289,7 @@ public final class StockTabs {
         int maxConditionalOrders =
                 Math.min(conditionalOrders.size(), Math.max(0, (screen.imageHeight() - y - 4) / FinanceGui.ROW_HEIGHT));
         for (int i = 0; i < maxConditionalOrders; i++) {
-            FinanceMenu.ConditionalStockOrderRow row = conditionalOrders.get(i);
+            StockRows.ConditionalStockOrderRow row = conditionalOrders.get(i);
             boolean takeProfit = row.type().equals("TAKE_PROFIT");
             FinanceGui.drawClippedString(
                     screen.font(),
@@ -515,7 +516,7 @@ public final class StockTabs {
             int y = rowY + i * FinanceGui.ROW_HEIGHT;
             if (my >= y && my < y + FinanceGui.ROW_HEIGHT && mx >= 8 && mx < screen.imageWidth() - 8) {
                 screen.selectedStock = screen.menu().getStocks().get(i).symbol();
-                FinanceMenu.StockRow selected = findSelectedStock();
+                StockRows.StockRow selected = findSelectedStock();
                 if (selected != null) {
                     screen.stockPriceBox.setValue(Long.toString(selected.lastPrice()));
                 }
@@ -579,7 +580,7 @@ public final class StockTabs {
             }
         }
 
-        FinanceMenu.CompanyFinancingRow financing = selectedFinancingProject();
+        CompanyRows.CompanyFinancingRow financing = selectedFinancingProject();
         if (financing != null && mx >= 300 && mx < 342 && my >= tradeY + 90 && my < tradeY + 105) {
             long qty = screen.requireAmount(screen.stockQuantityBox, "认购股数");
             screen.setStatus("已提交增发认购");
@@ -588,11 +589,11 @@ public final class StockTabs {
         }
 
         int orderY = tradeY + (financing != null ? 112 : 96);
-        List<FinanceMenu.StockOrderRow> orders = selectedStockOrders();
+        List<StockRows.StockOrderRow> orders = selectedStockOrders();
         int maxOrders = Math.min(
                 orders.size(), Math.max(1, (screen.imageHeight() - (orderY + 16) - 30) / FinanceGui.ROW_HEIGHT));
         for (int i = 0; i < maxOrders; i++) {
-            FinanceMenu.StockOrderRow row = orders.get(i);
+            StockRows.StockOrderRow row = orders.get(i);
             int y = orderY + 16 + i * FinanceGui.ROW_HEIGHT;
             if (row.ownedByPlayer() && mx >= 300 && mx < 342 && my >= y - 2 && my < y + 11) {
                 screen.setStatus("已提交撤单");
@@ -605,12 +606,12 @@ public final class StockTabs {
         if (conditionalY + 16 >= screen.imageHeight() - 4) {
             return false;
         }
-        List<FinanceMenu.ConditionalStockOrderRow> conditionalOrders = selectedConditionalStockOrders();
+        List<StockRows.ConditionalStockOrderRow> conditionalOrders = selectedConditionalStockOrders();
         int maxConditionalOrders = Math.min(
                 conditionalOrders.size(),
                 Math.max(0, (screen.imageHeight() - (conditionalY + 16) - 4) / FinanceGui.ROW_HEIGHT));
         for (int i = 0; i < maxConditionalOrders; i++) {
-            FinanceMenu.ConditionalStockOrderRow row = conditionalOrders.get(i);
+            StockRows.ConditionalStockOrderRow row = conditionalOrders.get(i);
             int y = conditionalY + 16 + i * FinanceGui.ROW_HEIGHT;
             if (mx >= 300 && mx < 342 && my >= y - 2 && my < y + 11) {
                 screen.setStatus("已提交取消条件委托");
@@ -621,8 +622,8 @@ public final class StockTabs {
         return false;
     }
 
-    public FinanceMenu.StockRow findSelectedStock() {
-        for (FinanceMenu.StockRow row : screen.menu().getStocks()) {
+    public StockRows.StockRow findSelectedStock() {
+        for (StockRows.StockRow row : screen.menu().getStocks()) {
             if (row.symbol().equals(screen.selectedStock)) return row;
         }
         return screen.menu().getStocks().isEmpty()
@@ -630,24 +631,24 @@ public final class StockTabs {
                 : screen.menu().getStocks().get(0);
     }
 
-    public FinanceMenu.StockHoldingRow findHolding(String symbol) {
-        for (FinanceMenu.StockHoldingRow row : screen.menu().getStockHoldings()) {
+    public StockRows.StockHoldingRow findHolding(String symbol) {
+        for (StockRows.StockHoldingRow row : screen.menu().getStockHoldings()) {
             if (row.symbol().equals(symbol)) return row;
         }
         return null;
     }
 
-    public List<FinanceMenu.StockOrderRow> selectedStockOrders() {
-        List<FinanceMenu.StockOrderRow> rows = new ArrayList<>();
+    public List<StockRows.StockOrderRow> selectedStockOrders() {
+        List<StockRows.StockOrderRow> rows = new ArrayList<>();
         String symbol = screen.selectedStock;
-        FinanceMenu.StockRow selected = findSelectedStock();
+        StockRows.StockRow selected = findSelectedStock();
         if ((symbol == null || symbol.isEmpty()) && selected != null) {
             symbol = selected.symbol();
         }
         if (symbol == null || symbol.isEmpty()) {
             return rows;
         }
-        for (FinanceMenu.StockOrderRow row : screen.menu().getStockOrders()) {
+        for (StockRows.StockOrderRow row : screen.menu().getStockOrders()) {
             if (symbol.equals(row.symbol())) {
                 rows.add(row);
             }
@@ -655,17 +656,17 @@ public final class StockTabs {
         return rows;
     }
 
-    public List<FinanceMenu.ConditionalStockOrderRow> selectedConditionalStockOrders() {
-        List<FinanceMenu.ConditionalStockOrderRow> rows = new ArrayList<>();
+    public List<StockRows.ConditionalStockOrderRow> selectedConditionalStockOrders() {
+        List<StockRows.ConditionalStockOrderRow> rows = new ArrayList<>();
         String symbol = screen.selectedStock;
-        FinanceMenu.StockRow selected = findSelectedStock();
+        StockRows.StockRow selected = findSelectedStock();
         if ((symbol == null || symbol.isEmpty()) && selected != null) {
             symbol = selected.symbol();
         }
         if (symbol == null || symbol.isEmpty()) {
             return rows;
         }
-        for (FinanceMenu.ConditionalStockOrderRow row : screen.menu().getConditionalStockOrders()) {
+        for (StockRows.ConditionalStockOrderRow row : screen.menu().getConditionalStockOrders()) {
             if (symbol.equals(row.symbol())) {
                 rows.add(row);
             }
@@ -673,16 +674,16 @@ public final class StockTabs {
         return rows;
     }
 
-    public FinanceMenu.CompanyFinancingRow selectedFinancingProject() {
+    public CompanyRows.CompanyFinancingRow selectedFinancingProject() {
         String symbol = screen.selectedStock;
-        FinanceMenu.StockRow selected = findSelectedStock();
+        StockRows.StockRow selected = findSelectedStock();
         if ((symbol == null || symbol.isEmpty()) && selected != null) {
             symbol = selected.symbol();
         }
         if (symbol == null || symbol.isEmpty()) {
             return null;
         }
-        for (FinanceMenu.CompanyFinancingRow row : screen.menu().getCompanyFinancingRows()) {
+        for (CompanyRows.CompanyFinancingRow row : screen.menu().getCompanyFinancingRows()) {
             if (symbol.equals(row.symbol())) {
                 return row;
             }

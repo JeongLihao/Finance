@@ -6,7 +6,10 @@ import finance.commodity.Commodity;
 import finance.commodity.CommodityRegistry;
 import finance.company.CompanyManagementAction;
 import finance.company.CompanyType;
-import finance.gui.FinanceMenu;
+import finance.gui.CompanyRows;
+import finance.gui.MarketRows;
+import finance.gui.RecordRows;
+import finance.gui.StockRows;
 import finance.network.SimpleActionPacket;
 import finance.simple.SimpleCenterService;
 import finance.simple.SimpleOpportunityService;
@@ -40,20 +43,20 @@ final class SimplePages {
             long todayProfit,
             long stockValue,
             Map<String, Integer> backpack,
-            List<FinanceMenu.MarketRow> market,
-            List<FinanceMenu.TransactionRow> transactions,
-            FinanceMenu.CompanyInfo company,
-            List<FinanceMenu.StockRow> stocks,
-            List<FinanceMenu.StockHoldingRow> holdings,
+            List<MarketRows.MarketRow> market,
+            List<RecordRows.TransactionRow> transactions,
+            CompanyRows.CompanyInfo company,
+            List<StockRows.StockRow> stocks,
+            List<StockRows.StockHoldingRow> holdings,
             SimpleCenterService.Status status,
             boolean playerChoosesAdvanced,
             boolean wantsAdvanced,
             List<String> pendingSummary,
-            List<FinanceMenu.OrderRow> orders,
+            List<MarketRows.OrderRow> orders,
             Map<String, Integer> storedGoods,
             finance.network.FuturesResponsePacket futures,
-            List<FinanceMenu.ConditionalStockOrderRow> autoOrders,
-            List<FinanceMenu.CompanyProposalRow> proposals) {}
+            List<StockRows.ConditionalStockOrderRow> autoOrders,
+            List<CompanyRows.CompanyProposalRow> proposals) {}
 
     /** 页面上的状态（当前页、滚动位置、新公司行业）。 */
     static final class State {
@@ -315,13 +318,13 @@ final class SimplePages {
     /** 估值优先用服务端算的（含库存市值），没收到时用快照里的现金 + 库存。 */
     static long valuation(View v) {
         SimpleCenterService.Status st = v.status();
-        FinanceMenu.CompanyInfo info = v.company();
+        CompanyRows.CompanyInfo info = v.company();
         if (st != null && st.companyValuation() > 0) return st.companyValuation();
         return info == null ? 0 : info.cash() + info.inventoryValue();
     }
 
     static long holding(View v, String symbol) {
-        for (FinanceMenu.StockHoldingRow h : v.holdings()) if (h.symbol().equals(symbol)) return h.quantity();
+        for (StockRows.StockHoldingRow h : v.holdings()) if (h.symbol().equals(symbol)) return h.quantity();
         return 0;
     }
 

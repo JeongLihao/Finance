@@ -4,7 +4,7 @@ import finance.chart.MarketInstrumentType;
 import finance.commodity.Commodity;
 import finance.commodity.CommodityCategory;
 import finance.commodity.CommodityRegistry;
-import finance.gui.FinanceMenu;
+import finance.gui.MarketRows;
 import finance.market.NpcMarketMaker;
 import finance.network.*;
 import finance.util.FormatUtil;
@@ -80,7 +80,7 @@ public final class MarketTabs {
         }
 
         for (int i = 0; i < visibleRows; i++) {
-            FinanceMenu.MarketRow row = screen.cachedMarketData.get(i + scroll);
+            MarketRows.MarketRow row = screen.cachedMarketData.get(i + scroll);
             int y = rowY + i * FinanceGui.ROW_HEIGHT;
             boolean selected = row.commodityId().equals(screen.selectedCommodity);
 

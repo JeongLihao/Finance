@@ -4,7 +4,7 @@ import static finance.client.SimplePages.*;
 
 import finance.client.ui.UiBuilder;
 import finance.client.ui.UiBuilder.Btn;
-import finance.gui.FinanceMenu;
+import finance.gui.StockRows;
 import finance.network.SimpleActionPacket;
 import finance.simple.SimpleBetService;
 import finance.simple.SimpleCenterService;
@@ -73,7 +73,7 @@ final class SimpleInvestPage {
             case 2 -> betsTab(ui, v, a, y);
             case 3 -> SimpleCompanyPage.cashTab(ui, v, a, y);
             default -> {
-                FinanceMenu.StockRow selected = s.selectedStock == null
+                StockRows.StockRow selected = s.selectedStock == null
                         ? null
                         : v.stocks().stream()
                                 .filter(r -> r.symbol().equals(s.selectedStock))
@@ -109,12 +109,12 @@ final class SimpleInvestPage {
         ui.text(holdX, y, 56, "我持有", DIM);
         ui.fill(LEFT, y + 11, WIDTH, 1, FinanceGui.COL_PANEL_BORDER);
 
-        List<FinanceMenu.StockRow> stocks = v.stocks();
+        List<StockRows.StockRow> stocks = v.stocks();
         s.investScroll = clamp(s.investScroll, 0, Math.max(0, stocks.size() - INVEST_ROWS));
         y += 15;
         if (stocks.isEmpty()) ui.text(nameX, y + 2, 200, "还没有公司上市。", DIM);
         for (int i = s.investScroll; i < Math.min(stocks.size(), s.investScroll + INVEST_ROWS); i++) {
-            FinanceMenu.StockRow row = stocks.get(i);
+            StockRows.StockRow row = stocks.get(i);
             long have = holding(v, row.symbol());
             if ((i - s.investScroll) % 2 == 0) ui.fill(LEFT, y - 1, WIDTH, ROW - 1, CARD);
             int nw = ui.text(nameX, y + 2, priceX - nameX - 4, row.name(), FinanceGui.COL_ACCENT);

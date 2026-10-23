@@ -3,7 +3,9 @@ package finance.client;
 import finance.commodity.Commodity;
 import finance.commodity.CommodityRegistry;
 import finance.company.CompanyType;
-import finance.gui.FinanceMenu;
+import finance.gui.CompanyRows;
+import finance.gui.RecordRows;
+import finance.gui.StockRows;
 import finance.network.*;
 import java.util.*;
 
@@ -13,7 +15,7 @@ public final class FinanceFormat {
     private FinanceFormat() {}
 
     public static String companyName(FinanceScreen screen, UUID companyId) {
-        for (FinanceMenu.CompanyInfo company : screen.menu().getAllCompanies())
+        for (CompanyRows.CompanyInfo company : screen.menu().getAllCompanies())
             if (company.companyId().equals(companyId)) return company.name();
         return companyId == null ? "未知公司" : companyId.toString().substring(0, 8);
     }
@@ -35,7 +37,7 @@ public final class FinanceFormat {
         };
     }
 
-    public static String displayProposalValues(FinanceMenu.CompanyProposalRow row) {
+    public static String displayProposalValues(CompanyRows.CompanyProposalRow row) {
         return switch (row.type()) {
             case "DIVIDEND" -> row.value1() + "%";
             case "SHARE_ISSUE" -> row.value1() + "股@" + row.value2();
@@ -45,7 +47,7 @@ public final class FinanceFormat {
         };
     }
 
-    public static String displayProposalStatus(FinanceMenu.CompanyProposalRow row) {
+    public static String displayProposalStatus(CompanyRows.CompanyProposalRow row) {
         if ("EXECUTED".equals(row.status())) {
             return "已执行";
         }
@@ -58,7 +60,7 @@ public final class FinanceFormat {
         return "投票中";
     }
 
-    public static String displayStockSymbol(FinanceMenu.StockRow row) {
+    public static String displayStockSymbol(StockRows.StockRow row) {
         return FinanceFormat.displaySymbol(row.symbol());
     }
 
@@ -71,7 +73,7 @@ public final class FinanceFormat {
         };
     }
 
-    public static String displayCompanyStrategy(FinanceScreen screen, FinanceMenu.CompanyInfo company) {
+    public static String displayCompanyStrategy(FinanceScreen screen, CompanyRows.CompanyInfo company) {
         return screen.companyStrategyOverride != null ? screen.companyStrategyOverride : company.strategy();
     }
 
@@ -164,17 +166,17 @@ public final class FinanceFormat {
         };
     }
 
-    public static List<FinanceMenu.AssetRow> sortedAssetRows(FinanceScreen screen) {
-        List<FinanceMenu.AssetRow> rows = new ArrayList<>(screen.menu().getAssetRows());
+    public static List<RecordRows.AssetRow> sortedAssetRows(FinanceScreen screen) {
+        List<RecordRows.AssetRow> rows = new ArrayList<>(screen.menu().getAssetRows());
         if (screen.assetSortMode == 1) {
-            rows.sort(Comparator.comparingLong(FinanceMenu.AssetRow::floatingProfit)
+            rows.sort(Comparator.comparingLong(RecordRows.AssetRow::floatingProfit)
                     .reversed()
-                    .thenComparing(Comparator.comparingLong(FinanceMenu.AssetRow::value)
-                            .reversed()));
+                    .thenComparing(
+                            Comparator.comparingLong(RecordRows.AssetRow::value).reversed()));
         } else {
-            rows.sort(Comparator.comparingLong(FinanceMenu.AssetRow::value)
+            rows.sort(Comparator.comparingLong(RecordRows.AssetRow::value)
                     .reversed()
-                    .thenComparing(Comparator.comparingLong(FinanceMenu.AssetRow::floatingProfit)
+                    .thenComparing(Comparator.comparingLong(RecordRows.AssetRow::floatingProfit)
                             .reversed()));
         }
         return rows;

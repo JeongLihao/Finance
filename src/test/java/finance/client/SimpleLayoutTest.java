@@ -8,7 +8,10 @@ import finance.client.ui.UiElement;
 import finance.client.ui.UiLayoutCheck;
 import finance.company.CompanyManagementAction;
 import finance.company.CompanyType;
-import finance.gui.FinanceMenu;
+import finance.gui.CompanyRows;
+import finance.gui.MarketRows;
+import finance.gui.RecordRows;
+import finance.gui.StockRows;
 import finance.network.SimpleActionPacket;
 import finance.simple.SimpleCenterService;
 import java.util.ArrayList;
@@ -53,8 +56,8 @@ class SimpleLayoutTest {
         public void dismissSummary() {}
     };
 
-    static FinanceMenu.CompanyInfo company(boolean owned, boolean isPublic, boolean risk) {
-        return new FinanceMenu.CompanyInfo(
+    static CompanyRows.CompanyInfo company(boolean owned, boolean isPublic, boolean risk) {
+        return new CompanyRows.CompanyInfo(
                 UUID.randomUUID(),
                 LONG_NAME,
                 CompanyType.FOOD_PROCESSING.getDisplayName(),
@@ -85,31 +88,31 @@ class SimpleLayoutTest {
                 "");
     }
 
-    static SimplePages.View view(long balance, FinanceMenu.CompanyInfo company, boolean manyRows, boolean status) {
+    static SimplePages.View view(long balance, CompanyRows.CompanyInfo company, boolean manyRows, boolean status) {
         return view(balance, company, manyRows, status, List.of("all"));
     }
 
     static SimplePages.View view(
-            long balance, FinanceMenu.CompanyInfo company, boolean manyRows, boolean status, List<String> extras) {
-        List<FinanceMenu.MarketRow> market = new ArrayList<>();
+            long balance, CompanyRows.CompanyInfo company, boolean manyRows, boolean status, List<String> extras) {
+        List<MarketRows.MarketRow> market = new ArrayList<>();
         Map<String, Integer> backpack = new LinkedHashMap<>();
         int n = manyRows ? 30 : 3;
         for (int i = 0; i < n; i++) {
             String id = "commodity_with_a_long_id_" + i;
             market.add(
-                    new FinanceMenu.MarketRow(id, HUGE, HUGE, HUGE, i % 2 == 0 ? 0.4 : -0.4, 1, 1, HUGE, 1, List.of()));
+                    new MarketRows.MarketRow(id, HUGE, HUGE, HUGE, i % 2 == 0 ? 0.4 : -0.4, 1, 1, HUGE, 1, List.of()));
             if (i % 3 == 0) backpack.put(id, 2_304);
         }
-        List<FinanceMenu.StockRow> stocks = new ArrayList<>();
-        List<FinanceMenu.StockHoldingRow> holdings = new ArrayList<>();
+        List<StockRows.StockRow> stocks = new ArrayList<>();
+        List<StockRows.StockHoldingRow> holdings = new ArrayList<>();
         for (int i = 0; i < (manyRows ? 20 : 2); i++) {
-            stocks.add(new FinanceMenu.StockRow(
+            stocks.add(new StockRows.StockRow(
                     "S" + i, LONG_NAME + i, HUGE, 0.3, 1, 1, 1, 1, 1, List.of(), HUGE, 0, 0, 0, 0, false, 0));
-            if (i % 2 == 0) holdings.add(new FinanceMenu.StockHoldingRow("S" + i, HUGE, 1));
+            if (i % 2 == 0) holdings.add(new StockRows.StockHoldingRow("S" + i, HUGE, 1));
         }
-        List<FinanceMenu.TransactionRow> tx = new ArrayList<>();
+        List<RecordRows.TransactionRow> tx = new ArrayList<>();
         for (int i = 0; i < 5; i++)
-            tx.add(new FinanceMenu.TransactionRow(0, UUID.randomUUID(), "COMMODITY_SELL", HUGE, HUGE, LONG_NAME));
+            tx.add(new RecordRows.TransactionRow(0, UUID.randomUUID(), "COMMODITY_SELL", HUGE, HUGE, LONG_NAME));
         // 没有任何进阶玩法时，三组都显示“怎么解锁”
         List<String> locked = extras.isEmpty() ? List.of("growth", "bet", "boss") : List.of();
         SimpleCenterService.Status st = status
@@ -160,9 +163,9 @@ class SimpleLayoutTest {
         List<String> summary = balance == HUGE
                 ? List.of("收入 +" + HUGE + LONG_NAME, "卖东西 " + LONG_NAME, "分红 " + LONG_NAME, "其他收入 " + LONG_NAME)
                 : List.of();
-        List<FinanceMenu.OrderRow> orders = new ArrayList<>();
+        List<MarketRows.OrderRow> orders = new ArrayList<>();
         for (int i = 0; i < (manyRows ? 8 : 1); i++) {
-            orders.add(new FinanceMenu.OrderRow(
+            orders.add(new MarketRows.OrderRow(
                     UUID.randomUUID(), market.get(0).commodityId(), i % 2 == 0 ? "SELL" : "BUY", HUGE, 99_999, true));
         }
         Map<String, Integer> stored = manyRows
@@ -233,10 +236,10 @@ class SimpleLayoutTest {
         return out;
     }
 
-    static List<FinanceMenu.CompanyProposalRow> proposals(boolean many) {
-        List<FinanceMenu.CompanyProposalRow> out = new ArrayList<>();
+    static List<CompanyRows.CompanyProposalRow> proposals(boolean many) {
+        List<CompanyRows.CompanyProposalRow> out = new ArrayList<>();
         for (int i = 0; i < (many ? 4 : 1); i++) {
-            out.add(new FinanceMenu.CompanyProposalRow(
+            out.add(new CompanyRows.CompanyProposalRow(
                     UUID.randomUUID(),
                     UUID.randomUUID(),
                     "DIVIDEND",
@@ -261,10 +264,10 @@ class SimpleLayoutTest {
         return out;
     }
 
-    static List<FinanceMenu.ConditionalStockOrderRow> autos(boolean many) {
-        List<FinanceMenu.ConditionalStockOrderRow> out = new ArrayList<>();
+    static List<StockRows.ConditionalStockOrderRow> autos(boolean many) {
+        List<StockRows.ConditionalStockOrderRow> out = new ArrayList<>();
         for (int i = 0; i < (many ? 5 : 1); i++) {
-            out.add(new FinanceMenu.ConditionalStockOrderRow(
+            out.add(new StockRows.ConditionalStockOrderRow(
                     UUID.randomUUID(), "S0", i % 2 == 0 ? "TAKE_PROFIT" : "STOP_LOSS", HUGE, HUGE));
         }
         return out;
@@ -519,7 +522,7 @@ class SimpleLayoutTest {
                 SimpleTradePage.tradeRows(v, s).get(0).commodityId(),
                 "收藏的排最前面");
         s.search = "ID_12";
-        List<FinanceMenu.MarketRow> found = SimpleTradePage.tradeRows(v, s);
+        List<MarketRows.MarketRow> found = SimpleTradePage.tradeRows(v, s);
         assertEquals(1, found.size(), "搜索不分大小写");
         assertEquals("commodity_with_a_long_id_12", found.get(0).commodityId());
         s.search = "nothing-like-this";

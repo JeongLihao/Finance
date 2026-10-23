@@ -4,7 +4,7 @@ import finance.company.CompanyManagementAction;
 import finance.company.CompanyProposalType;
 import finance.company.CompanyStrategy;
 import finance.company.CompanyType;
-import finance.gui.FinanceMenu;
+import finance.gui.CompanyRows;
 import finance.network.*;
 import java.util.*;
 import net.minecraft.client.gui.GuiGraphics;
@@ -25,7 +25,7 @@ public final class CompanyTabs {
     // ================================================================
 
     public void renderCompanyTab(GuiGraphics g) {
-        FinanceMenu.CompanyInfo company = screen.menu().getPlayerCompany();
+        CompanyRows.CompanyInfo company = screen.menu().getPlayerCompany();
         int cardY = FinanceGui.CONTENT_Y;
         if (screen.restructuringView) {
             renderRestructuringTasks(g, cardY);
@@ -151,7 +151,7 @@ public final class CompanyTabs {
                         FinanceGui.COL_ACCENT);
                 FinanceGui.drawFilledButton(screen.font(), g, "提交IPO", 322, cardY + 136, 50, FinanceGui.COL_GOOD);
             } else {
-                FinanceMenu.CompanyFinancingRow financing = financingForCompany(company.companyId());
+                CompanyRows.CompanyFinancingRow financing = financingForCompany(company.companyId());
                 g.drawString(screen.font(), "增发价", 12, cardY + 138, FinanceGui.COL_TEXT_DIM, false);
                 g.drawString(screen.font(), "增发数", 126, cardY + 138, FinanceGui.COL_TEXT_DIM, false);
                 if (financing == null) {
@@ -218,7 +218,7 @@ public final class CompanyTabs {
     }
 
     /** 财报和股东提案使用独立视图，避免与 IPO/融资表单共享坐标。 */
-    public void renderCompanyDetails(GuiGraphics g, FinanceMenu.CompanyInfo company, int cardY) {
+    public void renderCompanyDetails(GuiGraphics g, CompanyRows.CompanyInfo company, int cardY) {
         int cardH = screen.imageHeight() - cardY - 8;
         g.fill(8, cardY, screen.imageWidth() - 8, cardY + cardH, 0xFFE0E0E0);
         FinanceGui.drawSimpleBorder(g, 8, cardY, screen.imageWidth() - 16, cardH, FinanceGui.COL_PANEL_BORDER);
@@ -262,7 +262,7 @@ public final class CompanyTabs {
 
         int proposalY = cardY + 128;
         FinanceGui.drawSectionTitle(screen.font(), g, "提案记录", 10, proposalY);
-        List<FinanceMenu.CompanyProposalRow> proposals = proposalsForCompany(company.companyId());
+        List<CompanyRows.CompanyProposalRow> proposals = proposalsForCompany(company.companyId());
         int py = proposalY + 16;
         if (proposals.isEmpty()) {
             FinanceGui.drawClippedString(screen.font(), g, "暂无提案。", 12, py, 180, FinanceGui.COL_TEXT_DIM);
@@ -271,7 +271,7 @@ public final class CompanyTabs {
         int limit = proposalAreaBottom();
         for (int i = 0; i < proposals.size(); i++) {
             if (py + FinanceGui.ROW_HEIGHT > limit) break;
-            FinanceMenu.CompanyProposalRow row = proposals.get(i);
+            CompanyRows.CompanyProposalRow row = proposals.get(i);
             boolean active = "ACTIVE".equals(row.status());
             FinanceGui.drawClippedString(
                     screen.font(),
@@ -326,7 +326,7 @@ public final class CompanyTabs {
     }
 
     /** 进行中的提案若有 NPC 表态或参与率不足，下面多占一行显示说明。 */
-    static boolean hasDetailLine(FinanceMenu.CompanyProposalRow row) {
+    static boolean hasDetailLine(CompanyRows.CompanyProposalRow row) {
         return "ACTIVE".equals(row.status())
                 && (!row.npcSummary().isEmpty() || row.participationBps() < row.minParticipationBps());
     }
@@ -339,13 +339,13 @@ public final class CompanyTabs {
         FinanceGui.drawButton(screen.font(), g, "返回", 340, cardY + 2, 36, false);
         FinanceGui.drawClippedString(
                 screen.font(), g, "紧急注资允许外部投资者执行；资产交易必须由提案指定卖方的经营者确认。", 12, cardY + 20, 360, FinanceGui.COL_TEXT_DIM);
-        List<FinanceMenu.CompanyProposalRow> tasks = executableRestructuringTasks();
+        List<CompanyRows.CompanyProposalRow> tasks = executableRestructuringTasks();
         int y = cardY + 42;
         if (tasks.isEmpty()) {
             FinanceGui.drawClippedString(screen.font(), g, "目前没有等待执行的重组提案。", 12, y, 300, FinanceGui.COL_TEXT_DIM);
             return;
         }
-        for (FinanceMenu.CompanyProposalRow row : tasks) {
+        for (CompanyRows.CompanyProposalRow row : tasks) {
             if (y + FinanceGui.ROW_HEIGHT > cardY + cardH - 4) break;
             boolean recap = "EMERGENCY_RECAPITALIZATION".equals(row.type());
             String company = FinanceFormat.companyName(screen, row.companyId());
@@ -370,11 +370,11 @@ public final class CompanyTabs {
         return sb.toString();
     }
 
-    public List<FinanceMenu.CompanyProposalRow> executableRestructuringTasks() {
+    public List<CompanyRows.CompanyProposalRow> executableRestructuringTasks() {
         return screen.menu().getCompanyProposalRows().stream()
                 .filter(p -> "PASSED".equals(p.status()))
                 .filter(p -> "EMERGENCY_RECAPITALIZATION".equals(p.type()) || "MAJOR_ASSET_PURCHASE".equals(p.type()))
-                .filter(FinanceMenu.CompanyProposalRow::playerCanExecute)
+                .filter(CompanyRows.CompanyProposalRow::playerCanExecute)
                 .filter(p -> !GovernanceTaskClientState.hasSucceeded(p.proposalId()))
                 .toList();
     }
@@ -383,7 +383,7 @@ public final class CompanyTabs {
     // 标签 5: 股票
     // ================================================================
 
-    public void renderGovernanceCompany(GuiGraphics g, FinanceMenu.CompanyInfo company, int cardY) {
+    public void renderGovernanceCompany(GuiGraphics g, CompanyRows.CompanyInfo company, int cardY) {
         int cardH = screen.imageHeight() - cardY - 8;
         g.fill(8, cardY, screen.imageWidth() - 8, cardY + cardH, 0xFFE0E0E0);
         FinanceGui.drawSimpleBorder(g, 8, cardY, screen.imageWidth() - 16, cardH, FinanceGui.COL_PANEL_BORDER);
@@ -492,7 +492,7 @@ public final class CompanyTabs {
 
     public boolean handleCompanyClick(int mx, int my) {
         int cardY = FinanceGui.CONTENT_Y;
-        FinanceMenu.CompanyInfo playerCompany = screen.menu().getPlayerCompany();
+        CompanyRows.CompanyInfo playerCompany = screen.menu().getPlayerCompany();
         if (screen.restructuringView) {
             if (mx >= 340 && mx < 376 && my >= cardY + 2 && my < cardY + 15) {
                 screen.restructuringView = false;
@@ -500,7 +500,7 @@ public final class CompanyTabs {
                 return true;
             }
             int y = cardY + 42;
-            for (FinanceMenu.CompanyProposalRow proposal : executableRestructuringTasks()) {
+            for (CompanyRows.CompanyProposalRow proposal : executableRestructuringTasks()) {
                 if (y + FinanceGui.ROW_HEIGHT > screen.imageHeight() - 12) break;
                 if (mx >= 322 && mx < 376 && my >= y + 1 && my < y + 14) {
                     if (!GovernanceTaskClientState.begin(proposal.proposalId())) return true;
@@ -671,12 +671,12 @@ public final class CompanyTabs {
                         return true;
                     }
                 }
-                List<FinanceMenu.CompanyProposalRow> proposals = proposalsForCompany(playerCompany.companyId());
+                List<CompanyRows.CompanyProposalRow> proposals = proposalsForCompany(playerCompany.companyId());
                 int py = cardY + 144;
                 int limit = proposalAreaBottom();
                 for (int i = 0; i < proposals.size(); i++) {
                     if (py + FinanceGui.ROW_HEIGHT > limit) break;
-                    FinanceMenu.CompanyProposalRow row = proposals.get(i);
+                    CompanyRows.CompanyProposalRow row = proposals.get(i);
                     if ("ACTIVE".equals(row.status()) && !row.playerVoted()) {
                         if (mx >= 300 && mx < 336 && my >= py - 2 && my < py + 11) {
                             FinancePacketHandler.CHANNEL.sendToServer(
@@ -836,11 +836,11 @@ public final class CompanyTabs {
         return false;
     }
 
-    public FinanceMenu.CompanyFinancingRow financingForCompany(UUID companyId) {
+    public CompanyRows.CompanyFinancingRow financingForCompany(UUID companyId) {
         if (companyId == null) {
             return null;
         }
-        for (FinanceMenu.CompanyFinancingRow row : screen.menu().getCompanyFinancingRows()) {
+        for (CompanyRows.CompanyFinancingRow row : screen.menu().getCompanyFinancingRows()) {
             if (companyId.equals(row.companyId())) {
                 return row;
             }
@@ -848,18 +848,18 @@ public final class CompanyTabs {
         return null;
     }
 
-    public List<FinanceMenu.CompanyProposalRow> proposalsForCompany(UUID companyId) {
-        List<FinanceMenu.CompanyProposalRow> rows = new ArrayList<>();
+    public List<CompanyRows.CompanyProposalRow> proposalsForCompany(UUID companyId) {
+        List<CompanyRows.CompanyProposalRow> rows = new ArrayList<>();
         if (companyId == null) {
             return rows;
         }
-        for (FinanceMenu.CompanyProposalRow row : screen.menu().getCompanyProposalRows()) {
+        for (CompanyRows.CompanyProposalRow row : screen.menu().getCompanyProposalRows()) {
             if (companyId.equals(row.companyId())) {
                 rows.add(row);
             }
         }
-        rows.sort(Comparator.comparing((FinanceMenu.CompanyProposalRow row) -> !"ACTIVE".equals(row.status()))
-                .thenComparingLong(FinanceMenu.CompanyProposalRow::endMcDay));
+        rows.sort(Comparator.comparing((CompanyRows.CompanyProposalRow row) -> !"ACTIVE".equals(row.status()))
+                .thenComparingLong(CompanyRows.CompanyProposalRow::endMcDay));
         return rows;
     }
 

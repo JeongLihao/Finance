@@ -7,6 +7,8 @@ import finance.commodity.CommodityRegistry;
 import finance.company.CompanyType;
 import finance.gameplay.FinanceScreenMode;
 import finance.gui.FinanceMenu;
+import finance.gui.MarketRows;
+import finance.gui.StockRows;
 import finance.network.*;
 import java.util.*;
 import net.minecraft.client.gui.Font;
@@ -106,8 +108,8 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
     int adminRegisteredPage = 0;
 
     // ---- 缓存 ----
-    List<FinanceMenu.MarketRow> cachedMarketData;
-    FinanceMenu.MarketRow cachedSelectedRow;
+    List<MarketRows.MarketRow> cachedMarketData;
+    MarketRows.MarketRow cachedSelectedRow;
     String lastSelectedCommodity = "";
     boolean cacheDirty = true;
 
@@ -312,7 +314,7 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
 
         if (!menu.getStocks().isEmpty()) {
             boolean found = false;
-            for (FinanceMenu.StockRow row : menu.getStocks()) {
+            for (StockRows.StockRow row : menu.getStocks()) {
                 if (row.symbol().equals(selectedStock)) {
                     found = true;
                     break;
@@ -321,7 +323,7 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
             if (!found) {
                 selectedStock = menu.getStocks().get(0).symbol();
             }
-            FinanceMenu.StockRow selected = this.stockTabs.findSelectedStock();
+            StockRows.StockRow selected = this.stockTabs.findSelectedStock();
             if (selected != null) {
                 stockPriceBox.setValue(Long.toString(selected.lastPrice()));
             }
@@ -411,7 +413,7 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         if (!lastSelectedCommodity.equals(selectedCommodity)) {
             lastSelectedCommodity = selectedCommodity;
             cachedSelectedRow = null;
-            for (FinanceMenu.MarketRow row : cachedMarketData) {
+            for (MarketRows.MarketRow row : cachedMarketData) {
                 if (row.commodityId().equals(selectedCommodity)) {
                     cachedSelectedRow = row;
                     break;
@@ -923,7 +925,7 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
     }
 
     String chooseInitialCommodity() {
-        for (FinanceMenu.MarketRow row : menu.getMarketData()) {
+        for (MarketRows.MarketRow row : menu.getMarketData()) {
             if ("iron".equals(row.commodityId())) {
                 return "iron";
             }

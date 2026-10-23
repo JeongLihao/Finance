@@ -4,7 +4,10 @@ import finance.alert.PriceAlertDirection;
 import finance.alert.PriceAlertType;
 import finance.commodity.Commodity;
 import finance.commodity.CommodityRegistry;
-import finance.gui.FinanceMenu;
+import finance.gui.DashboardRows;
+import finance.gui.MarketRows;
+import finance.gui.RecordRows;
+import finance.gui.StockRows;
 import finance.network.*;
 import java.util.*;
 import net.minecraft.client.gui.GuiGraphics;
@@ -27,7 +30,7 @@ public final class RecordTabs {
         int tableW = screen.imageWidth() - 16;
         int headerY = FinanceGui.CONTENT_Y;
 
-        List<FinanceMenu.OrderRow> orders = screen.menu().getPlayerOrders();
+        List<MarketRows.OrderRow> orders = screen.menu().getPlayerOrders();
         g.fill(tableX, headerY - 2, tableX + tableW, screen.imageHeight() - 8, 0xFFF1ECDD);
         FinanceGui.drawSimpleBorder(
                 g, tableX, headerY - 2, tableW, screen.imageHeight() - headerY - 6, FinanceGui.COL_PANEL_BORDER);
@@ -55,7 +58,7 @@ public final class RecordTabs {
         int rowY = headerY + 16;
         int maxRows = Math.min(orders.size(), Math.max(1, (screen.imageHeight() - rowY - 10) / FinanceGui.ROW_HEIGHT));
         for (int i = 0; i < maxRows; i++) {
-            FinanceMenu.OrderRow row = orders.get(i);
+            MarketRows.OrderRow row = orders.get(i);
             int y = rowY + i * FinanceGui.ROW_HEIGHT;
             g.fill(
                     tableX + 1,
@@ -225,7 +228,7 @@ public final class RecordTabs {
         FinanceGui.drawHeader(screen.font(), g, "金额", 326, headerY);
         g.fill(8, headerY + 12, screen.imageWidth() - 8, headerY + 13, FinanceGui.COL_PANEL_BORDER);
 
-        List<FinanceMenu.TransactionRow> rows = screen.menu().getTransactions();
+        List<RecordRows.TransactionRow> rows = screen.menu().getTransactions();
         if (rows.isEmpty()) {
             g.drawString(
                     screen.font(),
@@ -240,7 +243,7 @@ public final class RecordTabs {
         int rowY = headerY + 18;
         int maxRows = Math.min(rows.size(), Math.max(1, (screen.imageHeight() - rowY - 8) / FinanceGui.ROW_HEIGHT));
         for (int i = 0; i < maxRows; i++) {
-            FinanceMenu.TransactionRow row = rows.get(i);
+            RecordRows.TransactionRow row = rows.get(i);
             int y = rowY + i * FinanceGui.ROW_HEIGHT;
             g.fill(
                     8,
@@ -298,7 +301,7 @@ public final class RecordTabs {
     // ================================================================
 
     public void renderAssetTab(GuiGraphics g) {
-        FinanceMenu.AssetSummary summary = screen.menu().getAssetSummary();
+        RecordRows.AssetSummary summary = screen.menu().getAssetSummary();
         int y = FinanceGui.CONTENT_Y;
         FinanceGui.drawSectionTitle(screen.font(), g, "我的资产", 10, y);
         FinanceGui.drawButton(
@@ -377,11 +380,11 @@ public final class RecordTabs {
         FinanceGui.drawHeader(screen.font(), g, "浮盈", 342, y);
         g.fill(8, y + 12, screen.imageWidth() - 8, y + 13, FinanceGui.COL_PANEL_BORDER);
 
-        List<FinanceMenu.AssetRow> rows = FinanceFormat.sortedAssetRows(screen);
+        List<RecordRows.AssetRow> rows = FinanceFormat.sortedAssetRows(screen);
         int rowY = y + 18;
         int maxRows = Math.min(rows.size(), Math.max(1, (screen.imageHeight() - rowY - 6) / FinanceGui.ROW_HEIGHT));
         for (int i = 0; i < maxRows; i++) {
-            FinanceMenu.AssetRow row = rows.get(i);
+            RecordRows.AssetRow row = rows.get(i);
             int ry = rowY + i * FinanceGui.ROW_HEIGHT;
             g.fill(
                     8,
@@ -425,7 +428,7 @@ public final class RecordTabs {
                 y + 18,
                 130,
                 FinanceGui.COL_TEXT_DIM);
-        FinanceMenu.StockRow stock = screen.stockTabs.findSelectedStock();
+        StockRows.StockRow stock = screen.stockTabs.findSelectedStock();
         FinanceGui.drawClippedString(
                 screen.font(),
                 g,
@@ -453,7 +456,7 @@ public final class RecordTabs {
         FinanceGui.drawHeader(screen.font(), g, "操作", 316, y);
         g.fill(8, y + 12, screen.imageWidth() - 8, y + 13, FinanceGui.COL_PANEL_BORDER);
 
-        List<FinanceMenu.PriceAlertRow> alerts = screen.menu().getPriceAlerts();
+        List<RecordRows.PriceAlertRow> alerts = screen.menu().getPriceAlerts();
         if (alerts.isEmpty()) {
             FinanceGui.drawClippedString(
                     screen.font(),
@@ -468,7 +471,7 @@ public final class RecordTabs {
         int rowY = y + 18;
         int maxRows = Math.min(alerts.size(), Math.max(1, (screen.imageHeight() - rowY - 6) / FinanceGui.ROW_HEIGHT));
         for (int i = 0; i < maxRows; i++) {
-            FinanceMenu.PriceAlertRow row = alerts.get(i);
+            RecordRows.PriceAlertRow row = alerts.get(i);
             int ry = rowY + i * FinanceGui.ROW_HEIGHT;
             g.fill(
                     8,
@@ -504,7 +507,7 @@ public final class RecordTabs {
     // ================================================================
 
     public void renderDashboardTab(GuiGraphics g) {
-        FinanceMenu.EconomyDashboardRow dashboard = screen.menu().getDashboard();
+        DashboardRows.EconomyDashboardRow dashboard = screen.menu().getDashboard();
         int y = FinanceGui.CONTENT_Y;
         FinanceGui.drawSectionTitle(screen.font(), g, "经济仪表盘", 10, y);
         FinanceGui.drawClippedString(screen.font(), g, "管理员只读监控：当前日数据与最近 30 天趋势", 100, y, 260, FinanceGui.COL_TEXT_DIM);
@@ -566,7 +569,7 @@ public final class RecordTabs {
     }
 
     public void renderDashboardTrend(
-            GuiGraphics g, List<FinanceMenu.EconomyTrendRow> trends, int x, int y, int width, int height) {
+            GuiGraphics g, List<DashboardRows.EconomyTrendRow> trends, int x, int y, int width, int height) {
         g.fill(x, y, x + width, y + height, 0xFFE8E2D3);
         if (trends == null || trends.isEmpty()) {
             FinanceGui.drawClippedString(
@@ -574,11 +577,11 @@ public final class RecordTabs {
             return;
         }
         double min = trends.stream()
-                .mapToDouble(FinanceMenu.EconomyTrendRow::priceIndex)
+                .mapToDouble(DashboardRows.EconomyTrendRow::priceIndex)
                 .min()
                 .orElse(100.0);
         double max = trends.stream()
-                .mapToDouble(FinanceMenu.EconomyTrendRow::priceIndex)
+                .mapToDouble(DashboardRows.EconomyTrendRow::priceIndex)
                 .max()
                 .orElse(100.0);
         double span = Math.max(1.0, max - min);
@@ -614,7 +617,7 @@ public final class RecordTabs {
     // ---- 标签 2 点击: 订单取消 ----
 
     public boolean handleOrdersClick(int mx, int my) {
-        List<FinanceMenu.OrderRow> orders = screen.menu().getPlayerOrders();
+        List<MarketRows.OrderRow> orders = screen.menu().getPlayerOrders();
         int rowY = FinanceGui.CONTENT_Y + 16;
         int maxRows = Math.min(orders.size(), Math.max(1, (screen.imageHeight() - rowY - 10) / FinanceGui.ROW_HEIGHT));
         for (int i = 0; i < maxRows; i++) {
@@ -790,7 +793,7 @@ public final class RecordTabs {
         }
 
         int listY = y + 104 + 18;
-        List<FinanceMenu.PriceAlertRow> alerts = screen.menu().getPriceAlerts();
+        List<RecordRows.PriceAlertRow> alerts = screen.menu().getPriceAlerts();
         int maxRows = Math.min(alerts.size(), Math.max(1, (screen.imageHeight() - listY - 6) / FinanceGui.ROW_HEIGHT));
         for (int i = 0; i < maxRows; i++) {
             int rowY = listY + i * FinanceGui.ROW_HEIGHT;

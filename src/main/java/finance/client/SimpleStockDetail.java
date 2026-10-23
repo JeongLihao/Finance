@@ -4,7 +4,7 @@ import static finance.client.SimplePages.*;
 
 import finance.client.ui.UiBuilder;
 import finance.client.ui.UiBuilder.Btn;
-import finance.gui.FinanceMenu;
+import finance.gui.StockRows;
 import finance.network.SimpleActionPacket;
 import finance.simple.SimpleBetService;
 import finance.simple.SimpleCenterService;
@@ -29,7 +29,7 @@ final class SimpleStockDetail {
                 + down.stopPct() + "% 会被强制结束，押金自动退回。";
     }
 
-    static void stockDetail(UiBuilder ui, View v, State s, Actions a, FinanceMenu.StockRow row, int y) {
+    static void stockDetail(UiBuilder ui, View v, State s, Actions a, StockRows.StockRow row, int y) {
         String symbol = row.symbol();
         long have = holding(v, symbol);
         long price = Math.max(1, row.lastPrice());
@@ -123,10 +123,10 @@ final class SimpleStockDetail {
                                 () -> a.simple(SimpleActionPacket.Action.AUTO_SELL_DOWN, symbol, have, down),
                                 noHold)));
         y += 16;
-        List<FinanceMenu.ConditionalStockOrderRow> autos =
+        List<StockRows.ConditionalStockOrderRow> autos =
                 v.autoOrders().stream().filter(o -> o.symbol().equals(symbol)).toList();
         if (!autos.isEmpty()) {
-            FinanceMenu.ConditionalStockOrderRow o = autos.get(0);
+            StockRows.ConditionalStockOrderRow o = autos.get(0);
             int cx = ui.buttonRight(
                     RIGHT - 2,
                     y - 2,
@@ -165,7 +165,7 @@ final class SimpleStockDetail {
     }
 
     /** “股价怎么来的”：家底 + 日利润 × 倍数，÷ 股数；现价比每股价值贵还是便宜。 */
-    static String valuationText(View v, FinanceMenu.StockRow row) {
+    static String valuationText(View v, StockRows.StockRow row) {
         SimpleCenterService.Valuation val = v.status() == null
                 ? null
                 : v.status().valuations().stream()

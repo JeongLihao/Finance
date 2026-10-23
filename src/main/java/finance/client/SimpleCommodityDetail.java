@@ -6,7 +6,7 @@ import finance.client.ui.UiBuilder;
 import finance.client.ui.UiBuilder.Btn;
 import finance.commodity.Commodity;
 import finance.commodity.CommodityRegistry;
-import finance.gui.FinanceMenu;
+import finance.gui.MarketRows;
 import finance.network.SimpleActionPacket;
 import finance.simple.SimpleBetService;
 import finance.util.MoneyFormat;
@@ -39,7 +39,7 @@ final class SimpleCommodityDetail {
                 .orElse(null);
     }
 
-    static void commodityDetail(UiBuilder ui, View v, State s, Actions a, FinanceMenu.MarketRow row, int y) {
+    static void commodityDetail(UiBuilder ui, View v, State s, Actions a, MarketRows.MarketRow row, int y) {
         String id = row.commodityId();
         String name = FinanceFormat.commodityDisplayName(id);
         int have = v.backpack().getOrDefault(id, 0);

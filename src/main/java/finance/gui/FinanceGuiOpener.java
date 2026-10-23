@@ -90,10 +90,10 @@ public class FinanceGuiOpener {
         }
 
         // 1. 市场行情
-        List<FinanceMenu.MarketRow> marketData = new ArrayList<>();
+        List<MarketRows.MarketRow> marketData = new ArrayList<>();
         for (MarketPrice price : NpcMarketMaker.getAllMarketPrices().values()) {
             int stock = CommodityInventoryManager.getCommodityAmount(NpcMarketMaker.NPC_UUID, price.getCommodityId());
-            marketData.add(new FinanceMenu.MarketRow(
+            marketData.add(new MarketRows.MarketRow(
                     price.getCommodityId(),
                     price.getMidPrice(),
                     price.getBidPrice(),
@@ -108,10 +108,10 @@ public class FinanceGuiOpener {
         }
 
         // 2. 全市场订单（标记当前玩家自己的订单）
-        List<FinanceMenu.OrderRow> orderRows = new ArrayList<>();
+        List<MarketRows.OrderRow> orderRows = new ArrayList<>();
         List<Order> orders = MarketManager.getOrders();
         for (Order order : orders) {
-            orderRows.add(new FinanceMenu.OrderRow(
+            orderRows.add(new MarketRows.OrderRow(
                     order.getOrderId(),
                     order.getCommodityId(),
                     order.getType().name(),
@@ -130,9 +130,9 @@ public class FinanceGuiOpener {
                 CommodityInventoryManager.getInventory(playerId).getAllCommodities());
 
         // 5. 公司
-        List<FinanceMenu.CompanyInfo> companyRows = new ArrayList<>();
+        List<CompanyRows.CompanyInfo> companyRows = new ArrayList<>();
 
-        final FinanceMenu.CompanyInfo companyInfo;
+        final CompanyRows.CompanyInfo companyInfo;
         Company company = CompanyManager.getCompanyByOwner(playerId);
         if (boardroomCompanyId != null) company = CompanyManager.getCompany(boardroomCompanyId);
         if (company == null && initialMode == finance.gameplay.FinanceScreenMode.COMPANY) {
@@ -154,11 +154,11 @@ public class FinanceGuiOpener {
             companyInfo = null;
         }
 
-        List<FinanceMenu.StockRow> stockRows = new ArrayList<>();
+        List<StockRows.StockRow> stockRows = new ArrayList<>();
         for (Stock stock : StockMarketManager.getListedStocks()) {
             Company stockCompany = CompanyManager.getCompany(stock.getCompanyId());
             DividendSummary dividendSummary = dividendSummary(stockCompany, stock);
-            stockRows.add(new FinanceMenu.StockRow(
+            stockRows.add(new StockRows.StockRow(
                     stock.getSymbol(),
                     stock.getName(),
                     stock.getLastPrice(),
@@ -180,18 +180,18 @@ public class FinanceGuiOpener {
                     stockHourBars(stock)));
         }
 
-        List<FinanceMenu.StockHoldingRow> stockHoldingRows = new ArrayList<>();
+        List<StockRows.StockHoldingRow> stockHoldingRows = new ArrayList<>();
         for (Map.Entry<String, StockHolding> entry :
                 StockPortfolioManager.getPortfolio(playerId).entrySet()) {
-            stockHoldingRows.add(new FinanceMenu.StockHoldingRow(
+            stockHoldingRows.add(new StockRows.StockHoldingRow(
                     entry.getKey(),
                     entry.getValue().getQuantity(),
                     entry.getValue().getAverageCost()));
         }
 
-        List<FinanceMenu.StockOrderRow> stockOrderRows = new ArrayList<>();
+        List<StockRows.StockOrderRow> stockOrderRows = new ArrayList<>();
         for (StockOrder order : StockMarketManager.getOrders()) {
-            stockOrderRows.add(new FinanceMenu.StockOrderRow(
+            stockOrderRows.add(new StockRows.StockOrderRow(
                     order.getOrderId(),
                     order.getSymbol(),
                     order.getType().name(),
@@ -201,31 +201,31 @@ public class FinanceGuiOpener {
         }
 
         AssetBundle assetBundle = buildAssetBundle(player, account, inventory);
-        List<FinanceMenu.PriceAlertRow> priceAlertRows = new ArrayList<>();
+        List<RecordRows.PriceAlertRow> priceAlertRows = new ArrayList<>();
         for (PriceAlert alert : PriceAlertManager.getAlertsForPlayer(playerId)) {
-            priceAlertRows.add(new FinanceMenu.PriceAlertRow(
+            priceAlertRows.add(new RecordRows.PriceAlertRow(
                     alert.getAlertId(),
                     alert.getType().name(),
                     alert.getTargetId(),
                     alert.getDirection().name(),
                     alert.getTargetPrice()));
         }
-        List<FinanceMenu.ConditionalStockOrderRow> conditionalStockOrderRows = new ArrayList<>();
+        List<StockRows.ConditionalStockOrderRow> conditionalStockOrderRows = new ArrayList<>();
         for (ConditionalStockOrder order : ConditionalStockOrderManager.getOrdersForPlayer(playerId)) {
-            conditionalStockOrderRows.add(new FinanceMenu.ConditionalStockOrderRow(
+            conditionalStockOrderRows.add(new StockRows.ConditionalStockOrderRow(
                     order.getOrderId(),
                     order.getSymbol(),
                     order.getType().name(),
                     order.getTriggerPrice(),
                     order.getQuantity()));
         }
-        List<FinanceMenu.CompanyFinancingRow> companyFinancingRows = new ArrayList<>();
+        List<CompanyRows.CompanyFinancingRow> companyFinancingRows = new ArrayList<>();
         for (CompanyFinancingProject project : CompanyFinancingManager.getProjects()) {
             Company financingCompany = CompanyManager.getCompany(project.getCompanyId());
             if (financingCompany == null || !financingCompany.isPublic()) {
                 continue;
             }
-            companyFinancingRows.add(new FinanceMenu.CompanyFinancingRow(
+            companyFinancingRows.add(new CompanyRows.CompanyFinancingRow(
                     project.getProjectId(),
                     project.getCompanyId(),
                     financingCompany.getName(),
@@ -238,10 +238,10 @@ public class FinanceGuiOpener {
                     project.getSubscriptions().getOrDefault(playerId, 0L),
                     project.getDeadlineMcDay()));
         }
-        List<FinanceMenu.CompanyProposalRow> companyProposalRows = new ArrayList<>();
+        List<CompanyRows.CompanyProposalRow> companyProposalRows = new ArrayList<>();
         for (CompanyProposal proposal : CompanyProposalManager.getProposals()) {
             if (boardroomCompanyId != null && !boardroomCompanyId.equals(proposal.getCompanyId())) continue;
-            companyProposalRows.add(new FinanceMenu.CompanyProposalRow(
+            companyProposalRows.add(new CompanyRows.CompanyProposalRow(
                     proposal.getProposalId(),
                     proposal.getCompanyId(),
                     proposal.getType().name(),
@@ -264,7 +264,7 @@ public class FinanceGuiOpener {
                     (int) Math.round(proposal.getMinParticipationRatio() * 10_000)));
         }
 
-        List<FinanceMenu.TransactionRow> transactionRows = new ArrayList<>();
+        List<RecordRows.TransactionRow> transactionRows = new ArrayList<>();
         List<TransactionRecord> transactions = AccountManager.getTransactions();
         int added = 0;
         for (int i = transactions.size() - 1; i >= 0 && added < 100; i--) {
@@ -273,7 +273,7 @@ public class FinanceGuiOpener {
             if (!admin && (recordPlayer == null || !recordPlayer.equals(playerId))) {
                 continue;
             }
-            transactionRows.add(new FinanceMenu.TransactionRow(
+            transactionRows.add(new RecordRows.TransactionRow(
                     record.getTimestamp().toEpochSecond(java.time.ZoneOffset.UTC),
                     recordPlayer != null ? recordPlayer : new UUID(0L, 0L),
                     record.getType().name(),
@@ -295,9 +295,9 @@ public class FinanceGuiOpener {
             }
         }
 
-        FinanceMenu.EconomyDashboardRow dashboard = admin
+        DashboardRows.EconomyDashboardRow dashboard = admin
                 ? buildDashboard()
-                : new FinanceMenu.EconomyDashboardRow(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", List.of());
+                : new DashboardRows.EconomyDashboardRow(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", List.of());
         long warehouseUsed = finance.warehouse.WarehouseManager.usedCapacity(playerId);
         long warehouseCapacity = finance.warehouse.WarehouseManager.totalCapacity(playerId);
         boolean warehouseOverCapacity = warehouseUsed > warehouseCapacity;
@@ -333,11 +333,11 @@ public class FinanceGuiOpener {
                 warehouseOverCapacity);
     }
 
-    private static FinanceMenu.CompanyInfo toCompanyInfo(Company company) {
+    private static CompanyRows.CompanyInfo toCompanyInfo(Company company) {
         return toCompanyInfo(company, true);
     }
 
-    private static FinanceMenu.CompanyInfo toCompanyInfo(Company company, boolean privateView) {
+    private static CompanyRows.CompanyInfo toCompanyInfo(Company company, boolean privateView) {
         boolean publicFinancials = company.isPublic();
         CompanyFinancialReport report = company.getLatestFinancialReport();
         List<finance.gameplay.company.capital.WorldCapitalProject> capitalProjects =
@@ -359,7 +359,7 @@ public class FinanceGuiOpener {
                         + capitalProjects.get(0).status().name() + " "
                         + capitalProjects.get(0).fundedAmount() + "/"
                         + capitalProjects.get(0).budget();
-        return new FinanceMenu.CompanyInfo(
+        return new CompanyRows.CompanyInfo(
                 company.getCompanyId(),
                 company.getName(),
                 company.getType().getDisplayName(),
@@ -494,15 +494,15 @@ public class FinanceGuiOpener {
     private record DividendSummary(long expectedPerShare, long lastPerShare, long lastTotal) {}
 
     private static AssetBundle buildAssetBundle(ServerPlayer player, Account account, Map<String, Integer> inventory) {
-        List<FinanceMenu.AssetRow> rows = new ArrayList<>();
+        List<RecordRows.AssetRow> rows = new ArrayList<>();
         long cash = account.getBalance();
         long frozenCash = account.getFrozenBalance();
         long commodityValue = 0;
         long stockValue = 0;
 
-        rows.add(new FinanceMenu.AssetRow("现金", "可用现金", 1, cash, 0, cash, 1, 0));
+        rows.add(new RecordRows.AssetRow("现金", "可用现金", 1, cash, 0, cash, 1, 0));
         if (frozenCash > 0) {
-            rows.add(new FinanceMenu.AssetRow("现金", "冻结资金", 1, frozenCash, 0, frozenCash, 1, 0));
+            rows.add(new RecordRows.AssetRow("现金", "冻结资金", 1, frozenCash, 0, frozenCash, 1, 0));
         }
 
         for (Map.Entry<String, Integer> entry : inventory.entrySet()) {
@@ -514,7 +514,7 @@ public class FinanceGuiOpener {
             long value = safeMultiply(price.getMidPrice(), entry.getValue());
             commodityValue = finance.util.MathUtil.saturatedAddNonNegative(commodityValue, value);
             String name = commodity != null ? commodity.getDisplayName() : entry.getKey();
-            rows.add(new FinanceMenu.AssetRow("商品", name, entry.getValue(), value, 0, value, price.getMidPrice(), 0));
+            rows.add(new RecordRows.AssetRow("商品", name, entry.getValue(), value, 0, value, price.getMidPrice(), 0));
         }
 
         for (Map.Entry<String, StockHolding> entry :
@@ -528,7 +528,7 @@ public class FinanceGuiOpener {
             long cost = safeMultiply(holding.getAverageCost(), holding.getQuantity());
             long profit = value - cost;
             stockValue = finance.util.MathUtil.saturatedAddNonNegative(stockValue, value);
-            rows.add(new FinanceMenu.AssetRow(
+            rows.add(new RecordRows.AssetRow(
                     "股票", stock.getSymbol(), holding.getQuantity(), value, 0, cost, stock.getLastPrice(), profit));
         }
 
@@ -543,7 +543,7 @@ public class FinanceGuiOpener {
             fixedIncomeValue = finance.util.MathUtil.saturatedAddNonNegative(fixedIncomeValue, valuation.marketValue());
             long cost = finance.bondmarket.BondPortfolioManager.position(bond.id(), player.getUUID())
                     .totalCost();
-            rows.add(new FinanceMenu.AssetRow(
+            rows.add(new RecordRows.AssetRow(
                     "债券",
                     bond.code(),
                     quantity,
@@ -560,7 +560,7 @@ public class FinanceGuiOpener {
             if (principal <= 0) continue;
             long expected = finance.fixedincome.CentralBankBillManager.expectedMaturityValue(bill, player.getUUID());
             fixedIncomeValue = finance.util.MathUtil.saturatedAddNonNegative(fixedIncomeValue, principal);
-            rows.add(new FinanceMenu.AssetRow(
+            rows.add(new RecordRows.AssetRow(
                     "票据",
                     bill.termDays() + "日央行票据",
                     principal,
@@ -579,7 +579,7 @@ public class FinanceGuiOpener {
                 && (marginAccount.cashBalance() > 0
                         || finance.futures.MarginManager.positions().keySet().stream()
                                 .anyMatch(k -> k.ownerId().equals(player.getUUID())))) {
-            rows.add(new FinanceMenu.AssetRow(
+            rows.add(new RecordRows.AssetRow(
                     "衍生品",
                     "期货保证金权益",
                     1,
@@ -602,7 +602,7 @@ public class FinanceGuiOpener {
                 long value = finance.fund.FundMath.ratioFloor(
                         entry.getValue().shareUnits(), state.currentNav(), finance.fund.FundManager.SHARE_SCALE);
                 fundValue = finance.util.MathUtil.saturatedAddNonNegative(fundValue, value);
-                rows.add(new FinanceMenu.AssetRow(
+                rows.add(new RecordRows.AssetRow(
                         "基金",
                         definition.displayName(),
                         entry.getValue().shareUnits(),
@@ -621,10 +621,10 @@ public class FinanceGuiOpener {
         totalAsset = finance.util.MathUtil.saturatedAddNonNegative(totalAsset, futuresEquity);
         totalAsset = finance.util.MathUtil.saturatedAddNonNegative(totalAsset, fundValue);
         long todayProfit = AssetSnapshotManager.getTodayProfit(player.getUUID(), totalAsset, mcDay);
-        List<FinanceMenu.AssetRow> withPercent = new ArrayList<>();
-        for (FinanceMenu.AssetRow row : rows) {
+        List<RecordRows.AssetRow> withPercent = new ArrayList<>();
+        for (RecordRows.AssetRow row : rows) {
             double percent = totalAsset > 0 ? (double) row.value() / totalAsset * 100 : 0;
-            withPercent.add(new FinanceMenu.AssetRow(
+            withPercent.add(new RecordRows.AssetRow(
                     row.category(),
                     row.name(),
                     row.quantity(),
@@ -636,7 +636,7 @@ public class FinanceGuiOpener {
         }
 
         return new AssetBundle(
-                new FinanceMenu.AssetSummary(cash, frozenCash, commodityValue, stockValue, totalAsset, todayProfit),
+                new RecordRows.AssetSummary(cash, frozenCash, commodityValue, stockValue, totalAsset, todayProfit),
                 withPercent);
     }
 
@@ -648,15 +648,15 @@ public class FinanceGuiOpener {
         }
     }
 
-    private record AssetBundle(FinanceMenu.AssetSummary summary, List<FinanceMenu.AssetRow> rows) {}
+    private record AssetBundle(RecordRows.AssetSummary summary, List<RecordRows.AssetRow> rows) {}
 
-    private static FinanceMenu.EconomyDashboardRow buildDashboard() {
+    private static DashboardRows.EconomyDashboardRow buildDashboard() {
         EconomyMetricsService.CurrentMetrics current = EconomyMetricsService.getCurrentMetrics();
-        List<FinanceMenu.EconomyTrendRow> trends = EconomyMetricsService.getDailySnapshots().stream()
-                .map(snapshot -> new FinanceMenu.EconomyTrendRow(
+        List<DashboardRows.EconomyTrendRow> trends = EconomyMetricsService.getDailySnapshots().stream()
+                .map(snapshot -> new DashboardRows.EconomyTrendRow(
                         snapshot.mcDay(), snapshot.commodityVolume(), snapshot.stockVolume(), snapshot.priceIndex()))
                 .toList();
-        return new FinanceMenu.EconomyDashboardRow(
+        return new DashboardRows.EconomyDashboardRow(
                 current.playerCash(),
                 current.playerFrozenFunds(),
                 current.companyCash(),
@@ -672,24 +672,24 @@ public class FinanceGuiOpener {
     }
 
     private record FinanceProvider(
-            List<FinanceMenu.MarketRow> marketData,
-            List<FinanceMenu.OrderRow> orderRows,
+            List<MarketRows.MarketRow> marketData,
+            List<MarketRows.OrderRow> orderRows,
             long balance,
             long frozenBalance,
             Map<String, Integer> inventory,
-            FinanceMenu.CompanyInfo companyInfo,
-            List<FinanceMenu.CompanyInfo> allCompanies,
-            List<FinanceMenu.StockRow> stocks,
-            List<FinanceMenu.StockHoldingRow> stockHoldings,
-            List<FinanceMenu.StockOrderRow> stockOrders,
-            List<FinanceMenu.TransactionRow> transactions,
-            FinanceMenu.AssetSummary assetSummary,
-            List<FinanceMenu.AssetRow> assetRows,
-            List<FinanceMenu.PriceAlertRow> priceAlerts,
-            List<FinanceMenu.ConditionalStockOrderRow> conditionalStockOrders,
-            List<FinanceMenu.CompanyFinancingRow> companyFinancingRows,
-            List<FinanceMenu.CompanyProposalRow> companyProposalRows,
-            FinanceMenu.EconomyDashboardRow dashboard,
+            CompanyRows.CompanyInfo companyInfo,
+            List<CompanyRows.CompanyInfo> allCompanies,
+            List<StockRows.StockRow> stocks,
+            List<StockRows.StockHoldingRow> stockHoldings,
+            List<StockRows.StockOrderRow> stockOrders,
+            List<RecordRows.TransactionRow> transactions,
+            RecordRows.AssetSummary assetSummary,
+            List<RecordRows.AssetRow> assetRows,
+            List<RecordRows.PriceAlertRow> priceAlerts,
+            List<StockRows.ConditionalStockOrderRow> conditionalStockOrders,
+            List<CompanyRows.CompanyFinancingRow> companyFinancingRows,
+            List<CompanyRows.CompanyProposalRow> companyProposalRows,
+            DashboardRows.EconomyDashboardRow dashboard,
             double dividendRatio,
             int dividendCycleDays,
             Map<String, Integer> mcInventory,
