@@ -42,6 +42,21 @@ class MarginAndRiskTest {
     }
 
     @Test
+    void closedLossCannotBeWithdrawnBeforeDailySettlement() {
+        open(1);
+        // 多头在 90 平仓：亏的差价先记在待结算里，日终才从保证金扣
+        FuturesMarketManager.place(longOwner, contract.id(), FuturesOrderSide.SELL, 90, 1);
+        FuturesMarketManager.place(shortOwner, contract.id(), FuturesOrderSide.BUY, 90, 1);
+        assertNull(MarginManager.findPosition(longOwner, contract.id()), "已经平仓");
+        long loss = -MarginManager.pendingVariation(longOwner, contract.id());
+        assertTrue(loss > 0, "平仓亏损还没结算");
+        long cash = MarginManager.account(longOwner).cashBalance();
+        assertEquals(cash - loss, MarginManager.availableToWithdraw(longOwner), "结算前亏的那部分不能取走");
+        assertFalse(MarginManager.withdraw(longOwner, cash), "不能先把保证金全取走、让担保基金替你付亏损");
+        assertTrue(MarginManager.withdraw(longOwner, cash - loss));
+    }
+
+    @Test
     void frozenOrderMarginCannotBeWithdrawn() {
         FuturesMarketManager.place(longOwner, contract.id(), FuturesOrderSide.BUY, 90, 2);
         assertTrue(MarginManager.account(longOwner).frozenForOrders() > 0);

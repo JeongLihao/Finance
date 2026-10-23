@@ -96,6 +96,32 @@ public final class SimpleWealthService {
         return add(total, Math.max(0, finance.futures.FuturesRiskService.equity(id)));
     }
 
+    /** 在线玩家的身家：账户里的再加上背包里的现金和兑换钞。离线玩家读不到背包，只能用 {@link #netWorth(UUID)}。 */
+    public static long netWorth(ServerPlayer player) {
+        return add(netWorth(player.getUUID()), carriedCash(player));
+    }
+
+    /** 背包里现金的面值，加上兑换钞在央行登记的金额（复制出来的同号钞只算一张，兑过的不算）。 */
+    static long carriedCash(ServerPlayer player) {
+        long total;
+        try {
+            total = new finance.cash.PlayerCashPurse(player).cashTotal();
+        } catch (ArithmeticException overflow) {
+            total = Long.MAX_VALUE;
+        }
+        Map<UUID, Long> notes = finance.cash.CashService.exchangeNotes();
+        java.util.Set<UUID> counted = new java.util.HashSet<>();
+        var inventory = player.getInventory();
+        for (int i = 0; i < inventory.getContainerSize(); i++) {
+            var stack = inventory.getItem(i);
+            if (!stack.is(finance.registry.ModItems.EXCHANGE_NOTE.get())) continue;
+            UUID serial = finance.item.ExchangeNoteItem.serial(stack);
+            Long amount = serial == null ? null : notes.get(serial);
+            if (amount != null && counted.add(serial)) total = add(total, amount);
+        }
+        return total;
+    }
+
     // ------------------------------------------------------------ 7 天走势
 
     static final String HISTORY_TAG = "finance_worth";
@@ -133,7 +159,7 @@ public final class SimpleWealthService {
     private static List<Rank> cached = List.of();
     private static long cachedTick = Long.MIN_VALUE;
 
-    /** 身家前 5 名（只算有正式玩家档案的账户，不含 NPC 和系统账户）；每分钟最多算一次。 */
+    /** 身家前 5 名（只算有正式玩家档案的账户，不含 NPC 和系统账户；在线的算上背包里的现金）；每分钟最多算一次。 */
     public static synchronized List<Rank> ranks(MinecraftServer server) {
         long tick = server.getTickCount();
         if (tick - cachedTick < 1_200 && tick >= cachedTick) return cached;
@@ -148,7 +174,8 @@ public final class SimpleWealthService {
         for (UUID id : AccountManager.getAccounts().keySet()) {
             Optional<GameProfile> profile = profiles == null ? Optional.empty() : profiles.get(id);
             if (profile.isEmpty() || profile.get().getName() == null) continue;
-            all.add(new Rank(id, profile.get().getName(), netWorth(id)));
+            ServerPlayer online = server.getPlayerList().getPlayer(id);
+            all.add(new Rank(id, profile.get().getName(), online != null ? netWorth(online) : netWorth(id)));
         }
         all.sort(Comparator.comparingLong(Rank::worth).reversed());
         return all.subList(0, Math.min(limit, all.size()));

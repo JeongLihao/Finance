@@ -173,7 +173,8 @@ public final class SimpleBossService {
         String what;
         switch (template) {
             case "dividend" -> {
-                long pct = Math.min(100, Math.round(company.getDividendRatio() * 100) + 10);
+                // 没单独定过分红比例的公司存的是 -1（用全服默认值），要从实际执行的比例往上加
+                long pct = dividendRaise(company);
                 r = CompanyProposalManager.createProposal(
                         id,
                         company.getCompanyId(),
@@ -224,6 +225,12 @@ public final class SimpleBossService {
         return r.success()
                 ? new SimpleInvestService.Result(true, "已提交股东大会：" + what + "。投票 " + VOTE_DAYS + " 天，过半赞成就执行。", 0)
                 : fail(r.message());
+    }
+
+    /** “提高分红”提案要提到的比例（百分数）：现在实际执行的比例再加 10 个百分点，最多 100。 */
+    static long dividendRaise(Company company) {
+        long now = Math.round(company.effectiveDividendRatio(CompanyManager.getDividendRatio()) * 100);
+        return Math.min(100, now + 10);
     }
 
     public static SimpleInvestService.Result vote(ServerPlayer player, UUID proposalId, boolean support) {
@@ -384,20 +391,42 @@ public final class SimpleBossService {
 
     /** 开一家自己的银行：代码和名字自动起。 */
     public static SimpleInvestService.Result charterBank(ServerPlayer player, long capital) {
-        String name = player.getGameProfile().getName();
-        String code = ("P" + name.replaceAll("[^A-Za-z0-9]", "")).toUpperCase(java.util.Locale.ROOT);
-        code = code.substring(0, Math.min(4, code.length()));
-        if (code.length() < 3)
-            code = "PB" + player.getUUID().toString().substring(0, 2).toUpperCase(java.util.Locale.ROOT);
+        String[] identity = bankIdentity(player.getGameProfile().getName(), player.getUUID());
+        String code = identity[0], name = identity[1];
         long day = EconomyCycleService.currentMcDay(player.server);
         long before = AccountManager.getBalance(player.getUUID());
-        var r = finance.bank.PlayerBankService.charter(player.getUUID(), code, name + "银行", capital, day);
+        var r = finance.bank.PlayerBankService.charter(player.getUUID(), code, name, capital, day);
         return r.success()
                 ? new SimpleInvestService.Result(
                         true,
-                        "开了一家银行「" + name + "银行」。别人存进来的钱你可以放贷赚利差。",
+                        "开了一家银行「" + name + "」。别人存进来的钱你可以放贷赚利差。",
                         AccountManager.getBalance(player.getUUID()) - before)
                 : fail(r.message());
+    }
+
+    /**
+     * 自动起的银行代码和名字：代码是 P + 名字前 3 个字母，名字是“玩家名银行”。和已有银行重了
+     * （Steve、Stevie 都是 PSTE，或同一个人开第二家）就在后面加编号。返回 {代码, 名字}。
+     */
+    static String[] bankIdentity(String playerName, UUID playerId) {
+        String base = ("P" + playerName.replaceAll("[^A-Za-z0-9]", "")).toUpperCase(java.util.Locale.ROOT);
+        base = base.substring(0, Math.min(4, base.length()));
+        if (base.length() < 3) base = "PB" + playerId.toString().substring(0, 2).toUpperCase(java.util.Locale.ROOT);
+        String code = base;
+        for (int n = 2; bankCodeTaken(code) && n < 100; n++) code = base + n;
+        String name = playerName + "银行";
+        for (int n = 2; bankNameTaken(name) && n < 100; n++) name = playerName + "银行" + n;
+        return new String[] {code, name};
+    }
+
+    private static boolean bankCodeTaken(String code) {
+        return finance.bank.BankingManager.banks().values().stream()
+                .anyMatch(b -> b.code().equalsIgnoreCase(code));
+    }
+
+    private static boolean bankNameTaken(String name) {
+        return finance.bank.BankingManager.banks().values().stream()
+                .anyMatch(b -> b.name().equalsIgnoreCase(name));
     }
 
     /** 老板直接定分红比例（拿出可分配利润的百分之几分给股东），发放周期不变。 */

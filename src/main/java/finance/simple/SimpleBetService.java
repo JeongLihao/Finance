@@ -107,27 +107,16 @@ public final class SimpleBetService {
 
         MarginAccount acct = MarginPoolManager.accounts().get(id);
         if (acct != null) {
-            // 借款和利息是整个账户一笔：按每笔借了多少分摊，没有投入记录时按货值分摊
-            long totalBorrowed = 0, totalGross = 0;
-            Map<String, Long> gross = new java.util.HashMap<>();
-            for (Map.Entry<String, Long> e : acct.getFinancedShares().entrySet()) {
-                Stock stock = StockMarketManager.getStock(e.getKey());
-                long g = stock == null ? 0 : multiply(e.getValue(), stock.impactedPrice(e.getValue(), false));
-                gross.put(e.getKey(), g);
-                totalGross += g;
-                totalBorrowed += book.getCompound("s:" + e.getKey() + ":up").getLong("borrowed");
-            }
             long owed = acct.getFinancedDebt() + acct.getFinancedInterestOwed();
+            Map<String, Double> weights = debtWeights(acct, book);
             for (Map.Entry<String, Long> e : acct.getFinancedShares().entrySet()) {
                 String key = "s:" + e.getKey() + ":up";
                 live.add(key);
                 Stock stock = StockMarketManager.getStock(e.getKey());
                 CompoundTag rec = book.getCompound(key);
-                boolean tracked = rec.contains("stake") && totalBorrowed > 0;
-                double weight = tracked
-                        ? rec.getLong("borrowed") / (double) totalBorrowed
-                        : totalGross > 0 ? gross.get(e.getKey()) / (double) totalGross : 0;
-                long value = Math.max(0, gross.get(e.getKey()) - Math.round(owed * weight));
+                boolean tracked = rec.contains("stake") && totalBorrowed(acct, book) > 0;
+                long gross = closeValue(e.getKey(), e.getValue());
+                long value = Math.max(0, gross - Math.round(owed * weights.get(e.getKey())));
                 out.add(new Bet(
                         key,
                         stock == null ? e.getKey() : stock.getName(),
@@ -222,9 +211,7 @@ public final class SimpleBetService {
         long own = (pv.notional() + 1) / 2;
         MarginAccount acct = MarginPoolManager.getAccount(id);
         // 押金要够：看涨的首付会直接花掉，已有的借股卖出各要押一半；不然一开就低于强制结束线
-        long shortsNeed = 0;
-        for (long proceeds : acct.getShortProceeds().values()) shortsNeed += (proceeds + 1) / 2;
-        long topUp = own + shortsNeed - acct.getCashCollateral();
+        long topUp = own + shortsNeed(acct) - acct.getCashCollateral();
         long before = AccountManager.getBalance(id);
         if (topUp > 0) {
             if (before < topUp) return failed("钱包不够：要 " + MoneyFormat.pounds(topUp) + "。");
@@ -256,16 +243,41 @@ public final class SimpleBetService {
         return new Opened(fail(message), "", 0, 0);
     }
 
-    /** 结束一笔股票押注（s:代码:up / s:代码:down）并退回闲置押金；成功返回 null，失败返回原因。测试直接调用。 */
+    /** 结束一笔股票押注，借款按货值分摊（没有投入记录时）。测试直接调用。 */
     static String closeStockFor(UUID id, String key) {
+        return closeStockFor(id, key, new CompoundTag());
+    }
+
+    /**
+     * 结束一笔股票押注（s:代码:up / s:代码:down），只结算这一笔：看涨只还这一笔分摊的借款，
+     * 看跌把这一笔押着的钱退回钱包，别的押注照旧。成功返回 null，失败返回原因。
+     */
+    static String closeStockFor(UUID id, String key, CompoundTag book) {
         String[] parts = key.split(":");
         if (parts.length != 3 || !parts[0].equals("s")) return "请求无效。";
-        MarginService.Result r = "up".equals(parts[2])
-                ? MarginService.closeFinanced(id, parts[1])
-                : MarginService.coverShort(id, parts[1], 0);
+        MarginService.Result r;
+        if ("up".equals(parts[2])) {
+            MarginAccount acct = MarginPoolManager.getAccount(id);
+            double weight = acct.getFinancedShares().size() <= 1
+                    ? 1
+                    : debtWeights(acct, book).getOrDefault(parts[1], 1.0);
+            long cap = weight >= 1 ? Long.MAX_VALUE : Math.round(acct.getFinancedDebt() * weight);
+            r = MarginService.closeFinanced(id, parts[1], cap);
+        } else {
+            r = MarginService.coverShort(id, parts[1], 0);
+        }
         if (!r.success()) return r.message();
+        releaseSpareCollateral(id);
         sweepIdle(id);
         return null;
+    }
+
+    /** 押金里超出剩下的借股卖出要押的部分退回钱包（还有别的押注时用；一笔都没有时 sweepIdle 全退）。 */
+    static long releaseSpareCollateral(UUID id) {
+        MarginAccount acct = MarginPoolManager.accounts().get(id);
+        if (acct == null || !acct.hasOpenPositions()) return 0;
+        long spare = acct.getCashCollateral() - shortsNeed(acct);
+        return spare > 0 && MarginService.withdrawCollateral(id, spare).success() ? spare : 0;
     }
 
     private static SimpleInvestService.Result openFutures(
@@ -317,28 +329,56 @@ public final class SimpleBetService {
         if (bet == null) return fail("这笔押注已经结束了。");
         long before = AccountManager.getBalance(id);
         String failure = null;
+        boolean futures = key.startsWith("f:");
+        long futuresPnl = 0, futuresLater = 0;
         if (key.startsWith("s:")) {
-            failure = closeStockFor(id, key);
-        } else if (key.startsWith("f:")) {
+            failure = closeStockFor(id, key, book(player));
+        } else if (futures) {
             UUID contract;
             try {
                 contract = UUID.fromString(key.substring(2));
             } catch (IllegalArgumentException e) {
                 return fail("请求无效。");
             }
+            futuresPnl = closingPnl(id, contract);
             SimpleCenterService.Result r = SimpleCenterService.closeLock(player, contract);
-            if (!r.success()) failure = r.message();
+            if (!r.success()) {
+                failure = r.message();
+            } else {
+                // 只退这一笔的押金和赚亏；赚的那部分要等日终结算才进保证金，到时没押注了自动退回
+                long owed = Math.max(0, bet.stake() + futuresPnl);
+                futuresLater = owed - releaseFutures(id, owed);
+            }
         } else {
             return fail("请求无效。");
         }
         if (failure != null) return fail(failure);
         sweepIdle(id);
         long got = AccountManager.getBalance(id) - before;
-        Long pnl = settleReturned(player, key, got);
+        Long pnl = futures ? settlePnl(player, key, futuresPnl) : settleReturned(player, key, got);
         String result =
                 pnl == null ? "" : pnl >= 0 ? WIN_MARK + MoneyFormat.pounds(pnl) : LOSS_MARK + MoneyFormat.pounds(-pnl);
+        String later = futuresLater > 0 ? "。另有 " + MoneyFormat.pounds(futuresLater) + " 今天日终结算后到账，身上没有商品押注时自动退回钱包" : "";
         return new SimpleInvestService.Result(
-                true, "结束押注「" + bet.name() + "」：拿回 " + MoneyFormat.pounds(Math.max(0, got)) + result + "。", got);
+                true,
+                "结束押注「" + bet.name() + "」：拿回 " + MoneyFormat.pounds(Math.max(0, got)) + result + later + "。",
+                got);
+    }
+
+    /** 现在平掉这份合同的赚亏（从开仓均价算起，按平仓那一边的报价，和 closeLock 一样）。 */
+    private static long closingPnl(UUID id, UUID contractId) {
+        FuturesPosition p = MarginManager.findPosition(id, contractId);
+        FuturesContract c = FuturesMarketManager.contract(contractId);
+        long[] quote = FuturesMarketMaker.getQuote(contractId);
+        if (p == null || c == null || quote == null || p.signedQuantity() == 0) return 0;
+        long price = p.signedQuantity() < 0 ? quote[1] : quote[0];
+        return FuturesMath.signedPnl(p.averageEntryPrice(), price, c.contractSize(), p.signedQuantity());
+    }
+
+    /** 一笔商品押注结束后，把它的押金和赚亏（最多 amount）从保证金退回钱包，不动别的押注要押的钱；返回退回多少。 */
+    static long releaseFutures(UUID id, long amount) {
+        long take = Math.min(Math.max(0, amount), MarginManager.availableToWithdraw(id));
+        return take > 0 && MarginManager.withdraw(id, take) ? take : 0;
     }
 
     // ------------------------------------------------------------ 结算与战绩
@@ -442,6 +482,51 @@ public final class SimpleBetService {
     }
 
     // ------------------------------------------------------------ 小工具
+
+    /** 现在卖掉 qty 股大约能拿到多少（按自己砸下去之后的价）。 */
+    private static long closeValue(String symbol, long qty) {
+        Stock stock = StockMarketManager.getStock(symbol);
+        return stock == null ? 0 : multiply(qty, stock.impactedPrice(qty, false));
+    }
+
+    private static long totalBorrowed(MarginAccount acct, CompoundTag book) {
+        long total = 0;
+        for (String symbol : acct.getFinancedShares().keySet())
+            total += book.getCompound("s:" + symbol + ":up").getLong("borrowed");
+        return total;
+    }
+
+    /**
+     * 借款和利息是整个账户一笔，每笔看涨押注各占多少：有投入记录时按每笔借了多少分摊，没有时按货值分摊。
+     * 列表里的现值和结束押注时还多少借款都按这个比例算。
+     */
+    static Map<String, Double> debtWeights(MarginAccount acct, CompoundTag book) {
+        long totalBorrowed = totalBorrowed(acct, book), totalGross = 0;
+        Map<String, Long> gross = new java.util.HashMap<>();
+        for (Map.Entry<String, Long> e : acct.getFinancedShares().entrySet()) {
+            long g = closeValue(e.getKey(), e.getValue());
+            gross.put(e.getKey(), g);
+            totalGross += g;
+        }
+        Map<String, Double> out = new java.util.HashMap<>();
+        for (String symbol : acct.getFinancedShares().keySet()) {
+            CompoundTag rec = book.getCompound("s:" + symbol + ":up");
+            boolean tracked = rec.contains("stake") && totalBorrowed > 0;
+            out.put(
+                    symbol,
+                    tracked
+                            ? rec.getLong("borrowed") / (double) totalBorrowed
+                            : totalGross > 0 ? gross.get(symbol) / (double) totalGross : 0);
+        }
+        return out;
+    }
+
+    /** 每笔借股卖出都押着卖出所得的一半；剩下的借股卖出一共要押多少。 */
+    private static long shortsNeed(MarginAccount acct) {
+        long need = 0;
+        for (long proceeds : acct.getShortProceeds().values()) need += (proceeds + 1) / 2;
+        return need;
+    }
 
     static String commodityName(String id) {
         Commodity c = CommodityRegistry.getCommodity(id);

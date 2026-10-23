@@ -19,16 +19,21 @@ import org.junit.jupiter.api.Test;
 /** 押注：预估算得对、开了不会马上被强卖、结束后押金退回钱包。 */
 class SimpleBetServiceTest {
 
-    private static final String SYMBOL = "BETS";
+    private static final String SYMBOL = "BETS", OTHER = "BETO";
 
     @BeforeEach
     void setup() {
         EconomySavedData.resetRuntimeState();
-        Company company = new Company(UUID.randomUUID(), "Bet Co", CompanyType.RAW_MATERIALS, 500_000L);
+        listStock(SYMBOL, "Bet Co");
+        listStock(OTHER, "Other Co");
+    }
+
+    private static void listStock(String symbol, String name) {
+        Company company = new Company(UUID.randomUUID(), name, CompanyType.RAW_MATERIALS, 500_000L);
         company.setPublic(true);
         CompanyManager.registerDirect(company);
         StockMarketManager.putStockDirect(
-                new Stock(SYMBOL, "Bet Co", company.getCompanyId(), 10_000L, 10_000L, 0L, 100L, 100L));
+                new Stock(symbol, name, company.getCompanyId(), 10_000L, 10_000L, 0L, 100L, 100L));
     }
 
     private UUID player(long wallet) {
@@ -89,6 +94,41 @@ class SimpleBetServiceTest {
                 .sum();
         assertTrue(acct.getCashCollateral() * 2 >= frozen, "每笔借股卖出都押了一半：" + acct.getCashCollateral() + " / " + frozen);
         assertTrue(MarginService.checkLiquidations().isEmpty(), "连开两笔也不会马上被强制结束");
+    }
+
+    @Test
+    void closingOneLongBetOnlyRepaysItsOwnLoan() {
+        UUID id = player(100_000);
+        SimpleBetService.Opened first = SimpleBetService.openStockFor(id, SYMBOL, true, 5_000);
+        SimpleBetService.Opened second = SimpleBetService.openStockFor(id, OTHER, true, 5_000);
+        assertTrue(first.result().success() && second.result().success());
+        MarginAccount acct = MarginPoolManager.getAccount(id);
+        long debt = acct.getFinancedDebt();
+        long before = AccountManager.getBalance(id);
+
+        assertNull(SimpleBetService.closeStockFor(id, first.key()));
+        long got = AccountManager.getBalance(id) - before;
+        assertEquals(
+                second.borrowed(), acct.getFinancedDebt(), 1, "另一笔借的钱还欠着：" + debt + " → " + acct.getFinancedDebt());
+        assertTrue(got > first.own() * 9 / 10, "拿回的是这一笔的钱，不替另一笔还债：" + got + " / 投入 " + first.own());
+        assertEquals(1, acct.getFinancedShares().size());
+    }
+
+    @Test
+    void closingOneShortBetReturnsItsDepositWhileOthersStayOpen() {
+        UUID id = player(100_000);
+        SimpleBetService.Opened first = SimpleBetService.openStockFor(id, SYMBOL, false, 2_000);
+        SimpleBetService.Opened second = SimpleBetService.openStockFor(id, OTHER, false, 2_000);
+        assertTrue(first.result().success() && second.result().success());
+        long before = AccountManager.getBalance(id);
+
+        assertNull(SimpleBetService.closeStockFor(id, first.key()));
+        long got = AccountManager.getBalance(id) - before;
+        MarginAccount acct = MarginPoolManager.getAccount(id);
+        assertTrue(got > first.own() * 9 / 10, "这一笔押着的钱退回钱包：" + got + " / 投入 " + first.own());
+        long need = (acct.shortProceedsOf(OTHER) + 1) / 2;
+        assertTrue(acct.getCashCollateral() >= need, "还开着的那笔押金一分不少：" + acct.getCashCollateral() + " / " + need);
+        assertTrue(MarginService.checkLiquidations().isEmpty());
     }
 
     @Test
