@@ -34,6 +34,11 @@ public final class EconomyConsistencyService {
         CompanyChecks.checkGovernance(issues);
         AccountMarketChecks.checkHistory(issues);
         AccountMarketChecks.checkCycle(issues, mcDay);
+        WorldChecks.checkCaravan(issues);
+        NpcChecks.checkNpcEconomy(issues);
+        NpcChecks.checkRivals(issues);
+        for (DiagnosticIssue i : finance.macro.MacroConsistency.check())
+            add(issues, i.severity(), i.module(), i.code(), i.subject(), i.message());
         if (issues.isEmpty()) add(issues, DiagnosticSeverity.INFO, "GLOBAL", "CONSISTENT", "economy", "全部检查项都通过");
         return new DiagnosticReport(
                 UUID.randomUUID(),
