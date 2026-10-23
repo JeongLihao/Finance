@@ -50,7 +50,7 @@ public final class FuturesMarketMaker {
      * f001（{@link FuturesClearingService#CLEARING_MEMBER_ID}）已被清算占用，
      * 做市商保证金独立开户，风险隔离。
      */
-    public static final UUID MARKET_MAKER_ID = UUID.fromString("00000000-0000-0000-0000-00000000f002");
+    public static final UUID MARKET_MAKER_ID = MarketMakerLedger.FUTURES_MARGIN_UUID;
 
     /** 对敲告警最多保留条数（仿 DiagnosticManager 的有界历史）。 */
     public static final int MAX_ALERTS = 64;
