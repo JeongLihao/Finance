@@ -59,6 +59,14 @@ public final class StockTabs {
             StockRows.StockRow row = stocks.get(i);
             int y = rowY + i * FinanceGui.ROW_HEIGHT;
             boolean selected = row.symbol().equals(screen.selectedStock);
+            screen.contentClicks.add(8, y, screen.imageWidth() - 16, FinanceGui.ROW_HEIGHT, () -> {
+                screen.selectedStock = row.symbol();
+                StockRows.StockRow picked = findSelectedStock();
+                if (picked != null) {
+                    screen.stockPriceBox.setValue(Long.toString(picked.lastPrice()));
+                }
+                screen.rememberUiState();
+            });
             g.fill(
                     8,
                     y,
@@ -98,7 +106,11 @@ public final class StockTabs {
         int tradeY = FinanceGui.STOCK_TRADE_Y;
         FinanceGui.drawSimpleSeparator(g, 8, tradeY - 6, screen.imageWidth() - 16);
         FinanceGui.drawSectionTitle(screen.font(), g, "限价委托", 10, tradeY);
-        FinanceGui.drawButton(screen.font(), g, "K线", 360, tradeY - 2, 30, false);
+        screen.button(g, "K线", 360, tradeY - 2, 30, false, () -> {
+            screen.stockChartVisible = true;
+            screen.candlestickView.requestCandlesticks(MarketInstrumentType.STOCK, screen.selectedStock);
+            screen.updateInputVisibility();
+        });
         StockRows.StockRow selected = findSelectedStock();
         if (selected != null) {
             FinanceGui.drawClippedString(
@@ -163,14 +175,14 @@ public final class StockTabs {
         }
         g.drawString(screen.font(), "价格:", 12, tradeY + 19, FinanceGui.COL_TEXT_DIM, false);
         g.drawString(screen.font(), "股数:", 12, tradeY + 39, FinanceGui.COL_TEXT_DIM, false);
-        FinanceGui.drawButton(screen.font(), g, "-", 124, tradeY + 36, 20, false);
-        FinanceGui.drawButton(screen.font(), g, "+", 148, tradeY + 36, 20, false);
-        FinanceGui.drawButton(screen.font(), g, "+10", 176, tradeY + 36, 30, false);
-        FinanceGui.drawFilledButton(screen.font(), g, "买单", 234, tradeY + 36, 58, FinanceGui.COL_GOOD);
-        FinanceGui.drawFilledButton(screen.font(), g, "卖单", 300, tradeY + 36, 58, FinanceGui.COL_BAD);
+        screen.button(g, "-", 124, tradeY + 36, 20, false, () -> addQuantity(-1));
+        screen.button(g, "+", 148, tradeY + 36, 20, false, () -> addQuantity(1));
+        screen.button(g, "+10", 176, tradeY + 36, 30, false, () -> addQuantity(10));
+        screen.filledButton(g, "买单", 234, tradeY + 36, 58, FinanceGui.COL_GOOD, () -> placeOrder(true));
+        screen.filledButton(g, "卖单", 300, tradeY + 36, 58, FinanceGui.COL_BAD, () -> placeOrder(false));
         g.drawString(screen.font(), "条件:", 12, tradeY + 66, FinanceGui.COL_TEXT_DIM, false);
-        FinanceGui.drawFilledButton(screen.font(), g, "设止盈", 54, tradeY + 64, 58, FinanceGui.COL_GOOD);
-        FinanceGui.drawFilledButton(screen.font(), g, "设止损", 120, tradeY + 64, 58, FinanceGui.COL_BAD);
+        screen.filledButton(g, "设止盈", 54, tradeY + 64, 58, FinanceGui.COL_GOOD, () -> conditional(true));
+        screen.filledButton(g, "设止损", 120, tradeY + 64, 58, FinanceGui.COL_BAD, () -> conditional(false));
         FinanceGui.drawClippedString(
                 screen.font(), g, "使用上方价格/股数，触发后自动提交卖单", 188, tradeY + 66, 180, FinanceGui.COL_TEXT_DIM);
 
@@ -195,7 +207,11 @@ public final class StockTabs {
                     fy,
                     48,
                     FinanceGui.COL_TEXT_DIM);
-            FinanceGui.drawFilledButton(screen.font(), g, "认购", 300, fy - 2, 42, FinanceGui.COL_GOOD);
+            screen.filledButton(g, "认购", 300, fy - 2, 42, FinanceGui.COL_GOOD, () -> {
+                long qty = screen.requireAmount(screen.stockQuantityBox, "认购股数");
+                screen.setStatus("已提交增发认购");
+                FinancePacketHandler.CHANNEL.sendToServer(CompanyFinancingPacket.subscribe(financing.projectId(), qty));
+            });
         }
 
         int orderY = tradeY + (financing != null ? 112 : 96);
@@ -232,7 +248,11 @@ public final class StockTabs {
                         42,
                         row.ownedByPlayer() ? FinanceGui.COL_ACCENT : FinanceGui.COL_TEXT_DIM);
                 if (row.ownedByPlayer()) {
-                    FinanceGui.drawButton(screen.font(), g, "撤单", 300, y - 2, 42, false);
+                    screen.button(g, "撤单", 300, y - 2, 42, false, () -> {
+                        screen.setStatus("已提交撤单");
+                        FinancePacketHandler.CHANNEL.sendToServer(
+                                new StockOrderPacket(StockOrderPacket.ActionType.CANCEL, row.orderId()));
+                    });
                 }
                 y += FinanceGui.ROW_HEIGHT;
                 shownOrders++;
@@ -276,128 +296,41 @@ public final class StockTabs {
             FinanceGui.drawClippedString(
                     screen.font(), g, "触发 " + row.triggerPrice(), 54, y, 78, FinanceGui.COL_TEXT_DIM);
             FinanceGui.drawClippedString(screen.font(), g, "量 " + row.quantity(), 142, y, 58, FinanceGui.COL_TEXT_DIM);
-            FinanceGui.drawButton(screen.font(), g, "取消", 300, y - 2, 42, false);
+            screen.button(g, "取消", 300, y - 2, 42, false, () -> {
+                screen.setStatus("已提交取消条件委托");
+                FinancePacketHandler.CHANNEL.sendToServer(new ConditionalStockOrderPacket(row.orderId()));
+            });
             y += FinanceGui.ROW_HEIGHT;
         }
     }
 
     // ---- 标签 5 点击: 股票 ----
 
-    public boolean handleStockClick(int mx, int my) {
-        // 图表模式下只有图表上的按钮可点，它们已在画的时候登记
-        if (screen.stockChartVisible) return false;
-        int rowY = FinanceGui.CONTENT_Y + 16;
-        int maxRows = Math.min(
-                screen.menu().getStocks().size(),
-                Math.max(1, (FinanceGui.STOCK_TRADE_Y - rowY - 10) / FinanceGui.ROW_HEIGHT));
-        for (int i = 0; i < maxRows; i++) {
-            int y = rowY + i * FinanceGui.ROW_HEIGHT;
-            if (my >= y && my < y + FinanceGui.ROW_HEIGHT && mx >= 8 && mx < screen.imageWidth() - 8) {
-                screen.selectedStock = screen.menu().getStocks().get(i).symbol();
-                StockRows.StockRow selected = findSelectedStock();
-                if (selected != null) {
-                    screen.stockPriceBox.setValue(Long.toString(selected.lastPrice()));
-                }
-                screen.rememberUiState();
-                return true;
-            }
-        }
+    private void addQuantity(int delta) {
+        int qty = FinanceFormat.parseInt(screen.stockQuantityBox.getValue());
+        screen.stockQuantityBox.setValue(Integer.toString(delta < 0 ? Math.max(1, qty + delta) : qty + delta));
+    }
 
-        int tradeY = FinanceGui.STOCK_TRADE_Y;
-        if (mx >= 360 && mx < 390 && my >= tradeY - 2 && my < tradeY + 12) {
-            screen.stockChartVisible = true;
-            screen.candlestickView.requestCandlesticks(MarketInstrumentType.STOCK, screen.selectedStock);
-            screen.updateInputVisibility();
-            return true;
-        }
-        if (my >= tradeY + 36 && my < tradeY + 50) {
-            int qty = FinanceFormat.parseInt(screen.stockQuantityBox.getValue());
-            if (mx >= 124 && mx < 144) {
-                screen.stockQuantityBox.setValue(Integer.toString(Math.max(1, qty - 1)));
-                return true;
-            }
-            if (mx >= 148 && mx < 168) {
-                screen.stockQuantityBox.setValue(Integer.toString(qty + 1));
-                return true;
-            }
-            if (mx >= 176 && mx < 206) {
-                screen.stockQuantityBox.setValue(Integer.toString(qty + 10));
-                return true;
-            }
-            if (mx >= 234 && mx < 292) {
-                long price = screen.requireAmount(screen.stockPriceBox, "价格");
-                qty = screen.requireInt(screen.stockQuantityBox, "股数", 1, Integer.MAX_VALUE);
-                screen.setStatus("已提交买入委托");
-                FinancePacketHandler.CHANNEL.sendToServer(
-                        new StockOrderPacket(StockOrderPacket.ActionType.PLACE_BUY, screen.selectedStock, price, qty));
-                return true;
-            }
-            if (mx >= 300 && mx < 358) {
-                long price = screen.requireAmount(screen.stockPriceBox, "价格");
-                qty = screen.requireInt(screen.stockQuantityBox, "股数", 1, Integer.MAX_VALUE);
-                screen.setStatus("已提交卖出委托");
-                FinancePacketHandler.CHANNEL.sendToServer(
-                        new StockOrderPacket(StockOrderPacket.ActionType.PLACE_SELL, screen.selectedStock, price, qty));
-                return true;
-            }
-        }
-        if (my >= tradeY + 64 && my < tradeY + 77 && (mx >= 54 && mx < 112 || mx >= 120 && mx < 178)) {
-            int qty = screen.requireInt(screen.stockQuantityBox, "股数", 1, Integer.MAX_VALUE);
-            long triggerPrice = screen.requireAmount(screen.stockPriceBox, "触发价");
-            if (mx >= 54 && mx < 112) {
-                screen.setStatus("已提交止盈委托");
-                FinancePacketHandler.CHANNEL.sendToServer(new ConditionalStockOrderPacket(
-                        ConditionalStockOrderType.TAKE_PROFIT, screen.selectedStock, triggerPrice, qty));
-                return true;
-            }
-            if (mx >= 120 && mx < 178) {
-                screen.setStatus("已提交止损委托");
-                FinancePacketHandler.CHANNEL.sendToServer(new ConditionalStockOrderPacket(
-                        ConditionalStockOrderType.STOP_LOSS, screen.selectedStock, triggerPrice, qty));
-                return true;
-            }
-        }
+    private void placeOrder(boolean buy) {
+        long price = screen.requireAmount(screen.stockPriceBox, "价格");
+        int qty = screen.requireInt(screen.stockQuantityBox, "股数", 1, Integer.MAX_VALUE);
+        screen.setStatus(buy ? "已提交买入委托" : "已提交卖出委托");
+        FinancePacketHandler.CHANNEL.sendToServer(new StockOrderPacket(
+                buy ? StockOrderPacket.ActionType.PLACE_BUY : StockOrderPacket.ActionType.PLACE_SELL,
+                screen.selectedStock,
+                price,
+                qty));
+    }
 
-        CompanyRows.CompanyFinancingRow financing = selectedFinancingProject();
-        if (financing != null && mx >= 300 && mx < 342 && my >= tradeY + 90 && my < tradeY + 105) {
-            long qty = screen.requireAmount(screen.stockQuantityBox, "认购股数");
-            screen.setStatus("已提交增发认购");
-            FinancePacketHandler.CHANNEL.sendToServer(CompanyFinancingPacket.subscribe(financing.projectId(), qty));
-            return true;
-        }
-
-        int orderY = tradeY + (financing != null ? 112 : 96);
-        List<StockRows.StockOrderRow> orders = selectedStockOrders();
-        int maxOrders = Math.min(
-                orders.size(), Math.max(1, (screen.imageHeight() - (orderY + 16) - 30) / FinanceGui.ROW_HEIGHT));
-        for (int i = 0; i < maxOrders; i++) {
-            StockRows.StockOrderRow row = orders.get(i);
-            int y = orderY + 16 + i * FinanceGui.ROW_HEIGHT;
-            if (row.ownedByPlayer() && mx >= 300 && mx < 342 && my >= y - 2 && my < y + 11) {
-                screen.setStatus("已提交撤单");
-                FinancePacketHandler.CHANNEL.sendToServer(
-                        new StockOrderPacket(StockOrderPacket.ActionType.CANCEL, row.orderId()));
-                return true;
-            }
-        }
-        int conditionalY = orderY + 16 + Math.max(1, maxOrders) * FinanceGui.ROW_HEIGHT + 8;
-        if (conditionalY + 16 >= screen.imageHeight() - 4) {
-            return false;
-        }
-        List<StockRows.ConditionalStockOrderRow> conditionalOrders = selectedConditionalStockOrders();
-        int maxConditionalOrders = Math.min(
-                conditionalOrders.size(),
-                Math.max(0, (screen.imageHeight() - (conditionalY + 16) - 4) / FinanceGui.ROW_HEIGHT));
-        for (int i = 0; i < maxConditionalOrders; i++) {
-            StockRows.ConditionalStockOrderRow row = conditionalOrders.get(i);
-            int y = conditionalY + 16 + i * FinanceGui.ROW_HEIGHT;
-            if (mx >= 300 && mx < 342 && my >= y - 2 && my < y + 11) {
-                screen.setStatus("已提交取消条件委托");
-                FinancePacketHandler.CHANNEL.sendToServer(new ConditionalStockOrderPacket(row.orderId()));
-                return true;
-            }
-        }
-        return false;
+    private void conditional(boolean takeProfit) {
+        int qty = screen.requireInt(screen.stockQuantityBox, "股数", 1, Integer.MAX_VALUE);
+        long triggerPrice = screen.requireAmount(screen.stockPriceBox, "触发价");
+        screen.setStatus(takeProfit ? "已提交止盈委托" : "已提交止损委托");
+        FinancePacketHandler.CHANNEL.sendToServer(new ConditionalStockOrderPacket(
+                takeProfit ? ConditionalStockOrderType.TAKE_PROFIT : ConditionalStockOrderType.STOP_LOSS,
+                screen.selectedStock,
+                triggerPrice,
+                qty));
     }
 
     public StockRows.StockRow findSelectedStock() {
