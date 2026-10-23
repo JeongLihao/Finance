@@ -17,22 +17,16 @@ final class AssetsPanel {
         RecordRows.AssetSummary summary = screen.menu().getAssetSummary();
         int y = FinanceGui.CONTENT_Y;
         FinanceGui.drawSectionTitle(screen.font(), g, "我的资产", 10, y);
-        FinanceGui.drawButton(
-                screen.font(),
-                g,
-                screen.assetSortMode == 0 ? "按价值排序" : "切到价值",
-                270,
-                y - 2,
-                58,
-                screen.assetSortMode == 0);
-        FinanceGui.drawButton(
-                screen.font(),
-                g,
-                screen.assetSortMode == 1 ? "按收益排序" : "切到收益",
-                332,
-                y - 2,
-                58,
-                screen.assetSortMode == 1);
+        screen.button(
+                g, screen.assetSortMode == 0 ? "按价值排序" : "切到价值", 270, y - 2, 58, screen.assetSortMode == 0, () -> {
+                    screen.assetSortMode = 0;
+                    screen.setStatus("资产明细已按价值排序");
+                });
+        screen.button(
+                g, screen.assetSortMode == 1 ? "按收益排序" : "切到收益", 332, y - 2, 58, screen.assetSortMode == 1, () -> {
+                    screen.assetSortMode = 1;
+                    screen.setStatus("资产明细已按收益排序");
+                });
 
         y += 18;
         g.fill(8, y - 4, screen.imageWidth() - 8, y + 42, 0xFFF1ECDD);
@@ -124,22 +118,5 @@ final class AssetsPanel {
                     46,
                     row.floatingProfit() >= 0 ? FinanceGui.COL_GOOD : FinanceGui.COL_BAD);
         }
-    }
-
-    public boolean handleAssetClick(int mx, int my) {
-        int y = FinanceGui.CONTENT_Y;
-        if (my >= y - 2 && my < y + 11) {
-            if (mx >= 270 && mx < 328) {
-                screen.assetSortMode = 0;
-                screen.setStatus("资产明细已按价值排序");
-                return true;
-            }
-            if (mx >= 332 && mx < 390) {
-                screen.assetSortMode = 1;
-                screen.setStatus("资产明细已按收益排序");
-                return true;
-            }
-        }
-        return false;
     }
 }

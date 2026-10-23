@@ -128,6 +128,9 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
     final CompanyTabs companyTabs = new CompanyTabs(this);
     final StockTabs stockTabs = new StockTabs(this);
     final CandlestickView candlestickView = new CandlestickView(this);
+    /** 内容区按钮画的时候登记在这里，点击时先查它（坐标系同内容区：已加上 CONTENT_SHIFT）。 */
+    final ClickRegions contentClicks = new ClickRegions();
+
     final ServiceTabs serviceTabs = new ServiceTabs(this);
     final OrdersPanel ordersPanel = new OrdersPanel(this);
     final InventoryPanel inventoryPanel = new InventoryPanel(this);
@@ -541,6 +544,7 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         int mouseY = panelMouseY + FinanceGui.CONTENT_SHIFT;
         g.pose().pushPose();
         g.pose().translate(0, -FinanceGui.CONTENT_SHIFT, 0);
+        contentClicks.clear();
         switch (currentTab) {
             case TAB_MARKET -> this.marketPanel.renderMarketTab(g, mouseX, mouseY);
             case TAB_TRADE -> this.tradePanel.renderTradeTab(g);
@@ -677,20 +681,19 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         int contentY = my + FinanceGui.CONTENT_SHIFT;
         boolean handled;
         try {
-            handled = switch (currentTab) {
-                case TAB_MARKET -> this.marketPanel.handleMarketClick(mx, contentY);
-                case TAB_TRADE -> this.tradePanel.handleTradeClick(mx, contentY);
-                case TAB_ORDERS -> this.ordersPanel.handleOrdersClick(mx, contentY);
-                case TAB_INVENTORY -> this.inventoryPanel.handleInventoryClick(mx, contentY);
-                case TAB_COMPANY -> this.companyTabs.handleCompanyClick(mx, contentY);
-                case TAB_STOCK -> this.stockTabs.handleStockClick(mx, contentY);
-                case TAB_ASSETS -> this.assetsPanel.handleAssetClick(mx, contentY);
-                case TAB_ALERTS -> this.alertsPanel.handleAlertClick(mx, contentY);
-                case TAB_FINANCIAL -> this.serviceTabs.handleFinancialProductsClick(mx, contentY);
-                case TAB_ADMIN -> isAdmin && this.adminTabs.handleAdminClick(mx, contentY);
-                case TAB_MACRO -> this.macroTabs.handleClick(mx, contentY);
-                default -> false;
-            };
+            handled = contentClicks.click(mx, contentY)
+                    || switch (currentTab) {
+                        case TAB_MARKET -> this.marketPanel.handleMarketClick(mx, contentY);
+                        case TAB_TRADE -> this.tradePanel.handleTradeClick(mx, contentY);
+                        case TAB_INVENTORY -> this.inventoryPanel.handleInventoryClick(mx, contentY);
+                        case TAB_COMPANY -> this.companyTabs.handleCompanyClick(mx, contentY);
+                        case TAB_STOCK -> this.stockTabs.handleStockClick(mx, contentY);
+                        case TAB_ALERTS -> this.alertsPanel.handleAlertClick(mx, contentY);
+                        case TAB_FINANCIAL -> this.serviceTabs.handleFinancialProductsClick(mx, contentY);
+                        case TAB_ADMIN -> isAdmin && this.adminTabs.handleAdminClick(mx, contentY);
+                        case TAB_MACRO -> this.macroTabs.handleClick(mx, contentY);
+                        default -> false;
+                    };
         } catch (InvalidInput invalid) {
             // 提示已写入状态栏，不发包
             handled = true;
@@ -896,6 +899,18 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         List<EditBox> list = new ArrayList<>();
         for (InputPlacement p : advancedInputs()) list.add(p.box());
         return list;
+    }
+
+    /** 画一个普通按钮，并登记点击后的动作（内容区坐标）。 */
+    void button(GuiGraphics g, String label, int x, int y, int w, boolean active, Runnable action) {
+        FinanceGui.drawButton(font, g, label, x, y, w, active);
+        contentClicks.add(x, y, w, 13, action);
+    }
+
+    /** 画一个实心按钮，并登记点击后的动作（内容区坐标）。 */
+    void filledButton(GuiGraphics g, String label, int x, int y, int w, int color, Runnable action) {
+        FinanceGui.drawFilledButton(font, g, label, x, y, w, color);
+        contentClicks.add(x, y, w, 13, action);
     }
 
     /** 输入框内容不合法时抛出；由 mouseClicked 统一吞掉，提示已写入状态栏。 */

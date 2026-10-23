@@ -85,32 +85,17 @@ final class OrdersPanel {
                     y + 3,
                     48,
                     row.ownedByPlayer() ? FinanceGui.COL_ACCENT : FinanceGui.COL_TEXT_DIM);
-            FinanceGui.drawButton(screen.font(), g, isBuy ? "卖出" : "买入", 286, y + 1, 38, false);
-            if (row.ownedByPlayer()) {
-                FinanceGui.drawButton(screen.font(), g, "取消", 330, y + 1, 38, false);
-            }
-        }
-    }
-
-    public boolean handleOrdersClick(int mx, int my) {
-        List<MarketRows.OrderRow> orders = screen.menu().getPlayerOrders();
-        int rowY = FinanceGui.CONTENT_Y + 16;
-        int maxRows = Math.min(orders.size(), Math.max(1, (screen.imageHeight() - rowY - 10) / FinanceGui.ROW_HEIGHT));
-        for (int i = 0; i < maxRows; i++) {
-            int y = rowY + i * FinanceGui.ROW_HEIGHT;
-            if (my >= y && my < y + FinanceGui.ROW_HEIGHT && mx >= 286 && mx < 324) {
+            UUID orderId = row.orderId();
+            screen.button(g, isBuy ? "卖出" : "买入", 286, y + 1, 38, false, () -> {
                 screen.setStatus("已提交吃单请求");
-                FinancePacketHandler.CHANNEL.sendToServer(
-                        new TakeOrderPacket(orders.get(i).orderId()));
-                return true;
-            }
-            if (orders.get(i).ownedByPlayer() && my >= y && my < y + FinanceGui.ROW_HEIGHT && mx >= 330 && mx < 368) {
-                screen.setStatus("已提交取消订单");
-                FinancePacketHandler.CHANNEL.sendToServer(
-                        new CancelOrderPacket(orders.get(i).orderId()));
-                return true;
+                FinancePacketHandler.CHANNEL.sendToServer(new TakeOrderPacket(orderId));
+            });
+            if (row.ownedByPlayer()) {
+                screen.button(g, "取消", 330, y + 1, 38, false, () -> {
+                    screen.setStatus("已提交取消订单");
+                    FinancePacketHandler.CHANNEL.sendToServer(new CancelOrderPacket(orderId));
+                });
             }
         }
-        return false;
     }
 }
