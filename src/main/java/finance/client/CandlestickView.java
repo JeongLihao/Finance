@@ -12,7 +12,7 @@ import net.minecraft.client.gui.GuiGraphics;
 
 /**
  * K 线视图：市场页、股票页、期货面板共用的价格图，下面一栏可切换均线、盘口、最近成交、涨跌和成交排行。
- * 原在 StockTabs，由 {@link MarketTabs}、{@link StockTabs}、{@link FuturesPanel} 调用。
+ * 原在 StockTabs，由 {@link MarketPanel}、{@link StockTabs}、{@link FuturesPanel} 调用。
  */
 final class CandlestickView {
     private final FinanceScreen screen;

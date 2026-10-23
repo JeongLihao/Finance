@@ -122,7 +122,9 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
     boolean categorizedCacheDirty = true;
 
     // ---- 抽取出的页签行为类（与 FinanceScreen 同包，通过 screen 反向引用共享状态） ----
-    final MarketTabs marketTabs = new MarketTabs(this);
+    final MarketPanel marketPanel = new MarketPanel(this);
+    final TradePanel tradePanel = new TradePanel(this);
+    final CommodityDropdown commodityDropdown = new CommodityDropdown(this);
     final CompanyTabs companyTabs = new CompanyTabs(this);
     final StockTabs stockTabs = new StockTabs(this);
     final CandlestickView candlestickView = new CandlestickView(this);
@@ -500,7 +502,7 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         if (advancedView && dropdownOpen && (currentTab == TAB_MARKET || currentTab == TAB_TRADE)) {
             graphics.pose().pushPose();
             graphics.pose().translate(0, -FinanceGui.CONTENT_SHIFT, 0);
-            this.marketTabs.renderDropdown(graphics, virtualMouseX, virtualMouseY + FinanceGui.CONTENT_SHIFT);
+            this.commodityDropdown.renderDropdown(graphics, virtualMouseX, virtualMouseY + FinanceGui.CONTENT_SHIFT);
             graphics.pose().popPose();
         }
         renderTooltip(graphics, virtualMouseX, virtualMouseY);
@@ -540,8 +542,8 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         g.pose().pushPose();
         g.pose().translate(0, -FinanceGui.CONTENT_SHIFT, 0);
         switch (currentTab) {
-            case TAB_MARKET -> this.marketTabs.renderMarketTab(g, mouseX, mouseY);
-            case TAB_TRADE -> this.marketTabs.renderTradeTab(g);
+            case TAB_MARKET -> this.marketPanel.renderMarketTab(g, mouseX, mouseY);
+            case TAB_TRADE -> this.tradePanel.renderTradeTab(g);
             case TAB_ORDERS -> this.ordersPanel.renderOrdersTab(g);
             case TAB_INVENTORY -> this.inventoryPanel.renderInventoryTab(g);
             case TAB_COMPANY -> this.companyTabs.renderCompanyTab(g);
@@ -667,7 +669,7 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
 
         // 下拉菜单点击拦截（在其他标签逻辑之前）
         if (dropdownOpen && (currentTab == TAB_MARKET || currentTab == TAB_TRADE)) {
-            if (this.marketTabs.handleDropdownClick(mx, my + FinanceGui.CONTENT_SHIFT)) return true;
+            if (this.commodityDropdown.handleDropdownClick(mx, my + FinanceGui.CONTENT_SHIFT)) return true;
             // 点击下拉外部关闭
             dropdownOpen = false;
         }
@@ -676,8 +678,8 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         boolean handled;
         try {
             handled = switch (currentTab) {
-                case TAB_MARKET -> this.marketTabs.handleMarketClick(mx, contentY);
-                case TAB_TRADE -> this.marketTabs.handleTradeClick(mx, contentY);
+                case TAB_MARKET -> this.marketPanel.handleMarketClick(mx, contentY);
+                case TAB_TRADE -> this.tradePanel.handleTradeClick(mx, contentY);
                 case TAB_ORDERS -> this.ordersPanel.handleOrdersClick(mx, contentY);
                 case TAB_INVENTORY -> this.inventoryPanel.handleInventoryClick(mx, contentY);
                 case TAB_COMPANY -> this.companyTabs.handleCompanyClick(mx, contentY);
@@ -713,13 +715,13 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
             return simple.scroll(delta) || super.mouseScrolled(mouseX, mouseY, delta);
         }
         if (dropdownOpen && (currentTab == TAB_MARKET || currentTab == TAB_TRADE)) {
-            int totalHeight = this.marketTabs.calcDropdownTotalHeight();
+            int totalHeight = this.commodityDropdown.calcDropdownTotalHeight();
             int maxScroll = Math.max(0, totalHeight - 116);
             dropdownScroll = Math.max(0, Math.min(maxScroll, dropdownScroll - (int) (delta * 14)));
             return true;
         }
         if (currentTab == TAB_MARKET && !commodityChartVisible) {
-            int max = this.marketTabs.maxMarketScroll();
+            int max = this.marketPanel.maxMarketScroll();
             if (max > 0) {
                 marketScroll = Math.max(0, Math.min(max, marketScroll - (int) Math.signum(delta)));
                 return true;
