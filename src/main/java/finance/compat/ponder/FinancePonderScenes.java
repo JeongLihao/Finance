@@ -104,20 +104,22 @@ public final class FinancePonderScenes {
     }
 
     public static void companyProduction(SceneBuilder scene, SceneBuildingUtil util) {
-        begin(scene, util, "company_production", "Daily Production");
-        show(scene, util, LEFT, ModBlocks.COMPANY_DESK.get());
+        begin(scene, util, "company_production", "Company Machines");
+        // 农场机收获 → 公司仓库 → 加工机取料做成面包 → 存回仓库，之后每天自动卖
+        show(scene, util, LEFT, ModBlocks.FARM_MACHINE.get());
         show(scene, util, CENTER, ModBlocks.WAREHOUSE_CONTROLLER.get());
         show(scene, util, RIGHT, ModBlocks.FACTORY.get());
-        connect(scene, util, LEFT, CENTER, PonderPalette.BLUE);
-        flow(scene, util, CENTER, RIGHT, new ItemStack(Items.IRON_INGOT, 8), PonderPalette.INPUT, 28);
-        label(scene, util, RIGHT, "One MC day", PonderPalette.MEDIUM, 30);
+        flow(scene, util, LEFT, CENTER, new ItemStack(Items.WHEAT, 9), PonderPalette.INPUT, 28);
+        label(scene, util, LEFT, "Harvest into custody", PonderPalette.GREEN, 30);
         scene.rotateCameraY(25);
-        scene.idle(28);
+        scene.idle(20);
         scene.rotateCameraY(-25);
+        flow(scene, util, CENTER, RIGHT, new ItemStack(Items.WHEAT, 3), PonderPalette.INPUT, 28);
         success(scene, RIGHT);
-        flow(scene, util, RIGHT, CENTER, new ItemStack(Items.GOLD_INGOT, 3), PonderPalette.OUTPUT, 28);
-        blocked(scene, util, CENTER);
-        label(scene, util, CENTER, "No input = pause", PonderPalette.RED, 28);
+        flow(scene, util, RIGHT, CENTER, new ItemStack(Items.BREAD, 1), PonderPalette.OUTPUT, 28);
+        label(scene, util, RIGHT, "Processed and stored", PonderPalette.MEDIUM, 28);
+        blocked(scene, util, RIGHT);
+        label(scene, util, RIGHT, "No input = pause", PonderPalette.RED, 28);
         finish(scene);
     }
 

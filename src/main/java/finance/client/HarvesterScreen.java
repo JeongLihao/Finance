@@ -5,6 +5,7 @@ import finance.block.entity.HarvesterBlockEntity;
 import finance.factory.HarvestMode;
 import finance.gui.HarvesterMenu;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
@@ -13,11 +14,26 @@ import net.minecraft.world.inventory.Slot;
 /** 采集机界面：归属、在干什么、收获仓；采矿机多一个燃料槽和挖到第几层。 */
 public final class HarvesterScreen extends AbstractContainerScreen<HarvesterMenu> {
 
+    private Button upgradeButton;
+
     public HarvesterScreen(HarvesterMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
         imageWidth = 176;
         imageHeight = HarvesterMenu.INVENTORY_Y + 82;
         inventoryLabelY = HarvesterMenu.INVENTORY_Y - 11;
+    }
+
+    @Override
+    protected void init() {
+        super.init();
+        upgradeButton = addRenderableWidget(MachineUpgradeButton.create(
+                minecraft, menu.containerId, leftPos + 128, topPos + 2, 42, menu.tier(), menu.link()));
+    }
+
+    @Override
+    protected void containerTick() {
+        super.containerTick();
+        if (upgradeButton != null) MachineUpgradeButton.refresh(upgradeButton, menu.tier(), menu.link());
     }
 
     private HarvestMode mode() {
@@ -40,7 +56,17 @@ public final class HarvesterScreen extends AbstractContainerScreen<HarvesterMenu
 
     @Override
     protected void renderLabels(GuiGraphics g, int mouseX, int mouseY) {
-        g.drawString(font, title, 8, 6, 0xFF404040, false);
+        g.drawString(
+                font,
+                clip(
+                        title.getString() + " · "
+                                + Component.translatable("screen.finance.machine.tier", menu.tier())
+                                        .getString(),
+                        116),
+                8,
+                6,
+                0xFF404040,
+                false);
         String company = menu.blockEntity().companyName();
         Component owner =
                 switch (menu.link()) {

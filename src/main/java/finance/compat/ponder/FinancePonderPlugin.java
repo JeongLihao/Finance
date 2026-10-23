@@ -19,7 +19,7 @@ public final class FinancePonderPlugin implements PonderPlugin {
         helper.addStoryBoard(finance("warehouse_controller"), template, FinancePonderScenes::warehouseBasics);
         helper.addStoryBoard(finance("market_terminal"), template, FinancePonderScenes::marketTrading);
         helper.addStoryBoard(finance("warehouse_controller"), template, FinancePonderScenes::contractDelivery);
-        helper.addStoryBoard(finance("company_factory_controller"), template, FinancePonderScenes::companyProduction);
+        helper.addStoryBoard(finance("factory"), template, FinancePonderScenes::companyProduction);
         helper.addStoryBoard(finance("sealed_cargo_crate"), template, FinancePonderScenes::logisticsDelivery);
         helper.addStoryBoard(finance("settlement_trade_station"), template, FinancePonderScenes::settlementHelp);
         helper.addStoryBoard(finance("survey_board"), template, FinancePonderScenes::fieldSurvey);

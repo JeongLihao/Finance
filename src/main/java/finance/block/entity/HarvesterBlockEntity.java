@@ -219,7 +219,7 @@ public final class HarvesterBlockEntity extends CompanyMachineBlockEntity {
                     default -> CompanyFacilityStatus.ACTIVE;
                 });
         if (company == null) return;
-        for (int slot = 0; slot < BIN_SIZE; slot++) store(company, slots, slot);
+        for (int slot = 0; slot < BIN_SIZE; slot++) deposit(level, company, slots, slot);
         if (mode().needsFuel()) refill(company, slots, SLOT_FUEL, Items.COAL);
     }
 

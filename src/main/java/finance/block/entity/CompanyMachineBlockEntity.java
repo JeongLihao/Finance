@@ -141,6 +141,27 @@ public abstract class CompanyMachineBlockEntity extends BlockEntity implements M
         record.setLastProcessedDay(day);
     }
 
+    /** 这台机器有没有报过“生产启动”进度（不存档，重进世界后再报一次也无妨）。 */
+    private boolean productionAnnounced;
+
+    /**
+     * 把这一槽存进公司库存，返回存进去的数量。第一次存进去时给放置者和公司老板（在线的话）
+     * 触发“生产启动”进度。
+     */
+    protected int deposit(ServerLevel level, Company company, IItemHandlerModifiable items, int slot) {
+        int stored = store(company, items, slot);
+        if (stored > 0 && !productionAnnounced) {
+            productionAnnounced = true;
+            var players = level.getServer().getPlayerList();
+            for (UUID id : new java.util.LinkedHashSet<>(java.util.Arrays.asList(placerId, company.getOwnerId()))) {
+                var player = id == null ? null : players.getPlayer(id);
+                if (player != null)
+                    finance.advancement.FinanceAdvancementTriggers.trigger(player, "company_production");
+            }
+        }
+        return stored;
+    }
+
     /** 把这一槽的东西存进公司库存（只收商品），返回存进去的数量。 */
     protected static int store(Company company, IItemHandlerModifiable items, int slot) {
         int stored = CompanyStock.deposit(company, items.getStackInSlot(slot));

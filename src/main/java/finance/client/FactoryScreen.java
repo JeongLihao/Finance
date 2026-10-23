@@ -16,7 +16,7 @@ public final class FactoryScreen extends AbstractContainerScreen<FactoryMenu> {
     private static final int ARROW_X = 70, ARROW_Y = 40, ARROW_W = 24, ARROW_H = 17;
     private static final int RIGHT_X = 128;
 
-    private Button recipeButton;
+    private Button recipeButton, upgradeButton;
 
     public FactoryScreen(FactoryMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -31,6 +31,8 @@ public final class FactoryScreen extends AbstractContainerScreen<FactoryMenu> {
         recipeButton = addRenderableWidget(Button.builder(recipeLabel(), b -> cycleRecipe())
                 .bounds(leftPos + RIGHT_X, topPos + 30, 42, 16)
                 .build());
+        upgradeButton = addRenderableWidget(MachineUpgradeButton.create(
+                minecraft, menu.containerId, leftPos + RIGHT_X, topPos + 56, 42, menu.tier(), menu.link()));
     }
 
     /** 下一个配方；最后一个之后回到“不指定”。 */
@@ -54,6 +56,7 @@ public final class FactoryScreen extends AbstractContainerScreen<FactoryMenu> {
     protected void containerTick() {
         super.containerTick();
         if (recipeButton != null) recipeButton.setMessage(recipeLabel());
+        if (upgradeButton != null) MachineUpgradeButton.refresh(upgradeButton, menu.tier(), menu.link());
     }
 
     @Override
@@ -84,6 +87,13 @@ public final class FactoryScreen extends AbstractContainerScreen<FactoryMenu> {
         g.drawString(font, title, 8, 6, 0xFF404040, false);
         g.drawString(font, clip(ownerLine(), 160), 8, 17, 0xFF555555, false);
         g.drawString(font, Component.translatable("screen.finance.factory.make"), RIGHT_X, 21, 0xFF555555, false);
+        g.drawString(
+                font,
+                Component.translatable("screen.finance.machine.tier", menu.tier()),
+                RIGHT_X,
+                47,
+                0xFF555555,
+                false);
         String status = Component.translatable(statusKey()).getString();
         if (menu.status() == MachineCore.WORKING) status += " " + Math.round(menu.progressFraction() * 100) + "%";
         g.drawString(font, clip(status, 160), 8, 77, statusColor(), false);

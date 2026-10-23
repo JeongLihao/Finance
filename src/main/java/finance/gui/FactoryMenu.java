@@ -86,8 +86,14 @@ public final class FactoryMenu extends AbstractContainerMenu {
         return data.get(6);
     }
 
+    /** 档次 1～3。 */
+    public int tier() {
+        return Math.max(1, data.get(7));
+    }
+
     @Override
     public boolean clickMenuButton(Player player, int id) {
+        if (id == MachineUpgrade.BUTTON_ID) return MachineUpgrade.click(player, blockEntity);
         var companyId = blockEntity.companyId();
         if (companyId != null
                 && !CompanyMembershipService.hasPermission(

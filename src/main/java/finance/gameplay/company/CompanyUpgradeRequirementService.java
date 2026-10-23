@@ -12,8 +12,13 @@ public final class CompanyUpgradeRequirementService {
     private CompanyUpgradeRequirementService() {}
 
     public static Requirement requirement(CompanyType type, CompanyFacilityType facilityType, int currentLevel) {
-        if (type == null || facilityType == null || currentLevel < 1 || currentLevel >= CompanyFacilityRecord.MAX_LEVEL)
-            return null;
+        if (type == null || facilityType == null) return null;
+        return requirement(currentLevel);
+    }
+
+    /** 机器从 currentLevel 升一档的要求（所有机器种类、行业都一样）；已到最高档返回 null。客户端界面也用它显示。 */
+    public static Requirement requirement(int currentLevel) {
+        if (currentLevel < 1 || currentLevel >= CompanyFacilityRecord.MAX_LEVEL) return null;
         Map<Item, Integer> materials = new LinkedHashMap<>();
         if (currentLevel == 1) {
             materials.put(Items.IRON_INGOT, 12);

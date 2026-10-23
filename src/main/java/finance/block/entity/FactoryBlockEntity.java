@@ -138,7 +138,7 @@ public final class FactoryBlockEntity extends CompanyMachineBlockEntity {
                 });
         if (company == null) return;
         var items = core.items();
-        produced += store(company, items, MachineCore.SLOT_OUTPUT);
+        produced += deposit(level, company, items, MachineCore.SLOT_OUTPUT);
         FactoryRecipe recipe = selectedRecipe != null ? FactoryRecipe.byId(selectedRecipe) : null;
         if (recipe == null && core.activeRecipe() != null) recipe = FactoryRecipe.byId(core.activeRecipe());
         if (recipe == null) return;

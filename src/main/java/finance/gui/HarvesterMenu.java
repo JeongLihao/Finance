@@ -74,6 +74,16 @@ public final class HarvesterMenu extends AbstractContainerMenu {
         return data.get(3);
     }
 
+    /** 档次 1～3。 */
+    public int tier() {
+        return Math.max(1, data.get(4));
+    }
+
+    @Override
+    public boolean clickMenuButton(Player player, int id) {
+        return id == MachineUpgrade.BUTTON_ID && MachineUpgrade.click(player, blockEntity);
+    }
+
     @Override
     public boolean stillValid(Player player) {
         return stillValid(access, player, blockEntity.getBlockState().getBlock());

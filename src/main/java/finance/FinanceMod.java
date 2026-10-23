@@ -267,7 +267,8 @@ public class FinanceMod {
             if (playerCompany != null) {
                 finance.advancement.FinanceAdvancementTriggers.trigger(player, "company_member");
                 if (finance.gameplay.company.CompanyFacilityManager.forCompany(playerCompany.getCompanyId()).stream()
-                        .anyMatch(facility -> facility.lastProcessedDay() >= 0))
+                        .anyMatch(
+                                facility -> facility.status() == finance.gameplay.company.CompanyFacilityStatus.ACTIVE))
                     finance.advancement.FinanceAdvancementTriggers.trigger(player, "company_production");
             }
         }
