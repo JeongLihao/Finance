@@ -13,6 +13,8 @@
 ## 已完成（2026-10-24）
 
 - `FinanceScreen` 顶层页签编号改成 `FinanceScreen.TAB_MARKET`、`TAB_STOCK`、`TAB_FINANCIAL`、`TAB_ADMIN` 等常量（`MACRO_TAB` 改名 `TAB_MACRO`），`MarketTabs` 里的判断一起换掉。
+- `AdminTabs` 子页签编号改成 `AdminTabs.HAND`、`QUICK`、`REGISTERED`、`PRICE_HISTORY`、`DIVIDEND`。
+- 期货做市商账户 UUID 只写一处：`FuturesMarketMaker.MARKET_MAKER_ID` 直接引用 `MarketMakerLedger.FUTURES_MARGIN_UUID`。
 
 ## 待办
 
@@ -28,7 +30,7 @@
 
 6. **公司经营模式**：`CompanyOperatingMode`（`LEGACY_AUTOMATIC` / `HYBRID` / `PLAYER_DRIVEN`）在机器改版后对玩家公司基本没意义了，但还决定库存放在哪（托管账户还是公司库存）、NPC 公司怎么跑、能不能抵押。简化前要先理清 `CompanyInventoryFacade` 里两种库存的迁移。
 7. **大服务类**：`EconomyConsistencyService`（约 980 行）、`VillageService`（约 830 行）、`BankingManager`（约 800 行）、`CorporateActionManager`（约 790 行）、`FinanceGuiOpener`（约 780 行），按职责拆分。服务端逻辑测试比界面多，适合先补测试再拆。
-8. **零散的 UUID 解析**：命令（`PlayerBankCommand`、`TakeoverCommand`）和几个序列化器里还有手写的 `try { UUID.fromString } catch`，各自的失败处理不同，统一前要逐个看。
+8. **零散的 UUID 解析**：还有约 20 处手写 `UUID.fromString`，分布在命令（`PlayerBankCommand`、`TakeoverCommand`）、序列化器、网络包（`CandlestickRequestPacket`、`SimpleActionPacket`）、客户端（`CompanyTabs`、`SettlementScreen`）和服务（`OrderBookService`、`CorporateRestructuringService`、`CompanyProposalManager` 等）。各自的失败处理不同，统一前要逐个看。
 
 ## 做法备忘
 

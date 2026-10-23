@@ -19,6 +19,9 @@ public final class AdminTabs {
         this.screen = screen;
     }
 
+    /** 子页签编号（{@code FinanceScreen.adminSubTab}），顺序与 {@link #ADMIN_SUB_TABS} 一致。 */
+    static final int HAND = 0, QUICK = 1, REGISTERED = 2, PRICE_HISTORY = 3, DIVIDEND = 4;
+
     private static final String[] ADMIN_SUB_TABS = {"从手中添加", "常用物品", "已注册商品", "价格历史", "分红设置"};
 
     /** 管理后台快捷物品表（原 FinanceScreen 中置常量，随管理页签迁移）。 */
@@ -68,11 +71,11 @@ public final class AdminTabs {
         y += 6;
 
         switch (screen.adminSubTab) {
-            case 0 -> renderAdminHandTab(g, y);
-            case 1 -> renderAdminQuickTab(g, y);
-            case 2 -> renderAdminRegisteredTab(g, y);
-            case 3 -> renderAdminPriceHistoryTab(g, y);
-            case 4 -> renderAdminDividendTab(g, y);
+            case HAND -> renderAdminHandTab(g, y);
+            case QUICK -> renderAdminQuickTab(g, y);
+            case REGISTERED -> renderAdminRegisteredTab(g, y);
+            case PRICE_HISTORY -> renderAdminPriceHistoryTab(g, y);
+            case DIVIDEND -> renderAdminDividendTab(g, y);
         }
     }
 
@@ -288,11 +291,11 @@ public final class AdminTabs {
         y += 16 + 6;
 
         return switch (screen.adminSubTab) {
-            case 0 -> handleAdminHandClick(mx, my, y);
-            case 1 -> handleAdminQuickClick(mx, my, y);
-            case 2 -> handleAdminRegisteredClick(mx, my, y);
-            case 3 -> handleAdminPriceHistoryClick(mx, my, y);
-            case 4 -> handleAdminDividendClick(mx, my, y);
+            case HAND -> handleAdminHandClick(mx, my, y);
+            case QUICK -> handleAdminQuickClick(mx, my, y);
+            case REGISTERED -> handleAdminRegisteredClick(mx, my, y);
+            case PRICE_HISTORY -> handleAdminPriceHistoryClick(mx, my, y);
+            case DIVIDEND -> handleAdminDividendClick(mx, my, y);
             default -> false;
         };
     }

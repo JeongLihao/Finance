@@ -96,7 +96,7 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
     EditBox adminDisplayNameBox;
     EditBox adminBasePriceBox;
     CommodityCategory adminCategory = CommodityCategory.RAW_MATERIALS;
-    int adminSubTab = 0; // 0=从手中添加, 1=常用物品, 2=已注册商品
+    int adminSubTab = AdminTabs.HAND;
 
     // ---- 商品下拉菜单（交易标签 + 行情标签） ----
     boolean dropdownOpen = false;
@@ -189,7 +189,7 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         if (!entryConfigured) {
             entryConfigured = true;
             configureEntryTabs(menu.getInitialMode());
-            adminSubTab = 0;
+            adminSubTab = AdminTabs.HAND;
             governanceView = false;
             restructuringView = false;
             companyDetailsView = false;
@@ -718,12 +718,12 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
             }
         }
         if (currentTab == TAB_ADMIN && isAdmin) {
-            if (adminSubTab == 1) {
+            if (adminSubTab == AdminTabs.QUICK) {
                 int maxPage = Math.max(0, (adminTabs.QUICK_ITEMS.length - 1) / this.adminTabs.quickItemsPerPage());
                 adminQuickPage = Math.max(0, Math.min(maxPage, adminQuickPage - (int) Math.signum(delta)));
                 return true;
             }
-            if (adminSubTab == 2) {
+            if (adminSubTab == AdminTabs.REGISTERED) {
                 ensureCommodityCache();
                 int maxPage = Math.max(0, (cachedCommodities.size() - 1) / this.adminTabs.registeredItemsPerPage());
                 adminRegisteredPage = Math.max(0, Math.min(maxPage, adminRegisteredPage - (int) Math.signum(delta)));
@@ -862,7 +862,7 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
                         && financialSubTab != ServiceTabs.INSURANCE));
         alertPriceBox.setVisible(currentTab == TAB_ALERTS);
         boolean admin = (currentTab == TAB_ADMIN && isAdmin);
-        boolean adminHand = admin && adminSubTab == 0;
+        boolean adminHand = admin && adminSubTab == AdminTabs.HAND;
         if (adminHand) {
             adminBasePriceBox.setX(leftPos + 228);
             adminBasePriceBox.setY(contentTop() + FinanceGui.CONTENT_Y + 42);
@@ -939,7 +939,7 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
             if (stockQuantityBox.isVisible()) list.add(stockQuantityBox);
             if (companyAmountBox.isVisible()) list.add(companyAmountBox);
         }
-        if (currentTab == TAB_ADMIN && isAdmin && adminSubTab == 0) {
+        if (currentTab == TAB_ADMIN && isAdmin && adminSubTab == AdminTabs.HAND) {
             list.add(adminBasePriceBox);
             list.add(adminCommodityIdBox);
             list.add(adminItemIdBox);
