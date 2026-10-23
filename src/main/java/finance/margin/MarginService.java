@@ -3,6 +3,7 @@ package finance.margin;
 import finance.account.AccountManager;
 import finance.config.FinanceConfig;
 import finance.data.EconomySavedData;
+import finance.market.MarketMakerLedger;
 import finance.stock.Stock;
 import finance.stock.StockMarketManager;
 import finance.stock.StockPortfolioManager;
@@ -160,6 +161,10 @@ public final class MarginService {
         if (price <= 0) {
             return Result.fail("该股票估值异常，暂不可融资买入。");
         }
+        long financeable = financeableShares(stock, key);
+        if (qty > financeable) {
+            return Result.fail(String.format("可融资买入的流通股只剩 %d 股。", financeable));
+        }
         long totalCost = multiplyExactOrNegative(qty, price);
         if (totalCost <= 0) {
             return Result.fail("交易金额过大。");
@@ -181,6 +186,20 @@ public final class MarginService {
         EconomySavedData.markDirty();
         return Result.ok(String.format(
                 "融资买入 %d 股 %s @%d，共 %d（首付 %d，券商垫付 %d）。", qty, key, price, totalCost, downPayment, brokerLoan));
+    }
+
+    /**
+     * 还能融资买入的股数：既不在任何人手里、也不在做市商库存里、也没被别的融资仓占用的流通股。
+     * 融资股还清后会转成真实持仓，不设这个上限就能买出比总股本还多的股票。
+     */
+    static long financeableShares(Stock stock, String key) {
+        var snapshot = finance.governance.ShareholderRegistryService.snapshot(stock.getCompanyId(), 0);
+        if (!snapshot.consistent()) return 0;
+        long free = snapshot.systemLiquidity() - MarketMakerLedger.getStockInventory(key);
+        for (MarginAccount acct : MarginPoolManager.accounts().values()) {
+            free -= acct.financedSharesOf(key);
+        }
+        return Math.max(0, free);
     }
 
     /**
@@ -210,8 +229,15 @@ public final class MarginService {
         if (acct.getFinancedDebt() == 0
                 && acct.getFinancedInterestOwed() == 0
                 && !acct.getFinancedShares().isEmpty()) {
-            for (Map.Entry<String, Long> e :
-                    new ArrayList<>(acct.getFinancedShares().entrySet())) {
+            List<Map.Entry<String, Long>> entries =
+                    new ArrayList<>(acct.getFinancedShares().entrySet());
+            // 先全部预检再转仓，避免转到一半失败、已转的股票又留在融资仓里变成两份
+            for (Map.Entry<String, Long> e : entries) {
+                if (!StockPortfolioManager.canAddHolding(playerId, e.getKey(), e.getValue())) {
+                    return Result.fail("持仓转出失败，请联系管理员。");
+                }
+            }
+            for (Map.Entry<String, Long> e : entries) {
                 Stock stock = StockMarketManager.getStock(e.getKey());
                 long px = stock == null ? 0 : stock.getFairValue();
                 if (!StockPortfolioManager.addHolding(playerId, e.getKey(), e.getValue(), px)) {
@@ -247,8 +273,8 @@ public final class MarginService {
         if (stock == null) {
             return Result.fail("未知股票: " + symbol);
         }
-        if (stock.isTradingHalted()) {
-            return Result.fail("该股票停牌中，不可新开融券仓。");
+        if (stock.isTradingPaused()) {
+            return Result.fail("该股票停牌或熔断中，不可新开融券仓。");
         }
         MarginAccount acct = MarginPoolManager.getAccount(playerId);
         if (acct.getBadDebt() > 0) {
@@ -306,12 +332,13 @@ public final class MarginService {
         long closeQty = qty <= 0 ? pos : Math.min(qty, pos);
 
         Stock stock = StockMarketManager.getStock(key);
-        long price = stock == null ? 0 : stock.impactedPrice(closeQty, true); // 平仓按买回推高之后的价
-        if (price <= 0) {
+        // 平仓按买回推高之后的价；已退市的股票按 0 结算（和强平口径一致），否则卖空所得永远冻结
+        long price = stock == null ? 0 : stock.impactedPrice(closeQty, true);
+        if (stock != null && price <= 0) {
             return Result.fail("该股票当前无有效价格，暂不可还券。");
         }
-        long cost = multiplyExactOrNegative(closeQty, price);
-        if (cost <= 0) {
+        long cost = stock == null ? 0 : multiplyExactOrNegative(closeQty, price);
+        if (stock != null && cost <= 0) {
             return Result.fail("结算金额过大。");
         }
         // 按比例分摊利息

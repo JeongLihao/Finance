@@ -7,6 +7,9 @@ import finance.account.TransactionType;
 import finance.data.EconomySavedData;
 import finance.stock.Stock;
 import finance.stock.StockMarketManager;
+import finance.stock.StockOrder;
+import finance.stock.StockOrderManager;
+import finance.stock.StockOrderType;
 import finance.stock.StockPortfolioManager;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
@@ -55,6 +58,27 @@ class CompanyDividendTest {
                 AccountManager.getTransactions().stream()
                         .filter(record -> record.getType() == TransactionType.DIVIDEND)
                         .count());
+    }
+
+    @Test
+    void sharesLockedInSellOrdersStillReceiveDividends() {
+        Company company = new Company(COMPANY_ID, "Dividend Co", CompanyType.RAW_MATERIALS, 2_000, OWNER_ID);
+        company.setPublic(true);
+        company.addDistributableProfit(1_000);
+        CompanyManager.registerDirect(company);
+        StockMarketManager.putStockDirect(new Stock("DIV", "Dividend Co", COMPANY_ID, 1_000, 1_000, 0, 10, 10));
+        // A 持有 250 股，其中 100 股挂在卖单里（下单时已移出持仓）
+        StockPortfolioManager.addHolding(PLAYER_A, "DIV", 150, 10);
+        StockOrderManager.addOrderDirect(new StockOrder(PLAYER_A, "DIV", StockOrderType.SELL, 50, 100));
+        StockPortfolioManager.addHolding(PLAYER_B, "DIV", 750, 10);
+        CompanyManager.setDividendPolicy(0.50, 1);
+
+        CompanyManager.tryDividends(1);
+        CompanyManager.tryDividends(2);
+
+        assertEquals(1_125, AccountManager.getBalance(PLAYER_A));
+        assertEquals(1_375, AccountManager.getBalance(PLAYER_B));
+        assertEquals(500, company.getDistributableProfit());
     }
 
     @Test

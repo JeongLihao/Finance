@@ -118,6 +118,8 @@ public final class CompanyBankruptcyManager {
         }
         int cancelledOrders = 0;
         int liquidatedHolders = 0;
+        // 先撤卖单把股票退回持仓，再统计持股；否则挂着卖单的股东拿不到这部分清算款
+        if (stock != null) cancelledOrders = StockMarketManager.cancelStockOrdersForSymbol(symbol);
         Map<UUID, Long> holdings = stock == null ? Map.of() : StockPortfolioManager.getHoldingsForCompany(symbol);
         finance.debt.CorporateBondManager.BankruptcyPlan debtPlan =
                 finance.debt.CorporateBondManager.planBankruptcyClaims(company.getCompanyId(), liquidationValue);
@@ -135,7 +137,6 @@ public final class CompanyBankruptcyManager {
         long paid = debtSettlement.paidToCreditors();
 
         if (stock != null) {
-            cancelledOrders = StockMarketManager.cancelStockOrdersForSymbol(symbol);
             ConditionalStockOrderManager.cancelOrdersForSymbol(symbol, "股票退市");
             CompanyFinancingManager.cancelProjectsForCompany(company.getCompanyId());
             CompanyProposalManager.cancelActiveProposalsForCompany(company.getCompanyId(), "公司破产退市");

@@ -20,7 +20,9 @@ import finance.market.MarketPrice;
 import finance.market.NpcMarketMaker;
 import finance.stock.Stock;
 import finance.stock.StockMarketManager;
+import finance.stock.StockOrder;
 import finance.stock.StockOrderManager;
+import finance.stock.StockOrderType;
 import finance.stock.StockPortfolioManager;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -106,6 +108,21 @@ class CompanyBankruptcyManagerTest {
 
         assertEquals(100, result.paid());
         assertEquals(1_100, AccountManager.getBalance(HOLDER_A));
+    }
+
+    @Test
+    void sharesLockedInSellOrdersStillReceiveLiquidationPayout() {
+        Company company = publicCompany(1_000);
+        // A 持有 100 股，其中 40 股挂在卖单里（下单时已移出持仓）
+        StockPortfolioManager.addHolding(HOLDER_A, "BRK", 60, 10);
+        StockOrderManager.addOrderDirect(new StockOrder(HOLDER_A, "BRK", StockOrderType.SELL, 50, 40));
+
+        CompanyBankruptcyManager.LiquidationResult result = CompanyBankruptcyManager.bankrupt(company, 1);
+
+        assertEquals(100, result.paid());
+        assertEquals(1_100, AccountManager.getBalance(HOLDER_A));
+        assertEquals(0, StockOrderManager.getOrders().size());
+        assertEquals(0, StockPortfolioManager.getHolding(HOLDER_A, "BRK").getQuantity());
     }
 
     @Test
