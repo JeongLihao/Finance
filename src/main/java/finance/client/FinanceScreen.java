@@ -125,6 +125,7 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
     final MarketTabs marketTabs = new MarketTabs(this);
     final CompanyTabs companyTabs = new CompanyTabs(this);
     final StockTabs stockTabs = new StockTabs(this);
+    final CandlestickView candlestickView = new CandlestickView(this);
     final ServiceTabs serviceTabs = new ServiceTabs(this);
     final OrdersPanel ordersPanel = new OrdersPanel(this);
     final InventoryPanel inventoryPanel = new InventoryPanel(this);

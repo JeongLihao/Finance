@@ -29,7 +29,7 @@ public final class MarketTabs {
         screen.refreshSelectedRow();
 
         if (screen.commodityChartVisible) {
-            screen.stockTabs.renderCandlestickView(
+            screen.candlestickView.renderCandlestickView(
                     g,
                     MarketInstrumentType.COMMODITY,
                     screen.selectedCommodity,
@@ -455,7 +455,7 @@ public final class MarketTabs {
 
     public boolean handleMarketClick(int mx, int my) {
         if (screen.commodityChartVisible) {
-            return screen.stockTabs.handleCandlestickControls(
+            return screen.candlestickView.handleCandlestickControls(
                     mx, my, MarketInstrumentType.COMMODITY, screen.selectedCommodity);
         }
         int headerY = FinanceGui.CONTENT_Y;
@@ -477,7 +477,7 @@ public final class MarketTabs {
 
         if (mx >= 360 && mx < 390 && my >= tradeY && my < tradeY + 14) {
             screen.commodityChartVisible = true;
-            screen.stockTabs.requestCandlesticks(MarketInstrumentType.COMMODITY, screen.selectedCommodity);
+            screen.candlestickView.requestCandlesticks(MarketInstrumentType.COMMODITY, screen.selectedCommodity);
             screen.updateInputVisibility();
             return true;
         }

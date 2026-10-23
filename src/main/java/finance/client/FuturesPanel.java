@@ -35,7 +35,7 @@ final class FuturesPanel {
         var data = cache.data();
         var chartContract = data.contracts().stream().findFirst().orElse(null);
         if (screen.futuresChartVisible && chartContract != null) {
-            screen.stockTabs.renderCandlestickView(
+            screen.candlestickView.renderCandlestickView(
                     g,
                     MarketInstrumentType.FUTURES,
                     chartContract.id().toString(),
@@ -149,11 +149,11 @@ final class FuturesPanel {
         if (data == null) return false;
         var chartContract = data.contracts().stream().findFirst().orElse(null);
         if (screen.futuresChartVisible && chartContract != null)
-            return screen.stockTabs.handleCandlestickControls(
+            return screen.candlestickView.handleCandlestickControls(
                     mx, my, MarketInstrumentType.FUTURES, chartContract.id().toString());
         if (my >= FinanceGui.CONTENT_Y + 22 && my < 188 && chartContract != null) {
             screen.futuresChartVisible = true;
-            screen.stockTabs.requestCandlesticks(
+            screen.candlestickView.requestCandlesticks(
                     MarketInstrumentType.FUTURES, chartContract.id().toString());
             screen.updateInputVisibility();
             return true;
