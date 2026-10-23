@@ -386,14 +386,16 @@ public final class MacroLongRunSimulationService {
         Account npc = AccountManager.getAccounts().get(NpcMarketMaker.NPC_UUID);
         if (npc == null) return;
         // 按行业的标准日耗量采购
-        for (Map.Entry<String, Integer> e : company.getType().getDailyConsumption().entrySet()) {
+        for (Map.Entry<String, Integer> e :
+                company.getType().getDailyConsumption().entrySet()) {
             int missing = e.getValue() - CommodityInventoryManager.getCommodityAmount(custody, e.getKey());
             MarketPrice mp = NpcMarketMaker.getMarketPrice(e.getKey());
             if (missing <= 0 || mp == null || mp.getAskPrice() <= 0) continue;
             if (CommodityInventoryManager.getCommodityAmount(NpcMarketMaker.NPC_UUID, e.getKey()) < missing) continue;
             long cost = mp.getAskPrice() * missing;
             // 留出一天工资，避免买了原料却发不出工资
-            long reserve = MacroLaborService.wageOf(company.getCompanyId()) * MACHINES * MacroLaborService.JOBS_PER_TIER;
+            long reserve =
+                    MacroLaborService.wageOf(company.getCompanyId()) * MACHINES * MacroLaborService.JOBS_PER_TIER;
             if (company.getCash() - cost < reserve || !company.withdraw(cost)) continue;
             npc.deposit(cost);
             CommodityInventoryManager.removeCommodity(NpcMarketMaker.NPC_UUID, e.getKey(), missing);

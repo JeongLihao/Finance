@@ -32,9 +32,9 @@ class MacroLongRunSimulationServiceTest {
         assertEquals(STANDARD_DAYS, r.daily().size());
         assertTrue(r.deterministic(), "同样的场景跑两遍结果一致");
 
-        // 货币守恒：账户 + 公司现金 + 已记录的维护费销毁 = 初始值（每天都成立）
+        // 货币守恒：账户 + 公司现金 + 已记录的销毁 = 初始值（每天都成立）
         assertTrue(r.moneyConserved(), "货币不守恒");
-        assertTrue(r.last().burned() > 0, "维护费确实在销毁货币");
+        assertEquals(0, r.last().burned(), "机器没有维护费，生产不销毁货币");
 
         // 人口：不撞上下限，不单调涨到底
         int min = FinanceConfig.macroMinPopulation(), max = FinanceConfig.macroMaxPopulation();

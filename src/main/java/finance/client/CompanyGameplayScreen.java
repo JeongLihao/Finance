@@ -210,14 +210,15 @@ public final class CompanyGameplayScreen extends AbstractContainerScreen<Company
     /** 机器清单的一行：种类、档次、状态、在岗/岗位、坐标。升档在机器自己的界面里做。 */
     private String machineLine(CompanyGameplayMenu.FacilityRow row) {
         return Component.translatable(
-                                "screen.finance.company_gameplay.machine",
-                                Component.translatable("screen.finance.company_gameplay.machine."
-                                        + row.type().toLowerCase(java.util.Locale.ROOT)),
-                                row.level(),
-                                FinanceFormat.facilityStatusLabel(row.status()),
-                                row.employed(),
-                                row.jobs(),
-                                row.pos().getX() + "," + row.pos().getY() + "," + row.pos().getZ())
+                        "screen.finance.company_gameplay.machine",
+                        Component.translatable("screen.finance.company_gameplay.machine."
+                                + row.type().toLowerCase(java.util.Locale.ROOT)),
+                        row.level(),
+                        FinanceFormat.facilityStatusLabel(row.status()),
+                        row.employed(),
+                        row.jobs(),
+                        row.pos().getX() + "," + row.pos().getY() + ","
+                                + row.pos().getZ())
                 .getString();
     }
 

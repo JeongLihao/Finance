@@ -81,11 +81,10 @@ class CapitalProjectServiceTest {
                 company.getCompanyId(),
                 "minecraft:overworld",
                 BlockPos.ZERO,
-                CompanyFacilityType.FACTORY_CONTROLLER,
+                CompanyFacilityType.PROCESSOR,
                 1,
                 CompanyFacilityStatus.ACTIVE,
-                0,
-                null);
+                0);
         CompanyFacilityManager.restore(facility);
         WorldCapitalProject project = new WorldCapitalProject(
                 UUID.randomUUID(),
@@ -131,11 +130,10 @@ class CapitalProjectServiceTest {
                 company.getCompanyId(),
                 "minecraft:overworld",
                 BlockPos.ZERO,
-                CompanyFacilityType.FACTORY_CONTROLLER,
+                CompanyFacilityType.PROCESSOR,
                 1,
                 CompanyFacilityStatus.ACTIVE,
-                0,
-                null);
+                0);
         CompanyFacilityManager.restore(facility);
         WorldCapitalProject project = new WorldCapitalProject(
                 UUID.randomUUID(),

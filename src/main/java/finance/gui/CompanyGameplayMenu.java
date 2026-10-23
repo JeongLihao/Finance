@@ -27,8 +27,7 @@ public final class CompanyGameplayMenu extends AbstractContainerMenu {
     public record WarehouseRow(UUID id, long used, long capacity) {}
 
     /** 公司的一台机器：种类、位置、档次、状态、在岗/岗位。 */
-    public record FacilityRow(
-            UUID id, String type, BlockPos pos, int level, String status, long employed, long jobs) {}
+    public record FacilityRow(UUID id, String type, BlockPos pos, int level, String status, long employed, long jobs) {}
 
     public record ContractRow(
             UUID id,
@@ -53,7 +52,6 @@ public final class CompanyGameplayMenu extends AbstractContainerMenu {
             boolean governanceRequired,
             UUID proposalId,
             String failureKey) {}
-
 
     private final UUID companyId;
     private final String name, role, dimension, statusKey, operatingHealth;
@@ -247,8 +245,6 @@ public final class CompanyGameplayMenu extends AbstractContainerMenu {
         b.writeLong(Math.max(0, dueWithinSevenDays));
     }
 
-
-
     private static List<MemberRow> readMembers(FriendlyByteBuf b) {
         int n = count(b, MAX_MEMBERS);
         List<MemberRow> r = new ArrayList<>(n);
@@ -413,7 +409,6 @@ public final class CompanyGameplayMenu extends AbstractContainerMenu {
         return dueWithinSevenDays;
     }
     /** 厂房页数据；不是从工厂控制器打开时为 null。 */
-
     @Override
     public boolean stillValid(Player player) {
         return !(player instanceof ServerPlayer server)

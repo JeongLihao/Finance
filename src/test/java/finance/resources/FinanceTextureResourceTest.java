@@ -56,7 +56,6 @@ class FinanceTextureResourceTest {
                 "boardroom_table",
                 "central_bank_console",
                 "company_desk",
-                "company_factory_controller",
                 "market_terminal",
                 "securities_terminal",
                 "warehouse_controller",

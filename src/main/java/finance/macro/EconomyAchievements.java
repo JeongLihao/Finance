@@ -75,8 +75,8 @@ public final class EconomyAchievements {
             SHAREHOLDER_DEMOCRACY);
 
     // ---- 阈值 ----
-    static final int GOOD_BOSS_WORKERS = 20;
-    static final int SWEATSHOP_WORKERS = 10;
+    static final int GOOD_BOSS_WORKERS = 9;
+    static final int SWEATSHOP_WORKERS = 6;
     static final int BOOMTOWN_POPULATION = 100;
     static final int GOLDEN_AGE_SOL = 8_000;
     static final double FAMINE_FOOD_FULFILMENT = 0.5;

@@ -99,7 +99,7 @@ class WarehouseContractPacketTest {
     @Test
     void companyGameplayDecoderRejectsInvalidTargetsAndExtremeContractValues() {
         FriendlyByteBuf missingTarget = companyBuffer(
-                CompanyGameplayActionPacket.Action.UPGRADE_FACILITY, new UUID(0, 0), "", 0, 0, "operation");
+                CompanyGameplayActionPacket.Action.ACCEPT_SUPPLY_CONTRACT, new UUID(0, 0), "", 0, 0, "operation");
         assertThrows(RuntimeException.class, () -> CompanyGameplayActionPacket.decode(missingTarget));
 
         FriendlyByteBuf hugeReward = companyBuffer(

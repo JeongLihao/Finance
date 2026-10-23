@@ -2,9 +2,9 @@ package finance.block.entity;
 
 import finance.company.Company;
 import finance.factory.FactoryRecipe;
+import finance.factory.MachineCore;
 import finance.gameplay.company.CompanyFacilityStatus;
 import finance.gameplay.company.CompanyFacilityType;
-import finance.factory.MachineCore;
 import finance.gui.FactoryMenu;
 import finance.registry.ModBlockEntities;
 import net.minecraft.core.BlockPos;

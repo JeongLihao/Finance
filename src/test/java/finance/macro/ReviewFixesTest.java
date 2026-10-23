@@ -68,17 +68,16 @@ class ReviewFixesTest {
                 company.getCompanyId(),
                 "minecraft:overworld",
                 new BlockPos(10, 64, 10),
-                CompanyFacilityType.FACTORY_CONTROLLER,
+                CompanyFacilityType.PROCESSOR,
                 1,
                 CompanyFacilityStatus.ACTIVE,
-                -1,
-                warehouse.warehouseId());
+                -1);
         CompanyFacilityManager.restore(f);
         return f;
     }
 
     @Test
-    void understaffedByChoiceIsNotAnInsurableShutdown() {
+    void minedOutMachineIsNotAnInsurableShutdown() {
         Company company = new Company(UUID.randomUUID(), "Mill", CompanyType.RAW_MATERIALS, 100_000, UUID.randomUUID());
         CompanyManager.registerDirect(company);
         for (int d = 1; d <= 3; d++) {
@@ -87,11 +86,11 @@ class ReviewFixesTest {
         }
         CompanyFacilityRecord f = facility(company);
         f.setLastProcessedDay(10);
-        f.setStatus(CompanyFacilityStatus.UNDERSTAFFED, 5);
+        f.setStatus(CompanyFacilityStatus.DISABLED, 5);
         assertFalse(
                 InsuranceManager.createBusinessInterruption(company.getCompanyId(), 10, 1)
                         .success(),
-                "压低工资导致的停产不能领停业险");
+                "矿挖到底这类正常停机不能领停业险");
         f.setStatus(CompanyFacilityStatus.MISSING_INPUT, 6);
         assertTrue(
                 InsuranceManager.createBusinessInterruption(company.getCompanyId(), 10, 1)

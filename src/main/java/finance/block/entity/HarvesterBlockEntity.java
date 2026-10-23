@@ -4,10 +4,10 @@ import finance.block.HarvesterBlock;
 import finance.company.Company;
 import finance.config.FinanceConfig;
 import finance.factory.HarvestMode;
-import finance.gameplay.company.CompanyFacilityStatus;
-import finance.gameplay.company.CompanyFacilityType;
 import finance.factory.Harvesting;
 import finance.factory.MachineCore;
+import finance.gameplay.company.CompanyFacilityStatus;
+import finance.gameplay.company.CompanyFacilityType;
 import finance.gui.HarvesterMenu;
 import finance.registry.ModBlockEntities;
 import net.minecraft.core.BlockPos;
@@ -215,7 +215,7 @@ public final class HarvesterBlockEntity extends CompanyMachineBlockEntity {
                     case FULL -> CompanyFacilityStatus.OUTPUT_FULL;
                     case NO_FUEL -> CompanyFacilityStatus.MISSING_INPUT;
                     case DONE -> CompanyFacilityStatus.DISABLED;
-                    // 作物没熟、附近没树没羊是正常等待，不算停产
+                        // 作物没熟、附近没树没羊是正常等待，不算停产
                     default -> CompanyFacilityStatus.ACTIVE;
                 });
         if (company == null) return;

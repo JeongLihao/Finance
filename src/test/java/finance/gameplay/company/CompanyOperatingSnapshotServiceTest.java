@@ -141,11 +141,10 @@ class CompanyOperatingSnapshotServiceTest {
                 company.getCompanyId(),
                 "minecraft:overworld",
                 new BlockPos(1000, 200, -1000),
-                CompanyFacilityType.FACTORY_CONTROLLER,
+                CompanyFacilityType.PROCESSOR,
                 2,
                 CompanyFacilityStatus.MISSING_INPUT,
-                3,
-                null);
+                3);
         assertTrue(CompanyFacilityManager.restore(facility));
 
         CompanyOperatingSnapshot snapshot = CompanyOperatingSnapshotService.snapshot(company, 9);

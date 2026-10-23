@@ -79,11 +79,10 @@ class MinecraftFirstPerformanceAuditTest {
                             company.getCompanyId(),
                             "minecraft:overworld",
                             new BlockPos(i % 100, 65, i / 100),
-                            CompanyFacilityType.FACTORY_CONTROLLER,
+                            CompanyFacilityType.PROCESSOR,
                             1,
                             CompanyFacilityStatus.ACTIVE,
-                            -1,
-                            warehouse.warehouseId())));
+                            -1)));
                 }
             }
 

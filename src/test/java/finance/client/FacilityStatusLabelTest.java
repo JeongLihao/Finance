@@ -14,7 +14,7 @@ class FacilityStatusLabelTest {
             assertNotEquals(s.name(), label, s.name());
             assertFalse(label.isBlank(), s.name());
         }
-        assertEquals("缺工人", FinanceFormat.facilityStatusLabel("UNDERSTAFFED"));
+        assertEquals("缺原料", FinanceFormat.facilityStatusLabel("MISSING_INPUT"));
     }
 
     @Test

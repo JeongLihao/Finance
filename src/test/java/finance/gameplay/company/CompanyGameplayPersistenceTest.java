@@ -60,11 +60,10 @@ class CompanyGameplayPersistenceTest {
                 c.getCompanyId(),
                 "minecraft:overworld",
                 new BlockPos(3, 64, 3),
-                CompanyFacilityType.FACTORY_CONTROLLER,
+                CompanyFacilityType.PROCESSOR,
                 2,
                 CompanyFacilityStatus.MISSING_INPUT,
-                5,
-                w.warehouseId());
+                5);
         CompanyFacilityManager.restore(f);
         CompoundTag root = new CompoundTag();
         WarehouseDataSerializer.save(root);

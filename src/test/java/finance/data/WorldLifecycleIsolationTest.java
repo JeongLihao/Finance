@@ -62,11 +62,10 @@ class WorldLifecycleIsolationTest {
                 companyId,
                 "minecraft:overworld",
                 new BlockPos(5, 64, 8),
-                CompanyFacilityType.FACTORY_CONTROLLER,
+                CompanyFacilityType.PROCESSOR,
                 1,
                 CompanyFacilityStatus.ACTIVE,
-                2,
-                warehouseId)));
+                2)));
         assertTrue(AccountManager.getOrCreateSystemAccount(escrowId).deposit(500));
         assertTrue(ContractManager.restore(new FinanceContract(
                 contractId,

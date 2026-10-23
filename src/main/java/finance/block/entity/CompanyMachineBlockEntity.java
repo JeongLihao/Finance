@@ -106,7 +106,7 @@ public abstract class CompanyMachineBlockEntity extends BlockEntity implements M
     protected @Nullable Company refresh(ServerLevel level) {
         CompanyFacilityRecord record = facility();
         int staffing = record == null ? 10_000 : MacroLaborService.staffingBps(record);
-        speedBps = FinanceConfig.factoryThroughput(tier()) * (5_000 + staffing / 2);
+        speedBps = speedBps(FinanceConfig.factoryThroughput(tier()), staffing);
         Company company = companyId == null ? null : CompanyManager.getCompany(companyId);
         int next = company == null
                 ? PERSONAL
@@ -116,6 +116,12 @@ public abstract class CompanyMachineBlockEntity extends BlockEntity implements M
             setChanged();
         }
         return link == LINKED ? company : null;
+    }
+
+    /** 速度（10000 = 1 档满员）= 档次倍率 ×（50% + 50% × 在岗比例）。 */
+    public static int speedBps(int throughput, int staffingBps) {
+        int staffing = Math.max(0, Math.min(10_000, staffingBps));
+        return Math.max(1, throughput) * (5_000 + staffing / 2);
     }
 
     /** 这一 tick 机器该推进几步（按速度累计，1 档满员每 tick 一步）。 */

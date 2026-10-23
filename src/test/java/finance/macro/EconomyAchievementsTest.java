@@ -81,11 +81,10 @@ class EconomyAchievementsTest {
                 company.getCompanyId(),
                 "minecraft:overworld",
                 new BlockPos(10, 64, 10),
-                CompanyFacilityType.FACTORY_CONTROLLER,
+                CompanyFacilityType.PROCESSOR,
                 level,
                 CompanyFacilityStatus.ACTIVE,
-                -1,
-                warehouse.warehouseId()));
+                -1));
     }
 
     private void days(int from, int to) {
@@ -97,19 +96,19 @@ class EconomyAchievementsTest {
 
     @Test
     void generousEmployerEarnsFirstHireAndGoodBoss() {
-        facility(2);
+        facility(3);
         assertTrue(MacroLaborService.setWage(owner, company.getCompanyId(), 30));
         days(1, 1);
         assertTrue(EconomyAchievements.pending(owner).contains(EconomyAchievements.FIRST_HIRE));
-        assertFalse(EconomyAchievements.pending(owner).contains(EconomyAchievements.GOOD_BOSS), "第一天还没招满 20 人");
-        days(2, 4);
-        assertTrue(EconomyAchievements.pending(owner).contains(EconomyAchievements.GOOD_BOSS));
+        assertFalse(EconomyAchievements.pending(owner).contains(EconomyAchievements.GOOD_BOSS), "第一天还没招满 9 人");
+        days(2, 3);
+        assertTrue(EconomyAchievements.pending(owner).contains(EconomyAchievements.GOOD_BOSS), "3 档机器 9 个岗位招满");
         assertFalse(EconomyAchievements.pending(owner).contains(EconomyAchievements.SWEATSHOP));
     }
 
     @Test
     void stingyEmployerEarnsSweatshop() {
-        facility(1);
+        facility(2);
         assertTrue(MacroLaborService.setWage(owner, company.getCompanyId(), MacroLaborService.reservationWage()));
         days(1, 4);
         assertTrue(EconomyAchievements.pending(owner).contains(EconomyAchievements.SWEATSHOP));

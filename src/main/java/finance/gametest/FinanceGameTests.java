@@ -796,7 +796,6 @@ public final class FinanceGameTests {
         helper.succeed();
     }
 
-
     private static ServerPlayer nearbyPlayer(GameTestHelper helper, BlockPos absolute) {
         ServerPlayer player = new ServerPlayer(
                 helper.getLevel().getServer(),

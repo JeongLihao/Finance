@@ -72,11 +72,10 @@ class WorldInsuranceIntegrationTest {
                 companyId,
                 "minecraft:overworld",
                 BlockPos.ZERO,
-                CompanyFacilityType.FACTORY_CONTROLLER,
+                CompanyFacilityType.PROCESSOR,
                 1,
                 CompanyFacilityStatus.ACTIVE,
-                0,
-                null);
+                0);
         facility.setStatus(CompanyFacilityStatus.MISSING_INPUT, 1);
         facility.setLastProcessedDay(2);
         assertTrue(CompanyFacilityManager.restore(facility));

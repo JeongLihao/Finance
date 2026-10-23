@@ -83,11 +83,10 @@ class Phase6MigrationAcceptanceTest {
                 COMPANY,
                 "minecraft:overworld",
                 new BlockPos(5, 64, 4),
-                CompanyFacilityType.FACTORY_CONTROLLER,
+                CompanyFacilityType.PROCESSOR,
                 1,
                 CompanyFacilityStatus.ACTIVE,
-                2,
-                WAREHOUSE)));
+                2)));
         assertTrue(ContractManager.restore(new FinanceContract(
                 CONTRACT,
                 ContractType.PROCUREMENT,
@@ -158,7 +157,7 @@ class Phase6MigrationAcceptanceTest {
         bad.putUUID("Company", COMPANY);
         bad.putString("Dimension", "minecraft:overworld");
         bad.putLong("Pos", new BlockPos(6, 64, 4).asLong());
-        bad.putString("Type", CompanyFacilityType.FACTORY_CONTROLLER.name());
+        bad.putString("Type", CompanyFacilityType.PROCESSOR.name());
         bad.putInt("Level", CompanyFacilityRecord.MAX_LEVEL + 1);
         bad.putString("Status", CompanyFacilityStatus.ACTIVE.name());
         bad.putLong("LastDay", 2);

@@ -153,14 +153,7 @@ public final class CompanyGameplayDataSerializer {
                         || type == null
                         || status == null) continue;
                 CompanyFacilityRecord facility = new CompanyFacilityRecord(
-                        id,
-                        company,
-                        dimension,
-                        pos,
-                        type,
-                        tag.getInt("Level"),
-                        status,
-                        tag.getLong("LastDay"));
+                        id, company, dimension, pos, type, tag.getInt("Level"), status, tag.getLong("LastDay"));
                 facility.restoreStatusSinceDay(
                         tag.contains("StatusSince") ? tag.getLong("StatusSince") : tag.getLong("LastDay"));
                 ListTag ops = tag.getList("Operations", Tag.TAG_STRING);

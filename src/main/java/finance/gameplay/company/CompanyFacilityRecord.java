@@ -89,7 +89,6 @@ public final class CompanyFacilityRecord {
         return statusSinceDay;
     }
 
-
     public Set<String> operationKeys() {
         return Set.copyOf(operationKeys);
     }

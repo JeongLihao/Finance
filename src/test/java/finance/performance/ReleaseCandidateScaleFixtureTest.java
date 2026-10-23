@@ -74,11 +74,10 @@ class ReleaseCandidateScaleFixtureTest {
                             c.getCompanyId(),
                             "minecraft:overworld",
                             new BlockPos(i, 65, 1),
-                            CompanyFacilityType.FACTORY_CONTROLLER,
+                            CompanyFacilityType.PROCESSOR,
                             1,
                             CompanyFacilityStatus.ACTIVE,
-                            -1,
-                            w.warehouseId())));
+                            -1)));
                 }
             }
             for (int i = 0; i < 500; i++) {
