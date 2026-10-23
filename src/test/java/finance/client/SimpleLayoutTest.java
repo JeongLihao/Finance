@@ -459,7 +459,7 @@ class SimpleLayoutTest {
         SimplePages.View base = view(HUGE, company(true, true, false), true, true);
         List<String> lines = new ArrayList<>();
         for (finance.simple.SimpleUnlocks.Group g : finance.simple.SimpleUnlocks.Group.values()) {
-            lines.add(SimplePages.UNLOCK_PREFIX + g.label + "」：" + g.intro + LONG_NAME);
+            lines.add(SimpleHomePage.UNLOCK_PREFIX + g.label + "」：" + g.intro + LONG_NAME);
         }
         lines.add("收入 +" + HUGE + LONG_NAME);
         lines.add("卖东西 " + LONG_NAME + LONG_NAME);
@@ -515,13 +515,15 @@ class SimpleLayoutTest {
         SimplePages.State s = new SimplePages.State();
         s.favorites = java.util.Set.of("commodity_with_a_long_id_7");
         assertEquals(
-                "commodity_with_a_long_id_7", SimplePages.tradeRows(v, s).get(0).commodityId(), "收藏的排最前面");
+                "commodity_with_a_long_id_7",
+                SimpleTradePage.tradeRows(v, s).get(0).commodityId(),
+                "收藏的排最前面");
         s.search = "ID_12";
-        List<FinanceMenu.MarketRow> found = SimplePages.tradeRows(v, s);
+        List<FinanceMenu.MarketRow> found = SimpleTradePage.tradeRows(v, s);
         assertEquals(1, found.size(), "搜索不分大小写");
         assertEquals("commodity_with_a_long_id_12", found.get(0).commodityId());
         s.search = "nothing-like-this";
-        assertTrue(SimplePages.tradeRows(v, s).isEmpty());
+        assertTrue(SimpleTradePage.tradeRows(v, s).isEmpty());
         UiBuilder ui = new UiBuilder(TextMeasure.ESTIMATE, m -> {});
         s.page = SimplePages.Page.TRADE;
         SimplePages.layout(ui, v, s, NO_OP);
