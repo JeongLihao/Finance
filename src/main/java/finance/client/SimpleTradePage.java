@@ -68,7 +68,7 @@ final class SimpleTradePage {
                                 .filter(r -> r.commodityId().equals(s.selectedCommodity))
                                 .findFirst()
                                 .orElse(null);
-                if (selected != null) SimpleInvestPage.commodityDetail(ui, v, s, a, selected, y);
+                if (selected != null) SimpleCommodityDetail.commodityDetail(ui, v, s, a, selected, y);
                 else trade(ui, v, s, a, y);
             }
         }
