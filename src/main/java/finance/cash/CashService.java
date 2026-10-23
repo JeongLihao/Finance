@@ -321,19 +321,37 @@ public final class CashService {
     /** 一张兑换钞最多能写的金额：1 万磅。 */
     public static final long MAX_EXCHANGE_NOTE = 1_000_000;
 
+    /** 已签发、还没兑现的兑换钞：编号 → 金额。兑现时核销，防止复制钞票重复兑现。 */
+    private static final Map<UUID, Long> EXCHANGE_NOTES = new java.util.LinkedHashMap<>();
+
+    public static Map<UUID, Long> exchangeNotes() {
+        return java.util.Collections.unmodifiableMap(EXCHANGE_NOTES);
+    }
+
+    public static void restoreExchangeNotes(Map<UUID, Long> notes) {
+        EXCHANGE_NOTES.clear();
+        if (notes == null) return;
+        notes.forEach((serial, amount) -> {
+            if (serial != null && amount != null && amount > 0 && amount <= MAX_EXCHANGE_NOTE)
+                EXCHANGE_NOTES.put(serial, amount);
+        });
+    }
+
     /**
      * 签发兑换钞：从账户扣 amount 便士，由调用方把一张空白兑换钞换成写好金额的兑换钞。
      * 兑换钞和现金一样不记名，计入流通中的钞票。
      */
-    public static Result issueExchangeNote(UUID player, long amount) {
+    public static Result issueExchangeNote(UUID player, long amount, UUID serial) {
         Result blocked = blocked(player);
         if (blocked != null) return blocked;
         if (amount <= 0 || amount > MAX_EXCHANGE_NOTE) {
             return Result.fail("金额要在 1～" + MAX_EXCHANGE_NOTE + " 便士之间（最多 " + pounds(MAX_EXCHANGE_NOTE) + "）。");
         }
+        if (serial == null || EXCHANGE_NOTES.containsKey(serial)) return Result.fail("兑换钞编号无效，请重试。");
         long balance = AccountManager.getBalance(player);
         if (balance < amount) return Result.fail("账户可用余额只有 " + balance + " 便士。");
         if (!AccountManager.withdraw(player, amount)) return Result.fail("扣款失败，请稍后重试。");
+        EXCHANGE_NOTES.put(serial, amount);
         notesIssued(amount);
         AccountManager.addTransactionRecord(
                 new TransactionRecord(player, ISSUER, amount, TransactionType.EXCHANGE_NOTE_ISSUE, player, "兑换钞", 1));
@@ -341,13 +359,19 @@ public final class CashService {
                 "已签发 " + amount + " 便士（" + pounds(amount) + "）的兑换钞，账户余额 " + AccountManager.getBalance(player) + "。");
     }
 
-    /** 兑现兑换钞：把 amount 便士存进持有人的账户，由调用方收走这张兑换钞。 */
-    public static Result redeemExchangeNote(UUID player, long amount) {
+    /**
+     * 兑现兑换钞：按编号在登记表里核销，把登记的金额存进持有人的账户，由调用方收走这张兑换钞。
+     * 没登记过或已经兑过的编号（复制出来的钞票、旧版没有编号的钞票）一律不认。
+     */
+    public static Result redeemExchangeNote(UUID player, UUID serial) {
         Result blocked = blocked(player);
         if (blocked != null) return blocked;
-        if (amount <= 0 || amount > MAX_EXCHANGE_NOTE) return Result.fail("这张兑换钞的金额无效。");
+        Long registered = serial == null ? null : EXCHANGE_NOTES.get(serial);
+        if (registered == null) return Result.fail("这张兑换钞没有登记或已经兑现过，不能兑现。");
+        long amount = registered;
         if (!AccountManager.canDeposit(player, amount)) return Result.fail("账户余额已达上限，无法兑现。");
         if (!AccountManager.deposit(player, amount)) return Result.fail("入账失败，请稍后重试。");
+        EXCHANGE_NOTES.remove(serial);
         notesRetired(amount);
         AccountManager.addTransactionRecord(
                 new TransactionRecord(ISSUER, player, amount, TransactionType.EXCHANGE_NOTE_REDEEM, player, "兑换钞", 1));

@@ -40,4 +40,23 @@ class HarvestingTest {
         assertEquals(15, bin.getStackInSlot(1).getCount());
         assertTrue(bin.getStackInSlot(0).is(Items.WHEAT_SEEDS));
     }
+
+    @Test
+    void insertReturnsWhatDidNotFit() {
+        ItemStackHandler bin = new ItemStackHandler(1);
+        bin.setStackInSlot(0, new ItemStack(Items.WHITE_WOOL, 63));
+        List<ItemStack> left = Harvesting.insertAll(bin, List.of(new ItemStack(Items.WHITE_WOOL, 3)));
+        assertEquals(64, bin.getStackInSlot(0).getCount());
+        assertEquals(1, left.size(), "放不下的羊毛要交回来掉在地上，不能凭空消失");
+        assertEquals(2, left.get(0).getCount());
+    }
+
+    @Test
+    void shearingWaitsForAnEmptySlot() {
+        ItemStackHandler bin = new ItemStackHandler(2);
+        bin.setStackInSlot(0, new ItemStack(Items.WHITE_WOOL, 10));
+        assertTrue(Harvesting.hasEmptySlot(bin));
+        bin.setStackInSlot(1, new ItemStack(Items.STONE, 1));
+        assertFalse(Harvesting.hasEmptySlot(bin), "没有空格就不剪，免得羊毛放不下");
+    }
 }

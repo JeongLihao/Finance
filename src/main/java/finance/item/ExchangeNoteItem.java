@@ -2,6 +2,7 @@ package finance.item;
 
 import finance.cash.CashService;
 import java.util.List;
+import java.util.UUID;
 import net.minecraft.ChatFormatting;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
@@ -16,21 +17,24 @@ import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.level.Level;
 
 /**
- * 等值兑换钞（已填写）：金额、开票人和开票日存在 NBT 里，只有服务端在签发时写入。
+ * 等值兑换钞（已填写）：编号、金额、开票人和开票日存在 NBT 里，只有服务端在签发时写入。
  * 不记名：谁拿着右键，钱就存进谁的账户，钞票随即收回。
+ * 兑现按编号在服务端登记表里核销，金额也以登记表为准，复制出来的钞票只有第一张能兑。
  */
 public final class ExchangeNoteItem extends Item {
     private static final String AMOUNT = "Amount";
     private static final String ISSUER = "Issuer";
     private static final String DAY = "Day";
+    private static final String SERIAL = "Serial";
 
     public ExchangeNoteItem(Properties properties) {
         super(properties);
     }
 
-    public static ItemStack create(Item item, long amount, String issuer, long day) {
+    public static ItemStack create(Item item, UUID serial, long amount, String issuer, long day) {
         ItemStack stack = new ItemStack(item);
         CompoundTag tag = stack.getOrCreateTag();
+        tag.putUUID(SERIAL, serial);
         tag.putLong(AMOUNT, amount);
         tag.putString(ISSUER, issuer == null ? "" : issuer.substring(0, Math.min(32, issuer.length())));
         tag.putLong(DAY, day);
@@ -40,6 +44,12 @@ public final class ExchangeNoteItem extends Item {
     public static long amount(ItemStack stack) {
         CompoundTag tag = stack.getTag();
         return tag == null ? 0 : Math.max(0, tag.getLong(AMOUNT));
+    }
+
+    /** 签发时登记的编号；旧版没有编号的钞票返回 null。 */
+    public static UUID serial(ItemStack stack) {
+        CompoundTag tag = stack.getTag();
+        return tag != null && tag.hasUUID(SERIAL) ? tag.getUUID(SERIAL) : null;
     }
 
     public static String issuer(ItemStack stack) {
@@ -64,7 +74,7 @@ public final class ExchangeNoteItem extends Item {
     public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
         ItemStack stack = player.getItemInHand(hand);
         if (level.isClientSide) return InteractionResultHolder.success(stack);
-        CashService.Result r = CashService.redeemExchangeNote(player.getUUID(), amount(stack));
+        CashService.Result r = CashService.redeemExchangeNote(player.getUUID(), serial(stack));
         player.displayClientMessage(
                 Component.literal(r.message()).withStyle(r.success() ? ChatFormatting.GREEN : ChatFormatting.RED),
                 false);

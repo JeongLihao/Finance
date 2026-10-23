@@ -13,6 +13,7 @@ import net.minecraft.nbt.Tag;
 /**
  * 中央银行状态持久化（DataVersion 42 新增）：动态准备金率、公开市场操作头寸、议息记录、物价稳定计数。
  * 旧存档没有该标签时全部取默认值（准备金率跟随配置），坏记录跳过。
+ * 还存未兑现的兑换钞登记表（ExchangeNotes：编号 → 金额），旧存档没有时为空。
  */
 public final class CentralBankDataSerializer {
     public static final String ROOT = "CentralBank";
@@ -54,6 +55,14 @@ public final class CentralBankDataSerializer {
         data.putLong("NotesOutstanding", finance.cash.CashService.notesOutstanding());
         data.putDouble("EmeraldPressure", finance.cash.CashService.emeraldPressure());
         data.putLong("EmeraldPressureDay", finance.cash.CashService.emeraldPressureDay());
+        ListTag notes = new ListTag();
+        finance.cash.CashService.exchangeNotes().forEach((serial, amount) -> {
+            CompoundTag t = new CompoundTag();
+            t.putUUID("Serial", serial);
+            t.putLong("Amount", amount);
+            notes.add(t);
+        });
+        data.put("ExchangeNotes", notes);
         root.put(ROOT, data);
     }
 
@@ -62,12 +71,19 @@ public final class CentralBankDataSerializer {
         finance.centralbank.ReserveService.clearDirect();
         finance.cash.CashService.restoreNotesOutstanding(0);
         finance.cash.CashService.restoreEmeraldPressure(0, Long.MIN_VALUE);
+        finance.cash.CashService.restoreExchangeNotes(Map.of());
         if (!root.contains(ROOT, Tag.TAG_COMPOUND)) return;
         CompoundTag data = root.getCompound(ROOT);
         finance.cash.CashService.restoreNotesOutstanding(data.getLong("NotesOutstanding"));
         if (data.contains("EmeraldPressureDay", Tag.TAG_LONG))
             finance.cash.CashService.restoreEmeraldPressure(
                     data.getDouble("EmeraldPressure"), data.getLong("EmeraldPressureDay"));
+        Map<UUID, Long> notes = new LinkedHashMap<>();
+        for (Tag raw : data.getList("ExchangeNotes", Tag.TAG_COMPOUND)) {
+            CompoundTag t = (CompoundTag) raw;
+            if (t.hasUUID("Serial")) notes.put(t.getUUID("Serial"), t.getLong("Amount"));
+        }
+        finance.cash.CashService.restoreExchangeNotes(notes);
         if (data.contains("Reserve", Tag.TAG_COMPOUND))
             finance.centralbank.ReserveService.load(data.getCompound("Reserve"));
         Map<UUID, Long> positions = new LinkedHashMap<>();

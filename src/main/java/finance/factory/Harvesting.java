@@ -3,8 +3,6 @@ package finance.factory;
 import java.util.List;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.sounds.SoundEvents;
-import net.minecraft.sounds.SoundSource;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.tags.ItemTags;
 import net.minecraft.world.entity.animal.Sheep;
@@ -161,12 +159,19 @@ public final class Harvesting {
     public static Outcome shear(ServerLevel level, BlockPos origin, IItemHandler bin) {
         AABB area = new AABB(origin).inflate(RADIUS, 2, RADIUS);
         for (Sheep sheep : level.getEntitiesOfClass(Sheep.class, area, Sheep::readyForShearing)) {
+            // 一次最多 3 块羊毛，有空格才剪；onSheared 只返回羊毛不掉落，也自己播剪毛声
+            if (!hasEmptySlot(bin)) return Outcome.FULL;
             List<ItemStack> wool = sheep.onSheared(null, new ItemStack(Items.SHEARS), level, sheep.blockPosition(), 0);
-            level.playSound(null, sheep, SoundEvents.SHEEP_SHEAR, SoundSource.BLOCKS, 1.0F, 1.0F);
-            insertAll(bin, wool); // 放不下的掉在地上，下次再捡
+            // 万一还是放不下，掉在羊身边，下次再捡
+            for (ItemStack left : insertAll(bin, wool)) Block.popResource(level, sheep.blockPosition(), left);
             return Outcome.WORKED;
         }
         return Outcome.NOTHING;
+    }
+
+    static boolean hasEmptySlot(IItemHandler bin) {
+        for (int i = 0; i < bin.getSlots(); i++) if (bin.getStackInSlot(i).isEmpty()) return true;
+        return false;
     }
 
     // ---------------------------------------------------------------- 捡东西、放进仓
@@ -196,8 +201,14 @@ public final class Harvesting {
         return true;
     }
 
-    static void insertAll(IItemHandler bin, List<ItemStack> drops) {
-        for (ItemStack drop : drops) ItemHandlerHelper.insertItemStacked(bin, drop.copy(), false);
+    /** 全部放进仓，返回放不下的部分（调用前已用 fits 确认过的话为空）。 */
+    static List<ItemStack> insertAll(IItemHandler bin, List<ItemStack> drops) {
+        List<ItemStack> leftover = new java.util.ArrayList<>();
+        for (ItemStack drop : drops) {
+            ItemStack left = ItemHandlerHelper.insertItemStacked(bin, drop.copy(), false);
+            if (!left.isEmpty()) leftover.add(left);
+        }
+        return leftover;
     }
 
     private static void takeOne(List<ItemStack> drops, ItemStack seed) {

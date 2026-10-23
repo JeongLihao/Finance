@@ -521,6 +521,7 @@ public class EconomySavedData extends SavedData {
         finance.npcinvestor.SpeculatorService.clearDirect();
         finance.cash.CashService.restoreNotesOutstanding(0);
         finance.cash.CashService.restoreEmeraldPressure(0, Long.MIN_VALUE);
+        finance.cash.CashService.restoreExchangeNotes(java.util.Map.of());
         FinancialCycleService.clearDirect();
         finance.index.MarketIndexService.clearDirect();
         finance.policy.MonetaryPolicyService.clearDirect();
