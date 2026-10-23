@@ -126,7 +126,12 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
     final CompanyTabs companyTabs = new CompanyTabs(this);
     final StockTabs stockTabs = new StockTabs(this);
     final ServiceTabs serviceTabs = new ServiceTabs(this);
-    final RecordTabs recordTabs = new RecordTabs(this);
+    final OrdersPanel ordersPanel = new OrdersPanel(this);
+    final InventoryPanel inventoryPanel = new InventoryPanel(this);
+    final TransactionsPanel transactionsPanel = new TransactionsPanel(this);
+    final AssetsPanel assetsPanel = new AssetsPanel(this);
+    final AlertsPanel alertsPanel = new AlertsPanel(this);
+    final DashboardPanel dashboardPanel = new DashboardPanel(this);
     final AdminTabs adminTabs = new AdminTabs(this);
     final MacroTabs macroTabs = new MacroTabs(this);
     /** 简单模式四页（首页、买卖、我的公司、投资）。默认显示它；“高级”切到下面原有的全部页签。 */
@@ -536,16 +541,16 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         switch (currentTab) {
             case TAB_MARKET -> this.marketTabs.renderMarketTab(g, mouseX, mouseY);
             case TAB_TRADE -> this.marketTabs.renderTradeTab(g);
-            case TAB_ORDERS -> this.recordTabs.renderOrdersTab(g);
-            case TAB_INVENTORY -> this.recordTabs.renderInventoryTab(g);
+            case TAB_ORDERS -> this.ordersPanel.renderOrdersTab(g);
+            case TAB_INVENTORY -> this.inventoryPanel.renderInventoryTab(g);
             case TAB_COMPANY -> this.companyTabs.renderCompanyTab(g);
             case TAB_STOCK -> this.stockTabs.renderStockTab(g, mouseX, mouseY);
-            case TAB_RECORDS -> this.recordTabs.renderTransactionTab(g);
-            case TAB_ASSETS -> this.recordTabs.renderAssetTab(g);
-            case TAB_ALERTS -> this.recordTabs.renderAlertTab(g);
+            case TAB_RECORDS -> this.transactionsPanel.renderTransactionTab(g);
+            case TAB_ASSETS -> this.assetsPanel.renderAssetTab(g);
+            case TAB_ALERTS -> this.alertsPanel.renderAlertTab(g);
             case TAB_FINANCIAL -> this.serviceTabs.renderFinancialProductsTab(g, mouseX, mouseY);
             case TAB_DASHBOARD -> {
-                if (isAdmin) this.recordTabs.renderDashboardTab(g);
+                if (isAdmin) this.dashboardPanel.renderDashboardTab(g);
             }
             case TAB_ADMIN -> {
                 if (isAdmin) this.adminTabs.renderAdminTab(g);
@@ -672,12 +677,12 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
             handled = switch (currentTab) {
                 case TAB_MARKET -> this.marketTabs.handleMarketClick(mx, contentY);
                 case TAB_TRADE -> this.marketTabs.handleTradeClick(mx, contentY);
-                case TAB_ORDERS -> this.recordTabs.handleOrdersClick(mx, contentY);
-                case TAB_INVENTORY -> this.recordTabs.handleInventoryClick(mx, contentY);
+                case TAB_ORDERS -> this.ordersPanel.handleOrdersClick(mx, contentY);
+                case TAB_INVENTORY -> this.inventoryPanel.handleInventoryClick(mx, contentY);
                 case TAB_COMPANY -> this.companyTabs.handleCompanyClick(mx, contentY);
                 case TAB_STOCK -> this.stockTabs.handleStockClick(mx, contentY);
-                case TAB_ASSETS -> this.recordTabs.handleAssetClick(mx, contentY);
-                case TAB_ALERTS -> this.recordTabs.handleAlertClick(mx, contentY);
+                case TAB_ASSETS -> this.assetsPanel.handleAssetClick(mx, contentY);
+                case TAB_ALERTS -> this.alertsPanel.handleAlertClick(mx, contentY);
                 case TAB_FINANCIAL -> this.serviceTabs.handleFinancialProductsClick(mx, contentY);
                 case TAB_ADMIN -> isAdmin && this.adminTabs.handleAdminClick(mx, contentY);
                 case TAB_MACRO -> this.macroTabs.handleClick(mx, contentY);
