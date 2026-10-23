@@ -46,6 +46,13 @@ final class FuturesPanel {
         }
         int y = FinanceGui.CONTENT_Y + 22;
         if (chartContract != null) {
+            // 点合约表格任意位置打开第一份合约的 K 线
+            screen.contentClicks.add(0, y, screen.imageWidth(), 188 - y, () -> {
+                screen.futuresChartVisible = true;
+                screen.candlestickView.requestCandlesticks(
+                        MarketInstrumentType.FUTURES, chartContract.id().toString());
+                screen.updateInputVisibility();
+            });
             double change = chartContract.settlementPrice() > 0
                     ? (chartContract.lastPrice() - chartContract.settlementPrice())
                             * 100.0
@@ -135,86 +142,56 @@ final class FuturesPanel {
         FinanceGui.drawClippedString(screen.font(), g, "金额/限价", 14, ay, 60, FinanceGui.COL_TEXT_DIM);
         FinanceGui.drawClippedString(screen.font(), g, "数量", 126, ay, 34, FinanceGui.COL_TEXT_DIM);
         FinanceGui.drawClippedString(screen.font(), g, "期限", 238, ay, 34, FinanceGui.COL_TEXT_DIM);
-        FinanceGui.drawFilledButton(screen.font(), g, "买", 365, ay - 1, 28, FinanceGui.COL_ACCENT);
-        FinanceGui.drawButton(screen.font(), g, "卖", 244, ay + 20, 28, false);
-        FinanceGui.drawButton(screen.font(), g, "入", 274, ay + 20, 28, false);
-        FinanceGui.drawButton(screen.font(), g, "出", 304, ay + 20, 28, false);
-        FinanceGui.drawButton(screen.font(), g, "撤", 334, ay + 20, 28, false);
-        if (screen.isAdmin) FinanceGui.drawButton(screen.font(), g, "建", 364, ay + 20, 28, false);
+        screen.filledButton(
+                g, "买", 365, ay - 1, 28, FinanceGui.COL_ACCENT, () -> act(FuturesActionPacket.Action.PLACE_BUY));
+        screen.button(g, "卖", 244, ay + 20, 28, false, () -> act(FuturesActionPacket.Action.PLACE_SELL));
+        screen.button(g, "入", 274, ay + 20, 28, false, () -> act(FuturesActionPacket.Action.DEPOSIT_MARGIN));
+        screen.button(g, "出", 304, ay + 20, 28, false, () -> act(FuturesActionPacket.Action.WITHDRAW_MARGIN));
+        screen.button(g, "撤", 334, ay + 20, 28, false, () -> act(FuturesActionPacket.Action.CANCEL_ORDER));
+        if (screen.isAdmin)
+            screen.button(g, "建", 364, ay + 20, 28, false, () -> act(FuturesActionPacket.Action.CREATE_CONTRACT));
     }
 
-    boolean click(int mx, int my) {
-        var cache = FuturesClientCache.get();
-        var data = cache.data();
-        if (data == null) return false;
-        var chartContract = data.contracts().stream().findFirst().orElse(null);
-        // 图表模式下只有图表上的按钮可点，它们已在画的时候登记
-        if (screen.futuresChartVisible && chartContract != null) return false;
-        if (my >= FinanceGui.CONTENT_Y + 22 && my < 188 && chartContract != null) {
-            screen.futuresChartVisible = true;
-            screen.candlestickView.requestCandlesticks(
-                    MarketInstrumentType.FUTURES, chartContract.id().toString());
-            screen.updateInputVisibility();
-            return true;
-        }
+    private void act(FuturesActionPacket.Action action) {
+        var data = FuturesClientCache.get().data();
+        if (data == null) return;
         var contract = data.contracts().stream()
                 .filter(c -> c.status() == finance.futures.FuturesContractStatus.TRADING
                         || c.status() == finance.futures.FuturesContractStatus.LAST_TRADING_DAY)
                 .findFirst()
                 .orElse(null);
-        java.util.function.LongSupplier amount = () -> screen.requireAmount(screen.stockPriceBox, "金额/限价"),
-                quantity = () -> screen.requireAmount(screen.stockQuantityBox, "数量");
-        java.util.function.IntSupplier term = () -> screen.requireInt(screen.companyAmountBox, "期限", 2, 3650);
-        if (my >= 188 && my <= 208 && mx >= 365 && contract != null) {
-            FinancePacketHandler.CHANNEL.sendToServer(new FuturesActionPacket(
-                    FuturesActionPacket.Action.PLACE_BUY,
-                    contract.id(),
-                    "",
-                    0,
-                    amount.getAsLong(),
-                    quantity.getAsLong(),
-                    0));
-            request();
-            return true;
-        }
-        if (my >= 208 && my <= 230) {
-            if (mx >= 244 && mx < 274 && contract != null)
-                FinancePacketHandler.CHANNEL.sendToServer(new FuturesActionPacket(
-                        FuturesActionPacket.Action.PLACE_SELL,
-                        contract.id(),
-                        "",
-                        0,
-                        amount.getAsLong(),
-                        quantity.getAsLong(),
-                        0));
-            else if (mx >= 274 && mx < 304)
-                FinancePacketHandler.CHANNEL.sendToServer(new FuturesActionPacket(
-                        FuturesActionPacket.Action.DEPOSIT_MARGIN, null, "", amount.getAsLong(), 0, 0, 0));
-            else if (mx >= 304 && mx < 334)
-                FinancePacketHandler.CHANNEL.sendToServer(new FuturesActionPacket(
-                        FuturesActionPacket.Action.WITHDRAW_MARGIN, null, "", amount.getAsLong(), 0, 0, 0));
-            else if (mx >= 334 && mx < 364) {
+        FuturesActionPacket packet;
+        switch (action) {
+            case PLACE_BUY, PLACE_SELL -> {
+                if (contract == null) return;
+                long price = screen.requireAmount(screen.stockPriceBox, "金额/限价");
+                long quantity = screen.requireAmount(screen.stockQuantityBox, "数量");
+                packet = new FuturesActionPacket(action, contract.id(), "", 0, price, quantity, 0);
+            }
+            case DEPOSIT_MARGIN, WITHDRAW_MARGIN -> packet = new FuturesActionPacket(
+                    action, null, "", screen.requireAmount(screen.stockPriceBox, "金额/限价"), 0, 0, 0);
+            case CANCEL_ORDER -> {
                 var own = data.orders().stream()
                         .filter(o -> o.owned())
                         .findFirst()
                         .orElse(null);
-                if (own == null) return false;
-                FinancePacketHandler.CHANNEL.sendToServer(new FuturesActionPacket(
-                        FuturesActionPacket.Action.CANCEL_ORDER, own.orderId(), "", 0, 0, 0, 0));
-            } else if (mx >= 364 && screen.isAdmin)
-                FinancePacketHandler.CHANNEL.sendToServer(new FuturesActionPacket(
-                        FuturesActionPacket.Action.CREATE_CONTRACT,
-                        null,
-                        screen.selectedCommodity,
-                        0,
-                        0,
-                        0,
-                        term.getAsInt()));
-            else return false;
-            request();
-            return true;
+                if (own == null) return;
+                packet = new FuturesActionPacket(action, own.orderId(), "", 0, 0, 0, 0);
+            }
+            case CREATE_CONTRACT -> packet = new FuturesActionPacket(
+                    action,
+                    null,
+                    screen.selectedCommodity,
+                    0,
+                    0,
+                    0,
+                    screen.requireInt(screen.companyAmountBox, "期限", 2, 3650));
+            default -> {
+                return;
+            }
         }
-        return false;
+        FinancePacketHandler.CHANNEL.sendToServer(packet);
+        request();
     }
 
     void request() {

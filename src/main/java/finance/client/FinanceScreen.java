@@ -683,9 +683,7 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         try {
             handled = contentClicks.click(mx, contentY)
                     || switch (currentTab) {
-                        case TAB_FINANCIAL -> this.serviceTabs.handleFinancialProductsClick(mx, contentY);
                         case TAB_ADMIN -> isAdmin && this.adminTabs.handleAdminClick(mx, contentY);
-                        case TAB_MACRO -> this.macroTabs.handleClick(mx, contentY);
                         default -> false;
                     };
         } catch (InvalidInput invalid) {

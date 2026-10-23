@@ -103,9 +103,23 @@ final class InsurancePanel {
         g.fill(8, 185, screen.imageWidth() - 8, 232, FinanceGui.COL_ROW_EVEN);
         FinanceGui.drawClippedString(screen.font(), g, "保额", 14, 190, 55, FinanceGui.COL_TEXT_DIM);
         FinanceGui.drawClippedString(screen.font(), g, "期限(天)", 126, 190, 70, FinanceGui.COL_TEXT_DIM);
-        FinanceGui.drawButton(screen.font(), g, "取消", 218, 210, 48, false);
-        FinanceGui.drawFilledButton(screen.font(), g, "库存险", 270, 210, 56, FinanceGui.COL_ACCENT);
-        FinanceGui.drawFilledButton(screen.font(), g, "中断险", 330, 210, 62, FinanceGui.COL_ACCENT);
+        screen.button(g, "取消", 218, 210, 48, false, this::cancelFirst);
+        screen.filledButton(
+                g,
+                "库存险",
+                270,
+                210,
+                56,
+                FinanceGui.COL_ACCENT,
+                () -> purchase(finance.insurance.InsuranceProduct.INVENTORY_DISASTER));
+        screen.filledButton(
+                g,
+                "中断险",
+                330,
+                210,
+                62,
+                FinanceGui.COL_ACCENT,
+                () -> purchase(finance.insurance.InsuranceProduct.BUSINESS_INTERRUPTION));
         if (data.admin())
             FinanceGui.drawClippedString(
                     screen.font(),
@@ -117,28 +131,23 @@ final class InsurancePanel {
                     FinanceGui.COL_TEXT_DIM);
     }
 
-    boolean click(int mx, int my) {
+    private void cancelFirst() {
         var entry = InsuranceClientCache.get();
-        if (mx >= 218
-                && mx < 266
-                && entry.data() != null
-                && !entry.data().policies().isEmpty()) {
-            var policy = entry.data().policies().get(0);
-            FinancePacketHandler.CHANNEL.sendToServer(new InsuranceActionPacket(
-                    InsuranceActionPacket.Action.CANCEL,
-                    policy.product(),
-                    policy.id(),
-                    0,
-                    0,
-                    UUID.randomUUID().toString()));
-            request();
-            return true;
-        }
+        if (entry.data() == null || entry.data().policies().isEmpty()) return;
+        var policy = entry.data().policies().get(0);
+        FinancePacketHandler.CHANNEL.sendToServer(new InsuranceActionPacket(
+                InsuranceActionPacket.Action.CANCEL,
+                policy.product(),
+                policy.id(),
+                0,
+                0,
+                UUID.randomUUID().toString()));
+        request();
+    }
+
+    private void purchase(finance.insurance.InsuranceProduct product) {
         var company = screen.menu().getPlayerCompany();
-        if (company == null) return false;
-        finance.insurance.InsuranceProduct product = mx >= 330
-                ? finance.insurance.InsuranceProduct.BUSINESS_INTERRUPTION
-                : finance.insurance.InsuranceProduct.INVENTORY_DISASTER;
+        if (company == null) return;
         long coverage = screen.requireAmount(screen.stockPriceBox, "保额");
         int term = screen.requireInt(screen.stockQuantityBox, "期限(天)", 2, 365);
         FinancePacketHandler.CHANNEL.sendToServer(new InsuranceActionPacket(
@@ -149,7 +158,6 @@ final class InsurancePanel {
                 term,
                 UUID.randomUUID().toString()));
         request();
-        return true;
     }
 
     void request() {

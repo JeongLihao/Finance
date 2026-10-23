@@ -108,8 +108,8 @@ public final class MacroTabs {
             renderPeople(g, data.settlements(), y);
             renderSettlement(g, data.settlements(), y);
         }
-        FinanceGui.drawButton(font, g, showRivals ? "聚落" : "对手", 286, 228, 48, showRivals);
-        FinanceGui.drawButton(font, g, "刷新", 340, 228, 48, entry.state() == MacroClientCache.State.LOADING);
+        screen.button(g, showRivals ? "聚落" : "对手", 286, 228, 48, showRivals, () -> showRivals = !showRivals);
+        screen.button(g, "刷新", 340, 228, 48, entry.state() == MacroClientCache.State.LOADING, this::request);
         List<Integer> tiers = data.factoryTiers();
         String footer = tiers.size() == MacroResponsePacket.FACTORY_TIER_BUCKETS
                 ? "机器 1档" + tiers.get(0) + " 2档" + tiers.get(1) + " 3档" + tiers.get(2) + " 停工" + tiers.get(3)
@@ -224,7 +224,7 @@ public final class MacroTabs {
         }
         selected = Math.floorMod(selected, settlements.size());
         MacroResponsePacket.SettlementRow s = settlements.get(selected);
-        FinanceGui.drawButton(font, g, "<", RIGHT_X, top - 2, 12, false);
+        screen.button(g, "<", RIGHT_X, top - 2, 12, false, () -> selected--);
         FinanceGui.drawCenteredClippedString(
                 font,
                 g,
@@ -233,7 +233,7 @@ public final class MacroTabs {
                 top,
                 RIGHT_W - 28,
                 FinanceGui.COL_ACCENT);
-        FinanceGui.drawButton(font, g, ">", RIGHT_X + RIGHT_W - 12, top - 2, 12, false);
+        screen.button(g, ">", RIGHT_X + RIGHT_W - 12, top - 2, 12, false, () -> selected++);
         int y = top + 13;
         FinanceGui.drawClippedString(
                 font,
@@ -276,29 +276,6 @@ public final class MacroTabs {
                     font, g, String.valueOf(row.localPrice()), RIGHT_X + 152, y, 38, FinanceGui.COL_TEXT);
             y += 10;
         }
-    }
-
-    public boolean handleClick(int mx, int my) {
-        int top = FinanceGui.CONTENT_Y + 2 + 12 + 12 + 12 + 14;
-        if (!showRivals && my >= top - 2 && my < top + 10) {
-            if (mx >= RIGHT_X && mx < RIGHT_X + 12) {
-                selected--;
-                return true;
-            }
-            if (mx >= RIGHT_X + RIGHT_W - 12 && mx < RIGHT_X + RIGHT_W) {
-                selected++;
-                return true;
-            }
-        }
-        if (mx >= 286 && mx < 334 && my >= 228 && my < 241) {
-            showRivals = !showRivals;
-            return true;
-        }
-        if (mx >= 340 && mx < 388 && my >= 228 && my < 241) {
-            request();
-            return true;
-        }
-        return false;
     }
 
     private static String pct(int bps) {
