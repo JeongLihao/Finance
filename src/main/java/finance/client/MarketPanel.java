@@ -76,6 +76,11 @@ final class MarketPanel {
             MarketRows.MarketRow row = screen.cachedMarketData.get(i + scroll);
             int y = rowY + i * FinanceGui.ROW_HEIGHT;
             boolean selected = row.commodityId().equals(screen.selectedCommodity);
+            screen.contentClicks.add(tableX, y, tableW, FinanceGui.ROW_HEIGHT, () -> {
+                screen.selectedCommodity = row.commodityId();
+                screen.refreshSelectedRow();
+                screen.rememberUiState();
+            });
 
             int bg = selected
                     ? FinanceGui.COL_ROW_SELECT
@@ -120,7 +125,11 @@ final class MarketPanel {
         // ---- 国际交易区域 ----
         int tradeY = FinanceGui.MARKET_TRADE_Y;
         g.drawString(screen.font(), "国际交易", 10, tradeY + 1, FinanceGui.COL_TEXT, false);
-        FinanceGui.drawButton(screen.font(), g, "K线", 360, tradeY, 30, false);
+        screen.button(g, "K线", 360, tradeY, 30, false, () -> {
+            screen.commodityChartVisible = true;
+            screen.candlestickView.requestCandlesticks(MarketInstrumentType.COMMODITY, screen.selectedCommodity);
+            screen.updateInputVisibility();
+        });
 
         // 显示当前选中商品名（不是按钮行）
         String selName = FinanceFormat.commodityDisplayName(screen.selectedCommodity);
@@ -194,13 +203,13 @@ final class MarketPanel {
 
         // 数量 + 买卖按钮
         g.drawString(screen.font(), "数量:", 10, tradeY + 53, FinanceGui.COL_TEXT_DIM, false);
-        FinanceGui.drawButton(screen.font(), g, "-", 100, tradeY + 52, 20, false);
-        FinanceGui.drawButton(screen.font(), g, "+", 124, tradeY + 52, 20, false);
-        FinanceGui.drawButton(screen.font(), g, "-10", 152, tradeY + 52, 30, false);
-        FinanceGui.drawButton(screen.font(), g, "+10", 186, tradeY + 52, 30, false);
+        screen.button(g, "-", 100, tradeY + 52, 20, false, () -> addQuantity(-1));
+        screen.button(g, "+", 124, tradeY + 52, 20, false, () -> addQuantity(1));
+        screen.button(g, "-10", 152, tradeY + 52, 30, false, () -> addQuantity(-10));
+        screen.button(g, "+10", 186, tradeY + 52, 30, false, () -> addQuantity(10));
 
-        FinanceGui.drawFilledButton(screen.font(), g, "从市场买入", 226, tradeY + 52, 68, FinanceGui.COL_GOOD);
-        FinanceGui.drawFilledButton(screen.font(), g, "卖给市场", 300, tradeY + 52, 68, FinanceGui.COL_BAD);
+        screen.filledButton(g, "从市场买入", 226, tradeY + 52, 68, FinanceGui.COL_GOOD, () -> intlTrade(true));
+        screen.filledButton(g, "卖给市场", 300, tradeY + 52, 68, FinanceGui.COL_BAD, () -> intlTrade(false));
     }
 
     /** 行情表可见行数（表格区高度固定）。 */
@@ -213,77 +222,22 @@ final class MarketPanel {
         return Math.max(0, screen.cachedMarketData.size() - marketCapacity());
     }
 
-    public boolean handleMarketClick(int mx, int my) {
-        if (screen.commodityChartVisible) {
-            return screen.candlestickView.handleCandlestickControls(
-                    mx, my, MarketInstrumentType.COMMODITY, screen.selectedCommodity);
-        }
-        int headerY = FinanceGui.CONTENT_Y;
-        int rowY = headerY + 16;
-        int maxRows = Math.min(screen.cachedMarketData.size(), marketCapacity());
-        int scroll = Math.max(0, Math.min(screen.marketScroll, Math.max(0, screen.cachedMarketData.size() - maxRows)));
-        for (int i = 0; i < maxRows; i++) {
-            int y = rowY + i * FinanceGui.ROW_HEIGHT;
-            if (my >= y && my < y + FinanceGui.ROW_HEIGHT && mx >= 8 && mx < screen.imageWidth() - 8) {
-                screen.selectedCommodity =
-                        screen.cachedMarketData.get(i + scroll).commodityId();
-                screen.refreshSelectedRow();
-                screen.rememberUiState();
-                return true;
-            }
-        }
+    private void addQuantity(int delta) {
+        int qty = FinanceFormat.parseInt(screen.intlQuantityBox.getValue());
+        screen.intlQuantityBox.setValue(Integer.toString(delta < 0 ? Math.max(1, qty + delta) : qty + delta));
+    }
 
-        int tradeY = FinanceGui.MARKET_TRADE_Y;
-
-        if (mx >= 360 && mx < 390 && my >= tradeY && my < tradeY + 14) {
-            screen.commodityChartVisible = true;
-            screen.candlestickView.requestCandlesticks(MarketInstrumentType.COMMODITY, screen.selectedCommodity);
-            screen.updateInputVisibility();
-            return true;
+    private void intlTrade(boolean buy) {
+        if (screen.cachedSelectedRow == null) {
+            screen.setStatus("该商品未接入国际市场");
+            return;
         }
-
-        // 数量加减按钮
-        if (my >= tradeY + 52 && my < tradeY + 66) {
-            int qty = FinanceFormat.parseInt(screen.intlQuantityBox.getValue());
-            if (mx >= 100 && mx < 120) {
-                screen.intlQuantityBox.setValue(Integer.toString(Math.max(1, qty - 1)));
-                return true;
-            }
-            if (mx >= 124 && mx < 144) {
-                screen.intlQuantityBox.setValue(Integer.toString(qty + 1));
-                return true;
-            }
-            if (mx >= 152 && mx < 182) {
-                screen.intlQuantityBox.setValue(Integer.toString(Math.max(1, qty - 10)));
-                return true;
-            }
-            if (mx >= 186 && mx < 216) {
-                screen.intlQuantityBox.setValue(Integer.toString(qty + 10));
-                return true;
-            }
-        }
-
-        // 国际买入/卖出按钮
-        if (my >= tradeY + 52 && my < tradeY + 66) {
-            if (screen.cachedSelectedRow == null) {
-                screen.setStatus("该商品未接入国际市场");
-                return true;
-            }
-            if (mx < 226 || mx >= 368 || mx >= 294 && mx < 300) return false;
-            int qty = screen.requireInt(screen.intlQuantityBox, "数量", 1, Integer.MAX_VALUE);
-            if (mx >= 226 && mx < 294) {
-                screen.setStatus("已提交国际市场买入");
-                FinancePacketHandler.CHANNEL.sendToServer(
-                        new TradeActionPacket(TradeActionPacket.ActionType.INTL_BUY, screen.selectedCommodity, 0, qty));
-                return true;
-            }
-            if (mx >= 300 && mx < 368) {
-                screen.setStatus("已提交国际市场卖出");
-                FinancePacketHandler.CHANNEL.sendToServer(new TradeActionPacket(
-                        TradeActionPacket.ActionType.INTL_SELL, screen.selectedCommodity, 0, qty));
-                return true;
-            }
-        }
-        return false;
+        int qty = screen.requireInt(screen.intlQuantityBox, "数量", 1, Integer.MAX_VALUE);
+        screen.setStatus(buy ? "已提交国际市场买入" : "已提交国际市场卖出");
+        FinancePacketHandler.CHANNEL.sendToServer(new TradeActionPacket(
+                buy ? TradeActionPacket.ActionType.INTL_BUY : TradeActionPacket.ActionType.INTL_SELL,
+                screen.selectedCommodity,
+                0,
+                qty));
     }
 }

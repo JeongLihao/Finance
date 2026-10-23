@@ -49,10 +49,33 @@ final class InventoryPanel {
                 90,
                 FinanceGui.COL_ACCENT);
         g.drawString(screen.font(), "数量:", 12, invY + 22, FinanceGui.COL_TEXT_DIM, false);
-        FinanceGui.drawButton(screen.font(), g, "-64", 116, invY + 20, 32, false);
-        FinanceGui.drawButton(screen.font(), g, "+64", 152, invY + 20, 32, false);
-        FinanceGui.drawFilledButton(screen.font(), g, "存入", 246, invY + 20, 44, FinanceGui.COL_GOOD);
-        FinanceGui.drawFilledButton(screen.font(), g, "取出", 296, invY + 20, 44, FinanceGui.COL_ACCENT);
+        screen.button(g, "-64", 116, invY + 20, 32, false, () -> {
+            int amount = Math.max(0, FinanceFormat.parseInt(screen.inventoryQuantityBox.getValue()));
+            screen.inventoryQuantityBox.setValue(Integer.toString(Math.max(1, amount - 64)));
+        });
+        screen.button(g, "+64", 152, invY + 20, 32, false, () -> {
+            int amount = Math.max(0, FinanceFormat.parseInt(screen.inventoryQuantityBox.getValue()));
+            screen.inventoryQuantityBox.setValue(Integer.toString(amount + 64));
+        });
+        screen.filledButton(g, "存入", 246, invY + 20, 44, FinanceGui.COL_GOOD, () -> {
+            Commodity c = CommodityRegistry.getCommodity(screen.selectedCommodity);
+            if (c != null && c.getItemId() != null) {
+                screen.setStatus("已提交存入请求");
+                FinancePacketHandler.CHANNEL.sendToServer(new InventoryActionPacket(
+                        InventoryActionPacket.ActionType.DEPOSIT,
+                        screen.selectedCommodity,
+                        screen.requireInt(screen.inventoryQuantityBox, "数量", 1, Integer.MAX_VALUE)));
+            } else {
+                screen.setStatus("该商品没有绑定物品");
+            }
+        });
+        screen.filledButton(g, "取出", 296, invY + 20, 44, FinanceGui.COL_ACCENT, () -> {
+            screen.setStatus("已提交取出请求");
+            FinancePacketHandler.CHANNEL.sendToServer(new InventoryActionPacket(
+                    InventoryActionPacket.ActionType.WITHDRAW,
+                    screen.selectedCommodity,
+                    screen.requireInt(screen.inventoryQuantityBox, "数量", 1, Integer.MAX_VALUE)));
+        });
 
         int headerLineY = invY + 42;
         FinanceGui.drawHeader(screen.font(), g, "商品", 14, headerLineY);
@@ -83,6 +106,13 @@ final class InventoryPanel {
         for (String commodityId : allCommodityIds) {
             if (y > maxY) break;
             boolean selected = commodityId.equals(screen.selectedCommodity);
+            screen.contentClicks.add(8, y, screen.imageWidth() - 16, FinanceGui.ROW_HEIGHT, () -> {
+                screen.selectedCommodity = commodityId;
+                // 更新数量输入框为该商品的库存数量
+                int stock = inv.getOrDefault(commodityId, 0);
+                screen.inventoryQuantityBox.setValue(Integer.toString(Math.max(64, stock)));
+                screen.rememberUiState();
+            });
             int bg = selected
                     ? FinanceGui.COL_ROW_SELECT
                     : ((y / FinanceGui.ROW_HEIGHT) % 2 == 0 ? FinanceGui.COL_ROW_EVEN : FinanceGui.COL_ROW_ODD);
@@ -118,70 +148,5 @@ final class InventoryPanel {
                     FinanceGui.COL_TEXT_DIM);
             y += FinanceGui.ROW_HEIGHT;
         }
-    }
-
-    public boolean handleInventoryClick(int mx, int my) {
-        int cardY = FinanceGui.CONTENT_Y;
-        int invY = cardY + 44;
-
-        if (my >= invY + 20 && my < invY + 33) {
-            int amount = Math.max(0, FinanceFormat.parseInt(screen.inventoryQuantityBox.getValue()));
-            if (mx >= 116 && mx < 148) {
-                screen.inventoryQuantityBox.setValue(Integer.toString(Math.max(1, amount - 64)));
-                return true;
-            }
-            if (mx >= 152 && mx < 184) {
-                screen.inventoryQuantityBox.setValue(Integer.toString(amount + 64));
-                return true;
-            }
-        }
-
-        // 存入按钮
-        if (mx >= 246 && mx < 290 && my >= invY + 20 && my < invY + 33) {
-            Commodity c = CommodityRegistry.getCommodity(screen.selectedCommodity);
-            if (c != null && c.getItemId() != null) {
-                screen.setStatus("已提交存入请求");
-                FinancePacketHandler.CHANNEL.sendToServer(new InventoryActionPacket(
-                        InventoryActionPacket.ActionType.DEPOSIT,
-                        screen.selectedCommodity,
-                        screen.requireInt(screen.inventoryQuantityBox, "数量", 1, Integer.MAX_VALUE)));
-            } else {
-                screen.setStatus("该商品没有绑定物品");
-            }
-            return true;
-        }
-
-        // 取出按钮
-        if (mx >= 296 && mx < 340 && my >= invY + 20 && my < invY + 33) {
-            screen.setStatus("已提交取出请求");
-            FinancePacketHandler.CHANNEL.sendToServer(new InventoryActionPacket(
-                    InventoryActionPacket.ActionType.WITHDRAW,
-                    screen.selectedCommodity,
-                    screen.requireInt(screen.inventoryQuantityBox, "数量", 1, Integer.MAX_VALUE)));
-            return true;
-        }
-
-        // 表格行点击
-        int y = invY + 56;
-        int maxY = invY + (screen.imageHeight() - invY - 4) - FinanceGui.ROW_HEIGHT;
-        Map<String, Integer> inv = screen.menu().getPlayerInventory();
-        Map<String, Integer> mcInv = screen.menu().getMcInventory();
-        Set<String> allIds = new LinkedHashSet<>();
-        allIds.addAll(inv.keySet());
-        allIds.addAll(mcInv.keySet());
-
-        for (String commodityId : allIds) {
-            if (y > maxY) break;
-            if (my >= y && my < y + FinanceGui.ROW_HEIGHT && mx >= 8 && mx < screen.imageWidth() - 8) {
-                screen.selectedCommodity = commodityId;
-                // 更新数量输入框为该商品的库存数量
-                int stock = inv.getOrDefault(commodityId, 0);
-                screen.inventoryQuantityBox.setValue(Integer.toString(Math.max(64, stock)));
-                screen.rememberUiState();
-                return true;
-            }
-            y += FinanceGui.ROW_HEIGHT;
-        }
-        return false;
     }
 }

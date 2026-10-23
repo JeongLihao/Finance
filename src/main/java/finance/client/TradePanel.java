@@ -19,7 +19,10 @@ final class TradePanel {
         // ---- 商品选择下拉按钮 ----
         FinanceGui.drawSectionTitle(screen.font(), g, "商品选择", 10, FinanceGui.CONTENT_Y);
         String btnLabel = FinanceFormat.commodityDisplayName(screen.selectedCommodity) + " ▾";
-        FinanceGui.drawButton(screen.font(), g, btnLabel, 82, FinanceGui.CONTENT_Y, 140, screen.dropdownOpen);
+        screen.button(g, btnLabel, 82, FinanceGui.CONTENT_Y, 140, screen.dropdownOpen, () -> {
+            screen.dropdownOpen = !screen.dropdownOpen;
+            screen.dropdownScroll = 0;
+        });
 
         int cardY = FinanceGui.CONTENT_Y + 20;
         int cardH = 66;
@@ -30,15 +33,15 @@ final class TradePanel {
         g.drawString(screen.font(), "价格:", 12, cardY + 6, FinanceGui.COL_TEXT_DIM, false);
         g.drawString(screen.font(), "数量:", 12, cardY + 30, FinanceGui.COL_TEXT_DIM, false);
 
-        FinanceGui.drawButton(screen.font(), g, "-", 170, cardY + 4, 20, false);
-        FinanceGui.drawButton(screen.font(), g, "+", 194, cardY + 4, 20, false);
-        FinanceGui.drawButton(screen.font(), g, "-10", 222, cardY + 4, 30, false);
-        FinanceGui.drawButton(screen.font(), g, "+10", 256, cardY + 4, 30, false);
+        screen.button(g, "-", 170, cardY + 4, 20, false, () -> addPrice(-1));
+        screen.button(g, "+", 194, cardY + 4, 20, false, () -> addPrice(1));
+        screen.button(g, "-10", 222, cardY + 4, 30, false, () -> addPrice(-10));
+        screen.button(g, "+10", 256, cardY + 4, 30, false, () -> addPrice(10));
 
-        FinanceGui.drawButton(screen.font(), g, "-", 170, cardY + 30, 20, false);
-        FinanceGui.drawButton(screen.font(), g, "+", 194, cardY + 30, 20, false);
-        FinanceGui.drawButton(screen.font(), g, "-10", 222, cardY + 30, 30, false);
-        FinanceGui.drawButton(screen.font(), g, "+10", 256, cardY + 30, 30, false);
+        screen.button(g, "-", 170, cardY + 30, 20, false, () -> addQuantity(-1));
+        screen.button(g, "+", 194, cardY + 30, 20, false, () -> addQuantity(1));
+        screen.button(g, "-10", 222, cardY + 30, 30, false, () -> addQuantity(-10));
+        screen.button(g, "+10", 256, cardY + 30, 30, false, () -> addQuantity(10));
 
         int infoY = cardY + cardH + 6;
         if (screen.cachedSelectedRow != null) {
@@ -71,79 +74,28 @@ final class TradePanel {
         FinanceGui.drawClippedString(
                 screen.font(), g, "订单总价: " + orderTotal, 210, infoY + 30, 150, FinanceGui.COL_ACCENT);
 
-        FinanceGui.drawFilledButton(screen.font(), g, "提交买单", 10, 186, 84, FinanceGui.COL_ACCENT);
-        FinanceGui.drawFilledButton(screen.font(), g, "提交卖单", 102, 186, 84, FinanceGui.COL_BAD);
+        screen.filledButton(g, "提交买单", 10, 186, 84, FinanceGui.COL_ACCENT, () -> submit(true));
+        screen.filledButton(g, "提交卖单", 102, 186, 84, FinanceGui.COL_BAD, () -> submit(false));
     }
 
-    public boolean handleTradeClick(int mx, int my) {
-        // 下拉按钮
-        if (mx >= 82 && mx < 222 && my >= FinanceGui.CONTENT_Y && my < FinanceGui.CONTENT_Y + 13) {
-            screen.dropdownOpen = !screen.dropdownOpen;
-            screen.dropdownScroll = 0;
-            return true;
-        }
+    private void addPrice(int delta) {
+        long price = FinanceFormat.parseLong(screen.priceBox.getValue());
+        screen.priceBox.setValue(Long.toString(delta < 0 ? Math.max(1, price + delta) : price + delta));
+    }
 
-        int cardY = FinanceGui.CONTENT_Y + 20;
+    private void addQuantity(int delta) {
+        int qty = FinanceFormat.parseInt(screen.quantityBox.getValue());
+        screen.quantityBox.setValue(Integer.toString(delta < 0 ? Math.max(1, qty + delta) : qty + delta));
+    }
 
-        // 价格加减
-        if (my >= cardY + 4 && my < cardY + 18) {
-            long price = FinanceFormat.parseLong(screen.priceBox.getValue());
-            if (mx >= 170 && mx < 190) {
-                screen.priceBox.setValue(Long.toString(Math.max(1, price - 1)));
-                return true;
-            }
-            if (mx >= 194 && mx < 214) {
-                screen.priceBox.setValue(Long.toString(price + 1));
-                return true;
-            }
-            if (mx >= 222 && mx < 252) {
-                screen.priceBox.setValue(Long.toString(Math.max(1, price - 10)));
-                return true;
-            }
-            if (mx >= 256 && mx < 286) {
-                screen.priceBox.setValue(Long.toString(price + 10));
-                return true;
-            }
-        }
-
-        // 数量加减
-        if (my >= cardY + 30 && my < cardY + 44) {
-            int qty = FinanceFormat.parseInt(screen.quantityBox.getValue());
-            if (mx >= 170 && mx < 190) {
-                screen.quantityBox.setValue(Integer.toString(Math.max(1, qty - 1)));
-                return true;
-            }
-            if (mx >= 194 && mx < 214) {
-                screen.quantityBox.setValue(Integer.toString(qty + 1));
-                return true;
-            }
-            if (mx >= 222 && mx < 252) {
-                screen.quantityBox.setValue(Integer.toString(Math.max(1, qty - 10)));
-                return true;
-            }
-            if (mx >= 256 && mx < 286) {
-                screen.quantityBox.setValue(Integer.toString(qty + 10));
-                return true;
-            }
-        }
-
-        // 提交买单/卖单
-        if (my >= 186 && my < 200 && (mx >= 10 && mx < 94 || mx >= 102 && mx < 186)) {
-            long price = screen.requireAmount(screen.priceBox, "价格");
-            int qty = screen.requireInt(screen.quantityBox, "数量", 1, Integer.MAX_VALUE);
-            if (mx >= 10 && mx < 94) {
-                screen.setStatus("已提交玩家买单");
-                FinancePacketHandler.CHANNEL.sendToServer(new TradeActionPacket(
-                        TradeActionPacket.ActionType.P2P_BUY, screen.selectedCommodity, price, qty));
-                return true;
-            }
-            if (mx >= 102 && mx < 186) {
-                screen.setStatus("已提交玩家卖单");
-                FinancePacketHandler.CHANNEL.sendToServer(new TradeActionPacket(
-                        TradeActionPacket.ActionType.P2P_SELL, screen.selectedCommodity, price, qty));
-                return true;
-            }
-        }
-        return false;
+    private void submit(boolean buy) {
+        long price = screen.requireAmount(screen.priceBox, "价格");
+        int qty = screen.requireInt(screen.quantityBox, "数量", 1, Integer.MAX_VALUE);
+        screen.setStatus(buy ? "已提交玩家买单" : "已提交玩家卖单");
+        FinancePacketHandler.CHANNEL.sendToServer(new TradeActionPacket(
+                buy ? TradeActionPacket.ActionType.P2P_BUY : TradeActionPacket.ActionType.P2P_SELL,
+                screen.selectedCommodity,
+                price,
+                qty));
     }
 }

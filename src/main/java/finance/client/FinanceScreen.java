@@ -683,11 +683,7 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         try {
             handled = contentClicks.click(mx, contentY)
                     || switch (currentTab) {
-                        case TAB_MARKET -> this.marketPanel.handleMarketClick(mx, contentY);
-                        case TAB_TRADE -> this.tradePanel.handleTradeClick(mx, contentY);
-                        case TAB_INVENTORY -> this.inventoryPanel.handleInventoryClick(mx, contentY);
                         case TAB_STOCK -> this.stockTabs.handleStockClick(mx, contentY);
-                        case TAB_ALERTS -> this.alertsPanel.handleAlertClick(mx, contentY);
                         case TAB_FINANCIAL -> this.serviceTabs.handleFinancialProductsClick(mx, contentY);
                         case TAB_ADMIN -> isAdmin && this.adminTabs.handleAdminClick(mx, contentY);
                         case TAB_MACRO -> this.macroTabs.handleClick(mx, contentY);

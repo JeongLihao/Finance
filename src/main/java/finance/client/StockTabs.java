@@ -284,10 +284,8 @@ public final class StockTabs {
     // ---- 标签 5 点击: 股票 ----
 
     public boolean handleStockClick(int mx, int my) {
-        if (screen.stockChartVisible) {
-            return screen.candlestickView.handleCandlestickControls(
-                    mx, my, MarketInstrumentType.STOCK, screen.selectedStock);
-        }
+        // 图表模式下只有图表上的按钮可点，它们已在画的时候登记
+        if (screen.stockChartVisible) return false;
         int rowY = FinanceGui.CONTENT_Y + 16;
         int maxRows = Math.min(
                 screen.menu().getStocks().size(),

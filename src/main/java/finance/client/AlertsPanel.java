@@ -37,15 +37,47 @@ final class AlertsPanel {
                 100,
                 FinanceGui.COL_TEXT_DIM);
         g.drawString(screen.font(), "目标价:", 14, y + 62, FinanceGui.COL_TEXT_DIM, false);
-        FinanceGui.drawFilledButton(screen.font(), g, "商品涨到", 148, y + 58, 58, FinanceGui.COL_GOOD);
-        FinanceGui.drawFilledButton(screen.font(), g, "商品跌到", 212, y + 58, 58, FinanceGui.COL_BAD);
-        FinanceGui.drawFilledButton(screen.font(), g, "股票涨到", 276, y + 58, 58, FinanceGui.COL_GOOD);
-        FinanceGui.drawFilledButton(screen.font(), g, "股票跌到", 340, y + 58, 50, FinanceGui.COL_BAD);
+        screen.filledButton(
+                g, "商品涨到", 148, y + 58, 58, FinanceGui.COL_GOOD, () -> priceAlert(false, PriceAlertDirection.ABOVE));
+        screen.filledButton(
+                g, "商品跌到", 212, y + 58, 58, FinanceGui.COL_BAD, () -> priceAlert(false, PriceAlertDirection.BELOW));
+        screen.filledButton(
+                g, "股票涨到", 276, y + 58, 58, FinanceGui.COL_GOOD, () -> priceAlert(true, PriceAlertDirection.ABOVE));
+        screen.filledButton(
+                g, "股票跌到", 340, y + 58, 50, FinanceGui.COL_BAD, () -> priceAlert(true, PriceAlertDirection.BELOW));
 
-        FinanceGui.drawFilledButton(screen.font(), g, "商品前高", 10, y + 74, 88, FinanceGui.COL_GOOD);
-        FinanceGui.drawFilledButton(screen.font(), g, "商品前低", 104, y + 74, 88, FinanceGui.COL_BAD);
-        FinanceGui.drawFilledButton(screen.font(), g, "股票前高", 198, y + 74, 88, FinanceGui.COL_GOOD);
-        FinanceGui.drawFilledButton(screen.font(), g, "股票前低", 292, y + 74, 88, FinanceGui.COL_BAD);
+        screen.filledButton(
+                g,
+                "商品前高",
+                10,
+                y + 74,
+                88,
+                FinanceGui.COL_GOOD,
+                () -> trendAlert(false, PriceAlertDirection.PREVIOUS_HIGH_BREAKOUT));
+        screen.filledButton(
+                g,
+                "商品前低",
+                104,
+                y + 74,
+                88,
+                FinanceGui.COL_BAD,
+                () -> trendAlert(false, PriceAlertDirection.PREVIOUS_LOW_BREAKDOWN));
+        screen.filledButton(
+                g,
+                "股票前高",
+                198,
+                y + 74,
+                88,
+                FinanceGui.COL_GOOD,
+                () -> trendAlert(true, PriceAlertDirection.PREVIOUS_HIGH_BREAKOUT));
+        screen.filledButton(
+                g,
+                "股票前低",
+                292,
+                y + 74,
+                88,
+                FinanceGui.COL_BAD,
+                () -> trendAlert(true, PriceAlertDirection.PREVIOUS_LOW_BREAKDOWN));
 
         y += 104;
         FinanceGui.drawHeader(screen.font(), g, "类型", 12, y);
@@ -97,92 +129,44 @@ final class AlertsPanel {
                     row.direction().equals("ABOVE") ? FinanceGui.COL_GOOD : FinanceGui.COL_BAD);
             FinanceGui.drawClippedString(
                     screen.font(), g, Long.toString(row.targetPrice()), 204, ry + 2, 80, FinanceGui.COL_ACCENT);
-            FinanceGui.drawButton(screen.font(), g, "取消", 316, ry - 2, 42, false);
+            screen.button(g, "取消", 316, ry - 2, 42, false, () -> {
+                screen.setStatus("已提交取消提醒");
+                FinancePacketHandler.CHANNEL.sendToServer(new PriceAlertPacket(row.alertId()));
+            });
         }
     }
 
-    public boolean handleAlertClick(int mx, int my) {
-        int y = FinanceGui.CONTENT_Y;
-        if (my >= y + 74 && my < y + 87) {
-            if (mx >= 10 && mx < 98) {
-                FinancePacketHandler.CHANNEL.sendToServer(new PriceAlertPacket(
-                        PriceAlertType.COMMODITY,
-                        screen.selectedCommodity,
-                        PriceAlertDirection.PREVIOUS_HIGH_BREAKOUT,
-                        0));
-                return true;
-            }
-            if (mx >= 104 && mx < 192) {
-                FinancePacketHandler.CHANNEL.sendToServer(new PriceAlertPacket(
-                        PriceAlertType.COMMODITY,
-                        screen.selectedCommodity,
-                        PriceAlertDirection.PREVIOUS_LOW_BREAKDOWN,
-                        0));
-                return true;
-            }
-            if (screen.selectedStock == null || screen.selectedStock.isBlank()) {
-                screen.setStatus("请先选择股票");
-                return true;
-            }
-            if (mx >= 198 && mx < 286) {
-                FinancePacketHandler.CHANNEL.sendToServer(new PriceAlertPacket(
-                        PriceAlertType.STOCK, screen.selectedStock, PriceAlertDirection.PREVIOUS_HIGH_BREAKOUT, 0));
-                return true;
-            }
-            if (mx >= 292 && mx < 380) {
-                FinancePacketHandler.CHANNEL.sendToServer(new PriceAlertPacket(
-                        PriceAlertType.STOCK, screen.selectedStock, PriceAlertDirection.PREVIOUS_LOW_BREAKDOWN, 0));
-                return true;
-            }
+    /** 前高 / 前低突破提醒：股票要先选中一只。 */
+    private void trendAlert(boolean stock, PriceAlertDirection direction) {
+        if (!stock) {
+            FinancePacketHandler.CHANNEL.sendToServer(
+                    new PriceAlertPacket(PriceAlertType.COMMODITY, screen.selectedCommodity, direction, 0));
+            return;
         }
-        if (my >= y + 58 && my < y + 71) {
-            long targetPrice = screen.requireAmount(screen.alertPriceBox, "提醒价格");
-            if (mx >= 148 && mx < 206) {
-                screen.setStatus("已提交商品涨到提醒");
-                FinancePacketHandler.CHANNEL.sendToServer(new PriceAlertPacket(
-                        PriceAlertType.COMMODITY, screen.selectedCommodity, PriceAlertDirection.ABOVE, targetPrice));
-                return true;
-            }
-            if (mx >= 212 && mx < 270) {
-                screen.setStatus("已提交商品跌到提醒");
-                FinancePacketHandler.CHANNEL.sendToServer(new PriceAlertPacket(
-                        PriceAlertType.COMMODITY, screen.selectedCommodity, PriceAlertDirection.BELOW, targetPrice));
-                return true;
-            }
-            if (mx >= 276 && mx < 334) {
-                if (screen.selectedStock == null || screen.selectedStock.isBlank()) {
-                    screen.setStatus("请先选择股票");
-                    return true;
-                }
-                screen.setStatus("已提交股票涨到提醒");
-                FinancePacketHandler.CHANNEL.sendToServer(new PriceAlertPacket(
-                        PriceAlertType.STOCK, screen.selectedStock, PriceAlertDirection.ABOVE, targetPrice));
-                return true;
-            }
-            if (mx >= 340 && mx < 390) {
-                if (screen.selectedStock == null || screen.selectedStock.isBlank()) {
-                    screen.setStatus("请先选择股票");
-                    return true;
-                }
-                screen.setStatus("已提交股票跌到提醒");
-                FinancePacketHandler.CHANNEL.sendToServer(new PriceAlertPacket(
-                        PriceAlertType.STOCK, screen.selectedStock, PriceAlertDirection.BELOW, targetPrice));
-                return true;
-            }
+        if (screen.selectedStock == null || screen.selectedStock.isBlank()) {
+            screen.setStatus("请先选择股票");
+            return;
         }
+        FinancePacketHandler.CHANNEL.sendToServer(
+                new PriceAlertPacket(PriceAlertType.STOCK, screen.selectedStock, direction, 0));
+    }
 
-        int listY = y + 104 + 18;
-        List<RecordRows.PriceAlertRow> alerts = screen.menu().getPriceAlerts();
-        int maxRows = Math.min(alerts.size(), Math.max(1, (screen.imageHeight() - listY - 6) / FinanceGui.ROW_HEIGHT));
-        for (int i = 0; i < maxRows; i++) {
-            int rowY = listY + i * FinanceGui.ROW_HEIGHT;
-            if (my >= rowY - 2 && my < rowY + 11 && mx >= 316 && mx < 358) {
-                screen.setStatus("已提交取消提醒");
-                FinancePacketHandler.CHANNEL.sendToServer(
-                        new PriceAlertPacket(alerts.get(i).alertId()));
-                return true;
-            }
+    /** 涨到 / 跌到目标价提醒：目标价取输入框，股票要先选中一只。 */
+    private void priceAlert(boolean stock, PriceAlertDirection direction) {
+        long targetPrice = screen.requireAmount(screen.alertPriceBox, "提醒价格");
+        boolean above = direction == PriceAlertDirection.ABOVE;
+        if (!stock) {
+            screen.setStatus(above ? "已提交商品涨到提醒" : "已提交商品跌到提醒");
+            FinancePacketHandler.CHANNEL.sendToServer(
+                    new PriceAlertPacket(PriceAlertType.COMMODITY, screen.selectedCommodity, direction, targetPrice));
+            return;
         }
-        return false;
+        if (screen.selectedStock == null || screen.selectedStock.isBlank()) {
+            screen.setStatus("请先选择股票");
+            return;
+        }
+        screen.setStatus(above ? "已提交股票涨到提醒" : "已提交股票跌到提醒");
+        FinancePacketHandler.CHANNEL.sendToServer(
+                new PriceAlertPacket(PriceAlertType.STOCK, screen.selectedStock, direction, targetPrice));
     }
 }

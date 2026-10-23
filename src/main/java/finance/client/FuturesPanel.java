@@ -148,9 +148,8 @@ final class FuturesPanel {
         var data = cache.data();
         if (data == null) return false;
         var chartContract = data.contracts().stream().findFirst().orElse(null);
-        if (screen.futuresChartVisible && chartContract != null)
-            return screen.candlestickView.handleCandlestickControls(
-                    mx, my, MarketInstrumentType.FUTURES, chartContract.id().toString());
+        // 图表模式下只有图表上的按钮可点，它们已在画的时候登记
+        if (screen.futuresChartVisible && chartContract != null) return false;
         if (my >= FinanceGui.CONTENT_Y + 22 && my < 188 && chartContract != null) {
             screen.futuresChartVisible = true;
             screen.candlestickView.requestCandlesticks(

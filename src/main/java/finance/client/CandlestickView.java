@@ -53,11 +53,20 @@ final class CandlestickView {
                 FinanceGui.CONTENT_Y,
                 88,
                 FinanceGui.COL_TEXT);
-        FinanceGui.drawButton(screen.font(), g, "30天", 178, FinanceGui.CONTENT_Y - 2, 48, screen.chartLimit == 30);
-        FinanceGui.drawButton(screen.font(), g, "60天", 230, FinanceGui.CONTENT_Y - 2, 48, screen.chartLimit == 60);
-        FinanceGui.drawButton(screen.font(), g, "120天", 282, FinanceGui.CONTENT_Y - 2, 52, screen.chartLimit == 120);
-        FinanceGui.drawButton(screen.font(), g, "返回", 342, FinanceGui.CONTENT_Y - 2, 48, false);
-        FinanceGui.drawButton(screen.font(), g, chartPanel.label, 104, FinanceGui.CONTENT_Y - 2, 66, true);
+        screen.button(
+                g, "30天", 178, FinanceGui.CONTENT_Y - 2, 48, screen.chartLimit == 30, () -> setLimit(30, type, id));
+        screen.button(
+                g, "60天", 230, FinanceGui.CONTENT_Y - 2, 48, screen.chartLimit == 60, () -> setLimit(60, type, id));
+        screen.button(
+                g, "120天", 282, FinanceGui.CONTENT_Y - 2, 52, screen.chartLimit == 120, () -> setLimit(120, type, id));
+        screen.button(g, "返回", 342, FinanceGui.CONTENT_Y - 2, 48, false, () -> {
+            if (type == MarketInstrumentType.COMMODITY) screen.commodityChartVisible = false;
+            else if (type == MarketInstrumentType.STOCK) screen.stockChartVisible = false;
+            else if (type == MarketInstrumentType.FUTURES) screen.futuresChartVisible = false;
+            screen.updateInputVisibility();
+        });
+        screen.button(
+                g, chartPanel.label, 104, FinanceGui.CONTENT_Y - 2, 66, true, () -> chartPanel = chartPanel.next());
         CandlestickClientCache.Entry chartEntry = CandlestickClientCache.get(type, id, screen.chartLimit);
         List<finance.chart.Candlestick> bars = chartEntry.bars();
         if (chartEntry.state() == CandlestickClientCache.State.LOADING) {
@@ -213,28 +222,8 @@ final class CandlestickView {
         FinancePacketHandler.CHANNEL.sendToServer(new CandlestickRequestPacket(requestId, type, id, screen.chartLimit));
     }
 
-    public boolean handleCandlestickControls(int mx, int my, MarketInstrumentType type, String id) {
-        if (my < FinanceGui.CONTENT_Y - 2 || my >= FinanceGui.CONTENT_Y + 12) return false;
-        if (mx >= 104 && mx < 170) {
-            chartPanel = chartPanel.next();
-            return true;
-        }
-        int requestedLimit = 0;
-        if (mx >= 178 && mx < 226) requestedLimit = 30;
-        else if (mx >= 230 && mx < 278) requestedLimit = 60;
-        else if (mx >= 282 && mx < 334) requestedLimit = 120;
-        if (requestedLimit > 0) {
-            screen.chartLimit = requestedLimit;
-            requestCandlesticks(type, id);
-            return true;
-        }
-        if (mx >= 342 && mx < 390) {
-            if (type == MarketInstrumentType.COMMODITY) screen.commodityChartVisible = false;
-            else if (type == MarketInstrumentType.STOCK) screen.stockChartVisible = false;
-            else if (type == MarketInstrumentType.FUTURES) screen.futuresChartVisible = false;
-            screen.updateInputVisibility();
-            return true;
-        }
-        return false;
+    private void setLimit(int limit, MarketInstrumentType type, String id) {
+        screen.chartLimit = limit;
+        requestCandlesticks(type, id);
     }
 }
