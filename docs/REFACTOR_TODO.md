@@ -18,12 +18,16 @@
 - `FinanceScreen` 输入框的显隐和摆放只写一处（`advancedInputs()`），`updateInputVisibility` 和 `getVisibleEditBoxes` 都从它来。顺带修好治理视图里“价格”“股份”输入框不显示、点不进去。
 - `SimpleInvestPage` 拆出 `SimpleStockDetail`（股票详情）和 `SimpleCommodityDetail`（商品详情），押注行和价格图仍在 `SimpleInvestPage` 共用。
 - `FinanceMenu` 的数据行和编解码按页签拆到 `MarketRows`、`StockRows`、`CompanyRows`、`RecordRows`、`DashboardRows`，共用工具在 `MenuCodec`；`FinanceMenu` 只剩字段、构造、getter 和 `writeAll`（约 480 行）。外部引用从 `FinanceMenu.MarketRow` 改成 `MarketRows.MarketRow`。
+- `CompanyTabs` 按视图拆成 `CompanyCreatePanel`、`CompanyManagePanel`、`CompanyDetailsPanel`、`CompanyGovernancePanel`、`CompanyRestructuringPanel`。
+- `RecordTabs` 拆成 `OrdersPanel`、`InventoryPanel`、`TransactionsPanel`、`AssetsPanel`、`AlertsPanel`、`DashboardPanel`，删掉 `RecordTabs`。
+- 三处共用的 K 线视图从 `StockTabs` 拆成 `CandlestickView`。
+- `MarketTabs` 拆成 `MarketPanel`、`TradePanel`、`CommodityDropdown`，删掉 `MarketTabs`。
 
 ## 待办
 
 ### 界面大类（按收益排序）
 
-1. **其余页签类**：`CompanyTabs`（约 880 行）、`RecordTabs`（约 810 行）、`CompanyGameplayScreen`（约 770 行）、`PlayerServicesScreen`（约 720 行）、`StockTabs`（约 690 行）、`MarketTabs`（约 600 行）。思路同 `ServiceTabs`：按子页签拆面板，页签编号换常量。
+1. **其余界面大类**：`CompanyGameplayScreen`（约 770 行）、`PlayerServicesScreen`（约 720 行）、`StockTabs`（约 470 行，股票页本身，没有子页签）。前两个是独立界面，拆之前先看有没有按区域拆的自然边界。
 2. **面板里的点击坐标**：各面板的 `click` 用写死的坐标判断点了哪个按钮（`mx >= 244 && mx < 274`），和 `render` 里画按钮的坐标各写一遍。可以让按钮画的时候登记点击区域，点击时查表，坐标只写一处（简单模式的 `UiBuilder` 已经是这种做法）。
 
 ### 服务端
