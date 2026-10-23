@@ -766,185 +766,125 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
     // 绘制辅助
     // ================================================================
 
+    /** 一个要显示的输入框：x 相对 leftPos，y 相对 contentTop()；moves 为 false 时位置沿用 init 里定好的。 */
+    private record InputPlacement(EditBox box, boolean moves, int x, int y) {
+        static InputPlacement fixed(EditBox box) {
+            return new InputPlacement(box, false, 0, 0);
+        }
+
+        static InputPlacement at(EditBox box, int x, int y) {
+            return new InputPlacement(box, true, x, y);
+        }
+    }
+
+    /**
+     * 高级界面当前要显示哪些输入框、放在哪，只在这里写一遍。
+     * 显隐和摆放（{@link #updateInputVisibility}）与渲染、点击、打字用的列表（{@link #getVisibleEditBoxes}）都从这里来，
+     * 列表顺序就是渲染和点击的顺序。
+     */
+    private List<InputPlacement> advancedInputs() {
+        List<InputPlacement> out = new ArrayList<>();
+        int cy = FinanceGui.CONTENT_Y;
+        switch (currentTab) {
+            case TAB_MARKET -> {
+                if (!commodityChartVisible) out.add(InputPlacement.fixed(intlQuantityBox));
+            }
+            case TAB_TRADE -> {
+                out.add(InputPlacement.fixed(priceBox));
+                out.add(InputPlacement.fixed(quantityBox));
+            }
+            case TAB_INVENTORY -> out.add(InputPlacement.fixed(inventoryQuantityBox));
+            case TAB_COMPANY -> {
+                if (menu.getPlayerCompany() == null) {
+                    if (!restructuringView) out.add(InputPlacement.at(companyNameBox, 70, cy + 36));
+                } else if (governanceView) {
+                    out.add(InputPlacement.at(companyNameBox, 108, cy + 144));
+                    out.add(InputPlacement.at(companyAmountBox, 288, cy + 164));
+                    out.add(InputPlacement.at(stockPriceBox, 48, cy + 164));
+                    out.add(InputPlacement.at(stockQuantityBox, 168, cy + 164));
+                } else if (companyDetailsView) {
+                    out.add(InputPlacement.at(companyNameBox, 48, cy + 58));
+                    out.add(InputPlacement.at(companyAmountBox, 48, cy + 80));
+                    out.add(InputPlacement.at(ipoPriceBox, 168, cy + 80));
+                    out.add(InputPlacement.at(ipoQuantityBox, 288, cy + 80));
+                } else if (!restructuringView) {
+                    out.add(InputPlacement.at(companyAmountBox, 58, cy + 106));
+                    out.add(InputPlacement.at(ipoPriceBox, 58, cy + 136));
+                    out.add(InputPlacement.at(ipoQuantityBox, 172, cy + 136));
+                }
+            }
+            case TAB_STOCK -> {
+                if (!stockChartVisible) {
+                    out.add(InputPlacement.at(stockPriceBox, 54, FinanceGui.STOCK_TRADE_Y + 18));
+                    out.add(InputPlacement.at(stockQuantityBox, 54, FinanceGui.STOCK_TRADE_Y + 38));
+                }
+            }
+            case TAB_ALERTS -> out.add(InputPlacement.fixed(alertPriceBox));
+            case TAB_FINANCIAL -> {
+                if (futuresChartVisible) break;
+                int sub = financialSubTab;
+                if (sub != ServiceTabs.INDEX && sub != ServiceTabs.HOLDINGS) {
+                    out.add(InputPlacement.at(stockPriceBox, 50, 188));
+                    if (sub != ServiceTabs.NOTES) out.add(InputPlacement.at(stockQuantityBox, 162, 188));
+                }
+                if (sub != ServiceTabs.BOND_MARKET && sub != ServiceTabs.HOLDINGS && sub != ServiceTabs.INSURANCE) {
+                    // 基金页：定投间隔输入框放到第二行，避免与"赎回"按钮重叠
+                    out.add(
+                            sub == ServiceTabs.FUND
+                                    ? InputPlacement.at(companyAmountBox, 312, 214)
+                                    : InputPlacement.at(companyAmountBox, 282, 188));
+                }
+            }
+            case TAB_ADMIN -> {
+                if (isAdmin && adminSubTab == AdminTabs.HAND) {
+                    out.add(InputPlacement.at(adminBasePriceBox, 228, cy + 42));
+                    out.add(InputPlacement.at(adminCommodityIdBox, 28, cy + 98));
+                    out.add(InputPlacement.at(adminItemIdBox, 140, cy + 98));
+                    out.add(InputPlacement.at(adminDisplayNameBox, 296, cy + 98));
+                }
+            }
+            default -> {}
+        }
+        return out;
+    }
+
     void updateInputVisibility() {
-        intlQuantityBox.setVisible(currentTab == TAB_MARKET && !commodityChartVisible);
-        boolean trade = (currentTab == TAB_TRADE);
-        priceBox.setVisible(trade);
-        quantityBox.setVisible(trade);
-        inventoryQuantityBox.setVisible(currentTab == TAB_INVENTORY);
-        FinanceMenu.CompanyInfo playerCompany = menu.getPlayerCompany();
-        boolean createCompany = (currentTab == TAB_COMPANY && playerCompany == null && !restructuringView);
-        boolean governance = currentTab == TAB_COMPANY && playerCompany != null && governanceView;
-        boolean companyDetails = currentTab == TAB_COMPANY && playerCompany != null && companyDetailsView;
-        boolean ipoCompany = (currentTab == TAB_COMPANY
-                && playerCompany != null
-                && !governanceView
-                && !restructuringView
-                && !companyDetailsView);
-        boolean manageCompany = ipoCompany;
-        if (governance) {
-            companyNameBox.setX(leftPos + 108);
-            companyNameBox.setY(contentTop() + FinanceGui.CONTENT_Y + 144);
-        } else if (companyDetails) {
-            companyNameBox.setX(leftPos + 48);
-            companyNameBox.setY(contentTop() + FinanceGui.CONTENT_Y + 58);
-        } else if (createCompany) {
-            companyNameBox.setX(leftPos + 70);
-            companyNameBox.setY(contentTop() + FinanceGui.CONTENT_Y + 36);
-        } else if (manageCompany) {
-            companyNameBox.setX(leftPos + 198);
-            companyNameBox.setY(contentTop() + FinanceGui.CONTENT_Y + 140);
+        for (EditBox box : List.of(
+                intlQuantityBox,
+                priceBox,
+                quantityBox,
+                inventoryQuantityBox,
+                companyNameBox,
+                stockPriceBox,
+                stockQuantityBox,
+                alertPriceBox,
+                ipoPriceBox,
+                ipoQuantityBox,
+                companyAmountBox,
+                adminBasePriceBox,
+                adminCommodityIdBox,
+                adminItemIdBox,
+                adminDisplayNameBox)) {
+            box.setVisible(false);
         }
-        companyNameBox.setVisible(governance || companyDetails || createCompany);
-        ipoPriceBox.setVisible(ipoCompany || companyDetails);
-        ipoQuantityBox.setVisible(ipoCompany || companyDetails);
-        boolean financial = currentTab == TAB_FINANCIAL;
-        stockPriceBox.setVisible(governance
-                || (currentTab == TAB_STOCK && !stockChartVisible)
-                || (financial
-                        && !futuresChartVisible
-                        && financialSubTab != ServiceTabs.INDEX
-                        && financialSubTab != ServiceTabs.HOLDINGS));
-        stockQuantityBox.setVisible(governance
-                || (currentTab == TAB_STOCK && !stockChartVisible)
-                || (financial
-                        && !futuresChartVisible
-                        && financialSubTab != ServiceTabs.INDEX
-                        && financialSubTab != ServiceTabs.HOLDINGS
-                        && financialSubTab != ServiceTabs.NOTES));
-        if (governance) {
-            stockPriceBox.setX(leftPos + 48);
-            stockPriceBox.setY(contentTop() + FinanceGui.CONTENT_Y + 164);
-            stockQuantityBox.setX(leftPos + 168);
-            stockQuantityBox.setY(contentTop() + FinanceGui.CONTENT_Y + 164);
-            companyAmountBox.setX(leftPos + 288);
-            companyAmountBox.setY(contentTop() + FinanceGui.CONTENT_Y + 164);
-        } else if (financial) {
-            stockPriceBox.setX(leftPos + 50);
-            stockPriceBox.setY(contentTop() + 188);
-            stockQuantityBox.setX(leftPos + 162);
-            stockQuantityBox.setY(contentTop() + 188);
-            if (financialSubTab == ServiceTabs.FUND) {
-                // 基金页：定投间隔输入框放到第二行，避免与"赎回"按钮重叠
-                companyAmountBox.setX(leftPos + 312);
-                companyAmountBox.setY(contentTop() + 214);
-            } else {
-                companyAmountBox.setX(leftPos + 282);
-                companyAmountBox.setY(contentTop() + 188);
-            }
-        } else {
-            stockPriceBox.setX(leftPos + 54);
-            stockPriceBox.setY(contentTop() + FinanceGui.STOCK_TRADE_Y + 18);
-            stockQuantityBox.setX(leftPos + 54);
-            stockQuantityBox.setY(contentTop() + FinanceGui.STOCK_TRADE_Y + 38);
-            companyAmountBox.setX(leftPos + 58);
-            companyAmountBox.setY(contentTop() + FinanceGui.CONTENT_Y + 106);
-            ipoPriceBox.setX(leftPos + 58);
-            ipoPriceBox.setY(contentTop() + FinanceGui.CONTENT_Y + 136);
-            ipoQuantityBox.setX(leftPos + 172);
-            ipoQuantityBox.setY(contentTop() + FinanceGui.CONTENT_Y + 136);
-        }
-        if (companyDetails) {
-            companyAmountBox.setX(leftPos + 48);
-            companyAmountBox.setY(contentTop() + FinanceGui.CONTENT_Y + 80);
-            ipoPriceBox.setX(leftPos + 168);
-            ipoPriceBox.setY(contentTop() + FinanceGui.CONTENT_Y + 80);
-            ipoQuantityBox.setX(leftPos + 288);
-            ipoQuantityBox.setY(contentTop() + FinanceGui.CONTENT_Y + 80);
-        }
-        companyAmountBox.setVisible(governance
-                || companyDetails
-                || manageCompany
-                || (financial
-                        && !futuresChartVisible
-                        && financialSubTab != ServiceTabs.BOND_MARKET
-                        && financialSubTab != ServiceTabs.HOLDINGS
-                        && financialSubTab != ServiceTabs.INSURANCE));
-        alertPriceBox.setVisible(currentTab == TAB_ALERTS);
-        boolean admin = (currentTab == TAB_ADMIN && isAdmin);
-        boolean adminHand = admin && adminSubTab == AdminTabs.HAND;
-        if (adminHand) {
-            adminBasePriceBox.setX(leftPos + 228);
-            adminBasePriceBox.setY(contentTop() + FinanceGui.CONTENT_Y + 42);
-            adminCommodityIdBox.setX(leftPos + 28);
-            adminCommodityIdBox.setY(contentTop() + FinanceGui.CONTENT_Y + 98);
-            adminItemIdBox.setX(leftPos + 140);
-            adminItemIdBox.setY(contentTop() + FinanceGui.CONTENT_Y + 98);
-            adminDisplayNameBox.setX(leftPos + 296);
-            adminDisplayNameBox.setY(contentTop() + FinanceGui.CONTENT_Y + 98);
-        }
-        adminCommodityIdBox.setVisible(adminHand);
-        adminItemIdBox.setVisible(adminHand);
-        adminDisplayNameBox.setVisible(adminHand);
-        adminBasePriceBox.setVisible(adminHand);
         if (!advancedView) {
-            for (EditBox box : List.of(
-                    intlQuantityBox,
-                    priceBox,
-                    quantityBox,
-                    inventoryQuantityBox,
-                    stockPriceBox,
-                    stockQuantityBox,
-                    alertPriceBox,
-                    ipoPriceBox,
-                    ipoQuantityBox,
-                    companyAmountBox,
-                    adminBasePriceBox,
-                    adminCommodityIdBox,
-                    adminItemIdBox,
-                    adminDisplayNameBox)) {
-                box.setVisible(false);
-            }
             simple.updateInputs(companyNameBox, searchBox);
-        } else {
-            searchBox.setVisible(false);
+            return;
+        }
+        searchBox.setVisible(false);
+        for (InputPlacement p : advancedInputs()) {
+            if (p.moves()) {
+                p.box().setX(leftPos + p.x());
+                p.box().setY(contentTop() + p.y());
+            }
+            p.box().setVisible(true);
         }
     }
 
     private List<EditBox> getVisibleEditBoxes() {
         if (!advancedView) return simple.visibleBoxes(companyNameBox, searchBox);
         List<EditBox> list = new ArrayList<>();
-        if (currentTab == TAB_MARKET && !commodityChartVisible) list.add(intlQuantityBox);
-        if (currentTab == TAB_TRADE) {
-            list.add(priceBox);
-            list.add(quantityBox);
-        }
-        if (currentTab == TAB_INVENTORY) list.add(inventoryQuantityBox);
-        if (currentTab == TAB_COMPANY && !restructuringView && menu.getPlayerCompany() == null)
-            list.add(companyNameBox);
-        if (currentTab == TAB_COMPANY
-                && !restructuringView
-                && menu.getPlayerCompany() != null
-                && companyNameBox.isVisible()) list.add(companyNameBox);
-        if (currentTab == TAB_COMPANY
-                && !restructuringView
-                && menu.getPlayerCompany() != null
-                && companyAmountBox.isVisible()) list.add(companyAmountBox);
-        if (currentTab == TAB_COMPANY
-                && !restructuringView
-                && menu.getPlayerCompany() != null
-                && ipoPriceBox.isVisible()) {
-            list.add(ipoPriceBox);
-            list.add(ipoQuantityBox);
-        }
-        if (currentTab == TAB_STOCK && !stockChartVisible) {
-            list.add(stockPriceBox);
-            list.add(stockQuantityBox);
-        }
-        if (currentTab == TAB_ALERTS) {
-            list.add(alertPriceBox);
-        }
-        if (currentTab == TAB_FINANCIAL) {
-            if (stockPriceBox.isVisible()) list.add(stockPriceBox);
-            if (stockQuantityBox.isVisible()) list.add(stockQuantityBox);
-            if (companyAmountBox.isVisible()) list.add(companyAmountBox);
-        }
-        if (currentTab == TAB_ADMIN && isAdmin && adminSubTab == AdminTabs.HAND) {
-            list.add(adminBasePriceBox);
-            list.add(adminCommodityIdBox);
-            list.add(adminItemIdBox);
-            list.add(adminDisplayNameBox);
-        }
+        for (InputPlacement p : advancedInputs()) list.add(p.box());
         return list;
     }
 
