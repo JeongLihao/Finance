@@ -1,0 +1,225 @@
+package finance.client;
+
+import finance.chart.MarketInstrumentType;
+import finance.network.*;
+import java.util.*;
+import net.minecraft.client.gui.GuiGraphics;
+
+/** 金融服务 · 期货：合约列表、K 线、下单和保证金。由 {@link ServiceTabs} 分发渲染和点击。 */
+final class FuturesPanel {
+    private final FinanceScreen screen;
+
+    FuturesPanel(FinanceScreen screen) {
+        this.screen = screen;
+    }
+
+    void render(GuiGraphics g, int mouseX, int mouseY) {
+        FuturesClientCache.Entry cache = FuturesClientCache.get();
+        if (cache.state() == FuturesClientCache.State.NOT_REQUESTED) {
+            request();
+            FinanceGui.drawClippedString(
+                    screen.font(), g, "正在请求期货数据…", 12, FinanceGui.CONTENT_Y + 28, 350, FinanceGui.COL_TEXT_DIM);
+            return;
+        }
+        if (cache.state() == FuturesClientCache.State.LOADING || cache.state() == FuturesClientCache.State.SLOW) {
+            FinanceGui.drawClippedString(
+                    screen.font(),
+                    g,
+                    cache.state() == FuturesClientCache.State.SLOW ? "期货服务响应较慢" : "正在加载期货数据…",
+                    12,
+                    FinanceGui.CONTENT_Y + 28,
+                    350,
+                    FinanceGui.COL_TEXT_DIM);
+            return;
+        }
+        var data = cache.data();
+        var chartContract = data.contracts().stream().findFirst().orElse(null);
+        if (screen.futuresChartVisible && chartContract != null) {
+            screen.stockTabs.renderCandlestickView(
+                    g,
+                    MarketInstrumentType.FUTURES,
+                    chartContract.id().toString(),
+                    chartContract.code(),
+                    mouseX,
+                    mouseY);
+            return;
+        }
+        int y = FinanceGui.CONTENT_Y + 22;
+        if (chartContract != null) {
+            double change = chartContract.settlementPrice() > 0
+                    ? (chartContract.lastPrice() - chartContract.settlementPrice())
+                            * 100.0
+                            / chartContract.settlementPrice()
+                    : 0;
+            long basis;
+            try {
+                basis = Math.subtractExact(chartContract.lastPrice(), chartContract.spotPrice());
+            } catch (ArithmeticException ex) {
+                basis = chartContract.lastPrice() >= chartContract.spotPrice() ? Long.MAX_VALUE : Long.MIN_VALUE;
+            }
+            FinanceGui.drawClippedString(
+                    screen.font(),
+                    g,
+                    String.format(
+                            Locale.ROOT,
+                            "今日涨跌 %.2f%%  比现货贵 %d  今日成交 %d  未平仓 %d",
+                            change,
+                            basis,
+                            chartContract.dailyVolume(),
+                            chartContract.openInterest()),
+                    14,
+                    y,
+                    370,
+                    change >= 0 ? FinanceGui.COL_GOOD : FinanceGui.COL_BAD);
+            y += 14;
+        }
+        FinanceGui.drawClippedString(
+                screen.font(),
+                g,
+                "保证金 " + data.marginCash() + " 冻结 " + data.frozen() + " 权益 " + data.equity() + " 可提 "
+                        + data.withdrawable() + " " + data.riskStatus(),
+                14,
+                y,
+                370,
+                data.riskStatus() == finance.futures.MarginRiskStatus.NORMAL
+                        ? FinanceGui.COL_GOOD
+                        : FinanceGui.COL_WARN);
+        y += 16;
+        FinanceGui.drawClippedString(screen.font(), g, "代码/标的", 14, y, 105, FinanceGui.COL_TEXT_DIM);
+        FinanceGui.drawClippedString(screen.font(), g, "期/现/结", 126, y, 100, FinanceGui.COL_TEXT_DIM);
+        FinanceGui.drawClippedString(screen.font(), g, "到期/OI", 238, y, 90, FinanceGui.COL_TEXT_DIM);
+        FinanceGui.drawClippedString(screen.font(), g, "持仓/PnL", 330, y, 62, FinanceGui.COL_TEXT_DIM);
+        y += 14;
+        for (var row : data.contracts()) {
+            if (y > 174) break;
+            var pos = data.positions().stream()
+                    .filter(p -> p.contractId().equals(row.id()))
+                    .findFirst()
+                    .orElse(null);
+            FinanceGui.drawClippedString(
+                    screen.font(),
+                    g,
+                    row.code() + "/" + FinanceFormat.commodityDisplayName(row.commodity()),
+                    14,
+                    y,
+                    105,
+                    FinanceGui.COL_TEXT);
+            FinanceGui.drawClippedString(
+                    screen.font(),
+                    g,
+                    row.lastPrice() + "/" + row.spotPrice() + "/" + row.settlementPrice(),
+                    126,
+                    y,
+                    105,
+                    FinanceGui.COL_TEXT);
+            FinanceGui.drawClippedString(
+                    screen.font(),
+                    g,
+                    "第" + row.maturityDay() + "天/" + row.openInterest(),
+                    238,
+                    y,
+                    85,
+                    FinanceGui.COL_TEXT);
+            FinanceGui.drawClippedString(
+                    screen.font(),
+                    g,
+                    pos == null ? "0/0" : pos.signedQuantity() + "/" + pos.unrealized(),
+                    330,
+                    y,
+                    62,
+                    pos == null || pos.unrealized() >= 0 ? FinanceGui.COL_GOOD : FinanceGui.COL_BAD);
+            y += 16;
+        }
+        int ay = 190;
+        g.fill(8, ay - 5, screen.imageWidth() - 8, 232, FinanceGui.COL_ROW_EVEN);
+        FinanceGui.drawClippedString(screen.font(), g, "金额/限价", 14, ay, 60, FinanceGui.COL_TEXT_DIM);
+        FinanceGui.drawClippedString(screen.font(), g, "数量", 126, ay, 34, FinanceGui.COL_TEXT_DIM);
+        FinanceGui.drawClippedString(screen.font(), g, "期限", 238, ay, 34, FinanceGui.COL_TEXT_DIM);
+        FinanceGui.drawFilledButton(screen.font(), g, "买", 365, ay - 1, 28, FinanceGui.COL_ACCENT);
+        FinanceGui.drawButton(screen.font(), g, "卖", 244, ay + 20, 28, false);
+        FinanceGui.drawButton(screen.font(), g, "入", 274, ay + 20, 28, false);
+        FinanceGui.drawButton(screen.font(), g, "出", 304, ay + 20, 28, false);
+        FinanceGui.drawButton(screen.font(), g, "撤", 334, ay + 20, 28, false);
+        if (screen.isAdmin) FinanceGui.drawButton(screen.font(), g, "建", 364, ay + 20, 28, false);
+    }
+
+    boolean click(int mx, int my) {
+        var cache = FuturesClientCache.get();
+        var data = cache.data();
+        if (data == null) return false;
+        var chartContract = data.contracts().stream().findFirst().orElse(null);
+        if (screen.futuresChartVisible && chartContract != null)
+            return screen.stockTabs.handleCandlestickControls(
+                    mx, my, MarketInstrumentType.FUTURES, chartContract.id().toString());
+        if (my >= FinanceGui.CONTENT_Y + 22 && my < 188 && chartContract != null) {
+            screen.futuresChartVisible = true;
+            screen.stockTabs.requestCandlesticks(
+                    MarketInstrumentType.FUTURES, chartContract.id().toString());
+            screen.updateInputVisibility();
+            return true;
+        }
+        var contract = data.contracts().stream()
+                .filter(c -> c.status() == finance.futures.FuturesContractStatus.TRADING
+                        || c.status() == finance.futures.FuturesContractStatus.LAST_TRADING_DAY)
+                .findFirst()
+                .orElse(null);
+        java.util.function.LongSupplier amount = () -> screen.requireAmount(screen.stockPriceBox, "金额/限价"),
+                quantity = () -> screen.requireAmount(screen.stockQuantityBox, "数量");
+        java.util.function.IntSupplier term = () -> screen.requireInt(screen.companyAmountBox, "期限", 2, 3650);
+        if (my >= 188 && my <= 208 && mx >= 365 && contract != null) {
+            FinancePacketHandler.CHANNEL.sendToServer(new FuturesActionPacket(
+                    FuturesActionPacket.Action.PLACE_BUY,
+                    contract.id(),
+                    "",
+                    0,
+                    amount.getAsLong(),
+                    quantity.getAsLong(),
+                    0));
+            request();
+            return true;
+        }
+        if (my >= 208 && my <= 230) {
+            if (mx >= 244 && mx < 274 && contract != null)
+                FinancePacketHandler.CHANNEL.sendToServer(new FuturesActionPacket(
+                        FuturesActionPacket.Action.PLACE_SELL,
+                        contract.id(),
+                        "",
+                        0,
+                        amount.getAsLong(),
+                        quantity.getAsLong(),
+                        0));
+            else if (mx >= 274 && mx < 304)
+                FinancePacketHandler.CHANNEL.sendToServer(new FuturesActionPacket(
+                        FuturesActionPacket.Action.DEPOSIT_MARGIN, null, "", amount.getAsLong(), 0, 0, 0));
+            else if (mx >= 304 && mx < 334)
+                FinancePacketHandler.CHANNEL.sendToServer(new FuturesActionPacket(
+                        FuturesActionPacket.Action.WITHDRAW_MARGIN, null, "", amount.getAsLong(), 0, 0, 0));
+            else if (mx >= 334 && mx < 364) {
+                var own = data.orders().stream()
+                        .filter(o -> o.owned())
+                        .findFirst()
+                        .orElse(null);
+                if (own == null) return false;
+                FinancePacketHandler.CHANNEL.sendToServer(new FuturesActionPacket(
+                        FuturesActionPacket.Action.CANCEL_ORDER, own.orderId(), "", 0, 0, 0, 0));
+            } else if (mx >= 364 && screen.isAdmin)
+                FinancePacketHandler.CHANNEL.sendToServer(new FuturesActionPacket(
+                        FuturesActionPacket.Action.CREATE_CONTRACT,
+                        null,
+                        screen.selectedCommodity,
+                        0,
+                        0,
+                        0,
+                        term.getAsInt()));
+            else return false;
+            request();
+            return true;
+        }
+        return false;
+    }
+
+    void request() {
+        long requestId = FuturesClientCache.begin();
+        FinancePacketHandler.CHANNEL.sendToServer(new FuturesRequestPacket(requestId));
+    }
+}

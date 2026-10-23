@@ -39,7 +39,7 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
     boolean stockChartVisible;
     boolean futuresChartVisible;
     int chartLimit = 30;
-    int financialSubTab = 0;
+    int financialSubTab = ServiceTabs.INDEX;
     boolean governanceView = false;
     boolean restructuringView = false;
     boolean companyDetailsView = false;
@@ -345,7 +345,7 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
             case WAREHOUSE -> 3;
             case WALLET -> 7;
         };
-        if (safeMode == FinanceScreenMode.BANK) financialSubTab = 7;
+        if (safeMode == FinanceScreenMode.BANK) financialSubTab = ServiceTabs.BANK;
         // 方块终端进来时，简单模式停在对应的那一页；央行控制台是管理员工具，直接进高级页签
         simple.setPage(
                 switch (safeMode) {
@@ -623,14 +623,7 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
                     dropdownOpen = false;
                     updateInputVisibility();
                     if (currentTab == MACRO_TAB) this.macroTabs.request();
-                    if (currentTab == 9) {
-                        if (financialSubTab == 6) this.serviceTabs.requestFutures();
-                        else if (financialSubTab == 7) this.serviceTabs.requestBanks();
-                        else if (financialSubTab == 8) this.serviceTabs.requestFunds();
-                        else if (financialSubTab == 9) this.serviceTabs.requestInsurance();
-                        else if (financialSubTab == 10) this.serviceTabs.requestRegionalRisk();
-                        else this.serviceTabs.requestFinancialProducts();
-                    }
+                    if (currentTab == 9) this.serviceTabs.request(financialSubTab);
                     return true;
                 }
                 x += w + 3;
@@ -783,27 +776,15 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
                 || (currentTab == 5 && !stockChartVisible)
                 || (financial
                         && !futuresChartVisible
-                        && (financialSubTab == 1
-                                || financialSubTab == 2
-                                || financialSubTab == 4
-                                || financialSubTab == 5
-                                || financialSubTab == 6
-                                || financialSubTab == 7
-                                || financialSubTab == 8
-                                || financialSubTab == 9
-                                || financialSubTab == 10)));
+                        && financialSubTab != ServiceTabs.INDEX
+                        && financialSubTab != ServiceTabs.HOLDINGS));
         stockQuantityBox.setVisible(governance
                 || (currentTab == 5 && !stockChartVisible)
                 || (financial
                         && !futuresChartVisible
-                        && (financialSubTab == 1
-                                || financialSubTab == 2
-                                || financialSubTab == 5
-                                || financialSubTab == 6
-                                || financialSubTab == 7
-                                || financialSubTab == 8
-                                || financialSubTab == 9
-                                || financialSubTab == 10)));
+                        && financialSubTab != ServiceTabs.INDEX
+                        && financialSubTab != ServiceTabs.HOLDINGS
+                        && financialSubTab != ServiceTabs.NOTES));
         if (governance) {
             stockPriceBox.setX(leftPos + 48);
             stockPriceBox.setY(contentTop() + FinanceGui.CONTENT_Y + 164);
@@ -816,7 +797,7 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
             stockPriceBox.setY(contentTop() + 188);
             stockQuantityBox.setX(leftPos + 162);
             stockQuantityBox.setY(contentTop() + 188);
-            if (financialSubTab == 8) {
+            if (financialSubTab == ServiceTabs.FUND) {
                 // 基金页：定投间隔输入框放到第二行，避免与"赎回"按钮重叠
                 companyAmountBox.setX(leftPos + 312);
                 companyAmountBox.setY(contentTop() + 214);
@@ -849,9 +830,9 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
                 || manageCompany
                 || (financial
                         && !futuresChartVisible
-                        && financialSubTab != 2
-                        && financialSubTab != 3
-                        && financialSubTab != 9));
+                        && financialSubTab != ServiceTabs.BOND_MARKET
+                        && financialSubTab != ServiceTabs.HOLDINGS
+                        && financialSubTab != ServiceTabs.INSURANCE));
         alertPriceBox.setVisible(currentTab == 8);
         boolean admin = (currentTab == 11 && isAdmin);
         boolean adminHand = admin && adminSubTab == 0;
