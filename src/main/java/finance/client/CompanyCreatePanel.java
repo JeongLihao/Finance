@@ -27,31 +27,7 @@ final class CompanyCreatePanel {
 
         g.drawString(screen.font(), "行业", 12, cardY + 58, FinanceGui.COL_TEXT_DIM, false);
         String typeLabel = "< " + screen.selectedType.getDisplayName() + " >";
-        FinanceGui.drawButton(screen.font(), g, typeLabel, 55, cardY + 58, 120, true);
-
-        String typeDesc = FinanceFormat.getTypeDescription(screen.selectedType);
-        FinanceGui.drawClippedString(screen.font(), g, typeDesc, 55, cardY + 76, 300, FinanceGui.COL_TEXT_DIM);
-
-        FinanceGui.drawButton(screen.font(), g, "重组任务", 210, cardY + 58, 76, false);
-        FinanceGui.drawFilledButton(screen.font(), g, "创建公司", 300, cardY + 58, 76, FinanceGui.COL_GOOD);
-        FinanceGui.drawClippedString(
-                screen.font(),
-                g,
-                "创建后可在这里管理经营状态；上市后才会进入股票市场。",
-                12,
-                cardY + 108,
-                screen.imageWidth() - 24,
-                FinanceGui.COL_TEXT_DIM);
-    }
-
-    boolean click(int mx, int my, int cardY) {
-        if (mx >= 210 && mx < 286 && my >= cardY + 58 && my < cardY + 71) {
-            screen.restructuringView = true;
-            screen.updateInputVisibility();
-            return true;
-        }
-
-        if (mx >= 55 && mx < 175 && my >= cardY + 58 && my < cardY + 71) {
+        screen.button(g, typeLabel, 55, cardY + 58, 120, true, () -> {
             int idx = 0;
             for (int i = 0; i < COMPANY_TYPES.length; i++) {
                 if (COMPANY_TYPES[i] == screen.selectedType) {
@@ -60,10 +36,16 @@ final class CompanyCreatePanel {
                 }
             }
             screen.selectedType = COMPANY_TYPES[(idx + 1) % COMPANY_TYPES.length];
-            return true;
-        }
+        });
 
-        if (mx >= 300 && mx < 376 && my >= cardY + 58 && my < cardY + 71) {
+        String typeDesc = FinanceFormat.getTypeDescription(screen.selectedType);
+        FinanceGui.drawClippedString(screen.font(), g, typeDesc, 55, cardY + 76, 300, FinanceGui.COL_TEXT_DIM);
+
+        screen.button(g, "重组任务", 210, cardY + 58, 76, false, () -> {
+            screen.restructuringView = true;
+            screen.updateInputVisibility();
+        });
+        screen.filledButton(g, "创建公司", 300, cardY + 58, 76, FinanceGui.COL_GOOD, () -> {
             String name = screen.companyNameBox.getValue().trim();
             if (!name.isEmpty()) {
                 screen.setStatus("已提交创建公司");
@@ -71,8 +53,14 @@ final class CompanyCreatePanel {
             } else {
                 screen.setStatus("请输入公司名称");
             }
-            return true;
-        }
-        return false;
+        });
+        FinanceGui.drawClippedString(
+                screen.font(),
+                g,
+                "创建后可在这里管理经营状态；上市后才会进入股票市场。",
+                12,
+                cardY + 108,
+                screen.imageWidth() - 24,
+                FinanceGui.COL_TEXT_DIM);
     }
 }

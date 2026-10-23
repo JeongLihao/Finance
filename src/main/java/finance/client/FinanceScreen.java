@@ -686,7 +686,6 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
                         case TAB_MARKET -> this.marketPanel.handleMarketClick(mx, contentY);
                         case TAB_TRADE -> this.tradePanel.handleTradeClick(mx, contentY);
                         case TAB_INVENTORY -> this.inventoryPanel.handleInventoryClick(mx, contentY);
-                        case TAB_COMPANY -> this.companyTabs.handleCompanyClick(mx, contentY);
                         case TAB_STOCK -> this.stockTabs.handleStockClick(mx, contentY);
                         case TAB_ALERTS -> this.alertsPanel.handleAlertClick(mx, contentY);
                         case TAB_FINANCIAL -> this.serviceTabs.handleFinancialProductsClick(mx, contentY);

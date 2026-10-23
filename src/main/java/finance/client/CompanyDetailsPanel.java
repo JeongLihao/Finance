@@ -22,7 +22,10 @@ final class CompanyDetailsPanel {
         g.fill(8, cardY, screen.imageWidth() - 8, cardY + cardH, 0xFFE0E0E0);
         FinanceGui.drawSimpleBorder(g, 8, cardY, screen.imageWidth() - 16, cardH, FinanceGui.COL_PANEL_BORDER);
         FinanceGui.drawSectionTitle(screen.font(), g, "财报与股东提案", 10, cardY + 2);
-        FinanceGui.drawButton(screen.font(), g, "返回", 340, cardY + 2, 36, false);
+        screen.button(g, "返回", 340, cardY + 2, 36, false, () -> {
+            screen.companyDetailsView = false;
+            screen.updateInputVisibility();
+        });
 
         FinanceGui.drawClippedString(
                 screen.font(), g, "收入 " + company.reportRevenue(), 12, cardY + 22, 112, FinanceGui.COL_TEXT);
@@ -53,10 +56,10 @@ final class CompanyDetailsPanel {
         FinanceGui.drawClippedString(screen.font(), g, "金额", 12, cardY + 84, 32, FinanceGui.COL_TEXT_DIM);
         FinanceGui.drawClippedString(screen.font(), g, "价格", 132, cardY + 84, 32, FinanceGui.COL_TEXT_DIM);
         FinanceGui.drawClippedString(screen.font(), g, "数量", 252, cardY + 84, 32, FinanceGui.COL_TEXT_DIM);
-        FinanceGui.drawFilledButton(screen.font(), g, "分红", 10, cardY + 106, 48, FinanceGui.COL_ACCENT);
-        FinanceGui.drawFilledButton(screen.font(), g, "增发", 64, cardY + 106, 48, FinanceGui.COL_GOOD);
-        FinanceGui.drawFilledButton(screen.font(), g, "改名", 118, cardY + 106, 48, FinanceGui.COL_WARN);
-        FinanceGui.drawFilledButton(screen.font(), g, "用途", 172, cardY + 106, 48, FinanceGui.COL_ACCENT);
+        screen.filledButton(g, "分红", 10, cardY + 106, 48, FinanceGui.COL_ACCENT, () -> propose(company, 0));
+        screen.filledButton(g, "增发", 64, cardY + 106, 48, FinanceGui.COL_GOOD, () -> propose(company, 1));
+        screen.filledButton(g, "改名", 118, cardY + 106, 48, FinanceGui.COL_WARN, () -> propose(company, 2));
+        screen.filledButton(g, "用途", 172, cardY + 106, 48, FinanceGui.COL_ACCENT, () -> propose(company, 3));
         FinanceGui.drawClippedString(screen.font(), g, "金额=分红比例/目标/预算", 230, cardY + 109, 146, FinanceGui.COL_TEXT_DIM);
 
         int proposalY = cardY + 128;
@@ -99,8 +102,8 @@ final class CompanyDetailsPanel {
                             ? FinanceGui.COL_WARN
                             : ("PASSED".equals(row.status()) ? FinanceGui.COL_GOOD : FinanceGui.COL_BAD));
             if (active && !row.playerVoted()) {
-                FinanceGui.drawButton(screen.font(), g, "赞成", 300, py - 2, 36, false);
-                FinanceGui.drawButton(screen.font(), g, "反对", 340, py - 2, 36, false);
+                screen.button(g, "赞成", 300, py - 2, 36, false, () -> vote(company, row, true));
+                screen.button(g, "反对", 340, py - 2, 36, false, () -> vote(company, row, false));
             }
             py += FinanceGui.ROW_HEIGHT;
             if (hasDetailLine(row)) {
@@ -119,65 +122,35 @@ final class CompanyDetailsPanel {
         }
     }
 
-    boolean click(int mx, int my, CompanyRows.CompanyInfo playerCompany, int cardY) {
-        if (mx >= 340 && mx < 376 && my >= cardY + 2 && my < cardY + 15) {
-            screen.companyDetailsView = false;
-            screen.updateInputVisibility();
-            return true;
+    /** 提案按钮：0 分红、1 增发、2 改名、3 资金用途。未上市公司不能发起股东提案。 */
+    private void propose(CompanyRows.CompanyInfo playerCompany, int button) {
+        if (!playerCompany.isPublic()) return;
+        java.util.function.LongSupplier amount = () -> screen.requireAmount(screen.companyAmountBox, "金额");
+        java.util.function.LongSupplier price = () -> screen.requireAmount(screen.ipoPriceBox, "价格");
+        java.util.function.LongSupplier quantity = () -> screen.requireAmount(screen.ipoQuantityBox, "数量");
+        String text = screen.companyNameBox.getValue().trim();
+        if (button == 0) {
+            tabs.sendProposal(playerCompany.companyId(), CompanyProposalType.DIVIDEND, "", amount.getAsLong(), 0, 0);
+        } else if (button == 1) {
+            tabs.sendProposal(
+                    playerCompany.companyId(),
+                    CompanyProposalType.SHARE_ISSUE,
+                    "",
+                    quantity.getAsLong(),
+                    price.getAsLong(),
+                    amount.getAsLong());
+        } else if (button == 2) {
+            tabs.sendProposal(playerCompany.companyId(), CompanyProposalType.RENAME, text, 0, 0, 0);
+        } else {
+            tabs.sendProposal(
+                    playerCompany.companyId(), CompanyProposalType.FUND_USAGE, text, amount.getAsLong(), 0, 0);
         }
-        if (!playerCompany.isPublic()) return false;
-        if (my >= cardY + 106 && my < cardY + 119) {
-            java.util.function.LongSupplier amount = () -> screen.requireAmount(screen.companyAmountBox, "金额");
-            java.util.function.LongSupplier price = () -> screen.requireAmount(screen.ipoPriceBox, "价格");
-            java.util.function.LongSupplier quantity = () -> screen.requireAmount(screen.ipoQuantityBox, "数量");
-            String text = screen.companyNameBox.getValue().trim();
-            if (mx >= 10 && mx < 58) {
-                tabs.sendProposal(
-                        playerCompany.companyId(), CompanyProposalType.DIVIDEND, "", amount.getAsLong(), 0, 0);
-                return true;
-            }
-            if (mx >= 64 && mx < 112) {
-                tabs.sendProposal(
-                        playerCompany.companyId(),
-                        CompanyProposalType.SHARE_ISSUE,
-                        "",
-                        quantity.getAsLong(),
-                        price.getAsLong(),
-                        amount.getAsLong());
-                return true;
-            }
-            if (mx >= 118 && mx < 166) {
-                tabs.sendProposal(playerCompany.companyId(), CompanyProposalType.RENAME, text, 0, 0, 0);
-                return true;
-            }
-            if (mx >= 172 && mx < 220) {
-                tabs.sendProposal(
-                        playerCompany.companyId(), CompanyProposalType.FUND_USAGE, text, amount.getAsLong(), 0, 0);
-                return true;
-            }
-        }
-        List<CompanyRows.CompanyProposalRow> proposals = proposalsForCompany(playerCompany.companyId());
-        int py = cardY + 144;
-        int limit = proposalAreaBottom();
-        for (int i = 0; i < proposals.size(); i++) {
-            if (py + FinanceGui.ROW_HEIGHT > limit) break;
-            CompanyRows.CompanyProposalRow row = proposals.get(i);
-            if ("ACTIVE".equals(row.status()) && !row.playerVoted()) {
-                if (mx >= 300 && mx < 336 && my >= py - 2 && my < py + 11) {
-                    FinancePacketHandler.CHANNEL.sendToServer(CompanyProposalPacket.vote(row.proposalId(), true));
-                    screen.setStatus("已提交赞成票");
-                    return true;
-                }
-                if (mx >= 340 && mx < 376 && my >= py - 2 && my < py + 11) {
-                    FinancePacketHandler.CHANNEL.sendToServer(CompanyProposalPacket.vote(row.proposalId(), false));
-                    screen.setStatus("已提交反对票");
-                    return true;
-                }
-            }
-            py += FinanceGui.ROW_HEIGHT;
-            if (hasDetailLine(row)) py += FinanceGui.ROW_HEIGHT;
-        }
-        return false;
+    }
+
+    private void vote(CompanyRows.CompanyInfo playerCompany, CompanyRows.CompanyProposalRow row, boolean yes) {
+        if (!playerCompany.isPublic()) return;
+        FinancePacketHandler.CHANNEL.sendToServer(CompanyProposalPacket.vote(row.proposalId(), yes));
+        screen.setStatus(yes ? "已提交赞成票" : "已提交反对票");
     }
 
     /** 提案区的下边界（渲染和点击共用，保证行位置一致）。 */

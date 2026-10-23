@@ -21,7 +21,10 @@ final class CompanyGovernancePanel {
         g.fill(8, cardY, screen.imageWidth() - 8, cardY + cardH, 0xFFE0E0E0);
         FinanceGui.drawSimpleBorder(g, 8, cardY, screen.imageWidth() - 16, cardH, FinanceGui.COL_PANEL_BORDER);
         FinanceGui.drawSectionTitle(screen.font(), g, "公司治理与资本结构", 10, cardY + 2);
-        FinanceGui.drawButton(screen.font(), g, "返回", 340, cardY + 2, 36, false);
+        screen.button(g, "返回", 340, cardY + 2, 36, false, () -> {
+            screen.governanceView = false;
+            screen.updateInputVisibility();
+        });
         GovernanceClientCache.Entry entry = GovernanceClientCache.get();
         GovernanceResponsePacket data = entry.data();
         if (entry.state() == GovernanceClientCache.State.NOT_REQUESTED) tabs.requestGovernance(company.companyId());
@@ -107,118 +110,105 @@ final class CompanyGovernancePanel {
         FinanceGui.drawClippedString(screen.font(), g, "股份", 132, controlsY + 4, 34, FinanceGui.COL_TEXT_DIM);
         FinanceGui.drawClippedString(screen.font(), g, "期限", 252, controlsY + 4, 34, FinanceGui.COL_TEXT_DIM);
         int buttonY = controlsY + 23;
-        FinanceGui.drawButton(screen.font(), g, "回购", 10, buttonY, 48, false);
-        FinanceGui.drawButton(screen.font(), g, "注销", 62, buttonY, 48, false);
-        FinanceGui.drawButton(screen.font(), g, "接受", 114, buttonY, 48, false);
-        FinanceGui.drawButton(screen.font(), g, "收购", 166, buttonY, 48, false);
-        FinanceGui.drawButton(screen.font(), g, "注资", 218, buttonY, 48, false);
-        FinanceGui.drawButton(screen.font(), g, "资产", 270, buttonY, 48, false);
-        FinanceGui.drawButton(screen.font(), g, "刷新", 322, buttonY, 54, false);
+        screen.button(g, "回购", 10, buttonY, 48, false, () -> act(company, 0));
+        screen.button(g, "注销", 62, buttonY, 48, false, () -> act(company, 1));
+        screen.button(g, "接受", 114, buttonY, 48, false, () -> act(company, 2));
+        screen.button(g, "收购", 166, buttonY, 48, false, () -> act(company, 3));
+        screen.button(g, "注资", 218, buttonY, 48, false, () -> act(company, 4));
+        screen.button(g, "资产", 270, buttonY, 48, false, () -> act(company, 5));
+        screen.button(g, "刷新", 322, buttonY, 54, false, () -> act(company, 6));
     }
 
-    boolean click(int mx, int my, CompanyRows.CompanyInfo playerCompany, int cardY) {
-        if (mx >= 340 && mx < 376 && my >= cardY + 2 && my < cardY + 15) {
-            screen.governanceView = false;
-            screen.updateInputVisibility();
-            return true;
-        }
-        int controlsY = cardY + 160;
+    /** 底部一排按钮：0 回购、1 注销、2 接受、3 收购、4 注资、5 资产、6 刷新。 */
+    private void act(CompanyRows.CompanyInfo playerCompany, int button) {
         java.util.function.LongSupplier price = () -> screen.requireAmount(screen.stockPriceBox, "价格");
         java.util.function.LongSupplier quantity = () -> screen.requireAmount(screen.stockQuantityBox, "股份");
         java.util.function.IntSupplier duration = () -> screen.requireInt(screen.companyAmountBox, "期限", 1, 90);
-        if (my >= controlsY + 23 && my < controlsY + 36) {
-            if (mx >= 10 && mx < 58) {
-                tabs.sendProposal(
-                        playerCompany.companyId(),
-                        CompanyProposalType.SHARE_BUYBACK,
-                        "",
-                        price.getAsLong(),
-                        quantity.getAsLong(),
-                        duration.getAsInt());
-                return true;
-            }
-            if (mx >= 62 && mx < 110) {
-                tabs.sendProposal(
-                        playerCompany.companyId(),
-                        CompanyProposalType.TREASURY_RETIREMENT,
-                        "",
-                        quantity.getAsLong(),
-                        0,
-                        0);
-                return true;
-            }
-            if (mx >= 114 && mx < 162) {
-                GovernanceResponsePacket data = GovernanceClientCache.get().data();
-                GovernanceResponsePacket.ActionRow action = data == null
-                        ? null
-                        : data.actions().stream()
-                                .filter(a -> a.status() == finance.governance.CapitalActionStatus.OPEN)
-                                .findFirst()
-                                .orElse(null);
-                if (action == null) {
-                    screen.setStatus("没有可接受的开放行动");
-                    return true;
-                }
-                GovernanceActionPacket.Action kind = "TENDER".equals(action.type())
-                        ? GovernanceActionPacket.Action.ACCEPT_TENDER
-                        : GovernanceActionPacket.Action.ACCEPT_BUYBACK;
-                FinancePacketHandler.CHANNEL.sendToServer(new GovernanceActionPacket(
-                        kind,
-                        action.id(),
-                        0,
-                        quantity.getAsLong(),
-                        0,
-                        0,
-                        UUID.randomUUID().toString()));
-                screen.setStatus("已提交行动接受请求");
-                return true;
-            }
-            String target = screen.companyNameBox.getValue().trim();
-            if (mx >= 166 && mx < 214) {
-                UUID targetCompany = ScreenInput.parseUuid(target);
-                if (targetCompany == null) {
-                    screen.setStatus("请输入目标公司的完整 UUID");
-                    return true;
-                }
-                FinancePacketHandler.CHANNEL.sendToServer(new GovernanceActionPacket(
-                        GovernanceActionPacket.Action.START_TENDER,
-                        targetCompany,
-                        price.getAsLong(),
-                        quantity.getAsLong(),
-                        quantity.getAsLong(),
-                        duration.getAsInt(),
-                        UUID.randomUUID().toString()));
-                screen.setStatus("已提交公开收购要约");
-                return true;
-            }
-            if (mx >= 218 && mx < 266) {
-                tabs.sendProposal(
-                        playerCompany.companyId(),
-                        CompanyProposalType.EMERGENCY_RECAPITALIZATION,
-                        "",
-                        price.getAsLong(),
-                        0,
-                        0);
-                return true;
-            }
-            if (mx >= 270 && mx < 318) {
-                tabs.sendProposal(
-                        playerCompany.companyId(),
-                        CompanyProposalType.MAJOR_ASSET_PURCHASE,
-                        target,
-                        price.getAsLong(),
-                        quantity.getAsLong(),
-                        0);
-                return true;
-            }
-            if (mx >= 322 && mx < 376) {
-                GovernanceClientCache.clear();
-                tabs.requestGovernance(playerCompany.companyId());
-                screen.setStatus("正在刷新治理数据");
-                return true;
-            }
+        if (button == 0) {
+            tabs.sendProposal(
+                    playerCompany.companyId(),
+                    CompanyProposalType.SHARE_BUYBACK,
+                    "",
+                    price.getAsLong(),
+                    quantity.getAsLong(),
+                    duration.getAsInt());
+            return;
         }
-        return false;
+        if (button == 1) {
+            tabs.sendProposal(
+                    playerCompany.companyId(), CompanyProposalType.TREASURY_RETIREMENT, "", quantity.getAsLong(), 0, 0);
+            return;
+        }
+        if (button == 2) {
+            GovernanceResponsePacket data = GovernanceClientCache.get().data();
+            GovernanceResponsePacket.ActionRow action = data == null
+                    ? null
+                    : data.actions().stream()
+                            .filter(a -> a.status() == finance.governance.CapitalActionStatus.OPEN)
+                            .findFirst()
+                            .orElse(null);
+            if (action == null) {
+                screen.setStatus("没有可接受的开放行动");
+                return;
+            }
+            GovernanceActionPacket.Action kind = "TENDER".equals(action.type())
+                    ? GovernanceActionPacket.Action.ACCEPT_TENDER
+                    : GovernanceActionPacket.Action.ACCEPT_BUYBACK;
+            FinancePacketHandler.CHANNEL.sendToServer(new GovernanceActionPacket(
+                    kind,
+                    action.id(),
+                    0,
+                    quantity.getAsLong(),
+                    0,
+                    0,
+                    UUID.randomUUID().toString()));
+            screen.setStatus("已提交行动接受请求");
+            return;
+        }
+        String target = screen.companyNameBox.getValue().trim();
+        if (button == 3) {
+            UUID targetCompany = ScreenInput.parseUuid(target);
+            if (targetCompany == null) {
+                screen.setStatus("请输入目标公司的完整 UUID");
+                return;
+            }
+            FinancePacketHandler.CHANNEL.sendToServer(new GovernanceActionPacket(
+                    GovernanceActionPacket.Action.START_TENDER,
+                    targetCompany,
+                    price.getAsLong(),
+                    quantity.getAsLong(),
+                    quantity.getAsLong(),
+                    duration.getAsInt(),
+                    UUID.randomUUID().toString()));
+            screen.setStatus("已提交公开收购要约");
+            return;
+        }
+        if (button == 4) {
+            tabs.sendProposal(
+                    playerCompany.companyId(),
+                    CompanyProposalType.EMERGENCY_RECAPITALIZATION,
+                    "",
+                    price.getAsLong(),
+                    0,
+                    0);
+            return;
+        }
+        if (button == 5) {
+            tabs.sendProposal(
+                    playerCompany.companyId(),
+                    CompanyProposalType.MAJOR_ASSET_PURCHASE,
+                    target,
+                    price.getAsLong(),
+                    quantity.getAsLong(),
+                    0);
+            return;
+        }
+        if (button == 6) {
+            GovernanceClientCache.clear();
+            tabs.requestGovernance(playerCompany.companyId());
+            screen.setStatus("正在刷新治理数据");
+            return;
+        }
     }
 
     /** "创始人 60.0% · 分红派 20.0%(+35) · 价值派 12.0%(-10) · 未流通 8.0%" */

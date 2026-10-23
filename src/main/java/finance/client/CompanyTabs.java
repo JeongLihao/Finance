@@ -50,16 +50,6 @@ public final class CompanyTabs {
         manage.render(g, company, cardY);
     }
 
-    public boolean handleCompanyClick(int mx, int my) {
-        int cardY = FinanceGui.CONTENT_Y;
-        CompanyRows.CompanyInfo playerCompany = screen.menu().getPlayerCompany();
-        if (screen.restructuringView) return restructuring.click(mx, my, cardY);
-        if (playerCompany == null) return create.click(mx, my, cardY);
-        if (screen.governanceView) return governance.click(mx, my, playerCompany, cardY);
-        if (screen.companyDetailsView) return details.click(mx, my, playerCompany, cardY);
-        return manage.click(mx, my, playerCompany, cardY);
-    }
-
     public void requestGovernance(UUID companyId) {
         long requestId = GovernanceClientCache.begin();
         FinancePacketHandler.CHANNEL.sendToServer(new GovernanceRequestPacket(requestId, companyId));

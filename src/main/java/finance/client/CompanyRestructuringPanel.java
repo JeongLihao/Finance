@@ -18,7 +18,10 @@ final class CompanyRestructuringPanel {
         g.fill(8, cardY, screen.imageWidth() - 8, cardY + cardH, 0xFFE0E0E0);
         FinanceGui.drawSimpleBorder(g, 8, cardY, screen.imageWidth() - 16, cardH, FinanceGui.COL_PANEL_BORDER);
         FinanceGui.drawSectionTitle(screen.font(), g, "跨公司重组任务", 10, cardY + 2);
-        FinanceGui.drawButton(screen.font(), g, "返回", 340, cardY + 2, 36, false);
+        screen.button(g, "返回", 340, cardY + 2, 36, false, () -> {
+            screen.restructuringView = false;
+            screen.updateInputVisibility();
+        });
         FinanceGui.drawClippedString(
                 screen.font(), g, "紧急注资允许外部投资者执行；资产交易必须由提案指定卖方的经营者确认。", 12, cardY + 20, 360, FinanceGui.COL_TEXT_DIM);
         List<CompanyRows.CompanyProposalRow> tasks = executableRestructuringTasks();
@@ -36,40 +39,19 @@ final class CompanyRestructuringPanel {
                     screen.font(), g, (recap ? "紧急注资 " : "资产购买 ") + company, 12, y + 3, 150, FinanceGui.COL_TEXT);
             FinanceGui.drawClippedString(screen.font(), g, details, 166, y + 3, 154, FinanceGui.COL_TEXT_DIM);
             boolean pending = GovernanceTaskClientState.isPending(row.proposalId());
-            FinanceGui.drawButton(screen.font(), g, pending ? "处理中" : recap ? "投资" : "卖方确认", 322, y + 1, 54, pending);
+            screen.button(g, pending ? "处理中" : recap ? "投资" : "卖方确认", 322, y + 1, 54, pending, () -> execute(row));
             y += FinanceGui.ROW_HEIGHT;
         }
     }
 
-    boolean click(int mx, int my, int cardY) {
-        if (mx >= 340 && mx < 376 && my >= cardY + 2 && my < cardY + 15) {
-            screen.restructuringView = false;
-            screen.updateInputVisibility();
-            return true;
-        }
-        int y = cardY + 42;
-        for (CompanyRows.CompanyProposalRow proposal : executableRestructuringTasks()) {
-            if (y + FinanceGui.ROW_HEIGHT > screen.imageHeight() - 12) break;
-            if (mx >= 322 && mx < 376 && my >= y + 1 && my < y + 14) {
-                if (!GovernanceTaskClientState.begin(proposal.proposalId())) return true;
-                GovernanceActionPacket.Action action = "EMERGENCY_RECAPITALIZATION".equals(proposal.type())
-                        ? GovernanceActionPacket.Action.EXECUTE_RECAPITALIZATION
-                        : GovernanceActionPacket.Action.EXECUTE_ASSET_PURCHASE;
-                FinancePacketHandler.CHANNEL.sendToServer(new GovernanceActionPacket(
-                        action,
-                        proposal.proposalId(),
-                        0,
-                        0,
-                        0,
-                        0,
-                        UUID.randomUUID().toString()));
-                screen.setStatus(
-                        action == GovernanceActionPacket.Action.EXECUTE_RECAPITALIZATION ? "已提交外部注资" : "已提交卖方确认");
-                return true;
-            }
-            y += FinanceGui.ROW_HEIGHT;
-        }
-        return false;
+    private void execute(CompanyRows.CompanyProposalRow proposal) {
+        if (!GovernanceTaskClientState.begin(proposal.proposalId())) return;
+        GovernanceActionPacket.Action action = "EMERGENCY_RECAPITALIZATION".equals(proposal.type())
+                ? GovernanceActionPacket.Action.EXECUTE_RECAPITALIZATION
+                : GovernanceActionPacket.Action.EXECUTE_ASSET_PURCHASE;
+        FinancePacketHandler.CHANNEL.sendToServer(new GovernanceActionPacket(
+                action, proposal.proposalId(), 0, 0, 0, 0, UUID.randomUUID().toString()));
+        screen.setStatus(action == GovernanceActionPacket.Action.EXECUTE_RECAPITALIZATION ? "已提交外部注资" : "已提交卖方确认");
     }
 
     public List<CompanyRows.CompanyProposalRow> executableRestructuringTasks() {
