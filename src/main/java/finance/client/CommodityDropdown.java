@@ -11,8 +11,20 @@ import net.minecraft.client.gui.GuiGraphics;
 final class CommodityDropdown {
     private final FinanceScreen screen;
 
+    /** 下拉框在内容区里的位置和大小（内容区坐标，画和点都用这一份）。 */
+    private static final int DD_X = 82, DD_W = 200, DD_H = 120;
+
+    /** 下拉框里的分类标题和商品行，画的时候登记（内容区坐标）。 */
+    private final ClickRegions clicks = new ClickRegions();
+
     CommodityDropdown(FinanceScreen screen) {
         this.screen = screen;
+    }
+
+    private int ddLocalY() {
+        return screen.currentTab == FinanceScreen.TAB_MARKET
+                ? FinanceGui.MARKET_TRADE_Y + 14
+                : FinanceGui.CONTENT_Y + 14;
     }
 
     /** 渲染分类下拉面板（在行情/交易标签中使用） */
@@ -24,14 +36,13 @@ final class CommodityDropdown {
                 ? screen.inventoryCategorizedCommodities
                 : screen.categorizedCommodities;
 
-        int localX = 82;
-        int localY = (screen.currentTab == FinanceScreen.TAB_MARKET)
-                ? FinanceGui.MARKET_TRADE_Y + 14
-                : FinanceGui.CONTENT_Y + 14;
+        int localX = DD_X;
+        int localY = ddLocalY();
         int ddX = screen.leftPos() + localX;
         int ddY = screen.topPos() + localY;
-        int ddW = 200;
-        int ddH = 120;
+        int ddW = DD_W;
+        int ddH = DD_H;
+        clicks.clear();
 
         // 背景
         g.fill(ddX, ddY, ddX + ddW, ddY + ddH, FinanceGui.COL_DROPDOWN_BG);
@@ -53,8 +64,14 @@ final class CommodityDropdown {
             List<Commodity> items = activeMap.get(cat);
             if (items == null || items.isEmpty()) continue;
 
-            // 分类标题
+            // 分类标题：点击展开 / 折叠
             if (y + 12 > 0 && y < maxY) {
+                clicks.add(
+                        localX,
+                        localY + y,
+                        ddW,
+                        12,
+                        () -> screen.expandedCategory = (screen.expandedCategory == cat) ? null : cat);
                 g.fill(ddX + 2, ddY + y, ddX + ddW - 2, ddY + y + 12, FinanceGui.COL_CATEGORY);
                 g.drawString(
                         screen.font(), "▸ " + cat.getDisplayName(), ddX + 6, ddY + y + 2, FinanceGui.COL_TEXT, false);
@@ -65,6 +82,7 @@ final class CommodityDropdown {
             if (screen.expandedCategory == cat) {
                 for (Commodity c : items) {
                     if (y + 14 > 0 && y < maxY) {
+                        clicks.add(localX + 1, localY + y, ddW - 1, 14, () -> select(c));
                         boolean hovered = localMx > 0 && localMx < ddW && localMy >= y && localMy < y + 14;
                         if (hovered) {
                             g.fill(ddX + 2, ddY + y, ddX + ddW - 2, ddY + y + 14, FinanceGui.COL_DROPDOWN_HOVER);
@@ -112,64 +130,25 @@ final class CommodityDropdown {
         return h;
     }
 
+    /** 点在下拉框外返回 false（由上层关闭下拉）；框内一律吃掉这次点击。 */
     public boolean handleDropdownClick(int mx, int my) {
-        int ddX = 82;
-        int ddY = (screen.currentTab == FinanceScreen.TAB_MARKET)
-                ? FinanceGui.MARKET_TRADE_Y + 14
-                : FinanceGui.CONTENT_Y + 14;
-        int ddW = 200;
-        int ddH = 120;
-
-        if (mx < ddX || mx >= ddX + ddW || my < ddY || my >= ddY + ddH) {
+        int ddY = ddLocalY();
+        if (mx < DD_X || mx >= DD_X + DD_W || my < ddY || my >= ddY + DD_H) {
             return false; // 点击外部，由上层关闭
         }
+        clicks.click(mx, my);
+        return true;
+    }
 
-        if (screen.categorizedCacheDirty) screen.rebuildCategorizedCache();
-
-        // 交易标签使用库存商品缓存，行情标签使用全部商品缓存
-        Map<CommodityCategory, List<Commodity>> activeMap = (screen.currentTab == FinanceScreen.TAB_TRADE)
-                ? screen.inventoryCategorizedCommodities
-                : screen.categorizedCommodities;
-
-        int localMx = mx - ddX;
-        int localMy = my - ddY;
-        int y = 2 - screen.dropdownScroll;
-        int maxY = ddH - 2;
-
-        for (CommodityCategory cat : CommodityCategory.values()) {
-            List<Commodity> items = activeMap.get(cat);
-            if (items == null || items.isEmpty()) continue;
-
-            // 分类标题点击 → 展开/折叠（与渲染完全对称：12px 高）
-            if (y + 12 > 0 && y < maxY) {
-                if (localMy >= y && localMy < y + 12) {
-                    screen.expandedCategory = (screen.expandedCategory == cat) ? null : cat;
-                    return true;
-                }
-            }
-            y += 14;
-
-            if (screen.expandedCategory == cat) {
-                for (Commodity c : items) {
-                    if (y + 14 > 0 && y < maxY) {
-                        if (localMx > 0 && localMx < ddW && localMy >= y && localMy < y + 14) {
-                            screen.selectedCommodity = c.getId();
-                            screen.rememberUiState();
-                            if (screen.currentTab == FinanceScreen.TAB_TRADE) {
-                                finance.market.MarketPrice mp =
-                                        NpcMarketMaker.getAllMarketPrices().get(c.getId());
-                                if (mp != null) screen.priceBox.setValue(Long.toString(mp.getMidPrice()));
-                            }
-                            screen.dropdownOpen = false;
-                            screen.expandedCategory = null;
-                            screen.refreshSelectedRow();
-                            return true;
-                        }
-                    }
-                    y += 14;
-                }
-            }
+    private void select(Commodity c) {
+        screen.selectedCommodity = c.getId();
+        screen.rememberUiState();
+        if (screen.currentTab == FinanceScreen.TAB_TRADE) {
+            finance.market.MarketPrice mp = NpcMarketMaker.getAllMarketPrices().get(c.getId());
+            if (mp != null) screen.priceBox.setValue(Long.toString(mp.getMidPrice()));
         }
-        return true; // 点击在下拉区域内但未命中项目
+        screen.dropdownOpen = false;
+        screen.expandedCategory = null;
+        screen.refreshSelectedRow();
     }
 }
