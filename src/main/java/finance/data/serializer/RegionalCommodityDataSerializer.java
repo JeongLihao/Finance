@@ -70,7 +70,8 @@ public final class RegionalCommodityDataSerializer {
                     RegionalCommodityMetricsManager.restoreSnapshot(key, snapshot);
                     previous = snapshot.day();
                 }
-            } catch (RuntimeException ignored) {
+            } catch (RuntimeException e) {
+                LoadWarnings.skipped("regional commodity key", e);
             }
         }
         ListTag live = data.getList("Live", Tag.TAG_COMPOUND);
@@ -91,7 +92,8 @@ public final class RegionalCommodityDataSerializer {
                         row.getLong("Delivered"),
                         new BigInteger(row.getString("Paid")));
                 RegionalCommodityMetricsManager.restoreLive(key, value);
-            } catch (RuntimeException ignored) {
+            } catch (RuntimeException e) {
+                LoadWarnings.skipped("regional commodity metrics", e);
             }
         }
         RegionalCommodityMetricsManager.restoreLastClosedDay(data.getLong("LastClosedDay"));

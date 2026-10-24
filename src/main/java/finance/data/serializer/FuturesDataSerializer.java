@@ -156,7 +156,8 @@ public final class FuturesDataSerializer {
                         id, t.getString("Code"), t.getString("Commodity"), size, listing, last, maturity, type, st);
                 c.restoreFinalSettlementPrice(t.getLong("FinalPrice"));
                 FuturesMarketManager.putContractDirect(c);
-            } catch (IllegalArgumentException ignored) {
+            } catch (IllegalArgumentException e) {
+                LoadWarnings.skipped("futures contract", e);
             }
         }
         Set<UUID> owners = new HashSet<>();
@@ -171,7 +172,8 @@ public final class FuturesDataSerializer {
             try {
                 MarginManager.putAccountDirect(new MarginAccount(
                         owner, cash, frozen, risk, t.getLong("LastSettlement"), t.getLong("Notified")));
-            } catch (IllegalArgumentException ignored) {
+            } catch (IllegalArgumentException e) {
+                LoadWarnings.skipped("futures margin account", e);
             }
         }
         Map<UUID, BigInteger> netByContract = new HashMap<>();
@@ -202,7 +204,8 @@ public final class FuturesDataSerializer {
                     netByContract.merge(contract, BigInteger.valueOf(signed), BigInteger::add);
                 }
                 if (pending != 0) MarginManager.putPendingDirect(key, pending);
-            } catch (IllegalArgumentException ignored) {
+            } catch (IllegalArgumentException e) {
+                LoadWarnings.skipped("futures position", e);
             }
         }
         Set<UUID> imbalanced = new HashSet<>();
@@ -240,7 +243,8 @@ public final class FuturesDataSerializer {
             try {
                 orderCandidates.add(new FuturesOrder(id, owner, contract, side, price, qty, seq, reserved));
                 maxSeq = Math.max(maxSeq, seq);
-            } catch (IllegalArgumentException ignored) {
+            } catch (IllegalArgumentException e) {
+                LoadWarnings.skipped("futures order", e);
             }
         }
         if (orderLocksMatch(orderCandidates)) orderCandidates.forEach(FuturesMarketManager::addOrderDirect);
@@ -262,7 +266,8 @@ public final class FuturesDataSerializer {
             try {
                 FuturesMarketManager.addTradeDirect(new FuturesTrade(
                         b, s, c, price, qty, day, LocalDateTime.ofEpochSecond(t.getLong("Time"), 0, ZoneOffset.UTC)));
-            } catch (RuntimeException ignored) {
+            } catch (RuntimeException e) {
+                LoadWarnings.skipped("futures trade", e);
             }
         }
         FuturesClearingService.restoreFund(
@@ -290,7 +295,8 @@ public final class FuturesDataSerializer {
                             t.getLong("FundUse"),
                             t.getLong("Haircut"),
                             t.getBoolean("Final")));
-            } catch (IllegalArgumentException ignored) {
+            } catch (IllegalArgumentException e) {
+                LoadWarnings.skipped("futures settlement record", e);
             }
         }
     }

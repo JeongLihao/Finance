@@ -117,7 +117,13 @@ public final class CompanyGameplayDataSerializer {
                 ListTag warehouses = tag.getList("Warehouses", Tag.TAG_STRING);
                 for (int i = 0; i < Math.min(CompanyGameplayProfile.MAX_WAREHOUSES, warehouses.size()); i++) {
                     UUID id = Uuids.parseOrNull(warehouses.getString(i));
-                    WarehouseRecord record = id == null ? null : WarehouseManager.get(id);
+                    if (id == null) {
+                        LoadWarnings.skipped(
+                                "company warehouse binding",
+                                new IllegalArgumentException("bad warehouse id: " + warehouses.getString(i)));
+                        continue;
+                    }
+                    WarehouseRecord record = WarehouseManager.get(id);
                     if (record != null && companyId.equals(record.companyId())) profile.bindWarehouse(id);
                 }
                 ListTag desks = tag.getList("Desks", Tag.TAG_STRING);
@@ -127,7 +133,8 @@ public final class CompanyGameplayDataSerializer {
                 for (int i = Math.max(0, ops.size() - CompanyGameplayProfile.MAX_OPERATION_KEYS); i < ops.size(); i++)
                     profile.recordOperation(ops.getString(i));
                 CompanyGameplayManager.restore(profile);
-            } catch (RuntimeException ignored) {
+            } catch (RuntimeException e) {
+                LoadWarnings.skipped("company gameplay profile", e);
             }
         }
         CompanyGameplayManager.ensureLegacyProfiles();
@@ -156,7 +163,8 @@ public final class CompanyGameplayDataSerializer {
                 for (int op = Math.max(0, ops.size() - CompanyFacilityRecord.MAX_OPERATION_KEYS); op < ops.size(); op++)
                     facility.recordOperation(ops.getString(op));
                 CompanyFacilityManager.restore(facility);
-            } catch (RuntimeException ignored) {
+            } catch (RuntimeException e) {
+                LoadWarnings.skipped("company facility", e);
             }
         }
     }

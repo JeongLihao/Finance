@@ -211,6 +211,9 @@ public final class MarketDataSerializer {
                 // 期货净持仓有符号（可为负），走专用恢复路径；stock 沿用原逻辑
                 UUID contractId = Uuids.parseOrNull(symbol);
                 if (contractId != null) MarketMakerLedger.restoreFuturesNetPosition(contractId, inventory);
+                else
+                    LoadWarnings.skipped(
+                            "futures market-maker position", new IllegalArgumentException("bad contract id: " + symbol));
             } else {
                 MarketMakerLedger.restoreInventory(market, symbol, inventory);
             }

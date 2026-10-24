@@ -136,7 +136,8 @@ public final class InsuranceDataSerializer {
                         t.getInt("Risk"),
                         t.getInt("Version"),
                         t.getLong("Updated")));
-            } catch (Exception ignored) {
+            } catch (Exception e) {
+                LoadWarnings.skipped("insurance policy", e);
             }
         }
         for (Tag raw : s.getList("Events", Tag.TAG_COMPOUND)) {
@@ -159,7 +160,8 @@ public final class InsuranceDataSerializer {
                         t.getLong("Offset"),
                         t.getString("Evidence"),
                         t.getBoolean("Processed")));
-            } catch (Exception ignored) {
+            } catch (Exception e) {
+                LoadWarnings.skipped("insurance loss event", e);
             }
         }
         for (Tag raw : s.getList("Claims", Tag.TAG_COMPOUND)) {
@@ -183,7 +185,8 @@ public final class InsuranceDataSerializer {
                         t.getLong("Paid"),
                         t.getLong("PaymentDay"),
                         payment));
-            } catch (Exception ignored) {
+            } catch (Exception e) {
+                LoadWarnings.skipped("insurance claim", e);
             }
         }
         for (Tag raw : s.getList("Keys", Tag.TAG_COMPOUND))

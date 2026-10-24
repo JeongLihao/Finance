@@ -78,6 +78,7 @@ import net.minecraft.world.level.storage.DimensionDataStorage;
  * </ul>
  */
 public class EconomySavedData extends SavedData {
+    private static final org.slf4j.Logger LOGGER = com.mojang.logging.LogUtils.getLogger();
 
     public static final String DATA_NAME = "finance_data";
     private static final int DATA_VERSION = 44;
@@ -260,6 +261,7 @@ public class EconomySavedData extends SavedData {
      * 注意：加载时如果发现 FrozenBalance，需要将 balance+frozen 设为总余额后重新冻结。
      */
     public static EconomySavedData load(CompoundTag tag) {
+        finance.data.serializer.LoadWarnings.takeSummary(); // 清掉上次读档留下的统计
 
         EconomySavedData data = new EconomySavedData();
 
@@ -475,6 +477,8 @@ public class EconomySavedData extends SavedData {
         finance.data.serializer.CentralBankDataSerializer.load(tag);
         finance.macro.MacroPersistence.load(tag);
         RecentTradeService.rebuildFromHistories();
+        Map<String, Integer> skipped = finance.data.serializer.LoadWarnings.takeSummary();
+        if (!skipped.isEmpty()) LOGGER.warn("Economy save loaded; damaged records were skipped: {}", skipped);
         return data;
     }
 

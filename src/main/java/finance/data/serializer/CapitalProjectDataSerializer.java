@@ -92,8 +92,9 @@ public final class CapitalProjectDataSerializer {
         for (int i = 0; i < Math.min(records.size(), CapitalProjectManager.MAX_PROJECTS); i++) {
             try {
                 restoreRecord(records.getCompound(i));
-            } catch (RuntimeException ignored) {
+            } catch (RuntimeException e) {
                 // Isolate a damaged project. Never guess a refund recipient or alter linked debt.
+                LoadWarnings.skipped("capital project", e);
             }
         }
     }

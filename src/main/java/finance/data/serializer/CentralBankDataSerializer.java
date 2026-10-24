@@ -91,8 +91,9 @@ public final class CentralBankDataSerializer {
             try {
                 CompoundTag t = (CompoundTag) raw;
                 positions.put(t.getUUID("Bank"), t.getLong("Amount"));
-            } catch (Exception ignored) {
+            } catch (Exception e) {
                 // 坏记录跳过
+                LoadWarnings.skipped("central-bank position", e);
             }
         }
         List<CentralBankService.Decision> decisions = new ArrayList<>();

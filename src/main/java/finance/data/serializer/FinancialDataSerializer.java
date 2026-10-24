@@ -107,7 +107,8 @@ public final class FinancialDataSerializer {
                 MarketIndexState state = new MarketIndexState(id);
                 state.restore(divisor, item.getString("Fingerprint"), points);
                 MarketIndexService.putDirect(state);
-            } catch (RuntimeException ignored) {
+            } catch (RuntimeException e) {
+                LoadWarnings.skipped("market index", e);
             }
         }
     }

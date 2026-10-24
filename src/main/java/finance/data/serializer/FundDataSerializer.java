@@ -157,7 +157,8 @@ public final class FundDataSerializer {
                         t.getString("Reason"),
                         history);
                 FundManager.registerDirect(d, s);
-            } catch (Exception ignored) {
+            } catch (Exception e) {
+                LoadWarnings.skipped("fund", e);
             }
         }
         for (Tag raw : root.getList("FundPositions", Tag.TAG_COMPOUND)) {
@@ -175,7 +176,8 @@ public final class FundDataSerializer {
                     p.restore(shares, frozen, cost, t.getLong("Realized"));
                     FundManager.putPositionDirect(player, id, p);
                 }
-            } catch (Exception ignored) {
+            } catch (Exception e) {
+                LoadWarnings.skipped("fund position", e);
             }
         }
         for (Tag raw : root.getList("FundRedemptions", Tag.TAG_COMPOUND)) {
@@ -193,7 +195,8 @@ public final class FundDataSerializer {
                         || !FundManager.definitions().containsKey(r.fundId())) continue;
                 r.restore(r.status(), t.getString("Reason"), t.getLong("Paid"));
                 FundManager.putRequestDirect(r);
-            } catch (Exception ignored) {
+            } catch (Exception e) {
+                LoadWarnings.skipped("fund redemption", e);
             }
         }
         for (Tag raw : root.getList("FundPlans", Tag.TAG_COMPOUND)) {
@@ -213,7 +216,8 @@ public final class FundDataSerializer {
                         || !FundManager.definitions().containsKey(p.fundId())) continue;
                 p.restore(t.getLong("Last"), t.getInt("Failures"));
                 FundManager.putPlanDirect(p);
-            } catch (Exception ignored) {
+            } catch (Exception e) {
+                LoadWarnings.skipped("fund plan", e);
             }
         }
         for (Tag raw : root.getList("FundOperationKeys", Tag.TAG_COMPOUND)) {

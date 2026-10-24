@@ -77,7 +77,7 @@ public final class FactoryBlockEntity extends CompanyMachineBlockEntity {
 
     public static void serverTick(Level level, BlockPos pos, BlockState state, FactoryBlockEntity factory) {
         if (!(level instanceof ServerLevel server)) return;
-        if (level.getGameTime() % 20 == 0) factory.logistics(server);
+        if (everySecond(level, pos)) factory.logistics(server);
         for (int i = factory.steps(); i > 0; i--) if (factory.core.tick()) factory.setChanged();
     }
 

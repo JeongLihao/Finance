@@ -59,7 +59,8 @@ public final class CompanyHedgeDataSerializer {
                         t.getLong("Created"),
                         t.getLong("Deadline"),
                         t.getString("Operation")));
-            } catch (IllegalArgumentException ignored) {
+            } catch (IllegalArgumentException e) {
+                LoadWarnings.skipped("company hedge", e);
             }
         }
     }
