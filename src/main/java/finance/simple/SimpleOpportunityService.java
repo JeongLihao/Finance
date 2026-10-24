@@ -241,11 +241,12 @@ public final class SimpleOpportunityService {
         held.sort(Comparator.comparingLong(Held::value).reversed());
         for (Held h : held.subList(0, Math.min(2, held.size()))) {
             out.add(Card.go(
-                    "背包里的 " + h.count() + " 个" + h.name() + "现在能卖 " + MoneyFormat.pounds(h.value()) + "。",
-                    "去卖",
+                    "背包里的 " + h.count() + " 个" + h.name() + "现在能卖 " + MoneyFormat.pounds(h.value())
+                            + "：到自己的仓库或市场终端旁存进去，之后人在哪里都能卖。",
+                    "去看看",
                     "TRADE"));
         }
-        if (out.isEmpty()) out.add(Card.go("去挖矿、种地或砍树，拿到东西后在“买卖”页卖掉。", "", ""));
+        if (out.isEmpty()) out.add(Card.go("去挖矿、种地或砍树，拿到东西后存进仓库，在“买卖”页卖掉。", "", ""));
         return out.subList(0, Math.min(MAX_CARDS, out.size()));
     }
 

@@ -63,56 +63,42 @@ public final class SimpleCenterService {
 
     // ------------------------------------------------------------ 买卖
 
-    /** 把背包里的东西直接卖给市场。市场今天收不完的部分原样还给玩家。 */
+    /**
+     * 把仓库里（个人托管）的货卖给市场，人在哪里都能卖。背包里的东西要先在自己的仓库控制器或市场终端旁存进去。
+     * 市场今天收不完的部分留在仓库里。
+     */
     public static Result quickSell(ServerPlayer player, String commodityId, int quantity) {
         Commodity commodity = CommodityRegistry.getCommodity(commodityId);
-        if (commodity == null
-                || commodity.getItemId() == null
-                || commodity.getItemId().isEmpty()) {
-            return Result.fail("这种东西市场不收。");
-        }
+        if (commodity == null) return Result.fail("这种东西市场不收。");
         String name = commodity.getDisplayName();
-        int owned = InventoryUtil.countItemInInventory(player, commodity.getItemId());
-        int wanted = Math.min(Math.max(0, quantity), owned);
-        if (wanted <= 0)
-            return Result.fail(
-                    InventoryUtil.countSpecialInInventory(player, commodity.getItemId()) > 0
-                            ? "背包里的" + name + "附魔过、改过名或有损耗，市场不收。"
-                            : "背包里没有" + name + "。");
+        UUID id = player.getUUID();
+        int stored = CommodityInventoryManager.getCommodityAmount(id, commodityId);
+        int wanted = Math.min(Math.max(0, quantity), stored);
+        if (wanted <= 0) return Result.fail(notStoredMessage(player, commodity));
         String blocked = NpcMarketMaker.npcBuyBlockReason(commodityId);
         if (blocked != null) return Result.fail(name + "：" + blocked);
-        UUID id = player.getUUID();
-        if (!CommodityInventoryManager.canAddCommodity(id, commodityId, wanted)) {
-            return Result.fail("一次卖太多了，少卖一点试试。");
-        }
-        int removed = InventoryUtil.removeFromInventory(player, commodity.getItemId(), wanted);
-        if (removed <= 0) return Result.fail("背包里没有" + name + "。");
-        if (!CommodityInventoryManager.addCommodity(id, commodityId, removed)) {
-            InventoryUtil.addToInventory(player, commodity.getItemId(), removed);
-            return Result.fail("一次卖太多了，少卖一点试试。");
-        }
         long before = AccountManager.getBalance(id);
-        int filled = NpcMarketMaker.npcBuyFilled(id, commodityId, removed);
-        int leftover = removed - Math.max(0, filled);
-        if (leftover > 0 && CommodityInventoryManager.removeCommodity(id, commodityId, leftover)) {
-            InventoryUtil.addToInventory(player, commodity.getItemId(), leftover);
-        }
-        if (filled <= 0) return Result.fail(name + "：市场现在不收，东西已经还给你。");
+        int filled = NpcMarketMaker.npcBuyFilled(id, commodityId, wanted);
+        if (filled <= 0) return Result.fail(name + "：市场现在不收，货还在仓库里。");
         long earned = AccountManager.getBalance(id) - before;
         finance.advancement.FinanceAdvancementTriggers.trigger(player, "first_trade");
         String message = "卖出 " + filled + " 个" + name + "，得 " + MoneyFormat.pounds(earned);
-        if (leftover > 0) message += "。市场今天只收这么多，剩下 " + leftover + " 个还给你";
+        if (filled < wanted) message += "。市场今天只收这么多，剩下 " + (wanted - filled) + " 个还在仓库里";
         return Result.ok(message + "。", earned);
     }
 
-    /** 从市场买东西，直接放进背包（背包满了掉在脚下）。 */
+    /** 仓库里没有这种货时的提示：背包里有的话告诉玩家先存进去。 */
+    static String notStoredMessage(ServerPlayer player, Commodity commodity) {
+        String name = commodity.getDisplayName();
+        String item = commodity.getItemId();
+        boolean inBag = item != null && !item.isEmpty() && InventoryUtil.countItemInInventory(player, item) > 0;
+        return inBag ? "仓库里没有" + name + "。背包里的要先到自己的仓库控制器或市场终端旁存进去，才能卖。" : "仓库里没有" + name + "。";
+    }
+
+    /** 从市场买东西，货放在你的仓库里（个人托管），回到仓库控制器或市场终端旁再取出来。 */
     public static Result quickBuy(ServerPlayer player, String commodityId, int quantity) {
         Commodity commodity = CommodityRegistry.getCommodity(commodityId);
-        if (commodity == null
-                || commodity.getItemId() == null
-                || commodity.getItemId().isEmpty()) {
-            return Result.fail("市场不卖这种东西。");
-        }
+        if (commodity == null) return Result.fail("市场不卖这种东西。");
         String name = commodity.getDisplayName();
         if (quantity <= 0) return Result.fail("数量必须大于 0。");
         String blocked = NpcMarketMaker.npcSellBlockReason(commodityId);
@@ -128,18 +114,42 @@ public final class SimpleCenterService {
         long before = AccountManager.getBalance(id);
         int filled = NpcMarketMaker.npcSellFilled(id, commodityId, Math.max(1, affordable));
         if (filled <= 0) return Result.fail(name + "：现在买不到，稍后再试。");
-        if (CommodityInventoryManager.removeCommodity(id, commodityId, filled)) {
-            InventoryUtil.addToInventory(player, commodity.getItemId(), filled);
-        }
         long spent = before - AccountManager.getBalance(id);
-        String message = "买入 " + filled + " 个" + name + "，花 " + MoneyFormat.pounds(spent);
+        String message = "买入 " + filled + " 个" + name + "，花 " + MoneyFormat.pounds(spent) + "，放在你的仓库里";
         if (filled < quantity) message += "（钱或货只够这么多）";
-        return Result.ok(message + "。", -spent);
+        return Result.ok(message + "。回到仓库或市场终端可以取出来。", -spent);
+    }
+
+    /** 把背包里的货存进仓库（个人托管）：要站在自己的仓库控制器或市场终端旁。附魔、改名、有损耗的不收。 */
+    public static Result storeGoods(ServerPlayer player, String commodityId, int quantity) {
+        Commodity commodity = CommodityRegistry.getCommodity(commodityId);
+        if (commodity == null
+                || commodity.getItemId() == null
+                || commodity.getItemId().isEmpty()) return Result.fail("这种东西存不进去。");
+        if (!finance.warehouse.GoodsAccess.canMoveGoods(player))
+            return Result.fail(finance.warehouse.GoodsAccess.DENIED);
+        String name = commodity.getDisplayName();
+        int owned = InventoryUtil.countItemInInventory(player, commodity.getItemId());
+        int wanted = Math.min(Math.max(0, quantity), owned);
+        if (wanted <= 0)
+            return Result.fail(
+                    InventoryUtil.countSpecialInInventory(player, commodity.getItemId()) > 0
+                            ? "背包里的" + name + "附魔过、改过名或有损耗，存不进去。"
+                            : "背包里没有" + name + "。");
+        UUID id = player.getUUID();
+        if (!CommodityInventoryManager.canAddCommodity(id, commodityId, wanted)) return Result.fail("一次存太多了，少存一点。");
+        int removed = InventoryUtil.removeFromInventory(player, commodity.getItemId(), wanted);
+        if (removed <= 0) return Result.fail("背包里没有" + name + "。");
+        if (!CommodityInventoryManager.addCommodity(id, commodityId, removed)) {
+            InventoryUtil.addToInventory(player, commodity.getItemId(), removed);
+            return Result.fail("存入失败，东西已还给你。");
+        }
+        return Result.ok("存进仓库 " + removed + " 个" + name + "。现在人在哪里都能卖。", 0);
     }
 
     // ------------------------------------------------------------ 挂单
 
-    /** 挂单：卖单直接用背包里的货，买单先冻结要花的钱。市场价格到了就自动成交（见 MarketOrderFiller）。 */
+    /** 挂单：卖单用仓库里（个人托管）的货，买单先冻结要花的钱。市场价格到了就自动成交（见 MarketOrderFiller），买到的货进仓库。 */
     public static Result placeOrder(ServerPlayer player, String commodityId, boolean sell, long price, int quantity) {
         Commodity commodity = CommodityRegistry.getCommodity(commodityId);
         if (commodity == null) return Result.fail("这种东西不能挂单。");
@@ -147,22 +157,13 @@ public final class SimpleCenterService {
         String name = commodity.getDisplayName();
         UUID id = player.getUUID();
         if (sell) {
-            if (commodity.getItemId() == null || commodity.getItemId().isEmpty()) return Result.fail("这种东西不能挂单。");
-            int owned = InventoryUtil.countItemInInventory(player, commodity.getItemId());
-            if (owned < quantity) return Result.fail("背包里只有 " + owned + " 个" + name + "。");
-            if (!CommodityInventoryManager.canAddCommodity(id, commodityId, quantity))
-                return Result.fail("一次挂太多了，少挂一点。");
-            int removed = InventoryUtil.removeFromInventory(player, commodity.getItemId(), quantity);
-            if (removed < quantity || !CommodityInventoryManager.addCommodity(id, commodityId, removed)) {
-                InventoryUtil.addToInventory(player, commodity.getItemId(), removed);
-                return Result.fail("挂单失败，东西已还给你。");
-            }
+            int stored = CommodityInventoryManager.getCommodityAmount(id, commodityId);
+            if (stored < quantity)
+                return Result.fail(
+                        stored > 0 ? "仓库里只有 " + stored + " 个" + name + "。" : notStoredMessage(player, commodity));
             if (!finance.market.MarketManager.placeOrder(
                     new finance.market.Order(id, commodityId, finance.market.OrderType.SELL, price, quantity))) {
-                if (CommodityInventoryManager.removeCommodity(id, commodityId, quantity)) {
-                    InventoryUtil.addToInventory(player, commodity.getItemId(), quantity);
-                }
-                return Result.fail("挂单失败，东西已还给你。");
+                return Result.fail("挂单失败，货还在仓库里。");
             }
             return Result.ok(
                     "已挂卖单：" + quantity + " 个" + name + "，每个 " + MoneyFormat.pounds(price) + "。市场收购价涨到这个数就自动卖出。", 0);
@@ -188,18 +189,20 @@ public final class SimpleCenterService {
     public static Result cancelOrder(ServerPlayer player, UUID orderId) {
         if (orderId == null) return Result.fail("请求无效。");
         if (!finance.market.MarketManager.cancelOrder(orderId, player.getUUID())) return Result.fail("这张挂单已经成交或不存在。");
-        return Result.ok("已撤单，冻结的钱或货已经退回。卖单的货在“暂存”里，可以取回背包。", 0);
+        return Result.ok("已撤单，冻结的钱或货已经退回。卖单的货回到仓库里。", 0);
     }
 
-    /** 把暂存在市场账上的某种货全部取回背包（背包满了掉在脚下）。 */
+    /** 把仓库里（个人托管）的某种货取回背包（背包满了掉在脚下）：要站在自己的仓库控制器或市场终端旁。 */
     public static Result takeGoods(ServerPlayer player, String commodityId) {
         Commodity commodity = CommodityRegistry.getCommodity(commodityId);
         if (commodity == null
                 || commodity.getItemId() == null
                 || commodity.getItemId().isEmpty()) return Result.fail("这种东西取不出来。");
+        if (!finance.warehouse.GoodsAccess.canMoveGoods(player))
+            return Result.fail(finance.warehouse.GoodsAccess.DENIED);
         UUID id = player.getUUID();
         int amount = Math.min(64 * 36, CommodityInventoryManager.getCommodityAmount(id, commodityId));
-        if (amount <= 0) return Result.fail("没有暂存的" + commodity.getDisplayName() + "。");
+        if (amount <= 0) return Result.fail("仓库里没有" + commodity.getDisplayName() + "。");
         if (!CommodityInventoryManager.removeCommodity(id, commodityId, amount)) return Result.fail("取回失败。");
         InventoryUtil.addToInventory(player, commodity.getItemId(), amount);
         return Result.ok("取回 " + amount + " 个" + commodity.getDisplayName() + "。", 0);

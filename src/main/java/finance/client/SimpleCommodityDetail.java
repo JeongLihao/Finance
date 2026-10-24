@@ -42,7 +42,8 @@ final class SimpleCommodityDetail {
     static void commodityDetail(UiBuilder ui, View v, State s, Actions a, MarketRows.MarketRow row, int y) {
         String id = row.commodityId();
         String name = FinanceFormat.commodityDisplayName(id);
-        int have = v.backpack().getOrDefault(id, 0);
+        // 能卖的是仓库里（个人托管）的货，背包里的要先存进去
+        int have = v.storedGoods().getOrDefault(id, 0);
         int bw = ui.button(LEFT + 2, y - 1, "< 返回", () -> s.selectedCommodity = null, null);
         int sx = ui.textRight(
                 RIGHT - 2,
@@ -81,7 +82,7 @@ final class SimpleCommodityDetail {
 
         // 按住 Shift 数量 ×10；左边的价格后面写一组多少钱
         int m = mult(s);
-        String noItem = have > 0 ? null : "背包里没有" + name;
+        String noItem = have > 0 ? null : SimpleTradePage.storeHint(v, id, name);
         int sellQty = Math.min(64 * m, have);
         int lx = LEFT
                 + 2

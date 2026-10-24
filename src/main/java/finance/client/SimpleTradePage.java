@@ -20,15 +20,18 @@ final class SimpleTradePage {
     private SimpleTradePage() {}
 
     /**
-     * 背包里有的排前面（按能卖的钱从多到少），其余按名字。没有对应物品的商品不列；
-     * 市场里没货、背包里也没有的不列——有人卖了才会出现。
+     * 仓库里有的排前面（按能卖的钱从多到少），其余按名字。没有对应物品的商品不列；
+     * 市场里没货、仓库和背包里也没有的不列——有人卖了才会出现。
      */
     static List<MarketRows.MarketRow> tradeRows(View v) {
-        Map<String, Integer> held = v.backpack();
+        Map<String, Integer> held = v.storedGoods();
+        Map<String, Integer> bag = v.backpack();
         List<MarketRows.MarketRow> rows = new ArrayList<>();
         for (MarketRows.MarketRow row : v.market()) {
             Commodity c = CommodityRegistry.getCommodity(row.commodityId());
-            if (row.marketStock() <= 0 && held.getOrDefault(row.commodityId(), 0) <= 0) continue;
+            if (row.marketStock() <= 0
+                    && held.getOrDefault(row.commodityId(), 0) <= 0
+                    && bag.getOrDefault(row.commodityId(), 0) <= 0) continue;
             if (c == null || c.getItemId() != null && !c.getItemId().isEmpty()) rows.add(row);
         }
         rows.sort(Comparator.<MarketRows.MarketRow>comparingLong(
@@ -79,7 +82,7 @@ final class SimpleTradePage {
     static void orders(UiBuilder ui, View v, State s, Actions a, int y) {
         List<MarketRows.MarketRow> rows = tradeRows(v);
         if (rows.isEmpty()) {
-            ui.text(LEFT + PAD, y + 2, WIDTH, "市场里还没有货，背包里也没有能卖的东西。", DIM);
+            ui.text(LEFT + PAD, y + 2, WIDTH, "市场里还没有货，仓库和背包里也没有能卖的东西。", DIM);
             return;
         }
         MarketRows.MarketRow row = rows.stream()
@@ -94,7 +97,7 @@ final class SimpleTradePage {
         String name = FinanceFormat.commodityDisplayName(id);
         long price = s.orderPrice > 0 ? s.orderPrice : Math.max(1, row.midPrice());
         long step = Math.max(1, price / 20);
-        int have = v.backpack().getOrDefault(id, 0);
+        int have = v.storedGoods().getOrDefault(id, 0);
         int index = rows.indexOf(row);
 
         // 第一行：选商品 + 市场价
@@ -159,7 +162,10 @@ final class SimpleTradePage {
                         new Btn("1", () -> s.orderQty = 1, null),
                         new Btn("16", () -> s.orderQty = 16, null),
                         new Btn("64", () -> s.orderQty = 64, null),
-                        new Btn("背包全部", () -> s.orderQty = Math.max(1, have), have > 0 ? null : "背包里没有" + name)));
+                        new Btn(
+                                "仓库全部",
+                                () -> s.orderQty = Math.max(1, have),
+                                have > 0 ? null : storeHint(v, id, name))));
 
         // 第三行：挂卖单 / 挂买单
         y += 18;
@@ -171,7 +177,7 @@ final class SimpleTradePage {
                         y,
                         "挂卖单",
                         () -> a.simple(SimpleActionPacket.Action.PLACE_SELL_ORDER, id, qty, finalPrice),
-                        have >= qty ? null : "背包里只有 " + have + " 个" + name)
+                        have >= qty ? null : have > 0 ? "仓库里只有 " + have + " 个" + name : storeHint(v, id, name))
                 + 4;
         x += ui.button(
                         x,
@@ -187,7 +193,7 @@ final class SimpleTradePage {
                 qty + " 个，每个 " + MoneyFormat.compact(price) + "，共 " + MoneyFormat.compact(total) + "（买单先冻结这笔钱）",
                 DIM);
         y += 17;
-        y += ui.wrapped(LEFT + 2, y, WIDTH - 4, "卖单：市场收购价涨到你定的价就自动卖出。买单：市场出售价跌到你定的价就自动买入，买到的东西放进背包。", DIM, 2) + 4;
+        y += ui.wrapped(LEFT + 2, y, WIDTH - 4, "卖单：市场收购价涨到你定的价就自动卖出仓库里的货。买单：市场出售价跌到你定的价就自动买入，买到的放进仓库。", DIM, 2) + 4;
 
         // 我的挂单
         List<MarketRows.OrderRow> mine =
@@ -217,7 +223,7 @@ final class SimpleTradePage {
                     TEXT);
             y += 14;
         }
-        // 暂存在市场的货（撤掉的卖单、离线时成交的买单）
+        // 仓库里的货取回背包、背包里的货存进仓库：只能在自己的仓库控制器或市场终端旁（服务端会拦）
         List<Map.Entry<String, Integer>> stored = v.storedGoods().entrySet().stream()
                 .filter(e -> e.getValue() > 0)
                 .limit(2)
@@ -231,10 +237,37 @@ final class SimpleTradePage {
                     LEFT + PAD,
                     y,
                     bx - LEFT - PAD - 6,
-                    "暂存在市场：" + FinanceFormat.commodityDisplayName(goods) + " " + e.getValue() + " 个",
+                    "仓库里：" + FinanceFormat.commodityDisplayName(goods) + " " + e.getValue() + " 个",
                     DIM);
             y += 14;
         }
+        List<Map.Entry<String, Integer>> bag = v.backpack().entrySet().stream()
+                .filter(e -> e.getValue() > 0 && CommodityRegistry.getCommodity(e.getKey()) != null)
+                .limit(2)
+                .toList();
+        for (Map.Entry<String, Integer> e : bag) {
+            if (y + 13 > BOTTOM) break;
+            String goods = e.getKey();
+            int count = e.getValue();
+            int bx = ui.buttonRight(
+                    RIGHT - 2,
+                    y - 2,
+                    "存入仓库",
+                    () -> a.simple(SimpleActionPacket.Action.STORE_GOODS, goods, count, 0),
+                    null);
+            ui.text(
+                    LEFT + PAD,
+                    y,
+                    bx - LEFT - PAD - 6,
+                    "背包里：" + FinanceFormat.commodityDisplayName(goods) + " " + count + " 个（在仓库或市场终端旁才能存）",
+                    DIM);
+            y += 14;
+        }
+    }
+
+    /** 仓库里没有这种货时按钮灰掉的原因：背包里有的话提示先存进去。 */
+    static String storeHint(View v, String id, String name) {
+        return v.backpack().getOrDefault(id, 0) > 0 ? "仓库里没有" + name + "：背包里的要先在仓库或市场终端旁存进去" : "仓库里没有" + name;
     }
 
     static void trade(UiBuilder ui, View v, State s, Actions a, int top) {
@@ -251,7 +284,7 @@ final class SimpleTradePage {
 
         int y = top;
         ui.text(nameX, y, haveX - nameX - 4, "东西（点名字看走势，☆ 收藏）", DIM);
-        ui.text(haveX, y, 34, "背包", DIM);
+        ui.text(haveX, y, 34, "仓库", DIM);
         ui.text(bidX, y, 50, "你卖得", DIM);
         ui.text(askX, y, 50, "你买付", DIM);
         ui.fill(LEFT, y + 11, WIDTH, 1, FinanceGui.COL_PANEL_BORDER);
@@ -271,7 +304,7 @@ final class SimpleTradePage {
             MarketRows.MarketRow row = rows.get(i);
             String id = row.commodityId();
             String name = FinanceFormat.commodityDisplayName(id);
-            int have = v.backpack().getOrDefault(id, 0);
+            int have = v.storedGoods().getOrDefault(id, 0);
             if ((i - s.tradeScroll) % 2 == 0) ui.fill(LEFT, y - 1, WIDTH, ROW - 1, CARD);
             boolean fav = s.favorites.contains(id);
             int sw = ui.text(LEFT + 2, y + 2, 10, fav ? "★" : "☆", fav ? FinanceGui.COL_WARN : DIM);
@@ -283,7 +316,7 @@ final class SimpleTradePage {
             String arrow = row.dayChange() > 0.0001 ? "↑" : row.dayChange() < -0.0001 ? "↓" : "";
             int color = FinanceGui.changeColor(row.dayChange());
             ui.text(bidX, y + 2, 50, MoneyFormat.compact(row.bidPrice()) + arrow, color);
-            String noItem = have > 0 ? null : "背包里没有" + name;
+            String noItem = have > 0 ? null : storeHint(v, id, name);
             int sellQty = Math.min(64 * m, have);
             ui.buttonsRight(
                     askX - 6,

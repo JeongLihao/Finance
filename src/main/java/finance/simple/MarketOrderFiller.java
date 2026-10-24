@@ -2,14 +2,12 @@ package finance.simple;
 
 import finance.FinanceMod;
 import finance.commodity.Commodity;
-import finance.commodity.CommodityInventoryManager;
 import finance.commodity.CommodityRegistry;
 import finance.market.MarketManager;
 import finance.market.NpcMarketMaker;
 import finance.market.Order;
 import finance.market.OrderType;
 import finance.network.GuiFeedbackPacket;
-import finance.util.InventoryUtil;
 import finance.util.MoneyFormat;
 import java.util.ArrayList;
 import net.minecraft.server.MinecraftServer;
@@ -90,14 +88,8 @@ public final class MarketOrderFiller {
         if (order.getType() == OrderType.SELL) {
             message = "你的卖单成交了：卖出 " + done + " 个" + name + "，得 " + MoneyFormat.pounds(delta) + "。";
         } else {
-            // 在线时直接放进背包
-            if (c != null
-                    && c.getItemId() != null
-                    && !c.getItemId().isEmpty()
-                    && CommodityInventoryManager.removeCommodity(order.getPlayerId(), order.getCommodityId(), done)) {
-                InventoryUtil.addToInventory(online, c.getItemId(), done);
-            }
-            message = "你的买单成交了：买到 " + done + " 个" + name + "，花 " + MoneyFormat.pounds(-delta) + "，已放进背包。";
+            // 买到的货留在仓库（个人托管）里，回到仓库或市场终端旁再取
+            message = "你的买单成交了：买到 " + done + " 个" + name + "，花 " + MoneyFormat.pounds(-delta) + "，放在你的仓库里。";
         }
         GuiFeedbackPacket.send(online, message, delta);
     }
