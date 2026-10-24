@@ -50,17 +50,20 @@ public final class CompanyIPOService {
     /** NPC 投资者每天最多花账户余额的这么多分之一认购（同 {@code NpcBondDemand}）。 */
     static final int NPC_DAILY_BUDGET_DIVISOR = 4;
 
+    /** 所有认购（进行中 + 最近结束的），按认购 id 索引；LinkedHashMap 保持发起顺序，裁剪时先丢最旧的。 */
     private static final Map<UUID, IpoSubscription> SUBSCRIPTIONS = new LinkedHashMap<>();
     /** 已结束的认购最多留这么多条（面板和测试用），之后按时间丢掉最旧的。 */
     static final int MAX_CLOSED = 64;
 
     private CompanyIPOService() {}
 
+    /** 发起 / 认购的结果：message 直接显示给玩家，subscription 失败时为 null。 */
     public record Result(boolean success, String message, IpoSubscription subscription) {
         static Result fail(String message) {
             return new Result(false, message, null);
         }
 
+        /** 发起成功：提示里带上发行量、价格、认购期和最低认购股数。 */
         static Result ok(IpoSubscription s, long fee) {
             return new Result(
                     true,
@@ -71,6 +74,7 @@ public final class CompanyIPOService {
                     s);
         }
 
+        /** 认购成功：提示由调用方拼好。 */
         static Result ok(IpoSubscription s, long cost, String message) {
             return new Result(true, message, s);
         }
@@ -78,6 +82,7 @@ public final class CompanyIPOService {
 
     // ---------------------------------------------------------------- 查询
 
+    /** 全部认购（只读视图），存档用。 */
     public static Collection<IpoSubscription> subscriptions() {
         return Collections.unmodifiableCollection(SUBSCRIPTIONS.values());
     }
@@ -94,6 +99,7 @@ public final class CompanyIPOService {
         return null;
     }
 
+    /** 所有进行中的认购（新的列表，可随意修改），界面和机会卡用。 */
     public static List<IpoSubscription> open() {
         List<IpoSubscription> out = new ArrayList<>();
         for (IpoSubscription s : SUBSCRIPTIONS.values()) if (s.status() == IpoSubscription.Status.OPEN) out.add(s);
@@ -109,12 +115,14 @@ public final class CompanyIPOService {
         if (requesterId == null || !requesterId.equals(company.getOwnerId())) return Result.fail("只有公司所有者可以发起上市。");
         String invalid = validate(company, issuePrice, issueQuantity);
         if (invalid != null) return Result.fail(invalid);
+        // 估值门槛只管玩家公司；NPC 竞争公司由 RivalService 按自己的条件（现金、利润、年龄）决定
         long minValuation = FinanceConfig.simpleIpoMinValuation();
         long valuation = StockValuation.companyValue(company);
         if (valuation < minValuation) {
             return Result.fail("公司估值要达到 " + finance.util.MoneyFormat.pounds(minValuation) + " 才能上市，现在是 "
                     + finance.util.MoneyFormat.pounds(valuation) + "（家底加最近的利润，借来的钱不算）。");
         }
+        // 先查余额再开认购，避免开了认购才发现付不起上市费、又得撤销
         long fee = Math.max(0, FinanceConfig.ipoFee());
         if (fee > 0 && AccountManager.getBalance(requesterId) < fee)
             return Result.fail("上市费不够，需要 " + finance.util.MoneyFormat.pounds(fee) + "。");
@@ -158,16 +166,19 @@ public final class CompanyIPOService {
         return Result.ok(s, fee);
     }
 
+    /** 玩家和无主公司共用的参数检查；返回错误提示，合法时返回 null。 */
     private static String validate(Company company, long issuePrice, long issueQuantity) {
         if (company.isPublic()) return "公司已上市，无法重复上市。";
         if (openFor(company.getCompanyId()) != null) return "公司已经在上市认购中了。";
         if (issuePrice <= 0 || issueQuantity <= 0) return "发行价和数量必须为正。";
         if (issueQuantity > MAX_ISSUE_QUANTITY) return "发行数量过多（最多 " + MAX_ISSUE_QUANTITY + "）。";
         if (issuePrice > MAX_ISSUE_PRICE) return "发行价过高（上限 " + MAX_ISSUE_PRICE + "）。";
+        // 上面已限制数量不超过 MAX_ISSUE_QUANTITY，这里转 int 不会截断；乘法溢出时返回 −1
         if (MathUtil.multiplyExactOrNegative1(issuePrice, (int) issueQuantity) <= 0) return "募资金额过大。";
         return null;
     }
 
+    /** 上市费从 {@code from}（玩家钱包或公司现金）付给 NPC 资金池，并记一条流水；转账失败返回 false。 */
     private static boolean payFee(finance.money.MoneyEndpoint from, UUID payer, Company company, long fee) {
         if (!MoneyTransferService.transfer(from, MoneyEndpoints.account(NpcMarketMaker.NPC_UUID), fee)
                 .success()) return false;
@@ -176,6 +187,7 @@ public final class CompanyIPOService {
         return true;
     }
 
+    /** 建一条认购并登记：总股本 = 发行量 ÷ 流通比例，认购期从今天起算；做市商随即认购预留部分。 */
     private static IpoSubscription open(Company company, UUID founder, long price, long quantity, long day) {
         long totalShares = Math.max(quantity, Math.round(quantity / DEFAULT_FLOAT_RATIO));
         long days = Math.max(1, FinanceConfig.ipoSubscriptionDays());
@@ -189,6 +201,7 @@ public final class CompanyIPOService {
                 day,
                 day + days,
                 IpoSubscription.Status.OPEN);
+        // 托管账户以系统账户建立，不会领新手资金
         AccountManager.getOrCreateSystemAccount(s.escrowAccount());
         SUBSCRIPTIONS.put(s.id(), s);
         reserveForMarketMaker(s);
@@ -203,6 +216,7 @@ public final class CompanyIPOService {
         if (qty <= 0) return;
         long cost = MathUtil.multiplyExactOrNegative1(s.issuePrice(), (int) qty);
         if (cost <= 0 || AccountManager.getBalance(MarketMakerLedger.MASTER_UUID) < cost) return;
+        // 做市商的钱同样进托管：上市成功转给公司，取消时和别人一样原路退回
         if (!AccountManager.moveFunds(MarketMakerLedger.MASTER_UUID, s.escrowAccount(), cost)) return;
         s.addSubscription(MarketMakerLedger.MASTER_UUID, qty);
         AccountManager.addTransactionRecord(new TransactionRecord(
@@ -224,12 +238,14 @@ public final class CompanyIPOService {
         if (subscriber == null || shares <= 0 || shares > Integer.MAX_VALUE) return Result.fail("认购股数无效。");
         if (day >= s.endDay()) return Result.fail("认购期已经结束，等结算。");
         if (subscriber.equals(s.founderAccount())) return Result.fail("创始人不能认购自己公司的新股。");
+        // 只认剩余额度以内的部分；调用方要按 accepted（或余额变化）算花了多少，不能按请求的 shares
         long accepted = Math.min(shares, s.remainingShares());
         if (accepted <= 0) return Result.fail("这次发行已经认满了。");
         long cost = MathUtil.multiplyExactOrNegative1(s.issuePrice(), (int) accepted);
         if (cost <= 0) return Result.fail("认购金额过大。");
         if (AccountManager.getBalance(subscriber) < cost)
             return Result.fail("钱不够，认购 " + accepted + " 股要 " + finance.util.MoneyFormat.pounds(cost) + "。");
+        // 先扣钱成功再记股数，保证“托管余额 = 发行价 × 已认股数”
         if (!AccountManager.moveFunds(subscriber, s.escrowAccount(), cost)) return Result.fail("认购扣款失败。");
         s.addSubscription(subscriber, accepted);
         Company company = CompanyManager.getCompany(s.companyId());
@@ -251,14 +267,18 @@ public final class CompanyIPOService {
     /** 每天：NPC 投资者认购，然后结算期满或已认满的认购。必须在 NPC 投资者补足资金之后调用。 */
     public static void processDay(long day) {
         boolean changed = false;
+        // 遍历副本：结算时会改状态，trimClosed 还会删条目
         for (IpoSubscription s : new ArrayList<>(SUBSCRIPTIONS.values())) {
             if (s.status() != IpoSubscription.Status.OPEN) continue;
             Company company = CompanyManager.getCompany(s.companyId());
+            // 公司被删或已经从别的路上市了，这次认购作废，钱退回
             if (company == null || company.isPublic()) {
                 changed |= cancel(s, "公司已不存在或已上市");
                 continue;
             }
+            // 认购期内且没认满：NPC 投资者认购当天的份额
             if (day < s.endDay() && s.remainingShares() > 0) npcDemand(s, company, day);
+            // 到期或已认满：结算（认满可以提前上市）
             if (day >= s.endDay() || s.remainingShares() == 0) settle(s, company, day);
             changed = true; // NPC 认购也改了状态
         }
@@ -283,27 +303,35 @@ public final class CompanyIPOService {
     static long npcDemand(IpoSubscription s, Company company, long day) {
         if (!FinanceConfig.npcInvestorsEnabled()) return 0;
         NpcInvestorManager.ensureAccounts();
+        // 每股价值按总股本摊（不是按发行量），和上市后的估值口径一致
         long perShare = StockValuation.companyValue(company) / Math.max(1, s.totalShares());
         List<NpcInvestorArchetype> willing = new ArrayList<>();
         for (NpcInvestorArchetype a : NpcInvestorArchetype.values())
             if (s.issuePrice() <= perShare * valuationMultiple(a, company)) willing.add(a);
         if (willing.isEmpty()) return 0;
+        // 按天轮换先后顺序，避免某个原型总是先认、把额度占光
         willing.sort(Comparator.comparingInt(
                 a -> Math.floorMod(a.ordinal() - (int) day, NpcInvestorArchetype.values().length)));
+        // 今天的目标量 = 剩余股数 ÷ 剩余天数（向上取整），最后一天就是全部剩余
         long daysLeft = Math.max(1, s.endDay() - day);
         long today = (s.remainingShares() + daysLeft - 1) / daysLeft;
+        // NPC 合计持股上限，以及已经认了多少
         long combinedCap = s.totalShares() * Math.max(0, FinanceConfig.npcMaxCombinedHoldingPercent()) / 100;
         long combined = 0;
         for (NpcInvestorArchetype a : NpcInvestorArchetype.values()) combined += s.subscribedBy(a.accountId());
         long bought = 0;
         for (int i = 0; i < willing.size() && today > 0; i++) {
             NpcInvestorArchetype a = willing.get(i);
+            // 剩下的量在还没轮到的原型间平分（向上取整）；前面的认不满，差额自动留给后面的
             long share = (today + (willing.size() - i) - 1) / (willing.size() - i);
+            // 单个原型的持股上限：总股本 × 单个上限百分比 × 原型系数
             long eachCap = Math.round(s.totalShares()
                     * Math.max(0, FinanceConfig.npcMaxHoldingPercentEach())
                     / 100.0
                     * a.holdingCapFactor());
+            // 当天预算能买几股（发行价已保证 > 0）
             long affordable = AccountManager.getBalance(a.accountId()) / NPC_DAILY_BUDGET_DIVISOR / s.issuePrice();
+            // 取 当天份额 / 预算 / 单个剩余上限 / 合计剩余上限 四者最小；上限已满时为负数，下面 qty > 0 会跳过
             long qty = Math.min(
                     Math.min(share, affordable),
                     Math.min(eachCap - s.subscribedBy(a.accountId()), combinedCap - combined));
@@ -321,35 +349,47 @@ public final class CompanyIPOService {
         long sold = s.subscribedShares();
         if (sold < s.minimumShares(FinanceConfig.ipoMinFillBasisPoints()))
             return cancel(s, "认购不足 " + sold + "/" + s.issueQuantity());
+        // 上市步骤里任何一步不成（持股上限、公司现金上限、转账失败）都整笔取消退款，不留半成品
         return list(s, company, day) || cancel(s, "上市结算失败");
     }
 
+    /**
+     * 真正上市：托管的钱转给公司，按认购发股，建股票。先把能失败的检查全做完再动钱和股，
+     * 中途失败返回 false（已转的钱会转回托管），由 {@link #settle} 取消退款。
+     */
     private static boolean list(IpoSubscription s, Company company, long day) {
         long sold = s.subscribedShares();
         long raised = MathUtil.multiplyExactOrNegative1(s.issuePrice(), (int) Math.min(Integer.MAX_VALUE, sold));
+        // 创始人拿总股本里没卖出去的全部
         long founderShares = s.totalShares() - sold;
         if (raised <= 0 || founderShares < 0 || AccountManager.getBalance(s.escrowAccount()) < raised) return false;
         String symbol = generateUniqueSymbol(company.getName());
+        // 做市商认的部分进做市商库存，不进普通持仓
         long marketMakerShares = s.subscribedBy(MarketMakerLedger.MASTER_UUID);
         Map<UUID, Long> holders = new LinkedHashMap<>(s.subscriptions());
         holders.remove(MarketMakerLedger.MASTER_UUID);
+        // 预检：每个认购人和创始人都能加这么多持仓、公司现金放得下这笔钱
         for (Map.Entry<UUID, Long> e : holders.entrySet())
             if (!StockPortfolioManager.canAddHolding(e.getKey(), symbol, e.getValue())) return false;
         if (founderShares > 0 && !StockPortfolioManager.canAddHolding(s.founderAccount(), symbol, founderShares))
             return false;
         if (!company.canDeposit(raised)) return false;
+        // 动钱：托管 → 公司现金
         if (!MoneyTransferService.transfer(
                         MoneyEndpoints.account(s.escrowAccount()), MoneyEndpoints.company(company), raised)
                 .success()) return false;
+        // 发股：认购人一次性全发，失败就把钱转回托管
         if (!holders.isEmpty() && !StockPortfolioManager.addHoldingsAtomically(holders, symbol, s.issuePrice())) {
             MoneyTransferService.transfer(
                     MoneyEndpoints.company(company), MoneyEndpoints.account(s.escrowAccount()), raised);
             return false;
         }
+        // 创始人和做市商已经预检过，这里不会失败
         if (founderShares > 0)
             StockPortfolioManager.addHolding(s.founderAccount(), symbol, founderShares, s.issuePrice());
         if (marketMakerShares > 0)
             MarketMakerLedger.addInventory(MarketMakerLedger.SubMarket.STOCK, symbol, marketMakerShares);
+        // 建股票：流通股 = 卖出去的（含做市商库存），创始股单独记并锁仓
         Stock stock = new Stock(
                 symbol,
                 company.getName(),
@@ -381,8 +421,10 @@ public final class CompanyIPOService {
     static boolean cancel(IpoSubscription s, String reason) {
         if (s.status() != IpoSubscription.Status.OPEN) return false;
         for (Map.Entry<UUID, Long> e : s.subscriptions().entrySet()) {
+            // 每人退 发行价 × 他认的股数，正好是他当初付进托管的钱
             long refund =
                     MathUtil.multiplyExactOrNegative1(s.issuePrice(), (int) Math.min(Integer.MAX_VALUE, e.getValue()));
+            // 托管不够退（正常不会发生）就跳过这一笔，钱留在托管里，不会凭空造钱
             if (refund <= 0 || AccountManager.getBalance(s.escrowAccount()) < refund) continue;
             if (AccountManager.moveFunds(s.escrowAccount(), e.getKey(), refund))
                 AccountManager.addTransactionRecord(new TransactionRecord(
@@ -399,6 +441,7 @@ public final class CompanyIPOService {
         return true;
     }
 
+    /** 已结束的认购超过 {@link #MAX_CLOSED} 条时，从最早的开始删，进行中的不动。 */
     private static void trimClosed() {
         int closed = 0;
         for (IpoSubscription s : SUBSCRIPTIONS.values()) if (s.status() != IpoSubscription.Status.OPEN) closed++;
@@ -413,10 +456,12 @@ public final class CompanyIPOService {
 
     // ---------------------------------------------------------------- 存档
 
+    /** 读档时放回一条认购，不做任何校验和扣款。 */
     public static void restoreDirect(IpoSubscription s) {
         if (s != null) SUBSCRIPTIONS.put(s.id(), s);
     }
 
+    /** 清空全部认购：读档前和服务器关闭时调用（静态状态不能带到下一个存档）。 */
     public static void clearDirect() {
         SUBSCRIPTIONS.clear();
     }
@@ -438,6 +483,7 @@ public final class CompanyIPOService {
         return sb.toString().substring(0, 4);
     }
 
+    /** 代码重复时把末尾换成数字：ABCD → ABC1、ABC2 …… AB10，直到没被占用。 */
     private static String generateUniqueSymbol(String companyName) {
         String base = generateSymbol(companyName);
         String symbol = base;

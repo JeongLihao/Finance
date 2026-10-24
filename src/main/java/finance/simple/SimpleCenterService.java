@@ -347,10 +347,11 @@ public final class SimpleCenterService {
 
     /** 认购别家的新股（简单模式机会卡）。 */
     public static Result subscribeIpo(UUID playerId, UUID subscriptionId, long shares, long day) {
+        // 剩余额度不够时服务端只认一部分，所以按实际余额变化算扣款，不能用“请求股数 × 发行价”
+        long before = AccountManager.getBalance(playerId);
         CompanyIPOService.Result result = CompanyIPOService.subscribe(playerId, subscriptionId, shares, day);
         if (!result.success()) return Result.fail(result.message());
-        long cost = result.subscription() == null ? 0 : result.subscription().issuePrice() * shares;
-        return Result.ok(result.message(), -cost);
+        return Result.ok(result.message(), AccountManager.getBalance(playerId) - before);
     }
 
     // ------------------------------------------------------------ 银行

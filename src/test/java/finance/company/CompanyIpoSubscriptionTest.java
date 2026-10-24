@@ -213,4 +213,18 @@ class CompanyIpoSubscriptionTest {
                 .subscription();
         assertEquals(0, CompanyIPOService.npcDemand(dear, c, 2), "发行价比每股价值高一倍，没有 NPC 认购");
     }
+
+    @Test
+    void simpleModeReportsActualCostWhenOnlyPartlyAccepted() {
+        company();
+        IpoSubscription ipo =
+                CompanyIPOService.start(OWNER, COMPANY, 5, 4_000, 0).subscription();
+        long remaining = ipo.remainingShares();
+        // 请求比剩余额度多 1,000 股：服务端只认剩下的，显示的扣款也要按认到的算
+        finance.simple.SimpleCenterService.Result r =
+                finance.simple.SimpleCenterService.subscribeIpo(PLAYER, ipo.id(), remaining + 1_000, 1);
+        assertTrue(r.success(), r.message());
+        assertEquals(remaining, ipo.subscribedBy(PLAYER));
+        assertEquals(-remaining * 5, r.moneyDelta());
+    }
 }
