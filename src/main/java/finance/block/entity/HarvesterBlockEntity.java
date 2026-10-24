@@ -100,7 +100,7 @@ public final class HarvesterBlockEntity extends CompanyMachineBlockEntity {
 
     public static void serverTick(Level level, BlockPos pos, BlockState state, HarvesterBlockEntity machine) {
         if (!(level instanceof ServerLevel server)) return;
-        if (level.getGameTime() % 20 == 0) machine.logistics(server);
+        if (everySecond(level, pos)) machine.logistics(server);
         machine.cooldown -= machine.steps();
         if (machine.cooldown > 0) return;
         HarvestMode mode = machine.mode();

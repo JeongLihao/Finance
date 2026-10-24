@@ -29,6 +29,7 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
@@ -162,6 +163,14 @@ public abstract class CompanyMachineBlockEntity extends BlockEntity implements M
             setChanged();
         }
         return link == LINKED ? company : null;
+    }
+
+    /**
+     * 每秒一次的活（存货、补料、报状态）按方块坐标错开到不同的 tick，
+     * 免得所有机器挤在同一个 tick 里做，机器多时每秒卡一下。
+     */
+    public static boolean everySecond(Level level, BlockPos pos) {
+        return Math.floorMod(level.getGameTime() + pos.hashCode(), 20) == 0;
     }
 
     /** 速度（10000 = 1 档满员）= 档次倍率 ×（50% + 50% × 在岗比例）。 */

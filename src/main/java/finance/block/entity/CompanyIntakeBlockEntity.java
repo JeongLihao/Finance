@@ -51,7 +51,7 @@ public final class CompanyIntakeBlockEntity extends BlockEntity implements MenuP
     }
 
     public static void serverTick(Level level, BlockPos pos, BlockState state, CompanyIntakeBlockEntity box) {
-        if (level.getGameTime() % 20 == 0) box.collect();
+        if (CompanyMachineBlockEntity.everySecond(level, pos)) box.collect();
     }
 
     /** 把箱子里的商品存进公司库存；存不下（仓库满了）的留在箱子里。 */
