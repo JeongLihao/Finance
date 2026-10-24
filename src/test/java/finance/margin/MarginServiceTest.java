@@ -240,6 +240,62 @@ class MarginServiceTest {
         assertTrue(MarginService.withdrawCollateral(TRADER, 1_000L).success());
     }
 
+    // ---------- 股本守恒与退市、熔断 ----------
+
+    @Test
+    void marginBuyCannotExceedUnownedFloat() {
+        // 10_000 股里 9_900 股已在大股东手里，只剩 100 股没人持有
+        assertTrue(StockPortfolioManager.addHolding(OWNER, SYMBOL, 9_900L, 100L));
+        depositMargin(100_000L);
+        assertFalse(MarginService.marginBuy(TRADER, SYMBOL, 101L).success());
+        assertTrue(MarginService.marginBuy(TRADER, SYMBOL, 100L).success());
+        assertFalse(MarginService.marginBuy(TRADER, SYMBOL, 1L).success(), "已融资的股份也要占额度");
+
+        MarginAccount acct = MarginPoolManager.getAccount(TRADER);
+        assertTrue(MarginService.repayFinancing(TRADER, acct.getFinancedDebt() + acct.getFinancedInterestOwed())
+                .success());
+        assertTrue(
+                finance.governance.ShareholderRegistryService.snapshot(COMPANY_ID, 0)
+                        .consistent(),
+                "还清后持股合计不能超过总股本");
+    }
+
+    @Test
+    void marginBuyExcludesMarketMakerInventory() {
+        finance.market.MarketMakerLedger.addInventory(finance.market.MarketMakerLedger.SubMarket.STOCK, SYMBOL, 9_950L);
+        depositMargin(100_000L);
+        assertFalse(MarginService.marginBuy(TRADER, SYMBOL, 51L).success());
+        assertTrue(MarginService.marginBuy(TRADER, SYMBOL, 50L).success());
+    }
+
+    @Test
+    void coverShortSettlesAtZeroAfterDelisting() {
+        depositMargin(10_000L);
+        assertTrue(MarginService.shortSell(TRADER, SYMBOL, 100L).success());
+        long freeBefore = AccountManager.getBalance(TRADER);
+        StockMarketManager.removeStockByCompanyId(COMPANY_ID);
+
+        MarginService.Result cover = MarginService.coverShort(TRADER, SYMBOL, 0L);
+
+        assertTrue(cover.success(), cover.message());
+        MarginAccount acct = MarginPoolManager.getAccount(TRADER);
+        assertEquals(0L, acct.shortPositionOf(SYMBOL));
+        assertEquals(0L, acct.shortProceedsOf(SYMBOL));
+        assertEquals(freeBefore + 10_000L, AccountManager.getBalance(TRADER), "退市按 0 买回，卖空所得全部解冻");
+    }
+
+    @Test
+    void shortSellRejectedDuringCircuitBreaker() {
+        depositMargin(10_000L);
+        for (int i = 0; i < 6; i++) stock.recalculateFromCurrent();
+        stock.recordTrade(1, 1_500, false); // 跌 22.5%，触发熔断
+        assertTrue(stock.isBreakerHalted());
+        assertFalse(stock.isTradingHalted());
+
+        assertFalse(MarginService.shortSell(TRADER, SYMBOL, 10L).success());
+        assertEquals(0L, MarginPoolManager.getAccount(TRADER).shortPositionOf(SYMBOL));
+    }
+
     // ---------- 工具 ----------
 
     /** 替换为不同 fairValue 的股票（测试用，模拟行情波动；持仓按 symbol 引用，不受影响） */

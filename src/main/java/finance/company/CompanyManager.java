@@ -156,6 +156,14 @@ public class CompanyManager {
 
         // 获取所有持有该公司股票的玩家（自由持仓）
         java.util.Map<java.util.UUID, Long> holdings = StockPortfolioManager.getHoldingsForCompany(symbol);
+        // 挂卖单的份额：下单时已移出持仓，但还没卖出，仍归股东本人（与股东名册口径一致）
+        for (finance.stock.StockOrder order : finance.stock.StockOrderManager.getOrdersBySymbol(symbol)) {
+            if (order.getType() == finance.stock.StockOrderType.SELL && order.getQuantity() > 0)
+                holdings.merge(
+                        order.getPlayerId(),
+                        (long) order.getQuantity(),
+                        (a, b) -> a > Long.MAX_VALUE - b ? Long.MAX_VALUE : a + b);
+        }
         // 回购锁定的份额：沿用旧口径，分红归股东本人
         finance.governance.CorporateActionManager.buybackLockedShares(symbol)
                 .forEach((holder, quantity) ->
