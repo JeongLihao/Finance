@@ -168,6 +168,8 @@ maxContractRateBasisPoints = 10000
 - 想降低做市商对玩家的自动成交能力：提高 `stockMarketMaker.spread`。
 - 想让股东投票更像正式治理：提高 `proposal.minParticipationRatio`。
 - 想让上市更难：提高 `company.ipoMinFillBasisPoints`（要认满更多才上市）或 `company.ipoFee`；想给认购更多时间：提高 `ipoSubscriptionDays`。
+- 想让央行利率对物价影响更大或更小：调 `macroEconomy.rateDemandSensitivity`（默认 2.0，扣掉通胀后的利率每偏高 1 个百分点，村民非食物开销少 2%）和 `macroEconomy.rateStockSensitivity`（默认 3.0，国际市场的参考库存少 3%）；设为 0 关闭对应的影响。见 [宏观经济 · 利率传导](MACRO_ECONOMY.md)。
+- 想让公司开销更轻或更重：调 `company.machineMaintenanceTier1/2/3`（每台机器每天的维护费）和 `company.inventoryStorageFeeBasisPoints`（每天的仓储费）。
 - 想降低期货杠杆：提高 `futures.initialMarginBasisPoints`，并保持初始率高于维持率和强平率。
 - 想降低单笔成交操纵日结的可能：提高 `futures.minimumSettlementVolume`，或降低 `maxSettlementSpotDeviationBasisPoints`。
 - 想抑制银行扩张：提高准备金率或最低资本充足率、降低单一借款人上限。降低保险上限只影响之后的处置计算，不会删除存款。

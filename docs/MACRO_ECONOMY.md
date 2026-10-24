@@ -173,10 +173,10 @@ NPC 行商价也一样；所以短缺的聚落价格会高，过剩的聚落价�
 
 - **实际利率缺口** = (基准利率 − 预期通胀) − (中性利率 − 物价目标)。预期通胀取最近 30 天 CPI 年化通胀和目标各一半
   （实际通胀先限制在 ±5%），缺口限制在 ±10%。默认中性 5%、目标 2%，即实际利率 3% 算中性。CPI 历史不足两天时按通胀等于目标。
-- **需求端**（`MacroEconomyService.planNeeds`）：缺口每 1 个百分点，村民非食物需求少 2%（`macro.rateDemandSensitivity`），
+- **需求端**（`MacroEconomyService.planNeeds`）：缺口每 1 个百分点，村民非食物需求少 2%（`macroEconomy.rateDemandSensitivity`），
   食物减半；消费倾向限制在 85%～115%。少买的部分是“省下来”，不算需求没满足，不拉低生活水平。
 - **供给端**：
-  - 国际市场定价用的参考库存（`MarketPrice.recalculate`）乘上 1 − 3% × 缺口（`macro.rateStockSensitivity`，限制在 80%～120%）。
+  - 国际市场定价用的参考库存（`MarketPrice.recalculate`）乘上 1 − 3% × 缺口（`macroEconomy.rateStockSensitivity`，限制在 80%～120%）。
     利率偏紧时同样的库存显得过剩，价格回落；只改定价曲线，不改央行补货目标，所以利率一直偏紧，压价就一直有效。
   - NPC 公司自动卖货比例乘上和非食物消费倾向反向的倍率：利率高多卖、少囤货（库存持有利息也按利率计，见
     [公司机器 · 日常开销](COMPANY_FACILITIES.md#日常开销)）。
