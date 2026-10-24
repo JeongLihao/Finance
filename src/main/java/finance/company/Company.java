@@ -265,8 +265,14 @@ public class Company {
 
             long bidPrice = mp.getBidPrice();
 
-            // 卖出库存的自动比例，受经营策略调整。
-            double effectiveSellRatio = clamp(autoSellRatio * strategy.getSellRatioMultiplier(), 0.05, 0.95);
+            // 卖出库存的自动比例，受经营策略调整；利率越高越不愿囤货（持有成本也按利率计）
+            double effectiveSellRatio = clamp(
+                    autoSellRatio
+                            * strategy.getSellRatioMultiplier()
+                            * finance.macro.RateTransmission.sellRatioBps()
+                            / finance.macro.RateTransmission.NEUTRAL_BPS,
+                    0.05,
+                    0.95);
             int sellQty = Math.max(1, (int) (amount * effectiveSellRatio));
             int reserve = getReserveAmount(commodityId);
             if (amount <= reserve) {

@@ -81,4 +81,67 @@ class MacroLongRunSimulationServiceTest {
         }
         assertTrue(r.last().settlements().stream().allMatch(s -> s.employed() > 0), "年末每个聚落都有人就业");
     }
+
+    // ---------------------------------------------------------------- A2：利率传导
+
+    private static double cpiOn(Result r, int day) {
+        return r.daily().get(day - 1).cpi();
+    }
+
+    /** 利率场景共同的底线：货币守恒、确定性、人口和价格系数不撞边界、公司不被掏空。 */
+    private static void assertHealthy(Result r) {
+        assertTrue(r.deterministic(), "同样的场景跑两遍结果一致");
+        assertTrue(r.moneyConserved(), "货币不守恒");
+        int min = FinanceConfig.macroMinPopulation(), max = FinanceConfig.macroMaxPopulation();
+        for (String name : List.of("alpha", "beta", "gamma"))
+            assertTrue(r.populationOf(name).stream().allMatch(p -> p > min && p < max), name + " 人口撞到上下限");
+        assertTrue(r.longestPinnedRun() <= 30, "价格系数长期卡在边界：" + r.factors());
+        for (var e : r.companyStartCash().entrySet())
+            assertTrue(r.minCash(e.getKey()) >= e.getValue() / 2, e.getKey() + " 现金被掏空：" + r.minCash(e.getKey()));
+    }
+
+    @Test
+    void repeatedHikesPullCpiDown() {
+        Result hikes = MacroLongRunSimulationService.run(STANDARD_DAYS, Scenario.HIKES);
+        EconomySavedData.resetRuntimeState();
+        Result base = MacroLongRunSimulationService.run(STANDARD_DAYS, Scenario.BASELINE);
+        System.out.println(hikes.summary());
+        assertHealthy(hikes);
+        double before = cpiOn(hikes, RATE_SCENARIO_START - 1);
+        // 连续加息两个议息周期（60 天）内，CPI 比加息前低 1% 以上，并一直低于不加息的基线
+        int by = RATE_SCENARIO_START + 2 * RATE_STEP_DAYS;
+        assertTrue(cpiOn(hikes, by) < before * 0.99, "加息后 CPI 没回落：" + before + " → " + cpiOn(hikes, by));
+        assertTrue(cpiOn(hikes, STANDARD_DAYS) < cpiOn(base, STANDARD_DAYS), "年末 CPI 不低于基线");
+    }
+
+    @Test
+    void repeatedCutsPushCpiUp() {
+        Result cuts = MacroLongRunSimulationService.run(STANDARD_DAYS, Scenario.CUTS);
+        EconomySavedData.resetRuntimeState();
+        Result base = MacroLongRunSimulationService.run(STANDARD_DAYS, Scenario.BASELINE);
+        System.out.println(cuts.summary());
+        assertHealthy(cuts);
+        double before = cpiOn(cuts, RATE_SCENARIO_START - 1);
+        // 降到 0 之后（五个议息周期）CPI 比降息前高 1% 以上，并高于不降息的基线
+        int by = RATE_SCENARIO_START + 6 * RATE_STEP_DAYS;
+        assertTrue(cpiOn(cuts, by) > before * 1.01, "降息后 CPI 没回升：" + before + " → " + cpiOn(cuts, by));
+        assertTrue(cpiOn(cuts, STANDARD_DAYS) > cpiOn(base, STANDARD_DAYS), "年末 CPI 不高于基线");
+    }
+
+    @Test
+    void automaticPolicyKeepsCpiStableWithoutWhipsaw() {
+        Result r = MacroLongRunSimulationService.run(STANDARD_DAYS, Scenario.POLICY);
+        System.out.println(r.summary());
+        assertHealthy(r);
+        // 央行按规则自动议息：磨合期后 CPI 不偏离第 30 天水平 5% 以上；单次调息不超过规则上限
+        double anchor = cpiOn(r, 30);
+        for (int day = 30; day <= STANDARD_DAYS; day++)
+            assertTrue(Math.abs(cpiOn(r, day) / anchor - 1) < 0.05, "第 " + day + " 天 CPI 偏离过大：" + cpiOn(r, day));
+        for (int day = 2; day <= STANDARD_DAYS; day++)
+            assertTrue(
+                    Math.abs(r.daily().get(day - 1).rateBps()
+                                    - r.daily().get(day - 2).rateBps())
+                            <= FinanceConfig.policyMaxStepBps(),
+                    "第 " + day + " 天调息幅度过大");
+    }
 }

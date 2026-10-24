@@ -155,7 +155,7 @@ public final class MacroRadar {
         if (left > Math.max(1, finance.config.FinanceConfig.policyGuidanceLeadDays())) return;
         String hint = outlook.recommendedBps() < outlook.currentBps()
                 ? "可能降息：现在认购央行债券或开定期存款，能锁住更高的利率"
-                : outlook.recommendedBps() > outlook.currentBps() ? "可能加息：贷款和发债成本会上升，央行债券的新利率会更高" : "大概率维持利率";
+                : outlook.recommendedBps() > outlook.currentBps() ? "可能加息：贷款和发债成本会上升，央行债券的新利率会更高，物价会往下走" : "大概率维持利率";
         out.add(new Opportunity(
                 Kind.POLICY,
                 300,

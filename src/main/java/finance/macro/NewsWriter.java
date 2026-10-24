@@ -149,6 +149,9 @@ public final class NewsWriter {
         int target = finance.centralbank.CentralBankService.inflationTargetBps();
         b.append(String.format("基准利率 %.2f%%，通胀 %.1f%%（目标 %.1f%%）\n", rate / 100.0, inflation / 100.0, target / 100.0));
         b.append(String.format("活期准备金率 %.1f%%\n", finance.centralbank.CentralBankService.demandReserveBps() / 100.0));
+        int gap = RateTransmission.realRateGapBps();
+        if (gap > 100) b.append("扣掉通胀后利率偏紧：村民少买、商人少囤货，物价承压\n");
+        else if (gap < -100) b.append("扣掉通胀后利率偏松：村民多买、商人愿意囤货，物价有上行压力\n");
         List<finance.centralbank.CentralBankService.Decision> decisions =
                 finance.centralbank.CentralBankService.decisions();
         if (!decisions.isEmpty()) {

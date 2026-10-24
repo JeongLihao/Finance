@@ -160,6 +160,9 @@ public final class FinanceConfig {
     private static final IntOption MACRO_MIGRATION_MAX_BPS = new IntOption(50);
     private static final IntOption MACRO_MIGRATION_GAP_BPS = new IntOption(500);
     private static final IntOption MACRO_PRICE_STEP_BPS = new IntOption(1000);
+    // ---- 利率传导（A2） ----
+    private static final DoubleOption MACRO_RATE_DEMAND_SENSITIVITY = new DoubleOption(2.0D);
+    private static final DoubleOption MACRO_RATE_STOCK_SENSITIVITY = new DoubleOption(3.0D);
     private static final IntOption MACRO_LABOR_RADIUS = new IntOption(256);
     private static final LongOption MACRO_DEFAULT_WAGE = new LongOption(12L);
     private static final LongOption MACRO_BASE_RESERVATION_WAGE = new LongOption(4L);
@@ -910,6 +913,12 @@ public final class FinanceConfig {
                 .defineInRange("migrationGapBps", MACRO_MIGRATION_GAP_BPS.def, 0, 10000));
         MACRO_PRICE_STEP_BPS.bind(
                 builder.comment("本地价格系数每天最多变化的基点。").defineInRange("priceStepBps", MACRO_PRICE_STEP_BPS.def, 1, 10000));
+        MACRO_RATE_DEMAND_SENSITIVITY.bind(
+                builder.comment("实际利率每高出中性 1 个百分点，村民非食物消费少百分之几（食物减半），NPC 公司多卖百分之几。0 = 利率不影响需求。消费倾向限制在 85%～115%。")
+                        .defineInRange("rateDemandSensitivity", MACRO_RATE_DEMAND_SENSITIVITY.def, 0.0D, 10.0D));
+        MACRO_RATE_STOCK_SENSITIVITY.bind(
+                builder.comment("实际利率每高出中性 1 个百分点，国际市场定价用的参考库存低百分之几（现有库存显得过剩，价格回落）。0 = 不影响。限制在 80%～120%。")
+                        .defineInRange("rateStockSensitivity", MACRO_RATE_STOCK_SENSITIVITY.def, 0.0D, 10.0D));
         MACRO_LABOR_RADIUS.bind(
                 builder.comment("机器从多远（格）以内的聚落招工。").defineInRange("laborRadius", MACRO_LABOR_RADIUS.def, 16, 4096));
         MACRO_DEFAULT_WAGE.bind(builder.comment("公司未设定工资时的默认日工资（每人每天）。")
@@ -1626,6 +1635,14 @@ public final class FinanceConfig {
 
     public static int macroPriceStepBps() {
         return MACRO_PRICE_STEP_BPS.get();
+    }
+
+    public static double macroRateDemandSensitivity() {
+        return MACRO_RATE_DEMAND_SENSITIVITY.get();
+    }
+
+    public static double macroRateStockSensitivity() {
+        return MACRO_RATE_STOCK_SENSITIVITY.get();
     }
 
     public static int macroLaborRadius() {

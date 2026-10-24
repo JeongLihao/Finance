@@ -280,7 +280,11 @@ public class MarketPrice {
 
         // 1. 供需基准价：库存越高越便宜，但使用幂函数平滑，避免公司日常卖货造成单边崩盘。
         double safeStock = Math.max(1.0, npcStock);
-        double supplyFactor = Math.pow((double) referenceStock / safeStock, elasticity);
+        // 利率传导：实际利率偏紧时参考库存变低，同样的库存显得过剩，价格回落
+        double reference = referenceStock
+                * finance.macro.RateTransmission.referenceStockBps()
+                / (double) finance.macro.RateTransmission.NEUTRAL_BPS;
+        double supplyFactor = Math.pow(Math.max(1.0, reference) / safeStock, elasticity);
         supplyFactor = clamp(supplyFactor, MIN_PRICE_RATIO, MAX_PRICE_RATIO);
         double fundamental = basePrice * supplyFactor;
 
