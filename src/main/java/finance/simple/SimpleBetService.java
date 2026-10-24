@@ -461,6 +461,15 @@ public final class SimpleBetService {
         }
     }
 
+    static synchronized boolean hasPending(UUID player) {
+        return PENDING.containsKey(player);
+    }
+
+    /** 换世界时丢掉没补记的战绩，不带进下一个存档。 */
+    public static synchronized void clearPendingDirect() {
+        PENDING.clear();
+    }
+
     /** 没有押注在身上时，把闲着的押金退回钱包；返回退回多少。 */
     public static long sweepIdle(UUID id) {
         long returned = 0;

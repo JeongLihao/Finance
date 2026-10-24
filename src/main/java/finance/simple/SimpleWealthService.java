@@ -229,6 +229,14 @@ public final class SimpleWealthService {
         for (Rank r : all) WEEK_START.put(r.id(), r.worth());
     }
 
+    /** 换世界时清掉排行榜缓存和周榜基线，否则单人换存档后会拿上一个存档的身家算“本周涨得最多”。 */
+    public static synchronized void clearDirect() {
+        cached = List.of();
+        cachedTick = Long.MIN_VALUE;
+        WEEK_START.clear();
+        lastWeekly = -1;
+    }
+
     // ------------------------------------------------------------ 小工具
 
     private static long price(String symbol) {

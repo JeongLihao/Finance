@@ -483,6 +483,13 @@ public final class SimpleCenterService {
         return cachedValuations;
     }
 
+    /** 换世界时清掉“今天已挂过期货合约”的标记和估值缓存，否则同一 MC 日打开另一个存档时当天不会自动挂合约。 */
+    public static synchronized void clearDirect() {
+        listedDay = Long.MIN_VALUE;
+        cachedValuations = List.of();
+        valuationsTick = Long.MIN_VALUE;
+    }
+
     static List<Valuation> valuations() {
         List<Valuation> out = new ArrayList<>();
         for (finance.stock.Stock stock : finance.stock.StockMarketManager.getListedStocks()) {
