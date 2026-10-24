@@ -19,6 +19,7 @@ import finance.company.CompanyIPOService;
 import finance.company.CompanyManagementAction;
 import finance.company.CompanyManagementService;
 import finance.company.CompanyManager;
+import finance.company.IpoSubscription;
 import finance.config.FinanceConfig;
 import finance.cycle.EconomyCycleService;
 import finance.market.MarketPrice;
@@ -335,12 +336,7 @@ public final class SimpleCenterService {
         if (company == null) return Result.fail("你还没有公司。");
         if (company.isPublic()) return Result.fail("公司已经上市了。");
         if (CompanyIPOService.openFor(company.getCompanyId()) != null) return Result.fail("公司已经在上市认购中了。");
-        long totalShares = Math.round(QUICK_IPO_SHARES / CompanyIPOService.DEFAULT_FLOAT_RATIO);
-        long price = Math.max(
-                1,
-                Math.min(
-                        CompanyIPOService.MAX_ISSUE_PRICE,
-                        finance.stock.StockValuation.companyValue(company) / totalShares));
+        long price = CompanyIPOService.suggestedPrice(company, QUICK_IPO_SHARES);
         long before = AccountManager.getBalance(playerId);
         CompanyIPOService.Result result =
                 CompanyIPOService.start(playerId, company.getCompanyId(), price, QUICK_IPO_SHARES, day);
@@ -462,8 +458,7 @@ public final class SimpleCenterService {
         }
 
         static IpoProgress of(Company company) {
-            finance.company.IpoSubscription s =
-                    company == null ? null : CompanyIPOService.openFor(company.getCompanyId());
+            IpoSubscription s = company == null ? null : CompanyIPOService.openFor(company.getCompanyId());
             if (s == null) return NONE;
             return new IpoProgress(
                     s.subscribedShares(),

@@ -7,6 +7,7 @@ import finance.config.FinanceConfig;
 import finance.data.EconomySavedData;
 import finance.market.MarketMakerLedger;
 import finance.market.NpcMarketMaker;
+import finance.money.MoneyEndpoint;
 import finance.money.MoneyEndpoints;
 import finance.money.MoneyTransferService;
 import finance.npcinvestor.NpcInvestorArchetype;
@@ -16,6 +17,7 @@ import finance.stock.StockMarketManager;
 import finance.stock.StockPortfolioManager;
 import finance.stock.StockValuation;
 import finance.util.MathUtil;
+import finance.util.MoneyFormat;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -64,18 +66,18 @@ public final class CompanyIPOService {
         }
 
         /** 发起成功：提示里带上发行量、价格、认购期和最低认购股数。 */
-        static Result ok(IpoSubscription s, long fee) {
+        static Result started(IpoSubscription s, long fee) {
             return new Result(
                     true,
-                    "上市认购开始了：发行 " + s.issueQuantity() + " 股，每股 " + finance.util.MoneyFormat.pounds(s.issuePrice())
+                    "上市认购开始了：发行 " + s.issueQuantity() + " 股，每股 " + MoneyFormat.pounds(s.issuePrice())
                             + "，认购期 " + (s.endDay() - s.startDay()) + " 天。认满 "
                             + s.minimumShares(FinanceConfig.ipoMinFillBasisPoints()) + " 股才上市，不够就退款"
-                            + (fee > 0 ? "（上市费 " + finance.util.MoneyFormat.pounds(fee) + " 不退）" : "") + "。",
+                            + (fee > 0 ? "（上市费 " + MoneyFormat.pounds(fee) + " 不退）" : "") + "。",
                     s);
         }
 
         /** 认购成功：提示由调用方拼好。 */
-        static Result ok(IpoSubscription s, long cost, String message) {
+        static Result subscribed(IpoSubscription s, String message) {
             return new Result(true, message, s);
         }
     }
@@ -119,13 +121,13 @@ public final class CompanyIPOService {
         long minValuation = FinanceConfig.simpleIpoMinValuation();
         long valuation = StockValuation.companyValue(company);
         if (valuation < minValuation) {
-            return Result.fail("公司估值要达到 " + finance.util.MoneyFormat.pounds(minValuation) + " 才能上市，现在是 "
-                    + finance.util.MoneyFormat.pounds(valuation) + "（家底加最近的利润，借来的钱不算）。");
+            return Result.fail("公司估值要达到 " + MoneyFormat.pounds(minValuation) + " 才能上市，现在是 "
+                    + MoneyFormat.pounds(valuation) + "（家底加最近的利润，借来的钱不算）。");
         }
         // 先查余额再开认购，避免开了认购才发现付不起上市费、又得撤销
         long fee = Math.max(0, FinanceConfig.ipoFee());
         if (fee > 0 && AccountManager.getBalance(requesterId) < fee)
-            return Result.fail("上市费不够，需要 " + finance.util.MoneyFormat.pounds(fee) + "。");
+            return Result.fail("上市费不够，需要 " + MoneyFormat.pounds(fee) + "。");
         return openAndCharge(
                 company, requesterId, issuePrice, issueQuantity, day, MoneyEndpoints.account(requesterId), fee);
     }
@@ -151,19 +153,31 @@ public final class CompanyIPOService {
      * 而 NPC 资金池和做市商是同一个账户，先收费的话做市商会拿上市费去认购。收费失败就撤销认购并退款。
      */
     private static Result openAndCharge(
-            Company company,
-            UUID founder,
-            long price,
-            long quantity,
-            long day,
-            finance.money.MoneyEndpoint payer,
-            long fee) {
+            Company company, UUID founder, long price, long quantity, long day, MoneyEndpoint payer, long fee) {
         IpoSubscription s = open(company, founder, price, quantity, day);
         if (fee > 0 && !payFee(payer, founder, company, fee)) {
             cancel(s, "上市费扣款失败");
             return Result.fail("上市费扣款失败。");
         }
-        return Result.ok(s, fee);
+        return Result.started(s, fee);
+    }
+
+    // ---------------------------------------------------------------- 定价与金额
+
+    /** 发行 {@code issueQuantity} 股时的总股本：发行量 ÷ 流通比例，至少等于发行量。 */
+    public static long totalSharesFor(long issueQuantity) {
+        return Math.max(issueQuantity, Math.round(issueQuantity / DEFAULT_FLOAT_RATIO));
+    }
+
+    /** 建议发行价：公司估值 ÷ 总股本（即每股估值），限制在 1～{@link #MAX_ISSUE_PRICE}。一键上市和竞争公司共用。 */
+    public static long suggestedPrice(Company company, long issueQuantity) {
+        long perShare = StockValuation.companyValue(company) / Math.max(1, totalSharesFor(issueQuantity));
+        return Math.max(1, Math.min(MAX_ISSUE_PRICE, perShare));
+    }
+
+    /** 价格 × 股数；股数超过 int 范围按 int 上限算，乘法溢出返回 −1。 */
+    static long amount(long price, long shares) {
+        return MathUtil.multiplyExactOrNegative1(price, (int) Math.min(Integer.MAX_VALUE, shares));
     }
 
     /** 玩家和无主公司共用的参数检查；返回错误提示，合法时返回 null。 */
@@ -173,13 +187,13 @@ public final class CompanyIPOService {
         if (issuePrice <= 0 || issueQuantity <= 0) return "发行价和数量必须为正。";
         if (issueQuantity > MAX_ISSUE_QUANTITY) return "发行数量过多（最多 " + MAX_ISSUE_QUANTITY + "）。";
         if (issuePrice > MAX_ISSUE_PRICE) return "发行价过高（上限 " + MAX_ISSUE_PRICE + "）。";
-        // 上面已限制数量不超过 MAX_ISSUE_QUANTITY，这里转 int 不会截断；乘法溢出时返回 −1
-        if (MathUtil.multiplyExactOrNegative1(issuePrice, (int) issueQuantity) <= 0) return "募资金额过大。";
+        // 乘法溢出时 amount 返回 −1
+        if (amount(issuePrice, issueQuantity) <= 0) return "募资金额过大。";
         return null;
     }
 
     /** 上市费从 {@code from}（玩家钱包或公司现金）付给 NPC 资金池，并记一条流水；转账失败返回 false。 */
-    private static boolean payFee(finance.money.MoneyEndpoint from, UUID payer, Company company, long fee) {
+    private static boolean payFee(MoneyEndpoint from, UUID payer, Company company, long fee) {
         if (!MoneyTransferService.transfer(from, MoneyEndpoints.account(NpcMarketMaker.NPC_UUID), fee)
                 .success()) return false;
         AccountManager.addTransactionRecord(new TransactionRecord(
@@ -189,7 +203,7 @@ public final class CompanyIPOService {
 
     /** 建一条认购并登记：总股本 = 发行量 ÷ 流通比例，认购期从今天起算；做市商随即认购预留部分。 */
     private static IpoSubscription open(Company company, UUID founder, long price, long quantity, long day) {
-        long totalShares = Math.max(quantity, Math.round(quantity / DEFAULT_FLOAT_RATIO));
+        long totalShares = totalSharesFor(quantity);
         long days = Math.max(1, FinanceConfig.ipoSubscriptionDays());
         IpoSubscription s = new IpoSubscription(
                 UUID.randomUUID(),
@@ -214,7 +228,7 @@ public final class CompanyIPOService {
         double ratio = FinanceConfig.ipoMarketMakerReserveRatio();
         long qty = ratio <= 0 ? 0 : Math.min(s.remainingShares(), (long) Math.floor(s.issueQuantity() * ratio));
         if (qty <= 0) return;
-        long cost = MathUtil.multiplyExactOrNegative1(s.issuePrice(), (int) qty);
+        long cost = amount(s.issuePrice(), qty);
         if (cost <= 0 || AccountManager.getBalance(MarketMakerLedger.MASTER_UUID) < cost) return;
         // 做市商的钱同样进托管：上市成功转给公司，取消时和别人一样原路退回
         if (!AccountManager.moveFunds(MarketMakerLedger.MASTER_UUID, s.escrowAccount(), cost)) return;
@@ -241,10 +255,10 @@ public final class CompanyIPOService {
         // 只认剩余额度以内的部分；调用方要按 accepted（或余额变化）算花了多少，不能按请求的 shares
         long accepted = Math.min(shares, s.remainingShares());
         if (accepted <= 0) return Result.fail("这次发行已经认满了。");
-        long cost = MathUtil.multiplyExactOrNegative1(s.issuePrice(), (int) accepted);
+        long cost = amount(s.issuePrice(), accepted);
         if (cost <= 0) return Result.fail("认购金额过大。");
         if (AccountManager.getBalance(subscriber) < cost)
-            return Result.fail("钱不够，认购 " + accepted + " 股要 " + finance.util.MoneyFormat.pounds(cost) + "。");
+            return Result.fail("钱不够，认购 " + accepted + " 股要 " + MoneyFormat.pounds(cost) + "。");
         // 先扣钱成功再记股数，保证“托管余额 = 发行价 × 已认股数”
         if (!AccountManager.moveFunds(subscriber, s.escrowAccount(), cost)) return Result.fail("认购扣款失败。");
         s.addSubscription(subscriber, accepted);
@@ -258,8 +272,7 @@ public final class CompanyIPOService {
                 company == null ? "" : company.getName(),
                 accepted));
         EconomySavedData.markDirty();
-        return Result.ok(
-                s, cost, "认购了 " + accepted + " 股，付了 " + finance.util.MoneyFormat.pounds(cost) + "，钱先放在托管里，上市成功才转给公司。");
+        return Result.subscribed(s, "认购了 " + accepted + " 股，付了 " + MoneyFormat.pounds(cost) + "，钱先放在托管里，上市成功才转给公司。");
     }
 
     // ---------------------------------------------------------------- 日结
@@ -359,7 +372,7 @@ public final class CompanyIPOService {
      */
     private static boolean list(IpoSubscription s, Company company, long day) {
         long sold = s.subscribedShares();
-        long raised = MathUtil.multiplyExactOrNegative1(s.issuePrice(), (int) Math.min(Integer.MAX_VALUE, sold));
+        long raised = amount(s.issuePrice(), sold);
         // 创始人拿总股本里没卖出去的全部
         long founderShares = s.totalShares() - sold;
         if (raised <= 0 || founderShares < 0 || AccountManager.getBalance(s.escrowAccount()) < raised) return false;
@@ -422,8 +435,7 @@ public final class CompanyIPOService {
         if (s.status() != IpoSubscription.Status.OPEN) return false;
         for (Map.Entry<UUID, Long> e : s.subscriptions().entrySet()) {
             // 每人退 发行价 × 他认的股数，正好是他当初付进托管的钱
-            long refund =
-                    MathUtil.multiplyExactOrNegative1(s.issuePrice(), (int) Math.min(Integer.MAX_VALUE, e.getValue()));
+            long refund = amount(s.issuePrice(), e.getValue());
             // 托管不够退（正常不会发生）就跳过这一笔，钱留在托管里，不会凭空造钱
             if (refund <= 0 || AccountManager.getBalance(s.escrowAccount()) < refund) continue;
             if (AccountManager.moveFunds(s.escrowAccount(), e.getKey(), refund))

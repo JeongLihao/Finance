@@ -5,6 +5,7 @@ import finance.account.TransactionRecord;
 import finance.account.TransactionType;
 import finance.data.EconomySavedData;
 import finance.governance.ShareholderRegistryService;
+import finance.market.MarketMakerLedger;
 import finance.stock.Stock;
 import finance.stock.StockMarketManager;
 import finance.stock.StockPortfolioManager;
@@ -46,7 +47,7 @@ public final class NpcFloatPlacementService {
         if (stock == null) return 0;
         ShareholderRegistryService.Snapshot snapshot = ShareholderRegistryService.snapshot(stock.getCompanyId(), day);
         if (!snapshot.consistent()) return 0;
-        long marketMaker = finance.market.MarketMakerLedger.getStockInventory(stock.getSymbol());
+        long marketMaker = MarketMakerLedger.getStockInventory(stock.getSymbol());
         return Math.max(0, snapshot.systemLiquidity() - Math.max(0, marketMaker));
     }
 
