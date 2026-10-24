@@ -96,11 +96,8 @@ public final class CaravanCommand {
             source.sendFailure(Component.literal("仅玩家可建商队路线。"));
             return 0;
         }
-        long day = 0L;
-        try {
-            day = source.getServer().overworld().getDayTime() / 24000L;
-        } catch (Exception ignored) {
-        }
+        // 和经济系统同一个日期来源（世界累计时间），睡觉跳夜和 /time set 不影响
+        long day = finance.cycle.EconomyCycleService.currentMcDay(source.getServer());
         CaravanService.Result r =
                 CaravanService.createRoute(player, srcName, dstName, commodityId, qty, guard, insure, day);
         if (r.ok()) {
