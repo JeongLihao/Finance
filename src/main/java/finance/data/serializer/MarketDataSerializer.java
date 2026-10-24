@@ -210,7 +210,8 @@ public final class MarketDataSerializer {
                 // 期货净持仓有符号（可为负），走专用恢复路径；stock 沿用原逻辑
                 try {
                     MarketMakerLedger.restoreFuturesNetPosition(UUID.fromString(symbol), inventory);
-                } catch (IllegalArgumentException ignored) {
+                } catch (IllegalArgumentException e) {
+                    LoadWarnings.skipped("futures market-maker position", e);
                 }
             } else {
                 MarketMakerLedger.restoreInventory(market, symbol, inventory);

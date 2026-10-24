@@ -126,7 +126,8 @@ public final class GovernanceDataSerializer {
                 accepted.forEach((holder, shares) -> plan.accept(holder, shares, costs.getOrDefault(holder, 0L)));
                 if (!CorporateActionManager.putBuybackDirect(plan) && status == CapitalActionStatus.OPEN)
                     recoverBuyback(company, escrow, symbol, accepted, costs);
-            } catch (Exception ignored) {
+            } catch (Exception e) {
+                LoadWarnings.skipped("share buyback", e);
             }
         }
         for (Tag raw : section.getList("Tenders", Tag.TAG_COMPOUND)) {
@@ -176,7 +177,8 @@ public final class GovernanceDataSerializer {
                 dividends.forEach(offer::addDividend);
                 if (!CorporateActionManager.putTenderDirect(offer) && status == CapitalActionStatus.OPEN)
                     recoverTender(buyer, escrow, symbol, accepted, costs);
-            } catch (Exception ignored) {
+            } catch (Exception e) {
+                LoadWarnings.skipped("tender offer", e);
             }
         }
         int count = 0;
@@ -194,7 +196,8 @@ public final class GovernanceDataSerializer {
                         tag.getUUID("Business"),
                         title,
                         details));
-            } catch (Exception ignored) {
+            } catch (Exception e) {
+                LoadWarnings.skipped("corporate announcement", e);
             }
         }
         for (Tag raw : section.getList("Controllers", Tag.TAG_COMPOUND))
@@ -203,7 +206,8 @@ public final class GovernanceDataSerializer {
                 UUID company = tag.getUUID("Company"), holder = tag.getUUID("Holder");
                 if (CompanyManager.getCompany(company) != null)
                     CorporateActionManager.putControllerDirect(company, holder);
-            } catch (Exception ignored) {
+            } catch (Exception e) {
+                LoadWarnings.skipped("company controller", e);
             }
         count = 0;
         for (Tag raw : section.getList("Keys", Tag.TAG_COMPOUND)) {
@@ -299,7 +303,8 @@ public final class GovernanceDataSerializer {
                 UUID id = tag.getUUID("Holder");
                 long value = tag.getLong("Shares");
                 if (value > 0 && !map.containsKey(id)) map.put(id, value);
-            } catch (Exception ignored) {
+            } catch (Exception e) {
+                LoadWarnings.skipped("tender acceptance", e);
             }
         }
         return map;

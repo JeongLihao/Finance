@@ -136,8 +136,9 @@ public final class ContractDataSerializer {
                     if (!key.isBlank() && key.length() <= 96) contract.restoreOperation(key);
                 }
                 ContractManager.restore(contract);
-            } catch (RuntimeException ignored) {
+            } catch (RuntimeException e) {
                 // 单个合同损坏时隔离，绝不猜测退款归属。
+                LoadWarnings.skipped("contract", e);
             }
         }
         ListTag dailyKeys = contractRoot.getList("DailyKeys", Tag.TAG_STRING);

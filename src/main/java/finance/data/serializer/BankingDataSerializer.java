@@ -218,13 +218,15 @@ public final class BankingDataSerializer {
                                     s.getLong("Npl"),
                                     s.getInt("Lcr"),
                                     s.getInt("Car")));
-                    } catch (IllegalArgumentException ignored) {
+                    } catch (IllegalArgumentException e) {
+                        LoadWarnings.skipped("bank balance-sheet snapshot", e);
                     }
                 }
                 BankingManager.putBankDirect(b);
                 java.util.UUID pbOwner = NbtDataSupport.readUuidOrNull(t, "Owner");
                 if (pbOwner != null) PlayerBankService.putOwnerDirect(id, pbOwner, t.getLong("CharterDay"));
-            } catch (IllegalArgumentException ignored) {
+            } catch (IllegalArgumentException e) {
+                LoadWarnings.skipped("bank", e);
             }
         }
         Set<UUID> accountIds = new HashSet<>();
@@ -249,7 +251,8 @@ public final class BankingDataSerializer {
                         t.getLong("Frozen"),
                         t.getLong("Opened"),
                         status));
-            } catch (IllegalArgumentException ignored) {
+            } catch (IllegalArgumentException e) {
+                LoadWarnings.skipped("bank account", e);
             }
         }
         Set<UUID> termIds = new HashSet<>();
@@ -287,7 +290,8 @@ public final class BankingDataSerializer {
                                 .equals(BigInteger.valueOf(a.balance()))) BankingManager.putTimeDepositDirect(d);
                 else if (status == TimeDepositStatus.REDEEMED && a.status() == BankAccountStatus.CLOSED)
                     BankingManager.putTimeDepositDirect(d);
-            } catch (IllegalArgumentException ignored) {
+            } catch (IllegalArgumentException e) {
+                LoadWarnings.skipped("time deposit", e);
             }
         }
         validateCustomerLedgers();
@@ -363,7 +367,8 @@ public final class BankingDataSerializer {
                         t.getLong("Issue"),
                         t.getLong("Maturity"),
                         status));
-            } catch (IllegalArgumentException ignored) {
+            } catch (IllegalArgumentException e) {
+                LoadWarnings.skipped("interbank loan", e);
             }
         }
         InterbankMarketService.restoreDay(state.getLong("InterbankDay"));
@@ -385,7 +390,8 @@ public final class BankingDataSerializer {
                         t.getLong("Issue"),
                         t.getLong("Maturity"),
                         status));
-            } catch (IllegalArgumentException ignored) {
+            } catch (IllegalArgumentException e) {
+                LoadWarnings.skipped("central-bank liquidity loan", e);
             }
         }
         CentralBankLiquidityService.restore(

@@ -135,7 +135,8 @@ public final class BondMarketDataSerializer {
                         quantity,
                         day,
                         LocalDateTime.ofEpochSecond(epoch, 0, ZoneOffset.UTC)));
-            } catch (RuntimeException ignored) {
+            } catch (RuntimeException e) {
+                LoadWarnings.skipped("bond trade", e);
             }
         }
     }

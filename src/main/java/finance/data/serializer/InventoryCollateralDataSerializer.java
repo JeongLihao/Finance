@@ -123,7 +123,8 @@ public final class InventoryCollateralDataSerializer {
                     try {
                         InventoryCollateralManager.restoreOrphan(
                                 new InventoryCollateralManager.OrphanReservation(id, custody, commodity, quantity));
-                    } catch (RuntimeException ignored) {
+                    } catch (RuntimeException e) {
+                        LoadWarnings.skipped("orphan collateral reservation", e);
                     }
             }
         }

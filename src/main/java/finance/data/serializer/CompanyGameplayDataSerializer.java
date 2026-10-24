@@ -122,7 +122,8 @@ public final class CompanyGameplayDataSerializer {
                         UUID id = UUID.fromString(warehouses.getString(i));
                         WarehouseRecord record = WarehouseManager.get(id);
                         if (record != null && companyId.equals(record.companyId())) profile.bindWarehouse(id);
-                    } catch (IllegalArgumentException ignored) {
+                    } catch (IllegalArgumentException e) {
+                        LoadWarnings.skipped("company warehouse binding", e);
                     }
                 ListTag desks = tag.getList("Desks", Tag.TAG_STRING);
                 for (int i = 0; i < Math.min(CompanyGameplayProfile.MAX_DESKS, desks.size()); i++)
@@ -131,7 +132,8 @@ public final class CompanyGameplayDataSerializer {
                 for (int i = Math.max(0, ops.size() - CompanyGameplayProfile.MAX_OPERATION_KEYS); i < ops.size(); i++)
                     profile.recordOperation(ops.getString(i));
                 CompanyGameplayManager.restore(profile);
-            } catch (RuntimeException ignored) {
+            } catch (RuntimeException e) {
+                LoadWarnings.skipped("company gameplay profile", e);
             }
         }
         CompanyGameplayManager.ensureLegacyProfiles();
@@ -160,7 +162,8 @@ public final class CompanyGameplayDataSerializer {
                 for (int op = Math.max(0, ops.size() - CompanyFacilityRecord.MAX_OPERATION_KEYS); op < ops.size(); op++)
                     facility.recordOperation(ops.getString(op));
                 CompanyFacilityManager.restore(facility);
-            } catch (RuntimeException ignored) {
+            } catch (RuntimeException e) {
+                LoadWarnings.skipped("company facility", e);
             }
         }
     }

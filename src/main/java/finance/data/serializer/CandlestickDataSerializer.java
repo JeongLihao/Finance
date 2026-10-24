@@ -65,8 +65,9 @@ public final class CandlestickDataSerializer {
                             barTag.getLong("Low"),
                             barTag.getLong("Close"),
                             barTag.getLong("Volume")));
-                } catch (IllegalArgumentException ignored) {
+                } catch (IllegalArgumentException e) {
                     // Skip corrupt bars without discarding the rest of the economy save.
+                    LoadWarnings.skipped("candlestick bar", e);
                 }
             }
             CandlestickService.putSeriesDirect(key, series);

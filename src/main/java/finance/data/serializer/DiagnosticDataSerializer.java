@@ -71,11 +71,13 @@ public final class DiagnosticDataSerializer {
                                 i.getString("Code"),
                                 i.getString("Subject"),
                                 i.getString("Message")));
-                    } catch (IllegalArgumentException ignored) {
+                    } catch (IllegalArgumentException e) {
+                        LoadWarnings.skipped("diagnostic issue", e);
                     }
                 }
                 reports.add(new DiagnosticReport(id, Instant.ofEpochMilli(at), day, duration, issues));
-            } catch (RuntimeException ignored) {
+            } catch (RuntimeException e) {
+                LoadWarnings.skipped("diagnostic report", e);
             }
         }
         DiagnosticManager.restore(reports);
@@ -87,7 +89,8 @@ public final class DiagnosticDataSerializer {
                         ModuleRunState.valueOf(m.getString("State")),
                         m.getString("Reason"),
                         m.getLong("Since"));
-            } catch (IllegalArgumentException ignored) {
+            } catch (IllegalArgumentException e) {
+                LoadWarnings.skipped("module health restriction", e);
             }
         }
     }

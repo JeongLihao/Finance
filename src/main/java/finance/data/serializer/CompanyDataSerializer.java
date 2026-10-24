@@ -419,8 +419,9 @@ public final class CompanyDataSerializer {
                                     reportTag.getLong("ExpectedProfit"),
                                     reportTag.getLong("SurpriseBps"),
                                     LocalDateTime.ofEpochSecond(reportTag.getLong("CreatedAt"), 0, ZoneOffset.UTC)));
-                        } catch (Exception ignored) {
+                        } catch (Exception e) {
                             // 单条损坏跳过
+                            LoadWarnings.skipped("company earnings report", e);
                         }
                     }
                 }

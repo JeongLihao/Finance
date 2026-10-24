@@ -86,7 +86,8 @@ public final class WorldFeedbackDataSerializer {
                     items.add(new FeedbackNotification(n.getLong("Day"), severity, n.getString("Translation"), values));
                 }
                 WorldEconomyFeedbackService.restorePending(player, items);
-            } catch (RuntimeException ignored) {
+            } catch (RuntimeException e) {
+                LoadWarnings.skipped("pending world feedback", e);
             }
         }
         ListTag terminals = data.getList("Terminals", Tag.TAG_COMPOUND);
@@ -99,7 +100,8 @@ public final class WorldFeedbackDataSerializer {
                 if (type != null && ResourceLocation.tryParse(dimension) != null)
                     WorldTerminalRegistry.restore(
                             new WorldTerminalRegistry.TerminalRecord(dimension, BlockPos.of(tag.getLong("Pos")), type));
-            } catch (RuntimeException ignored) {
+            } catch (RuntimeException e) {
+                LoadWarnings.skipped("world terminal", e);
             }
         }
     }

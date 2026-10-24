@@ -88,7 +88,8 @@ public final class DebtDataSerializer {
             try {
                 CorporateBond bond = readBond((CompoundTag) raw);
                 if (bond != null) CorporateBondManager.putDirect(bond);
-            } catch (RuntimeException ignored) {
+            } catch (RuntimeException e) {
+                LoadWarnings.skipped("corporate bond", e);
             }
         }
         count = 0;
@@ -97,7 +98,8 @@ public final class DebtDataSerializer {
             try {
                 CompanyLoan loan = readLoan((CompoundTag) raw);
                 if (loan != null) CompanyLoanManager.putDirect(loan);
-            } catch (RuntimeException ignored) {
+            } catch (RuntimeException e) {
+                LoadWarnings.skipped("company loan", e);
             }
         }
     }

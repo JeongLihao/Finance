@@ -104,8 +104,9 @@ public final class WarehouseDataSerializer {
                     if (!key.isBlank() && key.length() <= 96) record.restoreOperation(key);
                 }
                 WarehouseManager.restore(record);
-            } catch (RuntimeException ignored) {
+            } catch (RuntimeException e) {
                 // 单条损坏仓库被隔离，不影响其余经济数据。
+                LoadWarnings.skipped("warehouse", e);
             }
         }
         for (WarehouseRecord record : WarehouseManager.all()) WarehouseManager.refreshOwnerStatus(record.ownerId());
