@@ -25,6 +25,22 @@ public final class MoneyFormat {
         return (pence < 0 ? "-" : "") + text + "磅";
     }
 
+    /** 基点写成百分比，最多两位小数、去掉末尾的 0：500 → “5%”，250 → “2.5%”，1234 → “12.34%”。 */
+    public static String percentBps(long bps) {
+        return scaled(bps, 2) + "%";
+    }
+
+    /** 千分之一单位（×10 的百分数）写成百分比，最多一位小数：905 → “90.5%”，900 → “90%”。 */
+    public static String percentX10(long tenths) {
+        return scaled(tenths, 1) + "%";
+    }
+
+    private static String scaled(long value, int decimals) {
+        return java.math.BigDecimal.valueOf(value, decimals)
+                .stripTrailingZeros()
+                .toPlainString();
+    }
+
     /** 带正负号，用于“+8 磅 32 便士”这类变化量。 */
     public static String signed(long pence) {
         return (pence > 0 ? "+" : "") + pounds(pence);

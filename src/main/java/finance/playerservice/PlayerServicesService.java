@@ -46,6 +46,7 @@ import finance.npcinvestor.HolderLabels;
 import finance.stock.Stock;
 import finance.stock.StockMarketManager;
 import finance.stock.StockPortfolioManager;
+import finance.util.MoneyFormat;
 import finance.util.Uuids;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -187,8 +188,9 @@ public final class PlayerServicesService {
         return new Bank(
                 true,
                 v.code() + "「" + v.name() + "」 " + v.status() + "  权益 " + v.equity() + "  存款 " + v.deposits()
-                        + "  资本充足率 " + v.capitalBps() / 100.0 + "%",
-                "活期利率 " + v.demandRateBps() / 100.0 + "%  定期利率 " + v.timeRateBps() / 100.0 + "%",
+                        + "  资本充足率 " + MoneyFormat.percentBps(v.capitalBps()),
+                "活期利率 " + MoneyFormat.percentBps(v.demandRateBps()) + "  定期利率 "
+                        + MoneyFormat.percentBps(v.timeRateBps()),
                 minCapital,
                 fee);
     }

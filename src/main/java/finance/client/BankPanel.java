@@ -1,6 +1,7 @@
 package finance.client;
 
 import finance.network.*;
+import finance.util.MoneyFormat;
 import java.util.*;
 import net.minecraft.client.gui.GuiGraphics;
 
@@ -62,7 +63,8 @@ final class BankPanel {
             FinanceGui.drawClippedString(
                     screen.font(),
                     g,
-                    "活期" + bank.demandRateBps() / 100.0 + "% 定期" + bank.timeRateBps() / 100.0 + "%",
+                    "活期" + MoneyFormat.percentBps(bank.demandRateBps()) + " 定期"
+                            + MoneyFormat.percentBps(bank.timeRateBps()),
                     116,
                     y,
                     80,

@@ -9,6 +9,7 @@ import finance.network.PlayerServicesResponsePacket;
 import finance.network.PlayerServicesResponsePacket.SqueezeRow;
 import finance.network.PlayerServicesResponsePacket.TenderRow;
 import finance.playerservice.PlayerServicesService.Action;
+import finance.util.MoneyFormat;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -82,7 +83,7 @@ final class ServicesTenderPage extends ServicesPage {
             FinanceGui.drawClippedString(
                     font(),
                     g,
-                    s.name() + "  持股 " + s.percentX10() / 10.0 + "%",
+                    s.name() + "  持股 " + MoneyFormat.percentX10(s.percentX10()),
                     left() + 10,
                     y,
                     300,

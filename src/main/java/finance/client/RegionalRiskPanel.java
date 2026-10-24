@@ -2,6 +2,7 @@ package finance.client;
 
 import finance.gameplay.FinanceScreenMode;
 import finance.network.*;
+import finance.util.MoneyFormat;
 import java.util.*;
 import net.minecraft.client.gui.GuiGraphics;
 
@@ -67,7 +68,7 @@ final class RegionalRiskPanel {
                     screen.font(),
                     g,
                     FinanceFormat.commodityDisplayName(row.commodity()) + " x" + row.quantity() + "  抵押率 "
-                            + row.ltvBps() / 100.0 + "%  " + FinanceFormat.label(row.status()) + "  回收"
+                            + MoneyFormat.percentBps(row.ltvBps()) + "  " + FinanceFormat.label(row.status()) + "  回收"
                             + row.recovered(),
                     14,
                     y,
@@ -86,7 +87,7 @@ final class RegionalRiskPanel {
                     screen.font(),
                     g,
                     row.contractCode() + " " + FinanceFormat.label(row.type()) + " 目标" + row.target() + " 覆盖"
-                            + row.coverageBps() / 100.0 + "% " + FinanceFormat.label(row.status()) + " "
+                            + MoneyFormat.percentBps(row.coverageBps()) + " " + FinanceFormat.label(row.status()) + " "
                             + FinanceFormat.label(row.marginRisk()),
                     14,
                     y,

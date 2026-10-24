@@ -287,7 +287,7 @@ public final class SimpleBossService {
         return r.success()
                 ? new SimpleInvestService.Result(
                         true,
-                        "发了 " + MoneyFormat.pounds(quantity * 100) + " 的公司债（年息 " + coupon / 100.0 + "%）。"
+                        "发了 " + MoneyFormat.pounds(quantity * 100) + " 的公司债（年息 " + MoneyFormat.percentBps(coupon) + "）。"
                                 + BOND_SUBSCRIPTION_DAYS + " 天认购期结束后钱到公司账上，" + BOND_TERM_DAYS + " 天后还本。",
                         0)
                 : fail(r.message());
