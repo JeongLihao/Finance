@@ -4,7 +4,9 @@ import finance.commodity.Commodity;
 import finance.commodity.CommodityRegistry;
 import finance.company.Company;
 import finance.company.CompanyFinancialReport;
+import finance.company.CompanyIPOService;
 import finance.company.CompanyManager;
+import finance.company.IpoSubscription;
 import finance.debt.BondStatus;
 import finance.debt.CorporateBondManager;
 import finance.market.MarketPrice;
@@ -105,7 +107,7 @@ public final class SimpleOpportunityService {
                 out.add(Card.act("仓库里的货能抵押：押给银行先借一笔，还清后货自动解押。", "抵押借钱", "PLEDGE", "", 0, true));
         }
         // 3b. 别家公司在上市认购：认一笔（每股按估值定价，钱先进托管，没上市原路退回）
-        for (finance.company.IpoSubscription ipo : finance.company.CompanyIPOService.open()) {
+        for (IpoSubscription ipo : CompanyIPOService.open()) {
             if (company != null && company.getCompanyId().equals(ipo.companyId())) continue;
             Company target = CompanyManager.getCompany(ipo.companyId());
             long shares =

@@ -10,9 +10,12 @@ import finance.commodity.CommodityInventoryManager;
 import finance.company.Company;
 import finance.company.CompanyFinancingManager;
 import finance.company.CompanyFinancingProject;
+import finance.company.CompanyIPOService;
 import finance.company.CompanyManager;
 import finance.company.CompanyProposal;
 import finance.company.CompanyProposalManager;
+import finance.company.IpoSubscription;
+import finance.config.FinanceConfig;
 import finance.gameplay.FinanceScreenMode;
 import finance.gameplay.FinanceTerminalType;
 import finance.market.MarketManager;
@@ -236,7 +239,7 @@ public class FinanceGuiOpener {
                     project.getDeadlineMcDay()));
         }
         // 上市认购也走这张表：股票代码留空表示新股认购（还没有股票），筹资目标是“认满最低比例”的金额
-        for (finance.company.IpoSubscription ipo : finance.company.CompanyIPOService.open()) {
+        for (IpoSubscription ipo : CompanyIPOService.open()) {
             Company ipoCompany = CompanyManager.getCompany(ipo.companyId());
             if (ipoCompany == null) continue;
             companyFinancingRows.add(new CompanyRows.CompanyFinancingRow(
@@ -246,7 +249,7 @@ public class FinanceGuiOpener {
                     "",
                     ipo.issueQuantity(),
                     ipo.issuePrice(),
-                    ipo.issuePrice() * ipo.minimumShares(finance.config.FinanceConfig.ipoMinFillBasisPoints()),
+                    ipo.issuePrice() * ipo.minimumShares(FinanceConfig.ipoMinFillBasisPoints()),
                     ipo.issuePrice() * ipo.subscribedShares(),
                     ipo.subscribedShares(),
                     ipo.subscribedBy(playerId),

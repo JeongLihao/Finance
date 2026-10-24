@@ -4,6 +4,7 @@ import finance.chart.MarketInstrumentType;
 import finance.gui.CompanyRows;
 import finance.gui.StockRows;
 import finance.network.*;
+import finance.network.CompanyIPOPacket;
 import finance.stock.ConditionalStockOrderType;
 import finance.util.FormatUtil;
 import java.util.*;
@@ -217,8 +218,7 @@ public final class StockTabs {
                 long qty = screen.requireAmount(screen.stockQuantityBox, "认购股数");
                 if (ipo) {
                     screen.setStatus("已提交新股认购");
-                    FinancePacketHandler.CHANNEL.sendToServer(
-                            finance.network.CompanyIPOPacket.subscribe(row.projectId(), qty));
+                    FinancePacketHandler.CHANNEL.sendToServer(CompanyIPOPacket.subscribe(row.projectId(), qty));
                 } else {
                     screen.setStatus("已提交增发认购");
                     FinancePacketHandler.CHANNEL.sendToServer(CompanyFinancingPacket.subscribe(row.projectId(), qty));

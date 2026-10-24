@@ -275,12 +275,7 @@ public final class RivalService {
         if (CompanyIPOService.openFor(company.getCompanyId()) != null) return;
         // 和玩家一键上市一样：发行 40%，发行价按每股估值，NPC 投资者觉得值才认购
         long quantity = IPO_SHARES;
-        long totalShares = Math.round(quantity / CompanyIPOService.DEFAULT_FLOAT_RATIO);
-        long price = Math.max(
-                1,
-                Math.min(
-                        CompanyIPOService.MAX_ISSUE_PRICE,
-                        finance.stock.StockValuation.companyValue(company) / totalShares));
+        long price = CompanyIPOService.suggestedPrice(company, quantity);
         var result = CompanyIPOService.startOwnerless(
                 company.getCompanyId(), RivalProfile.investmentAccount(company.getCompanyId()), price, quantity, day);
         if (!result.success()) return;
