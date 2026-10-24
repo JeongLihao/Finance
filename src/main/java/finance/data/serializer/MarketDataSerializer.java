@@ -213,7 +213,8 @@ public final class MarketDataSerializer {
                 if (contractId != null) MarketMakerLedger.restoreFuturesNetPosition(contractId, inventory);
                 else
                     LoadWarnings.skipped(
-                            "futures market-maker position", new IllegalArgumentException("bad contract id: " + symbol));
+                            "futures market-maker position",
+                            new IllegalArgumentException("bad contract id: " + symbol));
             } else {
                 MarketMakerLedger.restoreInventory(market, symbol, inventory);
             }
