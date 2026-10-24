@@ -127,6 +127,7 @@ public final class FinanceFormat {
             case "NPC_INVESTOR_FUNDING" -> "NPC 投资者注资";
             case "NPC_FLOAT_PLACEMENT" -> "NPC 残差配售";
             case "MACRO_WAGE" -> "工资";
+            case "COMPANY_RUNNING_COST" -> "公司日常开销";
             case "MACRO_WELFARE" -> "社会福利";
             case "MACRO_POLITICS" -> "政治捐款";
             case "MACRO_VILLAGE_SPENDING" -> "村民消费";

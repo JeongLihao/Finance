@@ -46,6 +46,23 @@ NPC 公司和系统公司在世界里没有机器，仍按行业每天抽象生�
 
 档次记在机器记录上，机器拆掉后记录注销，重新放下是一台新的 1 档机器。
 
+## 日常开销
+
+公司每天日结（`Company.settleDailyProfits`）时真从现金里付日常开销，钱付给 NPC 资金池（`COMPANY_RUNNING_COST` 流水），算进当天财报费用：
+
+| 项目 | 怎么算 | 打折 |
+| --- | --- | --- |
+| 工资 | 招工时直接付给聚落（见 [宏观经济 · 雇工](MACRO_ECONOMY.md#雇工)） | — |
+| 机器维护费 | 每台装好的机器按档次一笔，默认 1 / 2 / 3 档 10 / 22 / 36（`company.machineMaintenanceTier{1,2,3}`）；`DISABLED`、`BANKRUPTCY_HOLD`、`ORPHANED` 的不收 | 乘经营策略的成本倍率；管理每级便宜 6%（`managementLevelDiscountBasisPoints`） |
+| 库存持有利息 | 库存市值 × 央行基准利率 ÷ 365 | 不打折（资金占用） |
+| 仓储费 | 库存市值 × 0.2%（`inventoryStorageFeeBasisPoints`） | 仓储每级便宜 12%（`storageLevelDiscountBasisPoints`） |
+
+- NPC 公司和系统公司没有实体机器，按“3 台 1 档机器开满一天 = 行业标准日产量”折算台数（再乘产量倍数），按 1 档收维护费。
+- 现金不够时有多少付多少，不扣成负数；没付上的部分记为欠付（`Company.getLastCostShortfall`）。
+- 破产安全线 = 最近 7 天应付日常开销（工资 + 维护 + 持有，含欠付）的日均 × `bankruptcyCashRiskMultiplier`。
+  上市公司现金低于安全线，或者当天有欠付，都进入破产风险。回购的最低运营储备也按这个日均算。
+- 管理等级还让招工更快、招工半径更大，见 [宏观经济 · 雇工](MACRO_ECONOMY.md#雇工)。
+
 ## 状态
 
 机器每秒把状态写进记录，公司办公桌的机器清单、雇工、停业险都读这里：

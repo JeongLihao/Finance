@@ -63,9 +63,10 @@ import net.minecraft.nbt.CompoundTag;
  * 和机器的速度公式一致。
  * 第 {@link #SHOCK_START}～{@link #SHOCK_END} 天铁厂停工，检验失业 → 迁出 → 复工回流的反应。</p>
  *
- * <p>货币守恒：模拟里凭空消失的钱只有设施维护费（{@code FACILITY_PRODUCTION} 流水，机器没有维护费后恒为 0），凭空出现的钱只有
- * 旧版国库借款时的增发（{@code MACRO_DEBT_ISSUANCE}；国家财政移除后恒为 0，保留以兼容报告格式），
- * 所以每天都应满足 {@code 账户余额合计 + 公司现金合计 + 累计维护费 − 累计增发 = 初始值}。</p>
+ * <p>货币守恒：公司每天的日常开销（机器维护、库存持有利息和仓储费，{@code COMPANY_RUNNING_COST}）付给 NPC 资金池，
+ * 仍在账户余额里，不销毁货币。模拟里凭空消失的钱只有旧版设施生产销毁（{@code FACILITY_PRODUCTION}，现已恒为 0），
+ * 凭空出现的钱只有旧版国库借款时的增发（{@code MACRO_DEBT_ISSUANCE}；国家财政移除后恒为 0，保留以兼容报告格式），
+ * 所以每天都应满足 {@code 账户余额合计 + 公司现金合计 + 累计销毁 − 累计增发 = 初始值}。</p>
  */
 public final class MacroLongRunSimulationService {
     public static final int STANDARD_DAYS = 365;
@@ -95,6 +96,7 @@ public final class MacroLongRunSimulationService {
             long totalMoney,
             long burned,
             long issued,
+            long runningCosts,
             Map<String, Long> companyCash) {
         public long population() {
             return settlements.stream().mapToLong(SettlementDay::population).sum();
@@ -171,13 +173,14 @@ public final class MacroLongRunSimulationService {
             StringBuilder sb = new StringBuilder();
             sb.append(String.format(
                     Locale.ROOT,
-                    "days=%d moneyConserved=%s deterministic=%s initialMoney=%d burned=%d issued=%d%n",
+                    "days=%d moneyConserved=%s deterministic=%s initialMoney=%d burned=%d issued=%d runningCosts=%d%n",
                     days,
                     moneyConserved(),
                     deterministic,
                     initialMoney,
                     last().burned(),
-                    last().issued()));
+                    last().issued(),
+                    last().runningCosts()));
             sb.append(String.format(
                     Locale.ROOT,
                     "CPI annualized day30..end=%.2f%% day%d..end=%.2f%%  CPI final=%.2f%n",
@@ -280,6 +283,7 @@ public final class MacroLongRunSimulationService {
         long initialMoney = totalMoney();
         long burned = 0;
         long issued = 0;
+        long runningCosts = 0;
         List<Daily> daily = new ArrayList<>();
         Map<String, int[]> factorTrack = new LinkedHashMap<>();
         Firm shocked = firms.get(firms.size() - 1);
@@ -310,8 +314,9 @@ public final class MacroLongRunSimulationService {
             for (TransactionRecord t : AccountManager.getTransactions()) {
                 if (t.getType() == TransactionType.FACILITY_PRODUCTION) burned += t.getAmount();
                 if (t.getType() == TransactionType.MACRO_DEBT_ISSUANCE) issued += t.getAmount();
+                if (t.getType() == TransactionType.COMPANY_RUNNING_COST) runningCosts += t.getAmount();
             }
-            daily.add(snapshot(day, sites, firms, burned, issued, factorTrack));
+            daily.add(snapshot(day, sites, firms, burned, issued, runningCosts, factorTrack));
         }
         return new Result(days, List.copyOf(daily), factorStats(sites, factorTrack), initialMoney, startCash, true);
     }
@@ -439,7 +444,13 @@ public final class MacroLongRunSimulationService {
     }
 
     private static Daily snapshot(
-            long day, List<Site> sites, List<Firm> firms, long burned, long issued, Map<String, int[]> track) {
+            long day,
+            List<Site> sites,
+            List<Firm> firms,
+            long burned,
+            long issued,
+            long runningCosts,
+            Map<String, int[]> track) {
         List<SettlementDay> rows = new ArrayList<>();
         int low = 0, high = 0, books = 0;
         for (Site s : sites) {
@@ -476,6 +487,7 @@ public final class MacroLongRunSimulationService {
                 totalMoney(),
                 burned,
                 issued,
+                runningCosts,
                 cash);
     }
 
@@ -497,7 +509,7 @@ public final class MacroLongRunSimulationService {
     private static String fingerprint(Result r) {
         Daily d = r.last();
         return d.day() + ":" + d.population() + ":" + Math.round(d.cpi() * 100) + ":" + d.totalMoney() + ":"
-                + d.burned() + ":" + d.issued() + ":" + d.companyCash() + ":" + r.factors();
+                + d.burned() + ":" + d.issued() + ":" + d.runningCosts() + ":" + d.companyCash() + ":" + r.factors();
     }
 
     private static UUID stable(String key) {

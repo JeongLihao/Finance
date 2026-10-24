@@ -34,7 +34,12 @@ class MacroLongRunSimulationServiceTest {
 
         // 货币守恒：账户 + 公司现金 + 已记录的销毁 = 初始值（每天都成立）
         assertTrue(r.moneyConserved(), "货币不守恒");
-        assertEquals(0, r.last().burned(), "机器没有维护费，生产不销毁货币");
+        assertEquals(0, r.last().burned(), "生产不销毁货币");
+        // 日常开销真付了：5 家公司各 3 台 1 档机器，一年的维护费至少 5 × 3 × 1 档维护费 × 天数的一半（铁厂停工期间也照付）
+        long minMaintenance = 5L * MACHINES * FinanceConfig.machineMaintenance(1) * STANDARD_DAYS / 2;
+        assertTrue(
+                r.last().runningCosts() >= minMaintenance,
+                "日常开销没有真付：" + r.last().runningCosts());
 
         // 人口：不撞上下限，不单调涨到底
         int min = FinanceConfig.macroMinPopulation(), max = FinanceConfig.macroMaxPopulation();
@@ -69,7 +74,7 @@ class MacroLongRunSimulationServiceTest {
         assertTrue(steady > -3 && steady < 5, "稳态 CPI 年化通胀：" + steady);
         assertTrue(r.annualizedCpiInflationPct(30) > -10, "磨合期通缩过大：" + r.annualizedCpiInflationPct(30));
 
-        // 工资不掏空公司：每家公司全年最低现金不低于初始的一半，年末现金高于初始
+        // 工资和日常开销不掏空公司：每家公司全年最低现金不低于初始的一半，年末现金高于初始
         for (var e : r.companyStartCash().entrySet()) {
             assertTrue(r.minCash(e.getKey()) >= e.getValue() / 2, e.getKey() + " 现金被掏空：" + r.minCash(e.getKey()));
             assertTrue(r.last().companyCash().get(e.getKey()) > e.getValue(), e.getKey() + " 全年亏损");

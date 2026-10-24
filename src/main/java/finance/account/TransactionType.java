@@ -172,5 +172,7 @@ public enum TransactionType {
     /** 等值兑换钞：玩家在空白兑换钞上写金额，从账户扣款（玩家 → 现金发行处）。 */
     EXCHANGE_NOTE_ISSUE,
     /** 等值兑换钞：持有人兑现，存入自己的账户（现金发行处 → 持有人）。 */
-    EXCHANGE_NOTE_REDEEM
+    EXCHANGE_NOTE_REDEEM,
+    /** 公司日常开销：机器维护费、库存持有利息和仓储费（公司现金 → NPC 资金池）。 */
+    COMPANY_RUNNING_COST
 }
