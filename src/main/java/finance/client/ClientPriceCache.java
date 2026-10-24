@@ -54,7 +54,8 @@ public final class ClientPriceCache {
         if (row == null || row.bid() <= 0) return;
         int count = event.getItemStack().getCount();
         String text = "金融：卖 " + MoneyFormat.pounds(row.bid()) + "/个"
-                + (count > 1 ? "，这组 " + MoneyFormat.pounds(row.bid() * count) : "");
+                + (count > 1 ? "，这组 " + MoneyFormat.pounds(row.bid() * count) : "")
+                + "（存进仓库后可卖）";
         event.getToolTip().add(Component.literal(text).withStyle(ChatFormatting.GOLD));
     }
 }

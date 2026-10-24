@@ -63,6 +63,11 @@ public class InventoryActionPacket {
                 return;
             }
             String commodityId = NetworkValidation.normalizeCommodityId(packet.commodityId);
+            // 背包和商品库存之间搬货只能在自己的仓库控制器或市场终端旁（以前没有任何位置校验）
+            if (!finance.warehouse.GoodsAccess.canMoveGoods(player)) {
+                GuiFeedbackPacket.send(player, finance.warehouse.GoodsAccess.DENIED);
+                return;
+            }
 
             switch (packet.actionType) {
                 case DEPOSIT -> handleDeposit(player, commodityId, packet.amount);

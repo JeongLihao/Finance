@@ -22,7 +22,7 @@ public record SimpleActionPacket(Action action, String target, long amount, long
         PLACE_BUY_ORDER,
         /** target = 订单 ID。 */
         CANCEL_ORDER,
-        /** 把暂存在市场的货取回背包：target = 商品。 */
+        /** 把仓库里（个人托管）的货取回背包：target = 商品（要在仓库控制器或市场终端旁）。 */
         TAKE_GOODS,
         /** 锁价合同：target = 合约 ID，amount = 份数。 */
         LOCK_SELL,
@@ -69,7 +69,9 @@ public record SimpleActionPacket(Action action, String target, long amount, long
         /** 价格提醒：target = s:股票代码 或 c:商品 ID。 */
         PRICE_ALERT,
         /** 认购新股：target = 认购 ID，amount = 股数。 */
-        IPO_SUBSCRIBE
+        IPO_SUBSCRIBE,
+        /** 把背包里的货存进仓库：target = 商品，amount = 数量（要在仓库控制器或市场终端旁）。 */
+        STORE_GOODS
     }
 
     public SimpleActionPacket(Action action, String target, long amount) {
@@ -123,6 +125,9 @@ public record SimpleActionPacket(Action action, String target, long amount, long
                             : invalid();
                     case QUICK_BUY -> NetworkValidation.isValidCommodityId(commodity)
                             ? SimpleCenterService.quickBuy(player, commodity, items)
+                            : invalid();
+                    case STORE_GOODS -> NetworkValidation.isValidCommodityId(commodity)
+                            ? SimpleCenterService.storeGoods(player, commodity, items)
                             : invalid();
                     case UPGRADE_FACTORY -> SimpleCenterService.upgradeFactory(player.getUUID());
                     case QUICK_IPO -> SimpleCenterService.quickIpo(

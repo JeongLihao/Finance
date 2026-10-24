@@ -222,6 +222,69 @@ public final class FinanceGameTests {
         helper.succeed();
     }
 
+    /** D1：远程买卖只动仓库里的货、不碰背包；背包和仓库之间搬货只能在自己的仓库控制器或市场终端旁。 */
+    @GameTest(template = TEMPLATE)
+    public static void remoteTradingUsesCustodyAndMovingGoodsNeedsTerminal(GameTestHelper helper) {
+        resetRuntimeState();
+        NpcMarketMaker.seedNpcIfNeeded();
+        BlockPos relative = new BlockPos(1, 1, 1);
+        BlockPos absolute = helper.absolutePos(relative);
+        helper.setBlock(relative, ModBlocks.WAREHOUSE_CONTROLLER.get());
+        ServerPlayer player = nearbyPlayer(helper, absolute);
+        WarehouseControllerBlockEntity entity =
+                (WarehouseControllerBlockEntity) helper.getLevel().getBlockEntity(absolute);
+        helper.assertTrue(entity != null, "warehouse block entity missing");
+        entity.claimIfNeeded(player.getUUID());
+        helper.assertTrue(WarehouseManager.registerOrRecover(player, entity) != null, "warehouse registration failed");
+        AccountManager.deposit(player.getUUID(), 100_000);
+        helper.assertTrue(player.getInventory().add(new ItemStack(Items.IRON_INGOT, 12)), "could not seed inventory");
+        UUID id = player.getUUID();
+
+        // 走远：存不进去，背包不动
+        player.setPos(absolute.getX() + 60.5D, absolute.getY() + 1D, absolute.getZ() + 0.5D);
+        helper.assertFalse(GoodsAccess.canMoveGoods(player), "far player can still move goods");
+        helper.assertFalse(
+                finance.simple.SimpleCenterService.storeGoods(player, "iron", 10)
+                        .success(),
+                "stored goods while far away");
+        helper.assertTrue(countItem(player, Items.IRON_INGOT) == 12, "failed store moved items");
+
+        // 回到仓库旁：存进去
+        player.setPos(absolute.getX() + 0.5D, absolute.getY() + 1D, absolute.getZ() + 0.5D);
+        helper.assertTrue(
+                finance.simple.SimpleCenterService.storeGoods(player, "iron", 10)
+                        .success(),
+                "store near warehouse failed");
+        helper.assertTrue(
+                CommodityInventoryManager.getCommodityAmount(id, "iron") == 10, "store did not reach custody");
+        helper.assertTrue(countItem(player, Items.IRON_INGOT) == 2, "store did not remove exact items");
+
+        // 出门在外：卖仓库里的货、买的货进仓库，背包始终是 2
+        player.setPos(absolute.getX() + 60.5D, absolute.getY() + 1D, absolute.getZ() + 0.5D);
+        var sold = finance.simple.SimpleCenterService.quickSell(player, "iron", 4);
+        helper.assertTrue(sold.success(), "remote sell failed: " + sold.message());
+        int afterSell = CommodityInventoryManager.getCommodityAmount(id, "iron");
+        helper.assertTrue(afterSell < 10 && afterSell >= 6, "remote sell did not take from custody: " + afterSell);
+        helper.assertTrue(countItem(player, Items.IRON_INGOT) == 2, "remote sell touched the backpack");
+        var bought = finance.simple.SimpleCenterService.quickBuy(player, "iron", 3);
+        helper.assertTrue(bought.success(), "remote buy failed: " + bought.message());
+        int afterBuy = CommodityInventoryManager.getCommodityAmount(id, "iron");
+        helper.assertTrue(afterBuy > afterSell, "bought goods did not go to custody");
+        helper.assertTrue(countItem(player, Items.IRON_INGOT) == 2, "remote buy put goods in the backpack");
+
+        // 远处取不回来；回到仓库旁全部取回
+        helper.assertFalse(
+                finance.simple.SimpleCenterService.takeGoods(player, "iron").success(), "took goods while far away");
+        helper.assertTrue(
+                CommodityInventoryManager.getCommodityAmount(id, "iron") == afterBuy, "failed take moved custody");
+        player.setPos(absolute.getX() + 0.5D, absolute.getY() + 1D, absolute.getZ() + 0.5D);
+        helper.assertTrue(
+                finance.simple.SimpleCenterService.takeGoods(player, "iron").success(), "take near warehouse failed");
+        helper.assertTrue(CommodityInventoryManager.getCommodityAmount(id, "iron") == 0, "take left custody");
+        helper.assertTrue(countItem(player, Items.IRON_INGOT) == 2 + afterBuy, "take did not return exact items");
+        helper.succeed();
+    }
+
     @GameTest(template = TEMPLATE)
     public static void warehouseRejectsUnauthorizedWithdrawalWithoutMovingAssets(GameTestHelper helper) {
         resetRuntimeState();
