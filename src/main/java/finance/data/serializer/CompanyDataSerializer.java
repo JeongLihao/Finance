@@ -129,6 +129,12 @@ public final class CompanyDataSerializer {
             companyTag.putBoolean("BankruptcyRisk", company.isBankruptcyRisk());
             companyTag.putLong("BankruptcyRiskStartDay", company.getBankruptcyRiskStartDay());
             companyTag.putLong("LastOwnerWithdrawTime", company.getLastOwnerWithdrawTime());
+            companyTag.putLongArray(
+                    "RecentRunningCosts",
+                    company.getRecentRunningCosts().stream()
+                            .mapToLong(Long::longValue)
+                            .toArray());
+            companyTag.putLong("CostShortfall", company.getLastCostShortfall());
             ListTag recentProfitsTag = new ListTag();
             for (Long profit : company.getRecentProfits()) {
                 CompoundTag profitTag = new CompoundTag();
@@ -369,6 +375,10 @@ public final class CompanyDataSerializer {
                         companyTag.contains("CompanyDividendCycleDays")
                                 ? companyTag.getInt("CompanyDividendCycleDays")
                                 : -1);
+                // 旧存档没有这两项：安全线先按当天应付额估，几天后换成真实日均
+                java.util.List<Long> runningCosts = new java.util.ArrayList<>();
+                for (long cost : companyTag.getLongArray("RecentRunningCosts")) runningCosts.add(cost);
+                company.restoreRunningCosts(runningCosts, companyTag.getLong("CostShortfall"));
                 if (companyTag.contains("LastOwnerWithdrawTime")) {
                     company.setLastOwnerWithdrawTime(companyTag.getLong("LastOwnerWithdrawTime"));
                 }

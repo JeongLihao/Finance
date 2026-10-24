@@ -65,8 +65,18 @@
 	defaultDividendCycleDays = 7
 	# 上市公司现金低于安全线后，持续多少个 MC 天触发破产。
 	bankruptcyRiskDays = 3
-	# 破产现金安全线倍率。安全线 = 预计每日运营成本 × 此倍率。
+	# 破产现金安全线倍率。安全线 = 最近 7 天日常开销（工资 + 维护 + 库存持有）的日均 × 此倍率。
 	bankruptcyCashRiskMultiplier = 1.0
+	# 每台 1 / 2 / 3 档机器每天的维护费，从公司现金付给 NPC 资金池。NPC 公司按行业产量折算成 1 档机器台数收取。
+	machineMaintenanceTier1 = 10
+	machineMaintenanceTier2 = 22
+	machineMaintenanceTier3 = 36
+	# 每天的仓储费占库存市值的比例，单位为基点；20 表示 0.2%。库存另按央行基准利率 ÷ 365 付持有利息。
+	inventoryStorageFeeBasisPoints = 20
+	# 仓储每升一级仓储费便宜多少，基点；1200 表示 12%。
+	storageLevelDiscountBasisPoints = 1200
+	# 管理每升一级机器维护费便宜多少，基点；600 表示 6%。
+	managementLevelDiscountBasisPoints = 600
 	# 发起 IPO 时向公司所有者收取的费用。
 	ipoFee = 5000
 

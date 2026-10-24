@@ -1,9 +1,18 @@
 package finance.company;
 
 import finance.account.AccountManager;
+import finance.account.TransactionRecord;
+import finance.account.TransactionType;
+import finance.config.FinanceConfig;
 import finance.earnings.QuarterlyEarningsReport;
+import finance.gameplay.company.CompanyFacilityManager;
+import finance.gameplay.company.CompanyFacilityRecord;
+import finance.gameplay.company.CompanyFacilityStatus;
 import finance.market.MarketPrice;
 import finance.market.NpcMarketMaker;
+import finance.money.MoneyEndpoints;
+import finance.money.MoneyTransferService;
+import finance.policy.MonetaryPolicyService;
 import finance.util.MathUtil;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -36,11 +45,11 @@ public class Company {
     /** 最近利润窗口，用于股票估值，避免只看单日利润造成暴涨暴跌 */
     private static final int PROFIT_HISTORY_DAYS = 7;
 
-    /** 每日基础运营成本占理论产值的比例 */
-    private static final double OPERATING_COST_RATIO = 0.12;
-
-    /** 库存持有成本占库存市值的比例，价格下行时会惩罚积压库存 */
-    private static final double INVENTORY_CARRY_COST_RATIO = 0.01;
+    /**
+     * 没有厂房的 NPC 公司折算维护费用的机器台数：这么多台 1 档机器开满一天正好是行业标准日产量
+     * （与长期模拟的设定一致），再乘公司的产量倍数。
+     */
+    static final int ABSTRACT_MACHINES_PER_STANDARD_OUTPUT = 3;
 
     // ---- P3：盈利与分红 ----
     /** 当日营收（产出销售收入） */
@@ -72,6 +81,15 @@ public class Company {
 
     /** 最近若干天净利润 */
     private final List<Long> recentProfits = new ArrayList<>();
+
+    /** 当日已付的日常开销（工资 + 机器维护 + 库存持有），不含原料采购。 */
+    private long dailyRunningCost;
+
+    /** 最近若干天应付的日常开销（含没付上的缺口），破产安全线按它的日均算。 */
+    private final List<Long> recentRunningCosts = new ArrayList<>();
+
+    /** 最近一次日结时现金不够、没付上的日常开销；大于 0 时公司处于破产风险。 */
+    private long lastCostShortfall;
 
     /** 最近周期财报 */
     private final List<CompanyFinancialReport> financialReports = new ArrayList<>();
@@ -331,6 +349,13 @@ public class Company {
         if (amount > 0) dailyCost = MathUtil.saturatedAddNonNegative(dailyCost, amount);
     }
 
+    /** 记一笔已经从现金付出的日常开销（如工资）：同时算进当天成本和破产安全线。 */
+    public void recordRunningCost(long amount) {
+        if (amount <= 0) return;
+        dailyCost = MathUtil.saturatedAddNonNegative(dailyCost, amount);
+        dailyRunningCost = MathUtil.saturatedAddNonNegative(dailyRunningCost, amount);
+    }
+
     public void recordGameplayRevenue(long amount) {
         if (amount > 0) dailyRevenue = MathUtil.saturatedAddNonNegative(dailyRevenue, amount);
     }
@@ -355,7 +380,13 @@ public class Company {
     }
 
     public void settleDailyProfits(long mcDay) {
-        dailyCost += calculateOperatingCost();
+        long owed = runningCostDue().total();
+        long paid = payRunningCost(owed);
+        lastCostShortfall = owed - paid;
+        dailyCost = MathUtil.saturatedAddNonNegative(dailyCost, paid);
+        dailyRunningCost = MathUtil.saturatedAddNonNegative(dailyRunningCost, paid);
+        addRecentRunningCost(MathUtil.saturatedAddNonNegative(dailyRunningCost, lastCostShortfall));
+        dailyRunningCost = 0;
         long dailyProfit = dailyRevenue - dailyCost;
         long revenue = dailyRevenue;
         long expenses = dailyCost;
@@ -704,24 +735,104 @@ public class Company {
         setAutoSellRatio(autoSellRatio);
     }
 
-    private long calculateOperatingCost() {
-        long theoreticalProductionValue = 0;
-        for (Map.Entry<String, Integer> entry : type.getDailyProduction().entrySet()) {
-            MarketPrice mp = NpcMarketMaker.getMarketPrice(entry.getKey());
-            long price = mp != null ? mp.getMidPrice() : 1;
-            theoreticalProductionValue += Math.max(0, price * (long) entry.getValue());
+    // ---- 日常开销 ----
+
+    /** 今天应付的日常开销（不含工资，工资由 {@code MacroLaborService} 招工时直接付）。 */
+    public record RunningCost(long maintenance, long carryInterest, long storageFee) {
+        public long total() {
+            return MathUtil.saturatedAddNonNegative(
+                    MathUtil.saturatedAddNonNegative(maintenance, carryInterest), storageFee);
         }
-        long productionCost = Math.round(theoreticalProductionValue
-                * OPERATING_COST_RATIO
-                * strategy.getOperatingCostMultiplier()
-                * (1.0 - managementLevel * 0.06));
-        long inventoryCarryCost =
-                Math.round(inventoryValue() * INVENTORY_CARRY_COST_RATIO * (1.0 - storageLevel * 0.08));
-        return Math.max(1, productionCost + inventoryCarryCost);
     }
 
+    /**
+     * 机器维护费 + 库存持有利息（库存市值 × 央行基准利率 ÷ 365）+ 仓储费。
+     * 维护费受经营策略和管理等级影响，仓储费受仓储等级影响；利息是资金占用，升级打不了折。
+     */
+    public RunningCost runningCostDue() {
+        long inventory = inventoryValue();
+        long rateBps = Math.max(0, MonetaryPolicyService.benchmarkRateBasisPoints());
+        long interest = Math.round(inventory * (rateBps / 10_000.0) / 365.0);
+        double storageDiscount = levelDiscount(storageLevel, FinanceConfig.storageLevelDiscountBasisPoints());
+        long storageFee =
+                Math.round(inventory * (FinanceConfig.inventoryStorageFeeBasisPoints() / 10_000.0) * storageDiscount);
+        return new RunningCost(machineMaintenanceDue(), Math.max(0, interest), Math.max(0, storageFee));
+    }
+
+    private long machineMaintenanceDue() {
+        long base = 0;
+        if (isPlayerOwned()) {
+            for (CompanyFacilityRecord facility : CompanyFacilityManager.forCompany(companyId)) {
+                if (chargesMaintenance(facility.status()))
+                    base = MathUtil.saturatedAddNonNegative(
+                            base, FinanceConfig.machineMaintenance(facility.productionLevel()));
+            }
+        } else {
+            long machines = abstractMachineCount();
+            base = MathUtil.saturatedMultiplyNonNegative(FinanceConfig.machineMaintenance(1), machines);
+        }
+        double discount = levelDiscount(managementLevel, FinanceConfig.managementLevelDiscountBasisPoints());
+        return Math.max(0, Math.round(base * strategy.getOperatingCostMultiplier() * discount));
+    }
+
+    /** NPC 公司折算成的 1 档机器台数（至少 1 台）。 */
+    public long abstractMachineCount() {
+        return Math.max(1, Math.round(ABSTRACT_MACHINES_PER_STANDARD_OUTPUT * getProductionMultiplier()));
+    }
+
+    /** 装好的机器都要维护；停用、破产冻结和公司已不存在的不收。 */
+    static boolean chargesMaintenance(CompanyFacilityStatus status) {
+        return status == CompanyFacilityStatus.ACTIVE
+                || status == CompanyFacilityStatus.MISSING_INPUT
+                || status == CompanyFacilityStatus.OUTPUT_FULL;
+    }
+
+    private static double levelDiscount(int level, int bpsPerLevel) {
+        return Math.max(0.0, 1.0 - level * (Math.max(0, bpsPerLevel) / 10_000.0));
+    }
+
+    /** 从公司现金付给 NPC 资金池；现金不够时有多少付多少。返回实际付出的金额。 */
+    private long payRunningCost(long owed) {
+        long paid = Math.min(owed, Math.max(0, cash));
+        if (paid <= 0) return 0;
+        if (!MoneyTransferService.transfer(
+                        MoneyEndpoints.company(this), MoneyEndpoints.account(NpcMarketMaker.NPC_UUID), paid)
+                .success()) return 0;
+        AccountManager.addTransactionRecord(new TransactionRecord(
+                companyId, NpcMarketMaker.NPC_UUID, paid, TransactionType.COMPANY_RUNNING_COST, ownerId, name, 1));
+        return paid;
+    }
+
+    /**
+     * 每天的日常开销：按最近几天真实应付的日均算（工资 + 维护 + 库存持有，含没付上的缺口）；
+     * 还没有记录时（新公司、旧存档刚升级）用今天的应付额估。
+     */
     public long estimateDailyOperatingCost() {
-        return calculateOperatingCost();
+        if (recentRunningCosts.isEmpty()) return runningCostDue().total();
+        long total = 0;
+        for (long cost : recentRunningCosts) total = MathUtil.saturatedAddNonNegative(total, cost);
+        return total / recentRunningCosts.size();
+    }
+
+    public long getLastCostShortfall() {
+        return lastCostShortfall;
+    }
+
+    public List<Long> getRecentRunningCosts() {
+        return new ArrayList<>(recentRunningCosts);
+    }
+
+    public void restoreRunningCosts(List<Long> recent, long shortfall) {
+        recentRunningCosts.clear();
+        if (recent != null) for (Long cost : recent) if (cost != null && cost >= 0) addRecentRunningCost(cost);
+        lastCostShortfall = Math.max(0, shortfall);
+    }
+
+    private void addRecentRunningCost(long cost) {
+        recentRunningCosts.add(cost);
+        while (recentRunningCosts.size() > PROFIT_HISTORY_DAYS) {
+            recentRunningCosts.remove(0);
+        }
     }
 
     private double getProductionMultiplier() {

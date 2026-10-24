@@ -18,6 +18,13 @@ public final class FinanceConfig {
     private static final IntOption DEFAULT_DIVIDEND_CYCLE_DAYS = new IntOption(7);
     private static final IntOption BANKRUPTCY_RISK_DAYS = new IntOption(3);
     private static final DoubleOption BANKRUPTCY_CASH_RISK_MULTIPLIER = new DoubleOption(1.0D);
+    // ---- 公司日常开销（每天真实从公司现金付给 NPC 资金池） ----
+    private static final LongOption MACHINE_MAINTENANCE_TIER1 = new LongOption(10L);
+    private static final LongOption MACHINE_MAINTENANCE_TIER2 = new LongOption(22L);
+    private static final LongOption MACHINE_MAINTENANCE_TIER3 = new LongOption(36L);
+    private static final IntOption INVENTORY_STORAGE_FEE_BPS = new IntOption(20);
+    private static final IntOption STORAGE_LEVEL_DISCOUNT_BPS = new IntOption(1_200);
+    private static final IntOption MANAGEMENT_LEVEL_DISCOUNT_BPS = new IntOption(600);
     private static final DoubleOption MIN_PROPOSAL_PARTICIPATION_RATIO = new DoubleOption(0.25D);
     private static final IntOption MAX_PRICE_ALERTS_PER_PLAYER = new IntOption(20);
     private static final IntOption MAX_CONDITIONAL_STOCK_ORDERS_PER_PLAYER = new IntOption(20);
@@ -414,8 +421,20 @@ public final class FinanceConfig {
                 .defineInRange("defaultDividendCycleDays", DEFAULT_DIVIDEND_CYCLE_DAYS.def, 1, 365));
         BANKRUPTCY_RISK_DAYS.bind(builder.comment("上市公司现金低于安全线后，持续多少个 MC 天触发破产。")
                 .defineInRange("bankruptcyRiskDays", BANKRUPTCY_RISK_DAYS.def, 1, 365));
-        BANKRUPTCY_CASH_RISK_MULTIPLIER.bind(builder.comment("破产现金安全线倍率。安全线 = 预计每日运营成本 × 此倍率。")
+        BANKRUPTCY_CASH_RISK_MULTIPLIER.bind(builder.comment("破产现金安全线倍率。安全线 = 最近 7 天日常开销（工资 + 维护 + 库存持有）的日均 × 此倍率。")
                 .defineInRange("bankruptcyCashRiskMultiplier", BANKRUPTCY_CASH_RISK_MULTIPLIER.def, 0.0D, 100.0D));
+        MACHINE_MAINTENANCE_TIER1.bind(builder.comment("每台 1 档机器每天的维护费，从公司现金付给 NPC 资金池。NPC 公司按行业产量折算成 1 档机器台数收取。")
+                .defineInRange("machineMaintenanceTier1", MACHINE_MAINTENANCE_TIER1.def, 0L, 1_000_000L));
+        MACHINE_MAINTENANCE_TIER2.bind(builder.comment("每台 2 档机器每天的维护费。")
+                .defineInRange("machineMaintenanceTier2", MACHINE_MAINTENANCE_TIER2.def, 0L, 1_000_000L));
+        MACHINE_MAINTENANCE_TIER3.bind(builder.comment("每台 3 档机器每天的维护费。")
+                .defineInRange("machineMaintenanceTier3", MACHINE_MAINTENANCE_TIER3.def, 0L, 1_000_000L));
+        INVENTORY_STORAGE_FEE_BPS.bind(builder.comment("每天的仓储费占库存市值的比例，单位为基点；20 表示 0.2%。库存另按央行基准利率 ÷ 365 付持有利息。")
+                .defineInRange("inventoryStorageFeeBasisPoints", INVENTORY_STORAGE_FEE_BPS.def, 0, 10_000));
+        STORAGE_LEVEL_DISCOUNT_BPS.bind(builder.comment("仓储每升一级，仓储费打的折扣，单位为基点；1200 表示每级便宜 12%。")
+                .defineInRange("storageLevelDiscountBasisPoints", STORAGE_LEVEL_DISCOUNT_BPS.def, 0, 2_000));
+        MANAGEMENT_LEVEL_DISCOUNT_BPS.bind(builder.comment("管理每升一级，机器维护费打的折扣，单位为基点；600 表示每级便宜 6%。")
+                .defineInRange("managementLevelDiscountBasisPoints", MANAGEMENT_LEVEL_DISCOUNT_BPS.def, 0, 2_000));
         IPO_FEE.bind(builder.comment("公司发起 IPO 时向所有者收取的费用；下限钳制 5000，服主配 0 会让小号每号净赚 5000（P0-1）。")
                 .defineInRange("ipoFee", IPO_FEE.def, 5_000L, Long.MAX_VALUE));
         CAPITAL_PROJECT_GOVERNANCE_THRESHOLD.bind(builder.comment("资本项目预算达到或超过该金额时必须显式授权；上市公司走股东提案，非上市公司由所有者确认。")
@@ -1016,6 +1035,25 @@ public final class FinanceConfig {
 
     public static double bankruptcyCashRiskMultiplier() {
         return BANKRUPTCY_CASH_RISK_MULTIPLIER.get();
+    }
+
+    /** 某一档机器每天的维护费；档位超出 1～3 时按最近的一档算。 */
+    public static long machineMaintenance(int tier) {
+        if (tier <= 1) return MACHINE_MAINTENANCE_TIER1.get();
+        if (tier == 2) return MACHINE_MAINTENANCE_TIER2.get();
+        return MACHINE_MAINTENANCE_TIER3.get();
+    }
+
+    public static int inventoryStorageFeeBasisPoints() {
+        return INVENTORY_STORAGE_FEE_BPS.get();
+    }
+
+    public static int storageLevelDiscountBasisPoints() {
+        return STORAGE_LEVEL_DISCOUNT_BPS.get();
+    }
+
+    public static int managementLevelDiscountBasisPoints() {
+        return MANAGEMENT_LEVEL_DISCOUNT_BPS.get();
     }
 
     public static double minProposalParticipationRatio() {

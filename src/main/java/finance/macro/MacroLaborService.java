@@ -139,7 +139,7 @@ public final class MacroLaborService {
                 long wage = wageOf(facility.companyId());
                 long current = MacroEconomyManager.employment(facility.facilityId());
                 long target = wage < reservation || wage <= 0 ? 0 : Math.min(jobs, workforce);
-                long maxChange = Math.max(1, (jobs + 2) / 3);
+                long maxChange = maxDailyChange(jobs, managementLevel(facility.companyId()));
                 long next = target > current
                         ? Math.min(target, current + maxChange)
                         : Math.max(target, current - maxChange);
@@ -180,7 +180,7 @@ public final class MacroLaborService {
             company.deposit(amount);
             return 0;
         }
-        company.recordGameplayCost(amount);
+        company.recordRunningCost(amount);
         econ.addWages(amount);
         AccountManager.addTransactionRecord(new TransactionRecord(
                 company.getCompanyId(),
@@ -193,10 +193,35 @@ public final class MacroLaborService {
         return n;
     }
 
+    /** 管理每升一级，每天能招进或辞退的人数多 25%。 */
+    public static final int MANAGEMENT_HIRING_BPS_PER_LEVEL = 2_500;
+
+    /** 管理每升一级，招工半径扩大 10%。 */
+    public static final int MANAGEMENT_RADIUS_BPS_PER_LEVEL = 1_000;
+
+    /** 每天在岗人数最多变动多少：0 级是岗位的三分之一，管理等级越高变得越快。 */
+    public static long maxDailyChange(long jobs, int managementLevel) {
+        long base = Math.max(1, (jobs + 2) / 3);
+        return base * (10_000L + (long) Math.max(0, managementLevel) * MANAGEMENT_HIRING_BPS_PER_LEVEL) / 10_000L;
+    }
+
+    /** 公司的招工半径（方块）：配置的基础半径按管理等级放大。 */
+    public static long laborRadius(int managementLevel) {
+        return FinanceConfig.macroLaborRadius()
+                * (10_000L + (long) Math.max(0, managementLevel) * MANAGEMENT_RADIUS_BPS_PER_LEVEL)
+                / 10_000L;
+    }
+
+    private static int managementLevel(UUID companyId) {
+        Company company = CompanyManager.getCompany(companyId);
+        return company == null ? 0 : company.getManagementLevel();
+    }
+
     /** 劳动力来源是否在招工半径以内；半径外按远距离通勤处理（效率减半）。 */
     public static boolean withinRadius(SettlementRecord source, CompanyFacilityRecord facility) {
-        long radius = FinanceConfig.macroLaborRadius();
-        return source != null && facility != null && source.anchor().distSqr(facility.blockPos()) <= radius * radius;
+        if (source == null || facility == null) return false;
+        long radius = laborRadius(managementLevel(facility.companyId()));
+        return source.anchor().distSqr(facility.blockPos()) <= (double) radius * radius;
     }
 
     /** 同一维度内最近的可用聚落（且已有村庄记录）；该维度没有聚落时返回 null。 */

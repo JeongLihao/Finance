@@ -31,7 +31,8 @@ public final class CompanyBankruptcyManager {
             }
             long safetyLine = Math.max(
                     1, Math.round(company.estimateDailyOperatingCost() * FinanceConfig.bankruptcyCashRiskMultiplier()));
-            boolean risky = company.getCash() < safetyLine;
+            // 日常开销付不上（缺口 > 0）也算风险，哪怕付完后现金恰好还在安全线上
+            boolean risky = company.getCash() < safetyLine || company.getLastCostShortfall() > 0;
             if (!risky) {
                 if (company.isBankruptcyRisk()) {
                     company.setBankruptcyRisk(false, -1);
@@ -51,7 +52,10 @@ public final class CompanyBankruptcyManager {
                         TransactionType.COMPANY_BANKRUPTCY,
                         0,
                         0,
-                        "进入风险状态，现金 " + company.getCash() + " / 安全线 " + safetyLine);
+                        "进入风险状态，现金 " + company.getCash() + " / 安全线 " + safetyLine
+                                + (company.getLastCostShortfall() > 0
+                                        ? "，欠付日常开销 " + company.getLastCostShortfall()
+                                        : ""));
                 publishCompanyFeedback(server, company, currentMcDay, true);
                 continue;
             }

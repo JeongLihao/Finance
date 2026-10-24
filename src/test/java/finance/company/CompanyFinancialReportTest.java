@@ -31,17 +31,21 @@ class CompanyFinancialReportTest {
         company.addInventory("iron", 10);
         company.restoreFinancials(100, 40, 0, 0, 0, java.util.List.of(), java.util.List.of());
 
+        long running = company.runningCostDue().total();
+
         company.settleDailyProfits(7);
 
         CompanyFinancialReport report = company.getLatestFinancialReport();
         assertNotNull(report);
         assertEquals(7, report.mcDay());
         assertEquals(100, report.revenue());
-        assertTrue(report.expenses() >= 40);
+        assertTrue(running > 0, "NPC 公司按折算机器台数付维护费");
+        // 日常开销真从现金里扣：报表费用 = 原有成本 + 当天付出的开销 = 现金减少额 + 40
+        assertEquals(40 + running, report.expenses());
         assertEquals(report.revenue() - report.expenses(), report.netProfit());
-        assertEquals(1_000 + company.inventoryValue(), report.assets());
+        assertEquals(1_000 - running, report.cashBalance());
+        assertEquals(company.getCash() + company.inventoryValue(), report.assets());
         assertEquals(0, report.liabilities());
-        assertEquals(1_000, report.cashBalance());
     }
 
     @Test

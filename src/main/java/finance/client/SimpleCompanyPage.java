@@ -110,7 +110,7 @@ final class SimpleCompanyPage {
         textW = bx - LEFT - PAD - 8;
         ui.text(LEFT + PAD, y + 4, textW, "工厂等级 " + level + " / " + SimpleCenterService.MAX_FACTORY_LEVEL, TEXT);
         ui.progress(LEFT + PAD, y + 16, textW, level / (double) SimpleCenterService.MAX_FACTORY_LEVEL);
-        ui.text(LEFT + PAD, y + 25, textW, "升级：仓储和管理轮着升，每天开销更少。", DIM);
+        ui.text(LEFT + PAD, y + 25, textW, "升级：仓储费、机器维护费更省，招工更快。", DIM);
 
         // 上市
         y += 42;

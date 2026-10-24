@@ -86,8 +86,8 @@ public final class SimpleOpportunityService {
                 }
             }
         }
-        // 3. 公司缺钱
-        if (company != null && company.isBankruptcyRisk()) {
+        // 3. 公司缺钱：上市公司进了破产风险，或者（没上市也算）昨天的日常开销没付上
+        if (company != null && (company.isBankruptcyRisk() || company.getLastCostShortfall() > 0)) {
             if (company.isPublic() && allowed.test("shareholder")) {
                 out.add(Card.act("公司快撑不住了：开股东大会增发 10% 新股，把钱融进来。", "提议增发", "PROPOSE", "issue", 0, true));
             } else {
