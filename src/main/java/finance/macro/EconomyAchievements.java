@@ -7,6 +7,7 @@ import finance.company.Company;
 import finance.company.CompanyManager;
 import finance.gameplay.company.CompanyFacilityManager;
 import finance.gameplay.company.CompanyFacilityRecord;
+import finance.util.Uuids;
 import finance.village.VillageManager;
 import finance.village.VillageRecord;
 import finance.village.VillageStall;
@@ -255,7 +256,7 @@ public final class EconomyAchievements {
         for (Map.Entry<String, Map<UUID, Long>> e : STALL_SALES.entrySet()) {
             int sep = e.getKey().indexOf('|');
             SettlementEconomy econ =
-                    MacroEconomyManager.settlement(UUID.fromString(e.getKey().substring(0, sep)));
+                    MacroEconomyManager.settlement(Uuids.parseOrNull(e.getKey().substring(0, sep)));
             GoodBook book = econ == null ? null : econ.goods.get(e.getKey().substring(sep + 1));
             if (book == null || book.lastConsumed < MONOPOLY_MIN_UNITS) continue;
             for (Map.Entry<UUID, Long> sale : e.getValue().entrySet()) {

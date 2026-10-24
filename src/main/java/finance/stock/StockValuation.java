@@ -42,7 +42,8 @@ public final class StockValuation {
     /** 库存按底价估：有底价用底价，没有（旧规则商品）按基准价一半。 */
     public static long inventoryAtFloor(Company company) {
         long total = 0;
-        for (Map.Entry<String, Integer> e : company.getInventory().entrySet()) {
+        for (Map.Entry<String, Integer> e : finance.gameplay.company.CompanyInventoryFacade.inventorySnapshot(company)
+                .entrySet()) {
             int qty = e.getValue() == null ? 0 : e.getValue();
             if (qty <= 0) continue;
             long unit = finance.centralbank.ReserveService.floorPrice(e.getKey());

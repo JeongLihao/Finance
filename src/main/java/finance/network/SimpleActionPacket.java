@@ -250,11 +250,7 @@ public record SimpleActionPacket(Action action, String target, long amount, long
     }
 
     private static java.util.UUID uuid(String text) {
-        try {
-            return java.util.UUID.fromString(text);
-        } catch (RuntimeException e) {
-            return null;
-        }
+        return finance.util.Uuids.parseOrNull(text);
     }
 
     private static SimpleCenterService.Result invalid() {

@@ -46,6 +46,7 @@ import finance.npcinvestor.HolderLabels;
 import finance.stock.Stock;
 import finance.stock.StockMarketManager;
 import finance.stock.StockPortfolioManager;
+import finance.util.Uuids;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -400,11 +401,8 @@ public final class PlayerServicesService {
     }
 
     private static Result withUuid(String text, java.util.function.Function<UUID, Result> fn) {
-        try {
-            return fn.apply(UUID.fromString(text));
-        } catch (IllegalArgumentException e) {
-            return Result.fail("请先在列表里选中一项");
-        }
+        UUID id = Uuids.parseOrNull(text);
+        return id == null ? Result.fail("请先在列表里选中一项") : fn.apply(id);
     }
 
     /** 银行牌照：text = “代码 名称”，代码是第一个空格前的部分。 */

@@ -10,6 +10,7 @@ import finance.bank.PlayerBankService;
 import finance.bank.PublicBankViewService;
 import finance.cycle.EconomyCycleService;
 import finance.diagnostic.ModuleHealthRegistry;
+import finance.util.Uuids;
 import java.util.UUID;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
@@ -80,11 +81,7 @@ public class PlayerBankCommand {
     }
 
     private static UUID parseBankId(com.mojang.brigadier.context.CommandContext<CommandSourceStack> ctx) {
-        try {
-            return UUID.fromString(StringArgumentType.getString(ctx, "bankId"));
-        } catch (IllegalArgumentException e) {
-            return null;
-        }
+        return Uuids.parseOrNull(StringArgumentType.getString(ctx, "bankId"));
     }
 
     private static int executeRates(com.mojang.brigadier.context.CommandContext<CommandSourceStack> ctx, UUID bankId)

@@ -1,7 +1,5 @@
 package finance.gameplay.company;
 
-import finance.commodity.CommodityInventory;
-import finance.commodity.CommodityInventoryManager;
 import finance.company.Company;
 import finance.company.CompanyFinancialReport;
 import finance.contract.ContractIssuerType;
@@ -160,11 +158,8 @@ public final class CompanyOperatingSnapshotService {
     }
 
     private static Map<String, Long> aggregateInventory(Company company) {
-        UUID custodyId = CompanyInventoryFacade.custodyId(company.getCompanyId());
-        TreeSet<String> keys = new TreeSet<>();
-        CommodityInventory custody = CommodityInventoryManager.getInventories().get(custodyId);
-        if (custody != null) keys.addAll(custody.getAllCommodities().keySet());
-        keys.addAll(company.getInventory().keySet());
+        TreeSet<String> keys =
+                new TreeSet<>(CompanyInventoryFacade.inventorySnapshot(company).keySet());
         Map<String, Long> result = new LinkedHashMap<>();
         for (String commodityId : keys) {
             if (result.size() >= MAX_INVENTORY_LINES) break;

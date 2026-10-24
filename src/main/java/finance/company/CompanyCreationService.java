@@ -67,9 +67,11 @@ public class CompanyCreationService {
         return new Result(false, message, null);
     }
 
+    /** 开局每种行业商品送 50 个，放进公司托管账户（玩家公司的货都在那里）。 */
     private static void seedInitialInventory(Company company) {
+        java.util.UUID custody = finance.gameplay.company.CompanyInventoryFacade.custodyId(company.getCompanyId());
         for (String commodityId : company.getType().getCommodityIds()) {
-            company.addInventory(commodityId, 50);
+            finance.commodity.CommodityInventoryManager.addCommodity(custody, commodityId, 50);
         }
     }
 }

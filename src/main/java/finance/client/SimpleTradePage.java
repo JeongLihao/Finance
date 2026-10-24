@@ -6,7 +6,7 @@ import finance.client.ui.UiBuilder;
 import finance.client.ui.UiBuilder.Btn;
 import finance.commodity.Commodity;
 import finance.commodity.CommodityRegistry;
-import finance.gui.FinanceMenu;
+import finance.gui.MarketRows;
 import finance.network.SimpleActionPacket;
 import finance.util.MoneyFormat;
 import java.util.ArrayList;
@@ -23,25 +23,25 @@ final class SimpleTradePage {
      * 背包里有的排前面（按能卖的钱从多到少），其余按名字。没有对应物品的商品不列；
      * 市场里没货、背包里也没有的不列——有人卖了才会出现。
      */
-    static List<FinanceMenu.MarketRow> tradeRows(View v) {
+    static List<MarketRows.MarketRow> tradeRows(View v) {
         Map<String, Integer> held = v.backpack();
-        List<FinanceMenu.MarketRow> rows = new ArrayList<>();
-        for (FinanceMenu.MarketRow row : v.market()) {
+        List<MarketRows.MarketRow> rows = new ArrayList<>();
+        for (MarketRows.MarketRow row : v.market()) {
             Commodity c = CommodityRegistry.getCommodity(row.commodityId());
             if (row.marketStock() <= 0 && held.getOrDefault(row.commodityId(), 0) <= 0) continue;
             if (c == null || c.getItemId() != null && !c.getItemId().isEmpty()) rows.add(row);
         }
-        rows.sort(Comparator.<FinanceMenu.MarketRow>comparingLong(
+        rows.sort(Comparator.<MarketRows.MarketRow>comparingLong(
                         r -> -(long) held.getOrDefault(r.commodityId(), 0) * r.bidPrice())
                 .thenComparing(r -> FinanceFormat.commodityDisplayName(r.commodityId())));
         return rows;
     }
 
     /** 买卖列表：按搜索词过滤（名字或 ID 包含就算），收藏的排最前面。 */
-    static List<FinanceMenu.MarketRow> tradeRows(View v, State s) {
+    static List<MarketRows.MarketRow> tradeRows(View v, State s) {
         String q = s.search == null ? "" : s.search.trim().toLowerCase(java.util.Locale.ROOT);
-        List<FinanceMenu.MarketRow> out = new ArrayList<>();
-        for (FinanceMenu.MarketRow row : tradeRows(v)) {
+        List<MarketRows.MarketRow> out = new ArrayList<>();
+        for (MarketRows.MarketRow row : tradeRows(v)) {
             if (q.isEmpty()
                     || row.commodityId().toLowerCase(java.util.Locale.ROOT).contains(q)
                     || FinanceFormat.commodityDisplayName(row.commodityId())
@@ -62,13 +62,13 @@ final class SimpleTradePage {
         switch (s.tradeTab) {
             case 1 -> orders(ui, v, s, a, y);
             default -> {
-                FinanceMenu.MarketRow selected = s.selectedCommodity == null
+                MarketRows.MarketRow selected = s.selectedCommodity == null
                         ? null
                         : v.market().stream()
                                 .filter(r -> r.commodityId().equals(s.selectedCommodity))
                                 .findFirst()
                                 .orElse(null);
-                if (selected != null) SimpleInvestPage.commodityDetail(ui, v, s, a, selected, y);
+                if (selected != null) SimpleCommodityDetail.commodityDetail(ui, v, s, a, selected, y);
                 else trade(ui, v, s, a, y);
             }
         }
@@ -77,12 +77,12 @@ final class SimpleTradePage {
     // ---------------------------------------------------------------- 挂单
 
     static void orders(UiBuilder ui, View v, State s, Actions a, int y) {
-        List<FinanceMenu.MarketRow> rows = tradeRows(v);
+        List<MarketRows.MarketRow> rows = tradeRows(v);
         if (rows.isEmpty()) {
             ui.text(LEFT + PAD, y + 2, WIDTH, "市场里还没有货，背包里也没有能卖的东西。", DIM);
             return;
         }
-        FinanceMenu.MarketRow row = rows.stream()
+        MarketRows.MarketRow row = rows.stream()
                 .filter(r -> r.commodityId().equals(s.orderCommodity))
                 .findFirst()
                 .orElse(rows.get(0));
@@ -190,8 +190,8 @@ final class SimpleTradePage {
         y += ui.wrapped(LEFT + 2, y, WIDTH - 4, "卖单：市场收购价涨到你定的价就自动卖出。买单：市场出售价跌到你定的价就自动买入，买到的东西放进背包。", DIM, 2) + 4;
 
         // 我的挂单
-        List<FinanceMenu.OrderRow> mine =
-                v.orders().stream().filter(FinanceMenu.OrderRow::ownedByPlayer).toList();
+        List<MarketRows.OrderRow> mine =
+                v.orders().stream().filter(MarketRows.OrderRow::ownedByPlayer).toList();
         ui.text(LEFT + 2, y, 120, "我的挂单（" + mine.size() + "）", DIM);
         y += 12;
         if (mine.isEmpty()) {
@@ -199,7 +199,7 @@ final class SimpleTradePage {
             y += 13;
         }
         for (int i = 0; i < Math.min(3, mine.size()); i++) {
-            FinanceMenu.OrderRow o = mine.get(i);
+            MarketRows.OrderRow o = mine.get(i);
             int bx = ui.buttonRight(
                     RIGHT - 2,
                     y - 2,
@@ -256,7 +256,7 @@ final class SimpleTradePage {
         ui.text(askX, y, 50, "你买付", DIM);
         ui.fill(LEFT, y + 11, WIDTH, 1, FinanceGui.COL_PANEL_BORDER);
 
-        List<FinanceMenu.MarketRow> rows = tradeRows(v, s);
+        List<MarketRows.MarketRow> rows = tradeRows(v, s);
         s.tradeScroll = clamp(s.tradeScroll, 0, Math.max(0, rows.size() - TRADE_ROWS));
         y += 15;
         if (rows.isEmpty()) {
@@ -268,7 +268,7 @@ final class SimpleTradePage {
                     DIM);
         }
         for (int i = s.tradeScroll; i < Math.min(rows.size(), s.tradeScroll + TRADE_ROWS); i++) {
-            FinanceMenu.MarketRow row = rows.get(i);
+            MarketRows.MarketRow row = rows.get(i);
             String id = row.commodityId();
             String name = FinanceFormat.commodityDisplayName(id);
             int have = v.backpack().getOrDefault(id, 0);

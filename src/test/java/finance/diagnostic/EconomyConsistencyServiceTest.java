@@ -31,6 +31,25 @@ class EconomyConsistencyServiceTest {
     }
 
     @Test
+    void fullRunAlsoCoversRivalsCaravanNpcAndMacroChecks() {
+        UUID owner = UUID.randomUUID();
+        finance.company.Company company = new finance.company.Company(
+                UUID.randomUUID(), "Player Co", finance.company.CompanyType.FOOD, 1_000, owner);
+        finance.company.CompanyManager.registerDirect(company);
+        finance.rival.RivalManager.restoreDirect(
+                0,
+                0,
+                0,
+                0,
+                java.util.List.of(new finance.rival.RivalProfile(
+                        company.getCompanyId(), finance.rival.RivalPersonality.AGGRESSIVE, "bread", 0)));
+        DiagnosticReport report = EconomyConsistencyService.run(0);
+        assertTrue(
+                report.issues().stream().anyMatch(i -> "PROFILE_ON_PLAYER_COMPANY".equals(i.code())),
+                "完整体检要跑到竞争公司检查，和按模块检查一致");
+    }
+
+    @Test
     void unmatchedFuturesPositionIsFatalAndCheckerNeverRepairsIt() {
         UUID owner = UUID.randomUUID(), contract = UUID.randomUUID();
         MarginManager.putPositionDirect(new FuturesPosition(owner, contract, 1, 100, 100, 0));

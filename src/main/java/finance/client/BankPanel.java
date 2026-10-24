@@ -106,20 +106,21 @@ final class BankPanel {
         FinanceGui.drawClippedString(screen.font(), g, "金额", 50, 181, 70, FinanceGui.COL_TEXT_DIM);
         FinanceGui.drawClippedString(screen.font(), g, "期限", 162, 181, 60, FinanceGui.COL_TEXT_DIM);
         FinanceGui.drawClippedString(screen.font(), g, "间隔", 282, 181, 60, FinanceGui.COL_TEXT_DIM);
-        FinanceGui.drawButton(screen.font(), g, "转", 54, 210, 36, false);
-        FinanceGui.drawButton(screen.font(), g, "存", 94, 210, 36, false);
-        FinanceGui.drawButton(screen.font(), g, "取", 134, 210, 36, false);
-        FinanceGui.drawButton(screen.font(), g, "定", 174, 210, 36, false);
-        FinanceGui.drawButton(screen.font(), g, "兑", 214, 210, 36, false);
-        FinanceGui.drawButton(screen.font(), g, "贷", 254, 210, 36, false);
-        FinanceGui.drawButton(screen.font(), g, "公取", 294, 210, 42, false);
-        if (screen.isAdmin) FinanceGui.drawButton(screen.font(), g, "处/压", 340, 210, 48, false);
+        screen.button(g, "转", 54, 210, 36, false, () -> act(0));
+        screen.button(g, "存", 94, 210, 36, false, () -> act(1));
+        screen.button(g, "取", 134, 210, 36, false, () -> act(2));
+        screen.button(g, "定", 174, 210, 36, false, () -> act(3));
+        screen.button(g, "兑", 214, 210, 36, false, () -> act(4));
+        screen.button(g, "贷", 254, 210, 36, false, () -> act(5));
+        screen.button(g, "公取", 294, 210, 42, false, () -> act(6));
+        if (screen.isAdmin) screen.button(g, "处/压", 340, 210, 48, false, () -> act(7));
     }
 
-    boolean click(int mx, int my) {
+    /** 底部按钮：0 转、1 存、2 取、3 定、4 兑、5 贷、6 公取、7 处/压（管理员）。 */
+    private void act(int button) {
         var cache = BankClientCache.get();
         var data = cache.data();
-        if (data == null) return false;
+        if (data == null) return;
         var bank = data.banks().stream()
                 .filter(b ->
                         b.status() == finance.bank.BankStatus.ACTIVE || b.status() == finance.bank.BankStatus.WATCH)
@@ -141,23 +142,23 @@ final class BankPanel {
         java.util.function.LongSupplier amount = () -> screen.requireAmount(screen.stockPriceBox, "金额");
         java.util.function.IntSupplier term = () -> screen.requireInt(screen.stockQuantityBox, "期限", 2, 3650),
                 interval = () -> screen.requireInt(screen.companyAmountBox, "间隔", 1, 3650);
-        if (my >= 208 && my <= 230) {
+        {
             BankActionPacket packet;
-            if (mx >= 54 && mx < 90 && demand != null && transferTarget != null)
+            if (button == 0 && demand != null && transferTarget != null)
                 packet = new BankActionPacket(
                         BankActionPacket.Action.TRANSFER, demand.id(), transferTarget.id(), amount.getAsLong(), 0, 0);
-            else if (mx >= 94 && mx < 130 && bank != null)
+            else if (button == 1 && bank != null)
                 packet = new BankActionPacket(
                         BankActionPacket.Action.DEPOSIT, bank.id(), null, amount.getAsLong(), 0, 0);
-            else if (mx >= 134 && mx < 170 && demand != null)
+            else if (button == 2 && demand != null)
                 packet = new BankActionPacket(
                         BankActionPacket.Action.WITHDRAW, demand.id(), null, amount.getAsLong(), 0, 0);
-            else if (mx >= 174 && mx < 210 && demand != null)
+            else if (button == 3 && demand != null)
                 packet = new BankActionPacket(
                         BankActionPacket.Action.OPEN_TIME, demand.id(), null, amount.getAsLong(), term.getAsInt(), 0);
-            else if (mx >= 214 && mx < 250 && matured != null)
+            else if (button == 4 && matured != null)
                 packet = new BankActionPacket(BankActionPacket.Action.REDEEM_TIME, matured.id(), null, 0, 0, 0);
-            else if (mx >= 254 && mx < 290 && bank != null)
+            else if (button == 5 && bank != null)
                 packet = new BankActionPacket(
                         BankActionPacket.Action.APPLY_COMPANY_LOAN,
                         bank.id(),
@@ -165,10 +166,10 @@ final class BankPanel {
                         amount.getAsLong(),
                         term.getAsInt(),
                         Math.min(interval.getAsInt(), term.getAsInt() - 1));
-            else if (mx >= 294 && mx < 336 && bank != null)
+            else if (button == 6 && bank != null)
                 packet = new BankActionPacket(
                         BankActionPacket.Action.WITHDRAW_COMPANY, bank.id(), null, amount.getAsLong(), 0, 0);
-            else if (mx >= 340 && screen.isAdmin) {
+            else if (button == 7 && screen.isAdmin) {
                 var target = data.banks().stream()
                         .filter(b -> b.status() == finance.bank.BankStatus.RESOLUTION)
                         .findFirst()
@@ -176,12 +177,10 @@ final class BankPanel {
                 packet = target == null
                         ? new BankActionPacket(BankActionPacket.Action.ADMIN_STRESS_TEST, null, null, 0, 0, 0)
                         : new BankActionPacket(BankActionPacket.Action.ADMIN_RESOLVE, target.id(), null, 0, 0, 0);
-            } else return false;
+            } else return;
             FinancePacketHandler.CHANNEL.sendToServer(packet);
             request();
-            return true;
         }
-        return false;
     }
 
     void request() {

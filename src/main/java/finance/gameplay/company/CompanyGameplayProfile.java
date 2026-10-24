@@ -14,31 +14,19 @@ public final class CompanyGameplayProfile {
     public static final int MAX_OPERATION_KEYS = 256;
 
     private final UUID companyId;
-    private CompanyOperatingMode operatingMode;
     private final Map<UUID, CompanyMemberRecord> members = new LinkedHashMap<>();
     private final Map<UUID, CompanyInvite> invites = new LinkedHashMap<>();
     private final LinkedHashSet<UUID> warehouseIds = new LinkedHashSet<>();
     private final LinkedHashSet<String> deskKeys = new LinkedHashSet<>();
     private final LinkedHashSet<String> operationKeys = new LinkedHashSet<>();
-    private long lastLegacyFallbackDay = -1;
 
-    public CompanyGameplayProfile(UUID companyId, CompanyOperatingMode operatingMode) {
-        if (companyId == null || operatingMode == null)
-            throw new IllegalArgumentException("invalid company gameplay profile");
+    public CompanyGameplayProfile(UUID companyId) {
+        if (companyId == null) throw new IllegalArgumentException("invalid company gameplay profile");
         this.companyId = companyId;
-        this.operatingMode = operatingMode;
     }
 
     public UUID companyId() {
         return companyId;
-    }
-
-    public CompanyOperatingMode operatingMode() {
-        return operatingMode;
-    }
-
-    public void setOperatingMode(CompanyOperatingMode mode) {
-        if (mode != null) operatingMode = mode;
     }
 
     public Map<UUID, CompanyMemberRecord> members() {
@@ -59,14 +47,6 @@ public final class CompanyGameplayProfile {
 
     public Set<String> operationKeys() {
         return Set.copyOf(operationKeys);
-    }
-
-    public long lastLegacyFallbackDay() {
-        return lastLegacyFallbackDay;
-    }
-
-    public void setLastLegacyFallbackDay(long day) {
-        if (day >= -1) lastLegacyFallbackDay = day;
     }
 
     public boolean putMember(CompanyMemberRecord member) {

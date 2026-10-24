@@ -101,97 +101,58 @@ final class RegionalRiskPanel {
         FinanceGui.drawClippedString(screen.font(), g, "数量", 126, 190, 34, FinanceGui.COL_TEXT_DIM);
         FinanceGui.drawClippedString(screen.font(), g, "截止天", 238, 190, 45, FinanceGui.COL_TEXT_DIM);
         if (screen.menu().getInitialMode() == FinanceScreenMode.BANK) {
-            FinanceGui.drawButton(screen.font(), g, "质押", 196, 210, 48, false);
-            FinanceGui.drawButton(screen.font(), g, "补押", 248, 210, 48, false);
-            FinanceGui.drawButton(screen.font(), g, "还款", 300, 210, 48, false);
+            screen.button(g, "质押", 196, 210, 48, false, () -> act(RegionalRiskActionPacket.Action.APPLY_COLLATERAL));
+            screen.button(
+                    g, "补押", 248, 210, 48, false, () -> act(RegionalRiskActionPacket.Action.SUPPLEMENT_COLLATERAL));
+            screen.button(g, "还款", 300, 210, 48, false, () -> act(RegionalRiskActionPacket.Action.REPAY_COLLATERAL));
         } else {
-            FinanceGui.drawButton(screen.font(), g, "采购险", 184, 210, 54, false);
-            FinanceGui.drawButton(screen.font(), g, "售价险", 242, 210, 54, false);
-            FinanceGui.drawButton(screen.font(), g, "取消", 300, 210, 48, false);
+            screen.button(g, "采购险", 184, 210, 54, false, () -> act(RegionalRiskActionPacket.Action.CREATE_INPUT_HEDGE));
+            screen.button(
+                    g, "售价险", 242, 210, 54, false, () -> act(RegionalRiskActionPacket.Action.CREATE_OUTPUT_HEDGE));
+            screen.button(g, "取消", 300, 210, 48, false, () -> act(RegionalRiskActionPacket.Action.CANCEL_HEDGE));
         }
     }
 
-    boolean click(int mx, int my) {
-        var entry = RegionalRiskClientCache.get();
-        var data = entry.data();
-        if (data == null) return false;
+    private void act(RegionalRiskActionPacket.Action action) {
+        var data = RegionalRiskClientCache.get().data();
+        if (data == null) return;
         java.util.function.LongSupplier amount = () -> screen.requireAmount(screen.stockPriceBox, "金额"),
                 quantity = () -> screen.requireAmount(screen.stockQuantityBox, "数量");
         java.util.function.IntSupplier deadline = () -> screen.requireInt(screen.companyAmountBox, "截止天", 1, 3650);
-        RegionalRiskActionPacket packet;
-        if (screen.menu().getInitialMode() == FinanceScreenMode.BANK) {
-            var agreement = data.collateral().stream().findFirst().orElse(null);
-            var call = data.collateral().stream()
-                    .filter(v -> v.status() == finance.collateral.InventoryCollateralStatus.MARGIN_CALL)
-                    .findFirst()
-                    .orElse(agreement);
-            var bank = data.banks().stream().findFirst().orElse(null);
-            if (mx >= 196 && mx < 244 && bank != null)
-                packet = new RegionalRiskActionPacket(
-                        RegionalRiskActionPacket.Action.APPLY_COLLATERAL,
-                        bank.id(),
-                        screen.selectedCommodity,
-                        quantity.getAsLong(),
-                        0,
-                        0,
-                        UUID.randomUUID().toString());
-            else if (mx >= 248 && mx < 296 && call != null)
-                packet = new RegionalRiskActionPacket(
-                        RegionalRiskActionPacket.Action.SUPPLEMENT_COLLATERAL,
-                        call.id(),
-                        "",
-                        quantity.getAsLong(),
-                        0,
-                        0,
-                        UUID.randomUUID().toString());
-            else if (mx >= 300 && mx < 348 && agreement != null)
-                packet = new RegionalRiskActionPacket(
-                        RegionalRiskActionPacket.Action.REPAY_COLLATERAL,
-                        agreement.id(),
-                        "",
-                        0,
-                        amount.getAsLong(),
-                        0,
-                        UUID.randomUUID().toString());
-            else return false;
-        } else {
-            var contract = data.contracts().stream()
-                    .filter(v -> v.commodity().equals(screen.selectedCommodity))
-                    .findFirst()
-                    .orElse(data.contracts().stream().findFirst().orElse(null));
-            var hedge = data.hedges().stream().findFirst().orElse(null);
-            if (mx >= 184 && mx < 238 && contract != null)
-                packet = new RegionalRiskActionPacket(
-                        RegionalRiskActionPacket.Action.CREATE_INPUT_HEDGE,
-                        contract.id(),
-                        "",
-                        quantity.getAsLong(),
-                        0,
-                        deadline.getAsInt(),
-                        UUID.randomUUID().toString());
-            else if (mx >= 242 && mx < 296 && contract != null)
-                packet = new RegionalRiskActionPacket(
-                        RegionalRiskActionPacket.Action.CREATE_OUTPUT_HEDGE,
-                        contract.id(),
-                        "",
-                        quantity.getAsLong(),
-                        0,
-                        deadline.getAsInt(),
-                        UUID.randomUUID().toString());
-            else if (mx >= 300 && mx < 348 && hedge != null)
-                packet = new RegionalRiskActionPacket(
-                        RegionalRiskActionPacket.Action.CANCEL_HEDGE,
-                        hedge.id(),
-                        "",
-                        0,
-                        0,
-                        0,
-                        UUID.randomUUID().toString());
-            else return false;
+        String key = UUID.randomUUID().toString();
+        RegionalRiskActionPacket packet = null;
+        switch (action) {
+            case APPLY_COLLATERAL, SUPPLEMENT_COLLATERAL, REPAY_COLLATERAL -> {
+                var agreement = data.collateral().stream().findFirst().orElse(null);
+                var call = data.collateral().stream()
+                        .filter(v -> v.status() == finance.collateral.InventoryCollateralStatus.MARGIN_CALL)
+                        .findFirst()
+                        .orElse(agreement);
+                var bank = data.banks().stream().findFirst().orElse(null);
+                if (action == RegionalRiskActionPacket.Action.APPLY_COLLATERAL && bank != null)
+                    packet = new RegionalRiskActionPacket(
+                            action, bank.id(), screen.selectedCommodity, quantity.getAsLong(), 0, 0, key);
+                else if (action == RegionalRiskActionPacket.Action.SUPPLEMENT_COLLATERAL && call != null)
+                    packet = new RegionalRiskActionPacket(action, call.id(), "", quantity.getAsLong(), 0, 0, key);
+                else if (action == RegionalRiskActionPacket.Action.REPAY_COLLATERAL && agreement != null)
+                    packet = new RegionalRiskActionPacket(action, agreement.id(), "", 0, amount.getAsLong(), 0, key);
+            }
+            default -> {
+                var contract = data.contracts().stream()
+                        .filter(v -> v.commodity().equals(screen.selectedCommodity))
+                        .findFirst()
+                        .orElse(data.contracts().stream().findFirst().orElse(null));
+                var hedge = data.hedges().stream().findFirst().orElse(null);
+                if (action == RegionalRiskActionPacket.Action.CANCEL_HEDGE) {
+                    if (hedge != null) packet = new RegionalRiskActionPacket(action, hedge.id(), "", 0, 0, 0, key);
+                } else if (contract != null)
+                    packet = new RegionalRiskActionPacket(
+                            action, contract.id(), "", quantity.getAsLong(), 0, deadline.getAsInt(), key);
+            }
         }
+        if (packet == null) return;
         FinancePacketHandler.CHANNEL.sendToServer(packet);
         request();
-        return true;
     }
 
     void request() {

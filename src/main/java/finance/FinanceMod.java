@@ -66,6 +66,7 @@ import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 public class FinanceMod {
 
     public static final String MOD_ID = "finance";
+    private static final org.slf4j.Logger LOGGER = com.mojang.logging.LogUtils.getLogger();
 
     public FinanceMod() {
         finance.advancement.FinanceAdvancementTriggers.register();
@@ -198,6 +199,9 @@ public class FinanceMod {
         CandlestickService.observeDay(EconomyCycleService.currentMcDay(event.getServer()));
 
         CommodityInventorySavedData.get(event.getServer());
+        // 旧版本玩家公司的货可能留在公司旧库存里，两份存档都读完后并进托管账户
+        int migrated = finance.gameplay.company.CompanyGameplayManager.migratePlayerLegacyInventory();
+        if (migrated > 0) LOGGER.info("Moved legacy inventory of {} player companies into company custody", migrated);
 
         // 初始化国际市场
         NpcMarketMaker.seedNpcIfNeeded();

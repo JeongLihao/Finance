@@ -227,9 +227,6 @@ public final class FinanceConfig {
     private static final BoolOption LEGACY_FULL_SCREEN_KEYBIND = new BoolOption(false);
     private static final BoolOption WAREHOUSE_CAPACITY_ENABLED = new BoolOption(true);
     private static final BoolOption CONTRACTS_ENABLED = new BoolOption(true);
-    private static final BoolOption PLAYER_DRIVEN_COMPANY_PRODUCTION = new BoolOption(true);
-    private static final BoolOption ALLOW_LEGACY_AUTOMATIC_COMPANY_PRODUCTION = new BoolOption(true);
-    private static final BoolOption NEW_COMPANIES_PLAYER_DRIVEN_ONLY = new BoolOption(false);
     private static final BoolOption ADVANCED_FINANCE_REQUIRES_TERMINAL = new BoolOption(true);
     private static final BoolOption ADMIN_CONSOLE_REQUIRES_PERMISSION = new BoolOption(true);
     private static final DoubleOption TERMINAL_INTERACTION_DISTANCE = new DoubleOption(8.0D);
@@ -333,12 +330,6 @@ public final class FinanceConfig {
                 .define("warehouseCapacityEnabled", WAREHOUSE_CAPACITY_ENABLED.def));
         CONTRACTS_ENABLED.bind(
                 builder.comment("是否允许创建新的世界合同；关闭不会吞掉既有托管或到期结算。").define("contractsEnabled", CONTRACTS_ENABLED.def));
-        PLAYER_DRIVEN_COMPANY_PRODUCTION.bind(builder.comment("Minecraft-first 模式下新公司是否优先采用玩家参与生产。")
-                .define("playerDrivenCompanyProduction", PLAYER_DRIVEN_COMPANY_PRODUCTION.def));
-        ALLOW_LEGACY_AUTOMATIC_COMPANY_PRODUCTION.bind(builder.comment("是否保留旧公司的自动经营兼容路径。")
-                .define("allowLegacyAutomaticCompanyProduction", ALLOW_LEGACY_AUTOMATIC_COMPANY_PRODUCTION.def));
-        NEW_COMPANIES_PLAYER_DRIVEN_ONLY.bind(builder.comment("新公司是否直接使用纯玩家驱动模式；关闭时默认使用带低效兜底的 HYBRID。")
-                .define("newCompaniesPlayerDrivenOnly", NEW_COMPANIES_PLAYER_DRIVEN_ONLY.def));
         ADVANCED_FINANCE_REQUIRES_TERMINAL.bind(builder.comment("股票、债券、基金、期货等高级金融界面是否要求证券终端。")
                 .define("advancedFinanceRequiresTerminal", ADVANCED_FINANCE_REQUIRES_TERMINAL.def));
         ADMIN_CONSOLE_REQUIRES_PERMISSION.bind(builder.comment("央行控制台是否要求服务端 2 级管理员权限。")
@@ -1057,18 +1048,6 @@ public final class FinanceConfig {
 
     public static boolean contractsEnabled() {
         return CONTRACTS_ENABLED.get();
-    }
-
-    public static boolean playerDrivenCompanyProduction() {
-        return PLAYER_DRIVEN_COMPANY_PRODUCTION.get();
-    }
-
-    public static boolean allowLegacyAutomaticCompanyProduction() {
-        return ALLOW_LEGACY_AUTOMATIC_COMPANY_PRODUCTION.get();
-    }
-
-    public static boolean newCompaniesPlayerDrivenOnly() {
-        return NEW_COMPANIES_PLAYER_DRIVEN_ONLY.get();
     }
 
     public static boolean advancedFinanceRequiresTerminal() {

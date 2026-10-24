@@ -30,11 +30,6 @@
 	legacyFullScreenKeybind = false
 	warehouseCapacityEnabled = true
 	contractsEnabled = true
-	playerDrivenCompanyProduction = true
-	# 旧公司仍可继续原自动经营模式。
-	allowLegacyAutomaticCompanyProduction = true
-	# 新公司默认 HYBRID；开启后改为纯 PLAYER_DRIVEN。
-	newCompaniesPlayerDrivenOnly = false
 	advancedFinanceRequiresTerminal = true
 	adminConsoleRequiresPermission = true
 	# 终端菜单的最大持续交互距离（方块）。

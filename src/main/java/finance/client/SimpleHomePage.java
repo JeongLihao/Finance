@@ -3,7 +3,7 @@ package finance.client;
 import static finance.client.SimplePages.*;
 
 import finance.client.ui.UiBuilder;
-import finance.gui.FinanceMenu;
+import finance.gui.RecordRows;
 import finance.simple.SimpleCenterService;
 import finance.simple.SimpleOpportunityService;
 import finance.util.MoneyFormat;
@@ -101,12 +101,12 @@ final class SimpleHomePage {
     static final int RECORD_ROWS = 15;
 
     static void records(UiBuilder ui, View v, State s, int y) {
-        List<FinanceMenu.TransactionRow> rows = v.transactions();
+        List<RecordRows.TransactionRow> rows = v.transactions();
         s.recordScroll = clamp(s.recordScroll, 0, Math.max(0, rows.size() - RECORD_ROWS));
         if (rows.isEmpty()) ui.text(LEFT + PAD, y + 2, 200, "还没有交易。", DIM);
         int amountW = 96, typeW = 70;
         for (int i = s.recordScroll; i < Math.min(rows.size(), s.recordScroll + RECORD_ROWS); i++) {
-            FinanceMenu.TransactionRow r = rows.get(i);
+            RecordRows.TransactionRow r = rows.get(i);
             ui.text(LEFT + 2, y, typeW, FinanceFormat.displayTransactionType(r.type()), TEXT);
             String what = (r.objectName().isEmpty() ? "" : displayObject(r.objectName()))
                     + (r.quantity() > 1 ? " ×" + r.quantity() : "");

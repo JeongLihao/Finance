@@ -16,6 +16,7 @@ import finance.margin.MarginService;
 import finance.stock.Stock;
 import finance.stock.StockMarketManager;
 import finance.util.MoneyFormat;
+import finance.util.Uuids;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -320,12 +321,8 @@ public final class SimpleBetService {
         if (key.startsWith("s:")) {
             failure = closeStockFor(id, key);
         } else if (key.startsWith("f:")) {
-            UUID contract;
-            try {
-                contract = UUID.fromString(key.substring(2));
-            } catch (IllegalArgumentException e) {
-                return fail("请求无效。");
-            }
+            UUID contract = Uuids.parseOrNull(key.substring(2));
+            if (contract == null) return fail("请求无效。");
             SimpleCenterService.Result r = SimpleCenterService.closeLock(player, contract);
             if (!r.success()) failure = r.message();
         } else {

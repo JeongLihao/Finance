@@ -3,6 +3,7 @@ package finance.data.serializer;
 import finance.company.Company;
 import finance.company.CompanyManager;
 import finance.gameplay.company.*;
+import finance.util.Uuids;
 import finance.warehouse.WarehouseManager;
 import finance.warehouse.WarehouseRecord;
 import java.util.UUID;
@@ -25,8 +26,6 @@ public final class CompanyGameplayDataSerializer {
         for (CompanyGameplayProfile profile : CompanyGameplayManager.profiles().values()) {
             CompoundTag tag = new CompoundTag();
             tag.putUUID("Company", profile.companyId());
-            tag.putString("Mode", profile.operatingMode().name());
-            tag.putLong("LastFallback", profile.lastLegacyFallbackDay());
             ListTag members = new ListTag();
             for (CompanyMemberRecord member : profile.members().values()) {
                 CompoundTag m = new CompoundTag();
@@ -88,11 +87,10 @@ public final class CompanyGameplayDataSerializer {
             try {
                 UUID companyId = NbtDataSupport.readUuidOrNull(tag, "Company");
                 Company company = CompanyManager.getCompany(companyId);
-                CompanyOperatingMode mode =
-                        NbtDataSupport.safeEnum(CompanyOperatingMode.class, tag.getString("Mode"), null);
-                if (company == null || mode == null) continue;
-                CompanyGameplayProfile profile = new CompanyGameplayProfile(companyId, mode);
-                profile.setLastLegacyFallbackDay(Math.max(-1, tag.getLong("LastFallback")));
+                // 旧存档里的 "Mode"（经营模式）已废弃：玩家公司一律用托管库存，读档后由
+                // CompanyGameplayManager.migratePlayerLegacyInventory 把旧库存并过去
+                if (company == null) continue;
+                CompanyGameplayProfile profile = new CompanyGameplayProfile(companyId);
                 ListTag members = tag.getList("Members", Tag.TAG_COMPOUND);
                 for (int i = 0; i < Math.min(CompanyGameplayProfile.MAX_MEMBERS, members.size()); i++) {
                     CompoundTag m = members.getCompound(i);
@@ -117,13 +115,11 @@ public final class CompanyGameplayDataSerializer {
                                 player, role, invitedBy, in.getLong("Created"), in.getLong("Expires")));
                 }
                 ListTag warehouses = tag.getList("Warehouses", Tag.TAG_STRING);
-                for (int i = 0; i < Math.min(CompanyGameplayProfile.MAX_WAREHOUSES, warehouses.size()); i++)
-                    try {
-                        UUID id = UUID.fromString(warehouses.getString(i));
-                        WarehouseRecord record = WarehouseManager.get(id);
-                        if (record != null && companyId.equals(record.companyId())) profile.bindWarehouse(id);
-                    } catch (IllegalArgumentException ignored) {
-                    }
+                for (int i = 0; i < Math.min(CompanyGameplayProfile.MAX_WAREHOUSES, warehouses.size()); i++) {
+                    UUID id = Uuids.parseOrNull(warehouses.getString(i));
+                    WarehouseRecord record = id == null ? null : WarehouseManager.get(id);
+                    if (record != null && companyId.equals(record.companyId())) profile.bindWarehouse(id);
+                }
                 ListTag desks = tag.getList("Desks", Tag.TAG_STRING);
                 for (int i = 0; i < Math.min(CompanyGameplayProfile.MAX_DESKS, desks.size()); i++)
                     profile.addDesk(desks.getString(i));

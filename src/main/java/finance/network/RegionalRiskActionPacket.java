@@ -5,6 +5,7 @@ import finance.company.*;
 import finance.cycle.EconomyCycleService;
 import finance.gameplay.*;
 import finance.gameplay.company.*;
+import finance.gui.CompanyRows;
 import finance.gui.FinanceMenu;
 import finance.hedge.*;
 import java.util.UUID;
@@ -89,7 +90,7 @@ public record RegionalRiskActionPacket(
             return;
         }
         long day = EconomyCycleService.currentMcDay(player.server);
-        FinanceMenu.CompanyInfo selected = menu.getPlayerCompany();
+        CompanyRows.CompanyInfo selected = menu.getPlayerCompany();
         Company company = selected == null ? null : CompanyManager.getCompany(selected.companyId());
         if (company == null
                 || !CompanyMembershipService.hasPermission(

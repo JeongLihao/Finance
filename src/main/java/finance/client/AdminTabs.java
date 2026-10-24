@@ -19,6 +19,9 @@ public final class AdminTabs {
         this.screen = screen;
     }
 
+    /** 子页签编号（{@code FinanceScreen.adminSubTab}），顺序与 {@link #ADMIN_SUB_TABS} 一致。 */
+    static final int HAND = 0, QUICK = 1, REGISTERED = 2, PRICE_HISTORY = 3, DIVIDEND = 4;
+
     private static final String[] ADMIN_SUB_TABS = {"从手中添加", "常用物品", "已注册商品", "价格历史", "分红设置"};
 
     /** 管理后台快捷物品表（原 FinanceScreen 中置常量，随管理页签迁移）。 */
@@ -49,6 +52,12 @@ public final class AdminTabs {
         for (int i = 0; i < ADMIN_SUB_TABS.length; i++) {
             int w = adminSubTabWidth();
             boolean active = (i == screen.adminSubTab);
+            int index = i;
+            screen.contentClicks.add(subX, y, w, 14, () -> {
+                screen.adminSubTab = index;
+                screen.rememberUiState();
+                screen.updateInputVisibility();
+            });
             if (active) {
                 g.fill(subX, y - 1, subX + w, y + 13, 0xFFECE6D5);
                 g.fill(subX + 2, y + 12, subX + w - 2, y + 13, FinanceGui.COL_ACCENT);
@@ -68,11 +77,11 @@ public final class AdminTabs {
         y += 6;
 
         switch (screen.adminSubTab) {
-            case 0 -> renderAdminHandTab(g, y);
-            case 1 -> renderAdminQuickTab(g, y);
-            case 2 -> renderAdminRegisteredTab(g, y);
-            case 3 -> renderAdminPriceHistoryTab(g, y);
-            case 4 -> renderAdminDividendTab(g, y);
+            case HAND -> renderAdminHandTab(g, y);
+            case QUICK -> renderAdminQuickTab(g, y);
+            case REGISTERED -> renderAdminRegisteredTab(g, y);
+            case PRICE_HISTORY -> renderAdminPriceHistoryTab(g, y);
+            case DIVIDEND -> renderAdminDividendTab(g, y);
         }
     }
 
@@ -86,7 +95,11 @@ public final class AdminTabs {
         FinanceGui.drawSimpleBorder(
                 g, 8, y - 4, screen.imageWidth() - 16, screen.imageHeight() - y - 4, FinanceGui.COL_PANEL_BORDER);
         FinanceGui.drawSectionTitle(screen.font(), g, "从手中添加", 10, y);
-        FinanceGui.drawFilledButton(screen.font(), g, "添加手持物品", 100, y - 2, 90, FinanceGui.COL_GOOD);
+        screen.filledButton(g, "添加手持物品", 100, y - 2, 90, FinanceGui.COL_GOOD, () -> {
+            long basePrice = screen.requireAmount(screen.adminBasePriceBox, "基础价格");
+            screen.setStatus("已提交添加手持物品");
+            FinancePacketHandler.CHANNEL.sendToServer(AdminActionPacket.fromHand(basePrice));
+        });
         // screen.adminBasePriceBox 在 localY=88 (FinanceGui.CONTENT_Y+88=46+88=134 但 localY=88)
         g.drawString(screen.font(), "价格:", 200, y + 20, FinanceGui.COL_TEXT_DIM, false);
         y += 18;
@@ -105,8 +118,12 @@ public final class AdminTabs {
 
         FinanceGui.drawClippedString(screen.font(), g, "价格使用上方设置", 10, y + 2, 100, FinanceGui.COL_TEXT_DIM);
         g.drawString(screen.font(), "分类:", 120, y + 2, FinanceGui.COL_TEXT_DIM, false);
-        FinanceGui.drawButton(screen.font(), g, "< " + screen.adminCategory.getDisplayName() + " >", 152, y, 80, true);
-        FinanceGui.drawFilledButton(screen.font(), g, "添加", 244, y, 44, FinanceGui.COL_GOOD);
+        screen.button(g, "< " + screen.adminCategory.getDisplayName() + " >", 152, y, 80, true, () -> {
+            CommodityCategory[] cats = CommodityCategory.values();
+            int idx = screen.adminCategory.ordinal();
+            screen.adminCategory = cats[(idx + 1) % cats.length];
+        });
+        screen.filledButton(g, "添加", 244, y, 44, FinanceGui.COL_GOOD, this::addManualCommodity);
     }
 
     public void renderAdminPriceHistoryTab(GuiGraphics g, int y) {
@@ -116,9 +133,18 @@ public final class AdminTabs {
         FinanceGui.drawSectionTitle(screen.font(), g, "价格历史清理", 10, y);
         FinanceGui.drawClippedString(
                 screen.font(), g, "清理只删除趋势图历史点，不会修改当前价格、高低价或持仓。", 10, y + 18, 310, FinanceGui.COL_TEXT_DIM);
-        FinanceGui.drawFilledButton(screen.font(), g, "清理商品历史", 20, y + 44, 90, FinanceGui.COL_WARN);
-        FinanceGui.drawFilledButton(screen.font(), g, "清理股票历史", 126, y + 44, 90, FinanceGui.COL_WARN);
-        FinanceGui.drawFilledButton(screen.font(), g, "全部清理", 232, y + 44, 76, FinanceGui.COL_BAD);
+        screen.filledButton(g, "清理商品历史", 20, y + 44, 90, FinanceGui.COL_WARN, () -> {
+            screen.setStatus("已提交清理商品价格历史");
+            FinancePacketHandler.CHANNEL.sendToServer(AdminActionPacket.clearCommodityPriceHistory());
+        });
+        screen.filledButton(g, "清理股票历史", 126, y + 44, 90, FinanceGui.COL_WARN, () -> {
+            screen.setStatus("已提交清理股票价格历史");
+            FinancePacketHandler.CHANNEL.sendToServer(AdminActionPacket.clearStockPriceHistory());
+        });
+        screen.filledButton(g, "全部清理", 232, y + 44, 76, FinanceGui.COL_BAD, () -> {
+            screen.setStatus("已提交清理全部价格历史");
+            FinancePacketHandler.CHANNEL.sendToServer(AdminActionPacket.clearAllPriceHistory());
+        });
     }
 
     public void renderAdminDividendTab(GuiGraphics g, int y) {
@@ -134,8 +160,8 @@ public final class AdminTabs {
                 y + 24,
                 110,
                 FinanceGui.COL_TEXT);
-        FinanceGui.drawButton(screen.font(), g, "-10%", 134, y + 20, 44, false);
-        FinanceGui.drawButton(screen.font(), g, "+10%", 184, y + 20, 44, false);
+        screen.button(g, "-10%", 134, y + 20, 44, false, () -> setDividendRatio(-0.10));
+        screen.button(g, "+10%", 184, y + 20, 44, false, () -> setDividendRatio(0.10));
         FinanceGui.drawClippedString(
                 screen.font(),
                 g,
@@ -144,8 +170,8 @@ public final class AdminTabs {
                 y + 50,
                 120,
                 FinanceGui.COL_TEXT);
-        FinanceGui.drawButton(screen.font(), g, "-1天", 134, y + 46, 44, false);
-        FinanceGui.drawButton(screen.font(), g, "+1天", 184, y + 46, 44, false);
+        screen.button(g, "-1天", 134, y + 46, 44, false, () -> setDividendCycle(-1));
+        screen.button(g, "+1天", 184, y + 46, 44, false, () -> setDividendCycle(1));
         FinanceGui.drawClippedString(
                 screen.font(), g, "到期后，上市公司会按股东持股比例自动分红。", 16, y + 80, 280, FinanceGui.COL_TEXT_DIM);
     }
@@ -156,8 +182,22 @@ public final class AdminTabs {
         int perPage = quickItemsPerPage();
         int maxPage = Math.max(0, (QUICK_ITEMS.length - 1) / perPage);
         screen.adminQuickPage = Math.min(screen.adminQuickPage, maxPage);
-        FinanceGui.drawButton(screen.font(), g, "上一页", screen.imageWidth() - 110, y - 2, 48, false);
-        FinanceGui.drawButton(screen.font(), g, "下一页", screen.imageWidth() - 56, y - 2, 48, false);
+        screen.button(
+                g,
+                "上一页",
+                screen.imageWidth() - 110,
+                y - 2,
+                48,
+                false,
+                () -> screen.adminQuickPage = Math.max(0, screen.adminQuickPage - 1));
+        screen.button(
+                g,
+                "下一页",
+                screen.imageWidth() - 56,
+                y - 2,
+                48,
+                false,
+                () -> screen.adminQuickPage = Math.min(maxPage, screen.adminQuickPage + 1));
         FinanceGui.drawClippedString(
                 screen.font(),
                 g,
@@ -189,6 +229,9 @@ public final class AdminTabs {
             }
 
             boolean registered = CommodityRegistry.isRegistered(QUICK_ITEMS[i][0]);
+            String[] quick = QUICK_ITEMS[i];
+            // 点整行（含“添加”按钮）都算添加
+            screen.contentClicks.add(listX + 2, y, listW - 4, 14, () -> addQuickItem(quick));
             int rowBg = registered ? 0xFFD0D0D0 : ((i % 2 == 0) ? FinanceGui.COL_ROW_EVEN : FinanceGui.COL_ROW_ODD);
             g.fill(listX + 2, y, listX + listW - 2, y + 14, rowBg);
 
@@ -223,8 +266,22 @@ public final class AdminTabs {
         int perPage = registeredItemsPerPage();
         int maxPage = Math.max(0, (screen.cachedCommodities.size() - 1) / perPage);
         screen.adminRegisteredPage = Math.min(screen.adminRegisteredPage, maxPage);
-        FinanceGui.drawButton(screen.font(), g, "上一页", screen.imageWidth() - 110, y - 2, 48, false);
-        FinanceGui.drawButton(screen.font(), g, "下一页", screen.imageWidth() - 56, y - 2, 48, false);
+        screen.button(
+                g,
+                "上一页",
+                screen.imageWidth() - 110,
+                y - 2,
+                48,
+                false,
+                () -> screen.adminRegisteredPage = Math.max(0, screen.adminRegisteredPage - 1));
+        screen.button(
+                g,
+                "下一页",
+                screen.imageWidth() - 56,
+                y - 2,
+                48,
+                false,
+                () -> screen.adminRegisteredPage = Math.min(maxPage, screen.adminRegisteredPage + 1));
         FinanceGui.drawClippedString(
                 screen.font(),
                 g,
@@ -261,7 +318,12 @@ public final class AdminTabs {
                     screen.font(), g, Long.toString(c.getBasePrice()), 222, rowY + 3, 36, FinanceGui.COL_GOOD);
             FinanceGui.drawClippedString(
                     screen.font(), g, c.getCategory().getDisplayName(), 262, rowY + 3, 60, FinanceGui.COL_TEXT_DIM);
-            FinanceGui.drawButton(screen.font(), g, "删除", 328, rowY + 1, 42, false);
+            String commodityId = c.getId();
+            screen.button(g, "删除", 328, rowY + 1, 42, false, () -> {
+                screen.setStatus("已提交删除 " + FinanceFormat.commodityDisplayName(commodityId));
+                FinancePacketHandler.CHANNEL.sendToServer(new AdminActionPacket(commodityId));
+                screen.commodityCacheDirty = true;
+            });
         }
     }
 
@@ -271,214 +333,51 @@ public final class AdminTabs {
 
     // ---- 管理标签点击 ----
 
-    public boolean handleAdminClick(int mx, int my) {
-        int y = FinanceGui.CONTENT_Y;
-
-        int subX = 10;
-        for (int i = 0; i < ADMIN_SUB_TABS.length; i++) {
-            int w = adminSubTabWidth();
-            if (mx >= subX && mx < subX + w && my >= y && my < y + 14) {
-                screen.adminSubTab = i;
-                screen.rememberUiState();
-                screen.updateInputVisibility();
-                return true;
-            }
-            subX += w + 3;
-        }
-        y += 16 + 6;
-
-        return switch (screen.adminSubTab) {
-            case 0 -> handleAdminHandClick(mx, my, y);
-            case 1 -> handleAdminQuickClick(mx, my, y);
-            case 2 -> handleAdminRegisteredClick(mx, my, y);
-            case 3 -> handleAdminPriceHistoryClick(mx, my, y);
-            case 4 -> handleAdminDividendClick(mx, my, y);
-            default -> false;
-        };
+    private void setDividendRatio(double delta) {
+        double next = delta < 0
+                ? Math.max(0.0, screen.menu().getDividendRatio() + delta)
+                : Math.min(1.0, screen.menu().getDividendRatio() + delta);
+        screen.setStatus("已提交分红比例调整");
+        FinancePacketHandler.CHANNEL.sendToServer(AdminActionPacket.setDividendRatio(next));
     }
 
-    public boolean handleAdminDividendClick(int mx, int my, int y) {
-        if (my >= y + 20 && my < y + 33) {
-            if (mx >= 134 && mx < 178) {
-                double next = Math.max(0.0, screen.menu().getDividendRatio() - 0.10);
-                screen.setStatus("已提交分红比例调整");
-                FinancePacketHandler.CHANNEL.sendToServer(AdminActionPacket.setDividendRatio(next));
-                return true;
-            }
-            if (mx >= 184 && mx < 228) {
-                double next = Math.min(1.0, screen.menu().getDividendRatio() + 0.10);
-                screen.setStatus("已提交分红比例调整");
-                FinancePacketHandler.CHANNEL.sendToServer(AdminActionPacket.setDividendRatio(next));
-                return true;
-            }
-        }
-        if (my >= y + 46 && my < y + 59) {
-            if (mx >= 134 && mx < 178) {
-                int next = Math.max(1, screen.menu().getDividendCycleDays() - 1);
-                screen.setStatus("已提交分红周期调整");
-                FinancePacketHandler.CHANNEL.sendToServer(AdminActionPacket.setDividendCycle(next));
-                return true;
-            }
-            if (mx >= 184 && mx < 228) {
-                int next = Math.min(365, screen.menu().getDividendCycleDays() + 1);
-                screen.setStatus("已提交分红周期调整");
-                FinancePacketHandler.CHANNEL.sendToServer(AdminActionPacket.setDividendCycle(next));
-                return true;
-            }
-        }
-        return false;
+    private void setDividendCycle(int delta) {
+        int next = delta < 0
+                ? Math.max(1, screen.menu().getDividendCycleDays() + delta)
+                : Math.min(365, screen.menu().getDividendCycleDays() + delta);
+        screen.setStatus("已提交分红周期调整");
+        FinancePacketHandler.CHANNEL.sendToServer(AdminActionPacket.setDividendCycle(next));
     }
 
-    public boolean handleAdminPriceHistoryClick(int mx, int my, int y) {
-        if (my >= y + 44 && my < y + 57) {
-            if (mx >= 20 && mx < 110) {
-                screen.setStatus("已提交清理商品价格历史");
-                FinancePacketHandler.CHANNEL.sendToServer(AdminActionPacket.clearCommodityPriceHistory());
-                return true;
-            }
-            if (mx >= 126 && mx < 216) {
-                screen.setStatus("已提交清理股票价格历史");
-                FinancePacketHandler.CHANNEL.sendToServer(AdminActionPacket.clearStockPriceHistory());
-                return true;
-            }
-            if (mx >= 232 && mx < 308) {
-                screen.setStatus("已提交清理全部价格历史");
-                FinancePacketHandler.CHANNEL.sendToServer(AdminActionPacket.clearAllPriceHistory());
-                return true;
-            }
+    private void addManualCommodity() {
+        String id = screen.adminCommodityIdBox.getValue().trim().toLowerCase();
+        String itemId = screen.adminItemIdBox.getValue().trim();
+        String displayName = screen.adminDisplayNameBox.getValue().trim();
+        if (id.isEmpty()) {
+            screen.setStatus("请输入商品 ID");
+            return;
         }
-        return false;
+        long basePrice = screen.requireAmount(screen.adminBasePriceBox, "基础价格");
+        if (displayName.isEmpty()) displayName = id;
+        if (itemId.isEmpty()) itemId = null;
+        screen.setStatus("已提交添加商品");
+        FinancePacketHandler.CHANNEL.sendToServer(
+                new AdminActionPacket(id, itemId, displayName, basePrice, screen.adminCategory));
     }
 
-    public boolean handleAdminHandClick(int mx, int my, int y) {
-        // "添加手持物品" 按钮在 (100, y-2) 到 (190, y+11)
-        if (my >= y - 2 && my < y + 11 && mx >= 100 && mx < 190) {
-            long basePrice = screen.requireAmount(screen.adminBasePriceBox, "基础价格");
-            screen.setStatus("已提交添加手持物品");
-            FinancePacketHandler.CHANNEL.sendToServer(AdminActionPacket.fromHand(basePrice));
-            return true;
+    private void addQuickItem(String[] quick) {
+        if (CommodityRegistry.isRegistered(quick[0])) {
+            screen.setStatus("该商品已注册");
+            return;
         }
-        // screen.adminBasePriceBox 在 localY=88，此处 y=68，所以 y+20=88
-        // 点击区域让 EditBox 自行处理，这里不拦截
-        y += 18 + 6 + 14; // y = 106
-
-        // "手动添加" 标题区域，不拦截
-        y += 38; // y = 144，对应 label 和 EditBox 行
-
-        // 分类选择按钮 "< RAW_MATERIALS >" 在 (152, y+18) = (152, 162)
-        y += 18; // y = 162
-        if (my >= y && my < y + 13 && mx >= 152 && mx < 232) {
-            CommodityCategory[] cats = CommodityCategory.values();
-            int idx = screen.adminCategory.ordinal();
-            screen.adminCategory = cats[(idx + 1) % cats.length];
-            return true;
-        }
-
-        // "添加" 按钮在 (244, y) = (244, 162)
-        if (my >= y && my < y + 13 && mx >= 244 && mx < 288) {
-            String id = screen.adminCommodityIdBox.getValue().trim().toLowerCase();
-            String itemId = screen.adminItemIdBox.getValue().trim();
-            String displayName = screen.adminDisplayNameBox.getValue().trim();
-            if (id.isEmpty()) {
-                screen.setStatus("请输入商品 ID");
-                return true;
-            }
-            long basePrice = screen.requireAmount(screen.adminBasePriceBox, "基础价格");
-            if (displayName.isEmpty()) displayName = id;
-            if (itemId.isEmpty()) itemId = null;
-
-            screen.setStatus("已提交添加商品");
-            FinancePacketHandler.CHANNEL.sendToServer(
-                    new AdminActionPacket(id, itemId, displayName, basePrice, screen.adminCategory));
-            return true;
-        }
-
-        return false;
-    }
-
-    /** 子页 1 点击：常用物品分类列表 */
-    public boolean handleAdminQuickClick(int mx, int my, int startY) {
-        if (my >= startY - 2 && my < startY + 11) {
-            int maxPage = Math.max(0, (QUICK_ITEMS.length - 1) / quickItemsPerPage());
-            if (mx >= screen.imageWidth() - 110 && mx < screen.imageWidth() - 62) {
-                screen.adminQuickPage = Math.max(0, screen.adminQuickPage - 1);
-                return true;
-            }
-            if (mx >= screen.imageWidth() - 56 && mx < screen.imageWidth() - 8) {
-                screen.adminQuickPage = Math.min(maxPage, screen.adminQuickPage + 1);
-                return true;
-            }
-        }
-        int y = startY + 14; // 跳过标题
-        int listX = 10;
-        int listW = screen.imageWidth() - 20;
-        int maxYY = screen.imageHeight() - 4;
-
-        int perPage = quickItemsPerPage();
-        int start = screen.adminQuickPage * perPage;
-        int end = Math.min(QUICK_ITEMS.length, start + perPage);
-        CommodityCategory lastCat = null;
-        for (int i = start; i < end; i++) {
-            if (y + 14 > maxYY) break;
-
-            CommodityCategory cat = CommodityCategory.valueOf(QUICK_ITEMS[i][4]);
-            if (cat != lastCat) {
-                y += 14; // 分类标题行
-                lastCat = cat;
-                if (y + 14 > maxYY) break;
-            }
-
-            boolean registered = CommodityRegistry.isRegistered(QUICK_ITEMS[i][0]);
-            // 点击整行或"添加"按钮
-            if (mx >= listX + 2 && mx < listX + listW - 2 && my >= y && my < y + 14) {
-                if (!registered) {
-                    String id = QUICK_ITEMS[i][0];
-                    String itemId = QUICK_ITEMS[i][1];
-                    String displayName = QUICK_ITEMS[i][2];
-                    long basePrice = FinanceFormat.parseLong(QUICK_ITEMS[i][3]);
-                    CommodityCategory category = CommodityCategory.valueOf(QUICK_ITEMS[i][4]);
-                    screen.setStatus("已提交添加 " + displayName);
-                    FinancePacketHandler.CHANNEL.sendToServer(
-                            new AdminActionPacket(id, itemId, displayName, basePrice, category));
-                } else {
-                    screen.setStatus("该商品已注册");
-                }
-                return true;
-            }
-            y += 16;
-        }
-        return false;
-    }
-
-    public boolean handleAdminRegisteredClick(int mx, int my, int y) {
-        if (my >= y - 2 && my < y + 11) {
-            screen.ensureCommodityCache();
-            int maxPage = Math.max(0, (screen.cachedCommodities.size() - 1) / registeredItemsPerPage());
-            if (mx >= screen.imageWidth() - 110 && mx < screen.imageWidth() - 62) {
-                screen.adminRegisteredPage = Math.max(0, screen.adminRegisteredPage - 1);
-                return true;
-            }
-            if (mx >= screen.imageWidth() - 56 && mx < screen.imageWidth() - 8) {
-                screen.adminRegisteredPage = Math.min(maxPage, screen.adminRegisteredPage + 1);
-                return true;
-            }
-        }
-        y += 14 + 12;
-        screen.ensureCommodityCache();
-        int perPage = registeredItemsPerPage();
-        int start = screen.adminRegisteredPage * perPage;
-        int end = Math.min(screen.cachedCommodities.size(), start + perPage);
-        for (int i = start; i < end; i++) {
-            int rowY = y + (i - start) * FinanceGui.ROW_HEIGHT;
-            if (my >= rowY + 1 && my < rowY + 14 && mx >= 328 && mx < 370) {
-                String commodityId = screen.cachedCommodities.get(i).getId();
-                screen.setStatus("已提交删除 " + FinanceFormat.commodityDisplayName(commodityId));
-                FinancePacketHandler.CHANNEL.sendToServer(new AdminActionPacket(commodityId));
-                screen.commodityCacheDirty = true;
-                return true;
-            }
-        }
-        return false;
+        String displayName = quick[2];
+        screen.setStatus("已提交添加 " + displayName);
+        FinancePacketHandler.CHANNEL.sendToServer(new AdminActionPacket(
+                quick[0],
+                quick[1],
+                displayName,
+                FinanceFormat.parseLong(quick[3]),
+                CommodityCategory.valueOf(quick[4])));
     }
 
     public int quickItemsPerPage() {

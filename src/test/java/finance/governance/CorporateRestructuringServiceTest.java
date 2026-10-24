@@ -46,7 +46,8 @@ class CorporateRestructuringServiceTest {
     void assetPurchaseMovesExactlyOneCashAndInventoryLeg() {
         Company buyer = new Company(companyA, "Buyer", CompanyType.RAW_MATERIALS, 10_000, ownerA);
         Company seller = new Company(companyB, "Seller", CompanyType.RAW_MATERIALS, 1_000, ownerB);
-        seller.addInventory("iron", 20);
+        finance.commodity.CommodityInventoryManager.addCommodity(
+                finance.gameplay.company.CompanyInventoryFacade.custodyId(seller.getCompanyId()), "iron", 20);
         CompanyManager.registerDirect(buyer);
         CompanyManager.registerDirect(seller);
         CompanyProposal proposal = authorization(
@@ -57,8 +58,8 @@ class CorporateRestructuringServiceTest {
                 .success());
         assertEquals(8_000, buyer.getCash());
         assertEquals(3_000, seller.getCash());
-        assertEquals(10, buyer.getInventoryAmount("iron"));
-        assertEquals(10, seller.getInventoryAmount("iron"));
+        assertEquals(10, finance.gameplay.company.CompanyInventoryFacade.totalInventory(buyer, "iron"));
+        assertEquals(10, finance.gameplay.company.CompanyInventoryFacade.totalInventory(seller, "iron"));
         assertFalse(CorporateRestructuringService.purchaseInventoryAsset(ownerB, proposal.getProposalId(), 1, "asset-1")
                 .success());
     }

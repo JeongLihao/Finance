@@ -23,7 +23,7 @@ class WorldInsuranceIntegrationTest {
         companyId = UUID.randomUUID();
         company = new Company(companyId, "World Insurance", CompanyType.RAW_MATERIALS, 100_000, owner);
         CompanyManager.registerDirect(company);
-        CompanyGameplayManager.restore(new CompanyGameplayProfile(companyId, CompanyOperatingMode.PLAYER_DRIVEN));
+        CompanyGameplayManager.restore(new CompanyGameplayProfile(companyId));
         custody = CompanyInventoryFacade.custodyId(companyId);
         CommodityRegistry.register(new Commodity(
                 "insured_iron", "minecraft:iron_ingot", "Insured Iron", CommodityCategory.RAW_MATERIALS, 100));

@@ -133,8 +133,7 @@ class FinanceAccessServiceTest {
 
     @Test
     void configuredTerminalDistanceIsEnforced() {
-        FinanceAccessPolicy shortRange =
-                new FinanceAccessPolicy(true, true, true, false, true, true, true, true, true, true, 2.0D);
+        FinanceAccessPolicy shortRange = new FinanceAccessPolicy(true, true, true, false, true, true, true, true, 2.0D);
         assertTrue(authorize(FinanceTerminalType.MARKET_TERMINAL, FinanceScreenMode.MARKET, 0, true, 4.0D, shortRange)
                 .allowed());
         assertFalse(authorize(FinanceTerminalType.MARKET_TERMINAL, FinanceScreenMode.MARKET, 0, true, 4.01D, shortRange)
@@ -174,16 +173,6 @@ class FinanceAccessServiceTest {
             boolean advancedTerminal,
             boolean adminPermission) {
         return new FinanceAccessPolicy(
-                minecraftFirst,
-                physical,
-                true,
-                legacyKey,
-                true,
-                true,
-                true,
-                true,
-                advancedTerminal,
-                adminPermission,
-                8.0D);
+                minecraftFirst, physical, true, legacyKey, true, true, advancedTerminal, adminPermission, 8.0D);
     }
 }

@@ -13,21 +13,21 @@ class FinanceMenuPayloadBoundsTest {
     @Test
     void oversizedCollectionCountIsRejectedBeforeAllocation() {
         FriendlyByteBuf buffer = new FriendlyByteBuf(Unpooled.buffer());
-        buffer.writeVarInt(FinanceMenu.MAX_MARKET_ROWS + 1);
-        assertThrows(IllegalArgumentException.class, () -> FinanceMenu.readMarketData(buffer));
+        buffer.writeVarInt(MarketRows.MAX_MARKET_ROWS + 1);
+        assertThrows(IllegalArgumentException.class, () -> MarketRows.readMarketData(buffer));
     }
 
     @Test
     void marketWriterCapsRowsAndStringsToProtocolLimits() {
-        List<FinanceMenu.MarketRow> rows = new ArrayList<>();
-        for (int index = 0; index < FinanceMenu.MAX_MARKET_ROWS + 10; index++) {
-            rows.add(new FinanceMenu.MarketRow("x".repeat(80), 1, 1, 1, 0, 0, 0, 1, 1, List.of(1L)));
+        List<MarketRows.MarketRow> rows = new ArrayList<>();
+        for (int index = 0; index < MarketRows.MAX_MARKET_ROWS + 10; index++) {
+            rows.add(new MarketRows.MarketRow("x".repeat(80), 1, 1, 1, 0, 0, 0, 1, 1, List.of(1L)));
         }
         FriendlyByteBuf buffer = new FriendlyByteBuf(Unpooled.buffer());
-        FinanceMenu.writeMarketData(buffer, rows);
+        MarketRows.writeMarketData(buffer, rows);
 
-        List<FinanceMenu.MarketRow> decoded = FinanceMenu.readMarketData(buffer);
-        assertEquals(FinanceMenu.MAX_MARKET_ROWS, decoded.size());
+        List<MarketRows.MarketRow> decoded = MarketRows.readMarketData(buffer);
+        assertEquals(MarketRows.MAX_MARKET_ROWS, decoded.size());
         assertEquals(64, decoded.get(0).commodityId().length());
     }
 
@@ -35,6 +35,6 @@ class FinanceMenuPayloadBoundsTest {
     void negativeCollectionCountIsRejected() {
         FriendlyByteBuf buffer = new FriendlyByteBuf(Unpooled.buffer());
         buffer.writeVarInt(-1);
-        assertThrows(IllegalArgumentException.class, () -> FinanceMenu.readBoundedSize(buffer, "test", 4));
+        assertThrows(IllegalArgumentException.class, () -> MenuCodec.readBoundedSize(buffer, "test", 4));
     }
 }

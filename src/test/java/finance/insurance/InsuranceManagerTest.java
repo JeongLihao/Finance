@@ -27,7 +27,8 @@ class InsuranceManagerTest {
     void setup() {
         EconomySavedData.resetRuntimeState();
         company = new Company(COMPANY, "Insured Co", CompanyType.RAW_MATERIALS, 100_000, OWNER);
-        company.addInventory("iron", 100);
+        finance.commodity.CommodityInventoryManager.addCommodity(
+                finance.gameplay.company.CompanyInventoryFacade.custodyId(company.getCompanyId()), "iron", 100);
         CompanyManager.registerDirect(company);
         NpcMarketMaker.putMarketPrice("iron", new MarketPrice("iron", 100, 0.05));
         AccountManager.deposit(OWNER, 1_000_000);
@@ -50,7 +51,7 @@ class InsuranceManagerTest {
         long before = AccountManager.getBalance(OWNER);
         assertTrue(InsuranceManager.createWarehouseAccident(COMPANY, "iron", 25, 2, 7)
                 .success());
-        assertEquals(75, company.getInventoryAmount("iron"));
+        assertEquals(75, finance.gameplay.company.CompanyInventoryFacade.totalInventory(company, "iron"));
         assertFalse(InsuranceManager.createWarehouseAccident(COMPANY, "iron", 25, 2, 7)
                 .success());
         assertEquals(1, InsuranceManager.claims().size());

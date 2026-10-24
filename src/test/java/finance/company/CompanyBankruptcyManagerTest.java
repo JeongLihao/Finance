@@ -89,7 +89,11 @@ class CompanyBankruptcyManagerTest {
         CommodityRegistry.register(new Commodity(
                 "overflow_asset", "minecraft:diamond", "Overflow Asset", CommodityCategory.MISCELLANEOUS, 10));
         NpcMarketMaker.putMarketPrice("overflow_asset", new MarketPrice("overflow_asset", 10, 0.02));
-        Company company = publicCompany(Long.MAX_VALUE - 5);
+        // NPC 公司：货在公司自带库存里，清算时直接按市值计入
+        Company company = new Company(COMPANY_ID, "Bankrupt Inc", CompanyType.RAW_MATERIALS, Long.MAX_VALUE - 5);
+        company.setPublic(true);
+        CompanyManager.registerDirect(company);
+        StockMarketManager.putStockDirect(new Stock("BRK", "Bankrupt Inc", COMPANY_ID, 1_000, 1_000, 0, 10, 10));
         company.addInventory("overflow_asset", 1);
 
         CompanyBankruptcyManager.LiquidationResult result = CompanyBankruptcyManager.bankrupt(company, 1);

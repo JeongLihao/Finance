@@ -7,6 +7,7 @@ import finance.client.ui.UiPainter;
 import finance.company.CompanyManagementAction;
 import finance.company.CompanyType;
 import finance.gui.FinanceMenu;
+import finance.gui.RecordRows;
 import finance.network.CompanyManagePacket;
 import finance.network.CreateCompanyPacket;
 import finance.network.FinancePacketHandler;
@@ -125,7 +126,7 @@ final class SimpleCenter {
 
     SimplePages.View view() {
         FinanceMenu menu = screen.menu();
-        FinanceMenu.AssetSummary assets = menu.getAssetSummary();
+        RecordRows.AssetSummary assets = menu.getAssetSummary();
         return new SimplePages.View(
                 menu.getBalance(),
                 assets == null ? 0 : assets.todayProfit(),

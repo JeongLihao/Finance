@@ -20,7 +20,6 @@ public record CompanyGameplayActionPacket(
     public static final long MAX_CONTRACT_REWARD = 1_000_000L;
 
     public enum Action {
-        MODE_NEXT,
         AUTO_SELL_NEXT,
         INVITE,
         ACCEPT_INVITE,
@@ -87,16 +86,8 @@ public record CompanyGameplayActionPacket(
             CompanyGameplayActionResult result;
             long day = player.serverLevel().getGameTime() / 24_000L;
             switch (p.action) {
-                case MODE_NEXT -> {
-                    CompanyGameplayProfile profile = CompanyGameplayManager.get(p.companyId);
-                    CompanyOperatingMode[] modes = CompanyOperatingMode.values();
-                    CompanyOperatingMode next = profile == null
-                            ? null
-                            : modes[(profile.operatingMode().ordinal() + 1) % modes.length];
-                    result = CompanyOperatingModeService.setMode(player.getUUID(), p.companyId, next, p.operationKey);
-                }
                 case AUTO_SELL_NEXT -> result =
-                        CompanyOperatingModeService.cycleAutoSell(player.getUUID(), p.companyId, p.operationKey);
+                        CompanyAutoSellService.cycleAutoSell(player.getUUID(), p.companyId, p.operationKey);
                 case INVITE -> result = CompanyMembershipService.invite(
                         player.getUUID(), p.companyId, p.targetId, CompanyMemberRole.MEMBER, day, p.operationKey);
                 case ACCEPT_INVITE -> result =

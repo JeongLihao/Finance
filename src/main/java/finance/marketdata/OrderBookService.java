@@ -42,8 +42,8 @@ public final class OrderBookService {
                         order.getQuantity()));
             }
         } else if (type == MarketInstrumentType.BOND) {
-            try {
-                java.util.UUID bondId = java.util.UUID.fromString(id);
+            java.util.UUID bondId = finance.util.Uuids.parseOrNull(id);
+            if (bondId != null) {
                 for (finance.bondmarket.BondOrder order : BondMarketManager.orders()) {
                     if (bondId.equals(order.bondId()))
                         orders.add(new BookOrder(
@@ -51,11 +51,10 @@ public final class OrderBookService {
                                 order.limitPricePerUnit(),
                                 order.remainingQuantity()));
                 }
-            } catch (IllegalArgumentException ignored) {
             }
         } else if (type == MarketInstrumentType.FUTURES) {
-            try {
-                java.util.UUID contractId = java.util.UUID.fromString(id);
+            java.util.UUID contractId = finance.util.Uuids.parseOrNull(id);
+            if (contractId != null) {
                 for (finance.futures.FuturesOrder order : finance.futures.FuturesMarketManager.orders()) {
                     if (contractId.equals(order.contractId()))
                         orders.add(new BookOrder(
@@ -65,7 +64,6 @@ public final class OrderBookService {
                                 order.limitPrice(),
                                 order.remainingQuantity()));
                 }
-            } catch (IllegalArgumentException ignored) {
             }
         }
         return aggregate(orders, DEFAULT_DEPTH);

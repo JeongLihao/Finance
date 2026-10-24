@@ -7,6 +7,8 @@ import finance.commodity.CommodityRegistry;
 import finance.company.CompanyType;
 import finance.gameplay.FinanceScreenMode;
 import finance.gui.FinanceMenu;
+import finance.gui.MarketRows;
+import finance.gui.StockRows;
 import finance.network.*;
 import java.util.*;
 import net.minecraft.client.gui.Font;
@@ -26,11 +28,27 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
     // ---- 色彩 ----
 
     // ---- 标签 ----
+    /** 顶层页签编号（{@code currentTab}），也是 BASE_TABS/ADMIN_TABS 的下标；仪表和管理只有管理员有。 */
+    static final int TAB_MARKET = 0,
+            TAB_TRADE = 1,
+            TAB_ORDERS = 2,
+            TAB_INVENTORY = 3,
+            TAB_COMPANY = 4,
+            TAB_STOCK = 5,
+            TAB_RECORDS = 6,
+            TAB_ASSETS = 7,
+            TAB_ALERTS = 8,
+            TAB_FINANCIAL = 9,
+            TAB_DASHBOARD = 10,
+            TAB_ADMIN = 11;
+    /** 宏观经济页签的编号（不在 BASE_TABS/ADMIN_TABS 数组里）。 */
+    static final int TAB_MACRO = 12;
+
     static final String[] BASE_TABS = {"行情", "交易", "订单", "库存", "公司", "股票", "记录", "资产", "提醒", "金融"};
     static final String[] ADMIN_TABS = {"行情", "交易", "订单", "库存", "公司", "股票", "记录", "资产", "提醒", "金融", "仪表", "管理"};
     String[] tabNames;
-    int[] allowedTabIndices = {0};
-    int currentTab = 0;
+    int[] allowedTabIndices = {TAB_MARKET};
+    int currentTab = TAB_MARKET;
     boolean isAdmin = false;
     String statusMessage = "";
     String companyStrategyOverride = null;
@@ -80,7 +98,7 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
     EditBox adminDisplayNameBox;
     EditBox adminBasePriceBox;
     CommodityCategory adminCategory = CommodityCategory.RAW_MATERIALS;
-    int adminSubTab = 0; // 0=从手中添加, 1=常用物品, 2=已注册商品
+    int adminSubTab = AdminTabs.HAND;
 
     // ---- 商品下拉菜单（交易标签 + 行情标签） ----
     boolean dropdownOpen = false;
@@ -90,8 +108,8 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
     int adminRegisteredPage = 0;
 
     // ---- 缓存 ----
-    List<FinanceMenu.MarketRow> cachedMarketData;
-    FinanceMenu.MarketRow cachedSelectedRow;
+    List<MarketRows.MarketRow> cachedMarketData;
+    MarketRows.MarketRow cachedSelectedRow;
     String lastSelectedCommodity = "";
     boolean cacheDirty = true;
 
@@ -104,19 +122,28 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
     boolean categorizedCacheDirty = true;
 
     // ---- 抽取出的页签行为类（与 FinanceScreen 同包，通过 screen 反向引用共享状态） ----
-    final MarketTabs marketTabs = new MarketTabs(this);
+    final MarketPanel marketPanel = new MarketPanel(this);
+    final TradePanel tradePanel = new TradePanel(this);
+    final CommodityDropdown commodityDropdown = new CommodityDropdown(this);
     final CompanyTabs companyTabs = new CompanyTabs(this);
     final StockTabs stockTabs = new StockTabs(this);
+    final CandlestickView candlestickView = new CandlestickView(this);
+    /** 内容区按钮画的时候登记在这里，点击时先查它（坐标系同内容区：已加上 CONTENT_SHIFT）。 */
+    final ClickRegions contentClicks = new ClickRegions();
+
     final ServiceTabs serviceTabs = new ServiceTabs(this);
-    final RecordTabs recordTabs = new RecordTabs(this);
+    final OrdersPanel ordersPanel = new OrdersPanel(this);
+    final InventoryPanel inventoryPanel = new InventoryPanel(this);
+    final TransactionsPanel transactionsPanel = new TransactionsPanel(this);
+    final AssetsPanel assetsPanel = new AssetsPanel(this);
+    final AlertsPanel alertsPanel = new AlertsPanel(this);
+    final DashboardPanel dashboardPanel = new DashboardPanel(this);
     final AdminTabs adminTabs = new AdminTabs(this);
     final MacroTabs macroTabs = new MacroTabs(this);
     /** 简单模式四页（首页、买卖、我的公司、投资）。默认显示它；“高级”切到下面原有的全部页签。 */
     final SimpleCenter simple = new SimpleCenter(this);
 
     boolean advancedView = false;
-    /** 宏观经济页签的索引（不在 BASE_TABS/ADMIN_TABS 数组里）。 */
-    static final int MACRO_TAB = 12;
     /** 标题栏右侧“更多操作”按钮。 */
     static final int MORE_BUTTON_W = 56, MORE_BUTTON_X = FinanceGui.PANEL_WIDTH - MORE_BUTTON_W - 6, MORE_BUTTON_Y = 1;
     /** 标题栏“教程”按钮（原来要按 J 打开教程中心）。 */
@@ -175,7 +202,7 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         if (!entryConfigured) {
             entryConfigured = true;
             configureEntryTabs(menu.getInitialMode());
-            adminSubTab = 0;
+            adminSubTab = AdminTabs.HAND;
             governanceView = false;
             restructuringView = false;
             companyDetailsView = false;
@@ -298,7 +325,7 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
 
         if (!menu.getStocks().isEmpty()) {
             boolean found = false;
-            for (FinanceMenu.StockRow row : menu.getStocks()) {
+            for (StockRows.StockRow row : menu.getStocks()) {
                 if (row.symbol().equals(selectedStock)) {
                     found = true;
                     break;
@@ -307,7 +334,7 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
             if (!found) {
                 selectedStock = menu.getStocks().get(0).symbol();
             }
-            FinanceMenu.StockRow selected = this.stockTabs.findSelectedStock();
+            StockRows.StockRow selected = this.stockTabs.findSelectedStock();
             if (selected != null) {
                 stockPriceBox.setValue(Long.toString(selected.lastPrice()));
             }
@@ -319,31 +346,44 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
     }
 
     /** 玩家可见的页签（按使用频率排）；管理员额外有仪表和管理。 */
-    static final int[] PLAYER_TAB_ORDER = {0, 1, 2, 3, 4, 5, 9, MACRO_TAB, 7, 6, 8};
+    static final int[] PLAYER_TAB_ORDER = {
+        TAB_MARKET,
+        TAB_TRADE,
+        TAB_ORDERS,
+        TAB_INVENTORY,
+        TAB_COMPANY,
+        TAB_STOCK,
+        TAB_FINANCIAL,
+        TAB_MACRO,
+        TAB_ASSETS,
+        TAB_RECORDS,
+        TAB_ALERTS
+    };
 
     /** 不论从哪个入口进来都能看到全部页签，入口只决定先停在哪一页。 */
     private void configureEntryTabs(FinanceScreenMode mode) {
         FinanceScreenMode safeMode = mode == null ? FinanceScreenMode.ADVANCED : mode;
         allowedTabIndices = isAdmin
                 ? java.util.stream.IntStream.concat(
-                                java.util.Arrays.stream(PLAYER_TAB_ORDER), java.util.stream.IntStream.of(10, 11))
+                                java.util.Arrays.stream(PLAYER_TAB_ORDER),
+                                java.util.stream.IntStream.of(TAB_DASHBOARD, TAB_ADMIN))
                         .toArray()
                 : PLAYER_TAB_ORDER.clone();
         String[] labels = (isAdmin ? ADMIN_TABS : BASE_TABS);
         tabNames = new String[allowedTabIndices.length];
         for (int i = 0; i < allowedTabIndices.length; i++) {
             int index = allowedTabIndices[i];
-            tabNames[i] = index == MACRO_TAB
+            tabNames[i] = index == TAB_MACRO
                     ? "宏观"
                     : index < labels.length ? labels[index] : BASE_TABS[Math.min(index, BASE_TABS.length - 1)];
         }
         currentTab = switch (safeMode) {
-            case MARKET, ADVANCED -> 0;
-            case COMPANY -> 4;
-            case BANK -> 9;
-            case ADMIN -> 10;
-            case WAREHOUSE -> 3;
-            case WALLET -> 7;
+            case MARKET, ADVANCED -> TAB_MARKET;
+            case COMPANY -> TAB_COMPANY;
+            case BANK -> TAB_FINANCIAL;
+            case ADMIN -> TAB_DASHBOARD;
+            case WAREHOUSE -> TAB_INVENTORY;
+            case WALLET -> TAB_ASSETS;
         };
         if (safeMode == FinanceScreenMode.BANK) financialSubTab = ServiceTabs.BANK;
         // 方块终端进来时，简单模式停在对应的那一页；央行控制台是管理员工具，直接进高级页签
@@ -384,7 +424,7 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         if (!lastSelectedCommodity.equals(selectedCommodity)) {
             lastSelectedCommodity = selectedCommodity;
             cachedSelectedRow = null;
-            for (FinanceMenu.MarketRow row : cachedMarketData) {
+            for (MarketRows.MarketRow row : cachedMarketData) {
                 if (row.commodityId().equals(selectedCommodity)) {
                     cachedSelectedRow = row;
                     break;
@@ -462,10 +502,10 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
             box.render(graphics, virtualMouseX, virtualMouseY, partialTick);
         }
         // 下拉菜单渲染在最上层
-        if (advancedView && dropdownOpen && (currentTab == 0 || currentTab == 1)) {
+        if (advancedView && dropdownOpen && (currentTab == TAB_MARKET || currentTab == TAB_TRADE)) {
             graphics.pose().pushPose();
             graphics.pose().translate(0, -FinanceGui.CONTENT_SHIFT, 0);
-            this.marketTabs.renderDropdown(graphics, virtualMouseX, virtualMouseY + FinanceGui.CONTENT_SHIFT);
+            this.commodityDropdown.renderDropdown(graphics, virtualMouseX, virtualMouseY + FinanceGui.CONTENT_SHIFT);
             graphics.pose().popPose();
         }
         renderTooltip(graphics, virtualMouseX, virtualMouseY);
@@ -504,24 +544,25 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         int mouseY = panelMouseY + FinanceGui.CONTENT_SHIFT;
         g.pose().pushPose();
         g.pose().translate(0, -FinanceGui.CONTENT_SHIFT, 0);
+        contentClicks.clear();
         switch (currentTab) {
-            case 0 -> this.marketTabs.renderMarketTab(g, mouseX, mouseY);
-            case 1 -> this.marketTabs.renderTradeTab(g);
-            case 2 -> this.recordTabs.renderOrdersTab(g);
-            case 3 -> this.recordTabs.renderInventoryTab(g);
-            case 4 -> this.companyTabs.renderCompanyTab(g);
-            case 5 -> this.stockTabs.renderStockTab(g, mouseX, mouseY);
-            case 6 -> this.recordTabs.renderTransactionTab(g);
-            case 7 -> this.recordTabs.renderAssetTab(g);
-            case 8 -> this.recordTabs.renderAlertTab(g);
-            case 9 -> this.serviceTabs.renderFinancialProductsTab(g, mouseX, mouseY);
-            case 10 -> {
-                if (isAdmin) this.recordTabs.renderDashboardTab(g);
+            case TAB_MARKET -> this.marketPanel.renderMarketTab(g, mouseX, mouseY);
+            case TAB_TRADE -> this.tradePanel.renderTradeTab(g);
+            case TAB_ORDERS -> this.ordersPanel.renderOrdersTab(g);
+            case TAB_INVENTORY -> this.inventoryPanel.renderInventoryTab(g);
+            case TAB_COMPANY -> this.companyTabs.renderCompanyTab(g);
+            case TAB_STOCK -> this.stockTabs.renderStockTab(g, mouseX, mouseY);
+            case TAB_RECORDS -> this.transactionsPanel.renderTransactionTab(g);
+            case TAB_ASSETS -> this.assetsPanel.renderAssetTab(g);
+            case TAB_ALERTS -> this.alertsPanel.renderAlertTab(g);
+            case TAB_FINANCIAL -> this.serviceTabs.renderFinancialProductsTab(g, mouseX, mouseY);
+            case TAB_DASHBOARD -> {
+                if (isAdmin) this.dashboardPanel.renderDashboardTab(g);
             }
-            case 11 -> {
+            case TAB_ADMIN -> {
                 if (isAdmin) this.adminTabs.renderAdminTab(g);
             }
-            case MACRO_TAB -> this.macroTabs.render(g);
+            case TAB_MACRO -> this.macroTabs.render(g);
         }
         g.pose().popPose();
     }
@@ -622,8 +663,8 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
                     rememberUiState();
                     dropdownOpen = false;
                     updateInputVisibility();
-                    if (currentTab == MACRO_TAB) this.macroTabs.request();
-                    if (currentTab == 9) this.serviceTabs.request(financialSubTab);
+                    if (currentTab == TAB_MACRO) this.macroTabs.request();
+                    if (currentTab == TAB_FINANCIAL) this.serviceTabs.request(financialSubTab);
                     return true;
                 }
                 x += w + 3;
@@ -631,8 +672,8 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         }
 
         // 下拉菜单点击拦截（在其他标签逻辑之前）
-        if (dropdownOpen && (currentTab == 0 || currentTab == 1)) {
-            if (this.marketTabs.handleDropdownClick(mx, my + FinanceGui.CONTENT_SHIFT)) return true;
+        if (dropdownOpen && (currentTab == TAB_MARKET || currentTab == TAB_TRADE)) {
+            if (this.commodityDropdown.handleDropdownClick(mx, my + FinanceGui.CONTENT_SHIFT)) return true;
             // 点击下拉外部关闭
             dropdownOpen = false;
         }
@@ -640,20 +681,7 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         int contentY = my + FinanceGui.CONTENT_SHIFT;
         boolean handled;
         try {
-            handled = switch (currentTab) {
-                case 0 -> this.marketTabs.handleMarketClick(mx, contentY);
-                case 1 -> this.marketTabs.handleTradeClick(mx, contentY);
-                case 2 -> this.recordTabs.handleOrdersClick(mx, contentY);
-                case 3 -> this.recordTabs.handleInventoryClick(mx, contentY);
-                case 4 -> this.companyTabs.handleCompanyClick(mx, contentY);
-                case 5 -> this.stockTabs.handleStockClick(mx, contentY);
-                case 7 -> this.recordTabs.handleAssetClick(mx, contentY);
-                case 8 -> this.recordTabs.handleAlertClick(mx, contentY);
-                case 9 -> this.serviceTabs.handleFinancialProductsClick(mx, contentY);
-                case 11 -> isAdmin && this.adminTabs.handleAdminClick(mx, contentY);
-                case MACRO_TAB -> this.macroTabs.handleClick(mx, contentY);
-                default -> false;
-            };
+            handled = contentClicks.click(mx, contentY);
         } catch (InvalidInput invalid) {
             // 提示已写入状态栏，不发包
             handled = true;
@@ -677,26 +705,26 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
         if (!advancedView) {
             return simple.scroll(delta) || super.mouseScrolled(mouseX, mouseY, delta);
         }
-        if (dropdownOpen && (currentTab == 0 || currentTab == 1)) {
-            int totalHeight = this.marketTabs.calcDropdownTotalHeight();
+        if (dropdownOpen && (currentTab == TAB_MARKET || currentTab == TAB_TRADE)) {
+            int totalHeight = this.commodityDropdown.calcDropdownTotalHeight();
             int maxScroll = Math.max(0, totalHeight - 116);
             dropdownScroll = Math.max(0, Math.min(maxScroll, dropdownScroll - (int) (delta * 14)));
             return true;
         }
-        if (currentTab == 0 && !commodityChartVisible) {
-            int max = this.marketTabs.maxMarketScroll();
+        if (currentTab == TAB_MARKET && !commodityChartVisible) {
+            int max = this.marketPanel.maxMarketScroll();
             if (max > 0) {
                 marketScroll = Math.max(0, Math.min(max, marketScroll - (int) Math.signum(delta)));
                 return true;
             }
         }
-        if (currentTab == 11 && isAdmin) {
-            if (adminSubTab == 1) {
+        if (currentTab == TAB_ADMIN && isAdmin) {
+            if (adminSubTab == AdminTabs.QUICK) {
                 int maxPage = Math.max(0, (adminTabs.QUICK_ITEMS.length - 1) / this.adminTabs.quickItemsPerPage());
                 adminQuickPage = Math.max(0, Math.min(maxPage, adminQuickPage - (int) Math.signum(delta)));
                 return true;
             }
-            if (adminSubTab == 2) {
+            if (adminSubTab == AdminTabs.REGISTERED) {
                 ensureCommodityCache();
                 int maxPage = Math.max(0, (cachedCommodities.size() - 1) / this.adminTabs.registeredItemsPerPage());
                 adminRegisteredPage = Math.max(0, Math.min(maxPage, adminRegisteredPage - (int) Math.signum(delta)));
@@ -739,178 +767,138 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
     // 绘制辅助
     // ================================================================
 
+    /** 一个要显示的输入框：x 相对 leftPos，y 相对 contentTop()；moves 为 false 时位置沿用 init 里定好的。 */
+    private record InputPlacement(EditBox box, boolean moves, int x, int y) {
+        static InputPlacement fixed(EditBox box) {
+            return new InputPlacement(box, false, 0, 0);
+        }
+
+        static InputPlacement at(EditBox box, int x, int y) {
+            return new InputPlacement(box, true, x, y);
+        }
+    }
+
+    /**
+     * 高级界面当前要显示哪些输入框、放在哪，只在这里写一遍。
+     * 显隐和摆放（{@link #updateInputVisibility}）与渲染、点击、打字用的列表（{@link #getVisibleEditBoxes}）都从这里来，
+     * 列表顺序就是渲染和点击的顺序。
+     */
+    private List<InputPlacement> advancedInputs() {
+        List<InputPlacement> out = new ArrayList<>();
+        int cy = FinanceGui.CONTENT_Y;
+        switch (currentTab) {
+            case TAB_MARKET -> {
+                if (!commodityChartVisible) out.add(InputPlacement.fixed(intlQuantityBox));
+            }
+            case TAB_TRADE -> {
+                out.add(InputPlacement.fixed(priceBox));
+                out.add(InputPlacement.fixed(quantityBox));
+            }
+            case TAB_INVENTORY -> out.add(InputPlacement.fixed(inventoryQuantityBox));
+            case TAB_COMPANY -> {
+                if (menu.getPlayerCompany() == null) {
+                    if (!restructuringView) out.add(InputPlacement.at(companyNameBox, 70, cy + 36));
+                } else if (governanceView) {
+                    out.add(InputPlacement.at(companyNameBox, 108, cy + 144));
+                    out.add(InputPlacement.at(companyAmountBox, 288, cy + 164));
+                    out.add(InputPlacement.at(stockPriceBox, 48, cy + 164));
+                    out.add(InputPlacement.at(stockQuantityBox, 168, cy + 164));
+                } else if (companyDetailsView) {
+                    out.add(InputPlacement.at(companyNameBox, 48, cy + 58));
+                    out.add(InputPlacement.at(companyAmountBox, 48, cy + 80));
+                    out.add(InputPlacement.at(ipoPriceBox, 168, cy + 80));
+                    out.add(InputPlacement.at(ipoQuantityBox, 288, cy + 80));
+                } else if (!restructuringView) {
+                    out.add(InputPlacement.at(companyAmountBox, 58, cy + 106));
+                    out.add(InputPlacement.at(ipoPriceBox, 58, cy + 136));
+                    out.add(InputPlacement.at(ipoQuantityBox, 172, cy + 136));
+                }
+            }
+            case TAB_STOCK -> {
+                if (!stockChartVisible) {
+                    out.add(InputPlacement.at(stockPriceBox, 54, FinanceGui.STOCK_TRADE_Y + 18));
+                    out.add(InputPlacement.at(stockQuantityBox, 54, FinanceGui.STOCK_TRADE_Y + 38));
+                }
+            }
+            case TAB_ALERTS -> out.add(InputPlacement.fixed(alertPriceBox));
+            case TAB_FINANCIAL -> {
+                if (futuresChartVisible) break;
+                int sub = financialSubTab;
+                if (sub != ServiceTabs.INDEX && sub != ServiceTabs.HOLDINGS) {
+                    out.add(InputPlacement.at(stockPriceBox, 50, 188));
+                    if (sub != ServiceTabs.NOTES) out.add(InputPlacement.at(stockQuantityBox, 162, 188));
+                }
+                if (sub != ServiceTabs.BOND_MARKET && sub != ServiceTabs.HOLDINGS && sub != ServiceTabs.INSURANCE) {
+                    // 基金页：定投间隔输入框放到第二行，避免与"赎回"按钮重叠
+                    out.add(
+                            sub == ServiceTabs.FUND
+                                    ? InputPlacement.at(companyAmountBox, 312, 214)
+                                    : InputPlacement.at(companyAmountBox, 282, 188));
+                }
+            }
+            case TAB_ADMIN -> {
+                if (isAdmin && adminSubTab == AdminTabs.HAND) {
+                    out.add(InputPlacement.at(adminBasePriceBox, 228, cy + 42));
+                    out.add(InputPlacement.at(adminCommodityIdBox, 28, cy + 98));
+                    out.add(InputPlacement.at(adminItemIdBox, 140, cy + 98));
+                    out.add(InputPlacement.at(adminDisplayNameBox, 296, cy + 98));
+                }
+            }
+            default -> {}
+        }
+        return out;
+    }
+
     void updateInputVisibility() {
-        intlQuantityBox.setVisible(currentTab == 0 && !commodityChartVisible);
-        boolean trade = (currentTab == 1);
-        priceBox.setVisible(trade);
-        quantityBox.setVisible(trade);
-        inventoryQuantityBox.setVisible(currentTab == 3);
-        FinanceMenu.CompanyInfo playerCompany = menu.getPlayerCompany();
-        boolean createCompany = (currentTab == 4 && playerCompany == null && !restructuringView);
-        boolean governance = currentTab == 4 && playerCompany != null && governanceView;
-        boolean companyDetails = currentTab == 4 && playerCompany != null && companyDetailsView;
-        boolean ipoCompany = (currentTab == 4
-                && playerCompany != null
-                && !governanceView
-                && !restructuringView
-                && !companyDetailsView);
-        boolean manageCompany = ipoCompany;
-        if (governance) {
-            companyNameBox.setX(leftPos + 108);
-            companyNameBox.setY(contentTop() + FinanceGui.CONTENT_Y + 144);
-        } else if (companyDetails) {
-            companyNameBox.setX(leftPos + 48);
-            companyNameBox.setY(contentTop() + FinanceGui.CONTENT_Y + 58);
-        } else if (createCompany) {
-            companyNameBox.setX(leftPos + 70);
-            companyNameBox.setY(contentTop() + FinanceGui.CONTENT_Y + 36);
-        } else if (manageCompany) {
-            companyNameBox.setX(leftPos + 198);
-            companyNameBox.setY(contentTop() + FinanceGui.CONTENT_Y + 140);
+        for (EditBox box : List.of(
+                intlQuantityBox,
+                priceBox,
+                quantityBox,
+                inventoryQuantityBox,
+                companyNameBox,
+                stockPriceBox,
+                stockQuantityBox,
+                alertPriceBox,
+                ipoPriceBox,
+                ipoQuantityBox,
+                companyAmountBox,
+                adminBasePriceBox,
+                adminCommodityIdBox,
+                adminItemIdBox,
+                adminDisplayNameBox)) {
+            box.setVisible(false);
         }
-        companyNameBox.setVisible(governance || companyDetails || createCompany);
-        ipoPriceBox.setVisible(ipoCompany || companyDetails);
-        ipoQuantityBox.setVisible(ipoCompany || companyDetails);
-        boolean financial = currentTab == 9;
-        stockPriceBox.setVisible(governance
-                || (currentTab == 5 && !stockChartVisible)
-                || (financial
-                        && !futuresChartVisible
-                        && financialSubTab != ServiceTabs.INDEX
-                        && financialSubTab != ServiceTabs.HOLDINGS));
-        stockQuantityBox.setVisible(governance
-                || (currentTab == 5 && !stockChartVisible)
-                || (financial
-                        && !futuresChartVisible
-                        && financialSubTab != ServiceTabs.INDEX
-                        && financialSubTab != ServiceTabs.HOLDINGS
-                        && financialSubTab != ServiceTabs.NOTES));
-        if (governance) {
-            stockPriceBox.setX(leftPos + 48);
-            stockPriceBox.setY(contentTop() + FinanceGui.CONTENT_Y + 164);
-            stockQuantityBox.setX(leftPos + 168);
-            stockQuantityBox.setY(contentTop() + FinanceGui.CONTENT_Y + 164);
-            companyAmountBox.setX(leftPos + 288);
-            companyAmountBox.setY(contentTop() + FinanceGui.CONTENT_Y + 164);
-        } else if (financial) {
-            stockPriceBox.setX(leftPos + 50);
-            stockPriceBox.setY(contentTop() + 188);
-            stockQuantityBox.setX(leftPos + 162);
-            stockQuantityBox.setY(contentTop() + 188);
-            if (financialSubTab == ServiceTabs.FUND) {
-                // 基金页：定投间隔输入框放到第二行，避免与"赎回"按钮重叠
-                companyAmountBox.setX(leftPos + 312);
-                companyAmountBox.setY(contentTop() + 214);
-            } else {
-                companyAmountBox.setX(leftPos + 282);
-                companyAmountBox.setY(contentTop() + 188);
-            }
-        } else {
-            stockPriceBox.setX(leftPos + 54);
-            stockPriceBox.setY(contentTop() + FinanceGui.STOCK_TRADE_Y + 18);
-            stockQuantityBox.setX(leftPos + 54);
-            stockQuantityBox.setY(contentTop() + FinanceGui.STOCK_TRADE_Y + 38);
-            companyAmountBox.setX(leftPos + 58);
-            companyAmountBox.setY(contentTop() + FinanceGui.CONTENT_Y + 106);
-            ipoPriceBox.setX(leftPos + 58);
-            ipoPriceBox.setY(contentTop() + FinanceGui.CONTENT_Y + 136);
-            ipoQuantityBox.setX(leftPos + 172);
-            ipoQuantityBox.setY(contentTop() + FinanceGui.CONTENT_Y + 136);
-        }
-        if (companyDetails) {
-            companyAmountBox.setX(leftPos + 48);
-            companyAmountBox.setY(contentTop() + FinanceGui.CONTENT_Y + 80);
-            ipoPriceBox.setX(leftPos + 168);
-            ipoPriceBox.setY(contentTop() + FinanceGui.CONTENT_Y + 80);
-            ipoQuantityBox.setX(leftPos + 288);
-            ipoQuantityBox.setY(contentTop() + FinanceGui.CONTENT_Y + 80);
-        }
-        companyAmountBox.setVisible(governance
-                || companyDetails
-                || manageCompany
-                || (financial
-                        && !futuresChartVisible
-                        && financialSubTab != ServiceTabs.BOND_MARKET
-                        && financialSubTab != ServiceTabs.HOLDINGS
-                        && financialSubTab != ServiceTabs.INSURANCE));
-        alertPriceBox.setVisible(currentTab == 8);
-        boolean admin = (currentTab == 11 && isAdmin);
-        boolean adminHand = admin && adminSubTab == 0;
-        if (adminHand) {
-            adminBasePriceBox.setX(leftPos + 228);
-            adminBasePriceBox.setY(contentTop() + FinanceGui.CONTENT_Y + 42);
-            adminCommodityIdBox.setX(leftPos + 28);
-            adminCommodityIdBox.setY(contentTop() + FinanceGui.CONTENT_Y + 98);
-            adminItemIdBox.setX(leftPos + 140);
-            adminItemIdBox.setY(contentTop() + FinanceGui.CONTENT_Y + 98);
-            adminDisplayNameBox.setX(leftPos + 296);
-            adminDisplayNameBox.setY(contentTop() + FinanceGui.CONTENT_Y + 98);
-        }
-        adminCommodityIdBox.setVisible(adminHand);
-        adminItemIdBox.setVisible(adminHand);
-        adminDisplayNameBox.setVisible(adminHand);
-        adminBasePriceBox.setVisible(adminHand);
         if (!advancedView) {
-            for (EditBox box : List.of(
-                    intlQuantityBox,
-                    priceBox,
-                    quantityBox,
-                    inventoryQuantityBox,
-                    stockPriceBox,
-                    stockQuantityBox,
-                    alertPriceBox,
-                    ipoPriceBox,
-                    ipoQuantityBox,
-                    companyAmountBox,
-                    adminBasePriceBox,
-                    adminCommodityIdBox,
-                    adminItemIdBox,
-                    adminDisplayNameBox)) {
-                box.setVisible(false);
-            }
             simple.updateInputs(companyNameBox, searchBox);
-        } else {
-            searchBox.setVisible(false);
+            return;
+        }
+        searchBox.setVisible(false);
+        for (InputPlacement p : advancedInputs()) {
+            if (p.moves()) {
+                p.box().setX(leftPos + p.x());
+                p.box().setY(contentTop() + p.y());
+            }
+            p.box().setVisible(true);
         }
     }
 
     private List<EditBox> getVisibleEditBoxes() {
         if (!advancedView) return simple.visibleBoxes(companyNameBox, searchBox);
         List<EditBox> list = new ArrayList<>();
-        if (currentTab == 0 && !commodityChartVisible) list.add(intlQuantityBox);
-        if (currentTab == 1) {
-            list.add(priceBox);
-            list.add(quantityBox);
-        }
-        if (currentTab == 3) list.add(inventoryQuantityBox);
-        if (currentTab == 4 && !restructuringView && menu.getPlayerCompany() == null) list.add(companyNameBox);
-        if (currentTab == 4 && !restructuringView && menu.getPlayerCompany() != null && companyNameBox.isVisible())
-            list.add(companyNameBox);
-        if (currentTab == 4 && !restructuringView && menu.getPlayerCompany() != null && companyAmountBox.isVisible())
-            list.add(companyAmountBox);
-        if (currentTab == 4 && !restructuringView && menu.getPlayerCompany() != null && ipoPriceBox.isVisible()) {
-            list.add(ipoPriceBox);
-            list.add(ipoQuantityBox);
-        }
-        if (currentTab == 5 && !stockChartVisible) {
-            list.add(stockPriceBox);
-            list.add(stockQuantityBox);
-        }
-        if (currentTab == 8) {
-            list.add(alertPriceBox);
-        }
-        if (currentTab == 9) {
-            if (stockPriceBox.isVisible()) list.add(stockPriceBox);
-            if (stockQuantityBox.isVisible()) list.add(stockQuantityBox);
-            if (companyAmountBox.isVisible()) list.add(companyAmountBox);
-        }
-        if (currentTab == 11 && isAdmin && adminSubTab == 0) {
-            list.add(adminBasePriceBox);
-            list.add(adminCommodityIdBox);
-            list.add(adminItemIdBox);
-            list.add(adminDisplayNameBox);
-        }
+        for (InputPlacement p : advancedInputs()) list.add(p.box());
         return list;
+    }
+
+    /** 画一个普通按钮，并登记点击后的动作（内容区坐标）。 */
+    void button(GuiGraphics g, String label, int x, int y, int w, boolean active, Runnable action) {
+        FinanceGui.drawButton(font, g, label, x, y, w, active);
+        contentClicks.add(x, y, w, 13, action);
+    }
+
+    /** 画一个实心按钮，并登记点击后的动作（内容区坐标）。 */
+    void filledButton(GuiGraphics g, String label, int x, int y, int w, int color, Runnable action) {
+        FinanceGui.drawFilledButton(font, g, label, x, y, w, color);
+        contentClicks.add(x, y, w, 13, action);
     }
 
     /** 输入框内容不合法时抛出；由 mouseClicked 统一吞掉，提示已写入状态栏。 */
@@ -948,7 +936,7 @@ public class FinanceScreen extends AbstractContainerScreen<FinanceMenu> {
     }
 
     String chooseInitialCommodity() {
-        for (FinanceMenu.MarketRow row : menu.getMarketData()) {
+        for (MarketRows.MarketRow row : menu.getMarketData()) {
             if ("iron".equals(row.commodityId())) {
                 return "iron";
             }

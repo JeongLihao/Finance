@@ -14,6 +14,9 @@ import org.lwjgl.glfw.GLFW;
 
 /** 在空白兑换钞上填写金额：输入便士数，下方实时显示折合多少磅，点“签发”或按回车提交。 */
 public final class ExchangeNoteScreen extends Screen {
+    /** 画的时候登记的按钮（屏幕坐标）。 */
+    private final ClickRegions clicks = new ClickRegions();
+
     private static final int W = 220, H = 104;
 
     private final InteractionHand hand;
@@ -86,6 +89,7 @@ public final class ExchangeNoteScreen extends Screen {
         if (!status.isEmpty()) {
             FinanceGui.drawClippedString(font, g, status, left + 10, top + 62, W - 20, FinanceGui.COL_BAD);
         }
+        clicks.clear();
         FinanceGui.drawButton(
                 font,
                 g,
@@ -94,24 +98,17 @@ public final class ExchangeNoteScreen extends Screen {
                 top + 80,
                 96,
                 true);
+        clicks.add(left + 10, top + 80, 96, 13, this::submit);
         FinanceGui.drawButton(
                 font, g, Component.translatable("gui.cancel").getString(), left + W - 106, top + 80, 96, false);
+        clicks.add(left + W - 106, top + 80, 96, 13, this::onClose);
         super.render(g, mouseX, mouseY, partialTick);
     }
 
     @Override
     public boolean mouseClicked(double mx, double my, int button) {
         if (super.mouseClicked(mx, my, button)) return true;
-        if (button != 0 || my < top + 80 || my >= top + 93) return false;
-        if (mx >= left + 10 && mx < left + 106) {
-            submit();
-            return true;
-        }
-        if (mx >= left + W - 106 && mx < left + W - 10) {
-            onClose();
-            return true;
-        }
-        return false;
+        return button == 0 && clicks.click((int) mx, (int) my);
     }
 
     @Override

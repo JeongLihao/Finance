@@ -34,7 +34,10 @@ class CompanySupplyContractServiceTest {
         sellerOwner = UUID.randomUUID();
         buyer = company("Buyer", buyerOwner, 1_000);
         seller = company("Seller", sellerOwner, 0);
-        assertTrue(seller.addInventory("company_supply_iron", 10));
+        assertTrue(finance.commodity.CommodityInventoryManager.addCommodity(
+                finance.gameplay.company.CompanyInventoryFacade.custodyId(seller.getCompanyId()),
+                "company_supply_iron",
+                10));
     }
 
     @AfterEach
@@ -58,8 +61,8 @@ class CompanySupplyContractServiceTest {
         assertEquals(60, contract.remainingReward());
         assertEquals(60, AccountManager.getBalance(contract.escrowAccountId()));
         assertEquals(40, seller.getCash());
-        assertEquals(4, buyer.getInventoryAmount("company_supply_iron"));
-        assertEquals(6, seller.getInventoryAmount("company_supply_iron"));
+        assertEquals(4, finance.gameplay.company.CompanyInventoryFacade.totalInventory(buyer, "company_supply_iron"));
+        assertEquals(6, finance.gameplay.company.CompanyInventoryFacade.totalInventory(seller, "company_supply_iron"));
 
         assertTrue(
                 CompanySupplyContractService.deliver(sellerOwner, seller.getCompanyId(), contract.id(), 6, 3, "finish")
@@ -67,8 +70,8 @@ class CompanySupplyContractServiceTest {
         assertEquals(ContractStatus.COMPLETED, contract.status());
         assertEquals(0, AccountManager.getBalance(contract.escrowAccountId()));
         assertEquals(100, seller.getCash());
-        assertEquals(10, buyer.getInventoryAmount("company_supply_iron"));
-        assertEquals(0, seller.getInventoryAmount("company_supply_iron"));
+        assertEquals(10, finance.gameplay.company.CompanyInventoryFacade.totalInventory(buyer, "company_supply_iron"));
+        assertEquals(0, finance.gameplay.company.CompanyInventoryFacade.totalInventory(seller, "company_supply_iron"));
         assertEquals(1_000, buyer.getCash() + seller.getCash());
     }
 
@@ -127,8 +130,22 @@ class CompanySupplyContractServiceTest {
     private static Company company(String name, UUID owner, long cash) {
         Company company = new Company(UUID.randomUUID(), name, CompanyType.RAW_MATERIALS, cash, owner);
         CompanyManager.registerDirect(company);
-        assertTrue(CompanyGameplayManager.restore(
-                new CompanyGameplayProfile(company.getCompanyId(), CompanyOperatingMode.LEGACY_AUTOMATIC)));
+        CompanyGameplayProfile profile = new CompanyGameplayProfile(company.getCompanyId());
+        assertTrue(CompanyGameplayManager.restore(profile));
+        // 玩家公司收货进托管账户，要有绑定的仓库容量（和机器产出一样）
+        finance.warehouse.WarehouseRecord warehouse = new finance.warehouse.WarehouseRecord(
+                UUID.randomUUID(),
+                "minecraft:overworld",
+                net.minecraft.core.BlockPos.ZERO,
+                owner,
+                company.getCompanyId(),
+                4096,
+                finance.warehouse.WarehouseStatus.ACTIVE,
+                0,
+                0,
+                finance.warehouse.WarehousePermissionMode.OWNER_ONLY);
+        finance.warehouse.WarehouseManager.restore(warehouse);
+        profile.bindWarehouse(warehouse.warehouseId());
         return company;
     }
 }

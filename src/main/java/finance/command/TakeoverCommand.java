@@ -11,6 +11,7 @@ import finance.governance.CapitalActionStatus;
 import finance.governance.CorporateActionManager;
 import finance.governance.TakeoverService;
 import finance.governance.TenderOffer;
+import finance.util.Uuids;
 import java.util.List;
 import java.util.UUID;
 import net.minecraft.commands.CommandSourceStack;
@@ -100,10 +101,8 @@ public class TakeoverCommand {
             ctx.getSource().sendFailure(Component.literal("该命令只能由玩家执行。"));
             return 0;
         }
-        UUID offerId;
-        try {
-            offerId = UUID.fromString(StringArgumentType.getString(ctx, "offerId"));
-        } catch (IllegalArgumentException e) {
+        UUID offerId = Uuids.parseOrNull(StringArgumentType.getString(ctx, "offerId"));
+        if (offerId == null) {
             player.sendSystemMessage(Component.literal("要约 ID 格式错误。"));
             return 0;
         }
@@ -126,10 +125,8 @@ public class TakeoverCommand {
             ctx.getSource().sendFailure(Component.literal("该命令只能由玩家执行。"));
             return 0;
         }
-        UUID offerId;
-        try {
-            offerId = UUID.fromString(StringArgumentType.getString(ctx, "offerId"));
-        } catch (IllegalArgumentException e) {
+        UUID offerId = Uuids.parseOrNull(StringArgumentType.getString(ctx, "offerId"));
+        if (offerId == null) {
             player.sendSystemMessage(Component.literal("要约 ID 格式错误。"));
             return 0;
         }
@@ -180,10 +177,8 @@ public class TakeoverCommand {
     }
 
     private static int info(com.mojang.brigadier.context.CommandContext<CommandSourceStack> ctx) {
-        UUID offerId;
-        try {
-            offerId = UUID.fromString(StringArgumentType.getString(ctx, "offerId"));
-        } catch (IllegalArgumentException e) {
+        UUID offerId = Uuids.parseOrNull(StringArgumentType.getString(ctx, "offerId"));
+        if (offerId == null) {
             ctx.getSource().sendFailure(Component.literal("要约 ID 格式错误。"));
             return 0;
         }

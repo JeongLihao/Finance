@@ -19,6 +19,6 @@ class FacilityStatusLabelTest {
 
     @Test
     void marketTableNeedsScrollingForTheNewCommodities() {
-        assertTrue(MarketTabs.marketCapacity() < 7, "七种默认商品放不进行情表，必须能滚动");
+        assertTrue(MarketPanel.marketCapacity() < 7, "七种默认商品放不进行情表，必须能滚动");
     }
 }

@@ -69,8 +69,7 @@ class CompanyOperatingSnapshotServiceTest {
     }
 
     @Test
-    void playerDrivenCompanyReadsOnlyCustodyInventory() {
-        profile.setOperatingMode(CompanyOperatingMode.PLAYER_DRIVEN);
+    void playerCompanyReadsOnlyCustodyInventory() {
         UUID custody = CompanyInventoryFacade.custodyId(company.getCompanyId());
         CommodityInventoryManager.setCommodity(custody, "iron", 40);
         company.addInventory("iron", 11);
@@ -81,34 +80,7 @@ class CompanyOperatingSnapshotServiceTest {
     }
 
     @Test
-    void hybridModeSumsCustodyAndLegacyExactlyOnce() {
-        profile.setOperatingMode(CompanyOperatingMode.HYBRID);
-        UUID custody = CompanyInventoryFacade.custodyId(company.getCompanyId());
-        CommodityInventoryManager.setCommodity(custody, "iron", 40);
-        company.addInventory("iron", 11);
-
-        CompanyOperatingSnapshot snapshot = CompanyOperatingSnapshotService.snapshot(company, 7);
-        assertEquals(51L, snapshot.custodyInventory().get("iron"));
-
-        CommodityInventoryManager.setCommodity(custody, "iron", 41);
-        CompanyOperatingSnapshot next = CompanyOperatingSnapshotService.snapshot(company, 7);
-        assertEquals(52L, next.custodyInventory().get("iron"), "custody delta must appear exactly once");
-    }
-
-    @Test
-    void legacyModeIgnoresCustodyInventory() {
-        profile.setOperatingMode(CompanyOperatingMode.LEGACY_AUTOMATIC);
-        UUID custody = CompanyInventoryFacade.custodyId(company.getCompanyId());
-        CommodityInventoryManager.setCommodity(custody, "iron", 40);
-        company.addInventory("iron", 11);
-
-        CompanyOperatingSnapshot snapshot = CompanyOperatingSnapshotService.snapshot(company, 7);
-        assertEquals(11L, snapshot.custodyInventory().get("iron"));
-    }
-
-    @Test
     void extremeQuantitiesAndPricesNeverWrapNegative() {
-        profile.setOperatingMode(CompanyOperatingMode.PLAYER_DRIVEN);
         UUID custody = CompanyInventoryFacade.custodyId(company.getCompanyId());
         CommodityInventoryManager.setCommodity(custody, "iron", Integer.MAX_VALUE);
 
@@ -123,7 +95,6 @@ class CompanyOperatingSnapshotServiceTest {
 
     @Test
     void missingMarketPriceDegradesValuationInsteadOfDefaultingToZero() {
-        profile.setOperatingMode(CompanyOperatingMode.PLAYER_DRIVEN);
         UUID custody = CompanyInventoryFacade.custodyId(company.getCompanyId());
         CommodityInventoryManager.setCommodity(custody, "iron", 10);
         CommodityInventoryManager.setCommodity(custody, "unregistered_gem", 5);

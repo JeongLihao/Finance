@@ -4,7 +4,7 @@ import finance.gameplay.FinanceScreenMode;
 import net.minecraft.client.gui.GuiGraphics;
 
 /**
- * 金融服务页：画页签头、按子页签分发渲染 / 点击 / 请求数据。
+ * 金融服务页：画页签头、按子页签分发渲染和请求数据；按钮点击在画的时候登记（见 {@link ClickRegions}）。
  * 每个子页签自己的画面和操作在面板类里：{@link FinancialProductPanel}（指数到贷款）、{@link FuturesPanel}、
  * {@link BankPanel}、{@link FundPanel}、{@link InsurancePanel}、{@link RegionalRiskPanel}。
  * 银行柜台打开时只有“银行”“库存质押”两个页签。
@@ -51,6 +51,9 @@ public final class ServiceTabs {
     public void renderFinancialProductsTab(GuiGraphics g, int mouseX, int mouseY) {
         if (bankCounter()) {
             if (screen.financialSubTab != REGIONAL) screen.financialSubTab = BANK;
+            // 页签头点击范围沿用原来的闭区间（含右、下边界）
+            screen.contentClicks.add(10, FinanceGui.CONTENT_Y - 2, 63, 17, () -> selectSubTab(BANK));
+            screen.contentClicks.add(76, FinanceGui.CONTENT_Y - 2, 63, 17, () -> selectSubTab(REGIONAL));
             g.fill(
                     10,
                     FinanceGui.CONTENT_Y - 2,
@@ -72,6 +75,11 @@ public final class ServiceTabs {
         }
         for (int i = 0; i < LABELS.length; i++) {
             int x = TAB_X + i * TAB_STEP;
+            int index = i;
+            screen.contentClicks.add(x, FinanceGui.CONTENT_Y - 2, TAB_W + 1, 17, () -> {
+                if (index != FUTURES) screen.futuresChartVisible = false;
+                selectSubTab(index);
+            });
             g.fill(
                     x,
                     FinanceGui.CONTENT_Y - 2,
@@ -103,37 +111,9 @@ public final class ServiceTabs {
         }
     }
 
-    public boolean handleFinancialProductsClick(int mx, int my) {
-        boolean onTabs = my >= FinanceGui.CONTENT_Y - 2 && my <= FinanceGui.CONTENT_Y + 14;
-        if (onTabs && bankCounter()) {
-            if (mx >= 10 && mx <= 72) screen.financialSubTab = BANK;
-            else if (mx >= 76 && mx <= 138) screen.financialSubTab = REGIONAL;
-            else return false;
-            screen.updateInputVisibility();
-            request(screen.financialSubTab);
-            return true;
-        }
-        if (onTabs) {
-            for (int i = 0; i < LABELS.length; i++) {
-                int x = TAB_X + i * TAB_STEP;
-                if (mx >= x && mx <= x + TAB_W) {
-                    screen.financialSubTab = i;
-                    if (i != FUTURES) screen.futuresChartVisible = false;
-                    screen.updateInputVisibility();
-                    request(i);
-                    return true;
-                }
-            }
-        }
-        // 保险、区域的操作按钮都在底部这一行
-        boolean actionRow = my >= 208 && my <= 232;
-        return switch (screen.financialSubTab) {
-            case FUTURES -> futures.click(mx, my);
-            case BANK -> bank.click(mx, my);
-            case FUND -> fund.click(mx, my);
-            case INSURANCE -> actionRow && insurance.click(mx, my);
-            case REGIONAL -> actionRow && regional.click(mx, my);
-            default -> products.click(mx, my);
-        };
+    private void selectSubTab(int index) {
+        screen.financialSubTab = index;
+        screen.updateInputVisibility();
+        request(index);
     }
 }

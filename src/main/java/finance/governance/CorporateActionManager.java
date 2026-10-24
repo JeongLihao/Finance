@@ -4,7 +4,7 @@ import finance.account.*;
 import finance.company.*;
 import finance.data.EconomySavedData;
 import finance.stock.*;
-import finance.util.ProportionalAllocator;
+import finance.util.Uuids;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
@@ -195,8 +195,9 @@ public final class CorporateActionManager {
                 || key.isBlank()
                 || KEYS.contains(k)) return Result.fail("无效的回购取消请求");
         long cash = AccountManager.getBalance(p.escrowId());
-        if ((cash > 0 && !c.canDeposit(cash)) || !canRelease(p.accepted(), p.symbol())) return Result.fail("取消结算无法入账");
-        returnUnallocated(p.accepted(), Map.of(), p.symbol());
+        if ((cash > 0 && !c.canDeposit(cash)) || !CorporateActionSettlement.canRelease(p.accepted(), p.symbol()))
+            return Result.fail("取消结算无法入账");
+        CorporateActionSettlement.returnUnallocated(p.accepted(), Map.of(), p.symbol());
         if (cash > 0) {
             AccountManager.withdraw(p.escrowId(), cash);
             c.deposit(cash);
@@ -221,11 +222,11 @@ public final class CorporateActionManager {
         long divTotal = sum(divs);
         long cash = AccountManager.getBalance(o.escrowId());
         long buyerCash = cash - divTotal;
-        if (!canRelease(o.accepted(), o.symbol())
-                || !canDepositAll(divs)
+        if (!CorporateActionSettlement.canRelease(o.accepted(), o.symbol())
+                || !CorporateActionSettlement.canDepositAll(divs)
                 || (buyerCash > 0 && !AccountManager.canDeposit(o.buyerId(), buyerCash)))
             return Result.fail("取消结算无法入账");
-        returnUnallocated(o.accepted(), Map.of(), o.symbol());
+        CorporateActionSettlement.returnUnallocated(o.accepted(), Map.of(), o.symbol());
         for (var e : divs.entrySet()) {
             if (!AccountManager.moveFunds(o.escrowId(), e.getKey(), e.getValue()))
                 throw new IllegalStateException("validated tender dividend restore failed");
@@ -285,22 +286,23 @@ public final class CorporateActionManager {
         long companyRefund = 0;
         for (BuybackPlan p : buybacks) {
             long cash = AccountManager.getBalance(p.escrowId());
-            if (companyRefund > Long.MAX_VALUE - cash || !canRelease(p.accepted(), p.symbol())) return false;
+            if (companyRefund > Long.MAX_VALUE - cash
+                    || !CorporateActionSettlement.canRelease(p.accepted(), p.symbol())) return false;
             companyRefund += cash;
         }
         if (companyRefund > 0 && !company.canDeposit(companyRefund)) return false;
         for (TenderOffer o : tenders) {
             long cash = AccountManager.getBalance(o.escrowId());
-            if ((cash > 0 && !AccountManager.canDeposit(o.buyerId(), cash)) || !canRelease(o.accepted(), o.symbol()))
-                return false;
+            if ((cash > 0 && !AccountManager.canDeposit(o.buyerId(), cash))
+                    || !CorporateActionSettlement.canRelease(o.accepted(), o.symbol())) return false;
         }
         for (BuybackPlan p : buybacks) {
-            failBuyback(p, company);
+            CorporateActionSettlement.failBuyback(p, company);
             p.status(CapitalActionStatus.CANCELLED);
             announce(companyId, CorporateAnnouncement.Type.BUYBACK, day, p.id(), "buyback.bankruptcy_cancelled", "");
         }
         for (TenderOffer o : tenders) {
-            failTender(o, day, "target company bankruptcy");
+            CorporateActionSettlement.failTender(o, day, "target company bankruptcy");
             o.status(CapitalActionStatus.CANCELLED);
         }
         refreshTradingHalt(companyId);
@@ -309,127 +311,16 @@ public final class CorporateActionManager {
 
     public static synchronized void processDay(long day) {
         for (BuybackPlan p : new ArrayList<>(BUYBACKS.values()))
-            if (p.status() == CapitalActionStatus.OPEN && day >= p.endDay()) settleBuyback(p, day);
+            if (p.status() == CapitalActionStatus.OPEN && day >= p.endDay())
+                CorporateActionSettlement.settleBuyback(p, day);
         for (TenderOffer o : new ArrayList<>(TENDERS.values()))
-            if (o.status() == CapitalActionStatus.OPEN && day >= o.endDay()) settleTender(o, day);
+            if (o.status() == CapitalActionStatus.OPEN && day >= o.endDay())
+                CorporateActionSettlement.settleTender(o, day);
         for (Company c : CompanyManager.getCompanies())
             if (c.isPublic()) updateControl(c.getCompanyId(), day, c.getCompanyId());
     }
 
-    private static void settleBuyback(BuybackPlan p, long day) {
-        Stock s = StockMarketManager.getStock(p.symbol());
-        Company c = CompanyManager.getCompany(p.companyId());
-        long total = sum(p.accepted());
-        long acquired = Math.min(total, p.maxShares());
-        Map<UUID, Long> allocation = allocate(acquired, p.accepted());
-        long spent = multiply(p.price(), acquired);
-        long refund = spent < 0 ? 0 : p.budget() - spent;
-        if (s == null
-                || c == null
-                || spent < 0
-                || acquired > s.getVotingShares()
-                || !precheckSellers(allocation, p.price())
-                || !canReleaseUnallocated(p.accepted(), allocation, p.symbol())
-                || (refund > 0 && !c.canDeposit(refund))) {
-            failBuyback(p, c);
-            return;
-        }
-        for (var e : allocation.entrySet()) {
-            long payment = multiply(p.price(), e.getValue());
-            if (!AccountManager.moveFunds(p.escrowId(), e.getKey(), payment))
-                throw new IllegalStateException("validated seller payment failed");
-            record(
-                    p.companyId(),
-                    e.getKey(),
-                    payment,
-                    TransactionType.COMPANY_BUYBACK,
-                    e.getKey(),
-                    p.symbol(),
-                    e.getValue());
-        }
-        returnUnallocated(p.accepted(), allocation, p.symbol());
-        if (refund > 0) {
-            if (!AccountManager.withdraw(p.escrowId(), refund) || !c.deposit(refund))
-                throw new IllegalStateException("validated buyback refund failed");
-        }
-        if (acquired > 0 && !s.addTreasuryShares(acquired))
-            throw new IllegalStateException("validated treasury settlement failed");
-        p.status(CapitalActionStatus.COMPLETED);
-        announce(
-                p.companyId(),
-                CorporateAnnouncement.Type.BUYBACK,
-                day,
-                p.id(),
-                "buyback.completed",
-                "shares=" + acquired + ",spent=" + spent);
-        EconomySavedData.markDirty();
-    }
-
-    private static void settleTender(TenderOffer o, long day) {
-        long accepted = sum(o.accepted());
-        if (accepted < o.minShares()) {
-            failTender(o, day, "minimum not reached");
-            return;
-        }
-        long acquired = Math.min(accepted, o.targetShares());
-        Map<UUID, Long> allocation = allocate(acquired, o.accepted());
-        long spent = multiply(o.price(), acquired);
-        Map<UUID, Long> divRefunds = tenderDividendRefunds(o, allocation);
-        long divRefundTotal = sum(divRefunds);
-        long escrowBal = AccountManager.getBalance(o.escrowId());
-        long buyerRefund = escrowBal - spent - divRefundTotal;
-        if (spent < 0
-                || buyerRefund < 0
-                || !StockPortfolioManager.canAddHolding(o.buyerId(), o.symbol(), acquired)
-                || !precheckSellers(allocation, o.price())
-                || !canReleaseUnallocated(o.accepted(), allocation, o.symbol())
-                || !canDepositAll(divRefunds)
-                || (buyerRefund > 0 && !AccountManager.canDeposit(o.buyerId(), buyerRefund))) {
-            failTender(o, day, "settlement precheck failed");
-            return;
-        }
-        for (var e : allocation.entrySet()) {
-            long payment = multiply(o.price(), e.getValue());
-            if (!AccountManager.moveFunds(o.escrowId(), e.getKey(), payment))
-                throw new IllegalStateException("validated tender payment failed");
-        }
-        if (!StockPortfolioManager.addHolding(o.buyerId(), o.symbol(), acquired, o.price()))
-            throw new IllegalStateException("validated tender credit failed");
-        returnUnallocated(o.accepted(), allocation, o.symbol());
-        for (var e : divRefunds.entrySet()) {
-            if (!AccountManager.moveFunds(o.escrowId(), e.getKey(), e.getValue()))
-                throw new IllegalStateException("validated tender dividend refund failed");
-        }
-        o.acceptedDividends().clear();
-        long remaining = AccountManager.getBalance(o.escrowId());
-        if (remaining > 0 && !AccountManager.moveFunds(o.escrowId(), o.buyerId(), remaining))
-            throw new IllegalStateException("validated tender refund failed");
-        o.status(CapitalActionStatus.COMPLETED);
-        updateControl(o.targetCompanyId(), day, o.id());
-        if (o.isSqueezeOut()) {
-            delistAfterSqueezeOut(o, day);
-        } else {
-            refreshTradingHalt(o.targetCompanyId());
-        }
-        announce(
-                o.targetCompanyId(),
-                CorporateAnnouncement.Type.TENDER,
-                day,
-                o.id(),
-                "tender.completed",
-                "shares=" + acquired + ",spent=" + spent);
-        record(
-                o.buyerId(),
-                o.targetCompanyId(),
-                spent,
-                TransactionType.COMPANY_TENDER,
-                o.buyerId(),
-                o.symbol(),
-                acquired);
-        EconomySavedData.markDirty();
-    }
-
-    private static void updateControl(UUID companyId, long day, UUID business) {
+    static void updateControl(UUID companyId, long day, UUID business) {
         var snapshot = ShareholderRegistryService.snapshot(companyId, day);
         var top = snapshot.largest();
         UUID old = CONTROLLERS.get(companyId),
@@ -452,85 +343,12 @@ public final class CorporateActionManager {
         }
     }
 
-    private static boolean failBuyback(BuybackPlan p, Company c) {
-        long cash = AccountManager.getBalance(p.escrowId());
-        if (c == null || !canRelease(p.accepted(), p.symbol()) || (cash > 0 && !c.canDeposit(cash))) return false;
-        returnUnallocated(p.accepted(), Map.of(), p.symbol());
-        if (cash > 0 && (!AccountManager.withdraw(p.escrowId(), cash) || !c.deposit(cash)))
-            throw new IllegalStateException("validated buyback failure refund failed");
-        p.status(CapitalActionStatus.FAILED);
-        EconomySavedData.markDirty();
-        return true;
-    }
-
-    private static boolean failTender(TenderOffer o, long day, String reason) {
-        Map<UUID, Long> divs = new LinkedHashMap<>(o.acceptedDividends());
-        long divTotal = sum(divs);
-        long cash = AccountManager.getBalance(o.escrowId());
-        long buyerCash = cash - divTotal;
-        if (!canRelease(o.accepted(), o.symbol())
-                || !canDepositAll(divs)
-                || (buyerCash > 0 && !AccountManager.canDeposit(o.buyerId(), buyerCash))) return false;
-        returnUnallocated(o.accepted(), Map.of(), o.symbol());
-        for (var e : divs.entrySet()) {
-            if (!AccountManager.moveFunds(o.escrowId(), e.getKey(), e.getValue()))
-                throw new IllegalStateException("validated tender dividend restore failed");
-        }
-        o.acceptedDividends().clear();
-        long rest = AccountManager.getBalance(o.escrowId());
-        if (rest > 0 && !AccountManager.moveFunds(o.escrowId(), o.buyerId(), rest))
-            throw new IllegalStateException("validated tender failure refund failed");
-        o.status(CapitalActionStatus.FAILED);
-        refreshTradingHalt(o.targetCompanyId());
-        announce(o.targetCompanyId(), CorporateAnnouncement.Type.TENDER, day, o.id(), "tender.failed", reason);
-        EconomySavedData.markDirty();
-        return true;
-    }
-
-    private static boolean precheckSellers(Map<UUID, Long> a, long price) {
-        for (var e : a.entrySet()) {
-            long cash = multiply(price, e.getValue());
-            if (cash <= 0 || !AccountManager.canDeposit(e.getKey(), cash)) return false;
-        }
-        return true;
-    }
-
-    private static void returnUnallocated(Map<UUID, Long> accepted, Map<UUID, Long> allocated, String symbol) {
-        Map<UUID, Long> costs = costsFor(symbol, accepted);
-        for (var e : accepted.entrySet()) {
-            long q = e.getValue() - allocated.getOrDefault(e.getKey(), 0L);
-            if (q > 0 && !StockPortfolioManager.addHolding(e.getKey(), symbol, q, costs.getOrDefault(e.getKey(), 0L)))
-                throw new IllegalStateException("locked share release failed");
-        }
-    }
-
-    private static Map<UUID, Long> costsFor(String symbol, Map<UUID, Long> accepted) {
+    static Map<UUID, Long> costsFor(String symbol, Map<UUID, Long> accepted) {
         for (BuybackPlan p : BUYBACKS.values())
             if (p.symbol().equals(symbol) && p.accepted() == accepted) return p.acceptedCosts();
         for (TenderOffer o : TENDERS.values())
             if (o.symbol().equals(symbol) && o.accepted() == accepted) return o.acceptedCosts();
         return Map.of();
-    }
-
-    private static boolean canRelease(Map<UUID, Long> accepted, String symbol) {
-        for (var e : accepted.entrySet())
-            if (e.getValue() > 0 && !StockPortfolioManager.canAddHolding(e.getKey(), symbol, e.getValue()))
-                return false;
-        return true;
-    }
-
-    private static boolean canReleaseUnallocated(Map<UUID, Long> accepted, Map<UUID, Long> allocated, String symbol) {
-        for (var e : accepted.entrySet()) {
-            long quantity = e.getValue() - allocated.getOrDefault(e.getKey(), 0L);
-            if (quantity > 0 && !StockPortfolioManager.canAddHolding(e.getKey(), symbol, quantity)) return false;
-        }
-        return true;
-    }
-
-    private static Map<UUID, Long> allocate(long amount, Map<UUID, Long> weights) {
-        Map<UUID, Long> out = new LinkedHashMap<>();
-        for (var a : ProportionalAllocator.allocate(amount, weights)) if (a.amount() > 0) out.put(a.id(), a.amount());
-        return out;
     }
 
     private static long lockedSharesFor(UUID h, String symbol) {
@@ -612,13 +430,9 @@ public final class CorporateActionManager {
 
     private static CompanyProposal approvedProposal(String key, CompanyProposalType type, UUID companyId) {
         if (key == null || !key.startsWith("proposal-")) return null;
-        try {
-            CompanyProposal p =
-                    CompanyProposalManager.getProposal(UUID.fromString(key.substring("proposal-".length())));
-            return p != null && p.isExecutableAuthorization(type, companyId) ? p : null;
-        } catch (IllegalArgumentException ignored) {
-            return null;
-        }
+        UUID proposalId = Uuids.parseOrNull(key.substring("proposal-".length()));
+        CompanyProposal p = proposalId == null ? null : CompanyProposalManager.getProposal(proposalId);
+        return p != null && p.isExecutableAuthorization(type, companyId) ? p : null;
     }
 
     private static boolean ensureCapacity(Map<UUID, ?> actions) {
@@ -643,7 +457,7 @@ public final class CorporateActionManager {
             AccountManager.getAccount(id).setBalance(0);
     }
 
-    private static long multiply(long a, long b) {
+    static long multiply(long a, long b) {
         try {
             return Math.multiplyExact(a, b);
         } catch (ArithmeticException e) {
@@ -651,7 +465,7 @@ public final class CorporateActionManager {
         }
     }
 
-    private static long sum(Map<UUID, Long> m) {
+    static long sum(Map<UUID, Long> m) {
         BigInteger n = BigInteger.ZERO;
         for (long v : m.values()) n = n.add(BigInteger.valueOf(v));
         return n.min(BigInteger.valueOf(Long.MAX_VALUE)).longValue();
@@ -661,12 +475,11 @@ public final class CorporateActionManager {
         return a > Long.MAX_VALUE - b ? Long.MAX_VALUE : a + b;
     }
 
-    private static void announce(UUID c, CorporateAnnouncement.Type t, long d, UUID b, String key, String details) {
+    static void announce(UUID c, CorporateAnnouncement.Type t, long d, UUID b, String key, String details) {
         putAnnouncementDirect(new CorporateAnnouncement(UUID.randomUUID(), c, t, d, b, key, details));
     }
 
-    private static void record(
-            UUID from, UUID to, long amount, TransactionType type, UUID player, String object, long q) {
+    static void record(UUID from, UUID to, long amount, TransactionType type, UUID player, String object, long q) {
         AccountManager.addTransactionRecord(new TransactionRecord(from, to, amount, type, player, object, q));
     } // ================= 要约收购扩展（v0.5.0） =================
     /** 某股票在进行中要约里锁定的份额（holder → 股数），分红路由用 */
@@ -728,58 +541,12 @@ public final class CorporateActionManager {
         if (s != null) s.setTradingHalted(halted);
     }
     /** 刷新某公司停牌状态：有进行中要约即停牌，否则复牌 */
-    private static void refreshTradingHalt(UUID companyId) {
+    static void refreshTradingHalt(UUID companyId) {
         Stock s = StockMarketManager.getStockByCompanyId(companyId);
         if (s == null) return;
         boolean halted = TENDERS.values().stream()
                 .anyMatch(o -> o.targetCompanyId().equals(companyId) && o.status() == CapitalActionStatus.OPEN);
         s.setTradingHalted(halted);
-    }
-    /** 要约分红拆分：交割成功时，未分配份额对应的分红返还股东 */
-    private static Map<UUID, Long> tenderDividendRefunds(TenderOffer o, Map<UUID, Long> allocation) {
-        Map<UUID, Long> out = new LinkedHashMap<>();
-        for (var e : o.accepted().entrySet()) {
-            long div = o.acceptedDividends().getOrDefault(e.getKey(), 0L);
-            if (div <= 0) continue;
-            long acc = e.getValue(), alloc = allocation.getOrDefault(e.getKey(), 0L);
-            long buyerPart = proRata(div, alloc, acc);
-            long holderPart = div - buyerPart;
-            if (holderPart > 0) out.put(e.getKey(), holderPart);
-        }
-        return out;
-    }
-
-    private static long proRata(long amount, long part, long whole) {
-        if (amount <= 0 || part <= 0 || whole <= 0) return 0;
-        if (part >= whole) return amount;
-        return BigInteger.valueOf(amount)
-                .multiply(BigInteger.valueOf(part))
-                .divide(BigInteger.valueOf(whole))
-                .longValue();
-    }
-
-    private static boolean canDepositAll(Map<UUID, Long> m) {
-        for (var e : m.entrySet())
-            if (e.getValue() > 0 && !AccountManager.canDeposit(e.getKey(), e.getValue())) return false;
-        return true;
-    }
-    /** 强制私有化交割完成 → 目标公司退市：摘牌、撤单、转非公开 */
-    private static void delistAfterSqueezeOut(TenderOffer o, long day) {
-        UUID companyId = o.targetCompanyId();
-        Company c = CompanyManager.getCompany(companyId);
-        Stock stock = StockMarketManager.getStockByCompanyId(companyId);
-        if (stock != null) {
-            StockOrderManager.cancelOrdersForSymbol(stock.getSymbol());
-            StockMarketManager.removeStockByCompanyId(companyId);
-        }
-        if (c != null) c.setPublic(false);
-        announce(
-                companyId,
-                CorporateAnnouncement.Type.TENDER,
-                day,
-                o.id(),
-                "tender.squeeze_out_delisted",
-                "公司已退市，转为非公开");
     }
 
     public record Result(boolean success, UUID id, String message) {

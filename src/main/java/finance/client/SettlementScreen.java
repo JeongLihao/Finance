@@ -263,10 +263,12 @@ public final class SettlementScreen extends AbstractContainerScreen<SettlementMe
                 });
         button("screen.finance.settlement.route.create", 218, BUTTON_Y + 20, 92, () -> {
             var dest = extras.destinations().get(destination);
+            UUID destId = ScreenInput.parseUuid(dest.id());
+            if (destId == null) return;
             FinancePacketHandler.CHANNEL.sendToServer(new CaravanActionPacket(
                     CaravanActionPacket.Action.CREATE,
                     menu.settlementId(),
-                    UUID.fromString(dest.id()),
+                    destId,
                     extras.goods().get(goods).id(),
                     QUANTITIES[quantity],
                     guard,

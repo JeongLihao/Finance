@@ -71,61 +71,41 @@ final class FundPanel {
         g.fill(8, 185, screen.imageWidth() - 8, 232, FinanceGui.COL_ROW_EVEN);
         FinanceGui.drawClippedString(screen.font(), g, "金额", 14, 190, 35, FinanceGui.COL_TEXT_DIM);
         FinanceGui.drawClippedString(screen.font(), g, "份额", 126, 190, 40, FinanceGui.COL_TEXT_DIM);
-        FinanceGui.drawFilledButton(screen.font(), g, "申购", 275, 189, 40, FinanceGui.COL_ACCENT);
-        FinanceGui.drawFilledButton(screen.font(), g, "赎回", 320, 189, 40, FinanceGui.COL_ACCENT);
-        FinanceGui.drawFilledButton(screen.font(), g, "定投", 365, 189, 28, FinanceGui.COL_ACCENT);
+        screen.filledButton(g, "申购", 275, 189, 40, FinanceGui.COL_ACCENT, () -> act(FundActionPacket.Action.SUBSCRIBE));
+        screen.filledButton(g, "赎回", 320, 189, 40, FinanceGui.COL_ACCENT, () -> act(FundActionPacket.Action.REDEEM));
+        screen.filledButton(
+                g, "定投", 365, 189, 28, FinanceGui.COL_ACCENT, () -> act(FundActionPacket.Action.CREATE_PLAN));
+        // 点下面这行费用说明就是确认风险提示（没有单独的按钮）
+        screen.contentClicks.add(0, 210, 270, 23, () -> act(FundActionPacket.Action.ACKNOWLEDGE_RISK));
         FinanceGui.drawClippedString(
                 screen.font(), g, "申购费、赎回费及净值均由服务端确认；赎回可能因流动性延迟。", 14, 215, 236, FinanceGui.COL_TEXT_DIM);
         FinanceGui.drawClippedString(screen.font(), g, "定投间隔", 284, 215, 26, FinanceGui.COL_TEXT_DIM);
     }
 
-    boolean click(int mx, int my) {
+    private void act(FundActionPacket.Action action) {
         var data = FundClientCache.get();
-        if (data.state() != FundClientCache.State.READY || data.funds().isEmpty()) return false;
+        if (data.state() != FundClientCache.State.READY || data.funds().isEmpty()) return;
         var fund = data.funds().get(0);
-        java.util.function.LongSupplier amount = () -> screen.requireAmount(screen.stockPriceBox, "金额"),
-                shares = () -> screen.requireLong(screen.stockQuantityBox, "份额", 100, FinanceScreen.MAX_INPUT_AMOUNT);
-        java.util.function.IntSupplier interval = () -> screen.requireInt(screen.companyAmountBox, "定投间隔", 1, 3650);
-        if (my >= 185 && my <= 210) {
-            FundActionPacket packet;
-            if (mx >= 275 && mx < 315)
-                packet = new FundActionPacket(
-                        FundActionPacket.Action.SUBSCRIBE,
-                        fund.id(),
-                        null,
-                        amount.getAsLong(),
-                        0,
-                        0,
-                        UUID.randomUUID().toString());
-            else if (mx >= 320 && mx < 360)
-                packet = new FundActionPacket(
-                        FundActionPacket.Action.REDEEM,
-                        fund.id(),
-                        null,
-                        0,
-                        shares.getAsLong(),
-                        0,
-                        UUID.randomUUID().toString());
-            else if (mx >= 365)
-                packet = new FundActionPacket(
-                        FundActionPacket.Action.CREATE_PLAN,
-                        fund.id(),
-                        null,
-                        amount.getAsLong(),
-                        0,
-                        interval.getAsInt(),
-                        UUID.randomUUID().toString());
-            else return false;
-            FinancePacketHandler.CHANNEL.sendToServer(packet);
-            request();
-            return true;
+        if (action == FundActionPacket.Action.ACKNOWLEDGE_RISK) {
+            FinancePacketHandler.CHANNEL.sendToServer(new FundActionPacket(action, fund.id(), null, 0, 0, 0, ""));
+            return;
         }
-        if (my >= 210 && my <= 232 && mx < 270) {
-            FinancePacketHandler.CHANNEL.sendToServer(
-                    new FundActionPacket(FundActionPacket.Action.ACKNOWLEDGE_RISK, fund.id(), null, 0, 0, 0, ""));
-            return true;
-        }
-        return false;
+        long amount = action == FundActionPacket.Action.REDEEM ? 0 : screen.requireAmount(screen.stockPriceBox, "金额");
+        long shares = action == FundActionPacket.Action.REDEEM
+                ? screen.requireLong(screen.stockQuantityBox, "份额", 100, FinanceScreen.MAX_INPUT_AMOUNT)
+                : 0;
+        int interval = action == FundActionPacket.Action.CREATE_PLAN
+                ? screen.requireInt(screen.companyAmountBox, "定投间隔", 1, 3650)
+                : 0;
+        FinancePacketHandler.CHANNEL.sendToServer(new FundActionPacket(
+                action,
+                fund.id(),
+                null,
+                amount,
+                shares,
+                interval,
+                UUID.randomUUID().toString()));
+        request();
     }
 
     void request() {

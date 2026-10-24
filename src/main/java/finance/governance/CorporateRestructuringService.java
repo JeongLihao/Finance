@@ -9,6 +9,8 @@ import finance.company.CompanyProposal;
 import finance.company.CompanyProposalManager;
 import finance.company.CompanyProposalType;
 import finance.data.EconomySavedData;
+import finance.gameplay.company.CompanyInventoryFacade;
+import finance.util.Uuids;
 import java.util.UUID;
 
 /** Transactional execution layer used after governance approval. */
@@ -26,17 +28,14 @@ public final class CorporateRestructuringService {
         String text = proposal.getTextValue();
         int separator = text == null ? -1 : text.indexOf('|');
         if (separator <= 0) return false;
-        try {
-            UUID sellerId = UUID.fromString(text.substring(0, separator));
-            Company buyer = CompanyManager.getCompany(proposal.getCompanyId()),
-                    seller = CompanyManager.getCompany(sellerId);
-            return buyer != null
-                    && seller != null
-                    && buyer != seller
-                    && GovernanceAuthorizationService.mayManage(actor, sellerId);
-        } catch (IllegalArgumentException ignored) {
-            return false;
-        }
+        UUID sellerId = Uuids.parseOrNull(text.substring(0, separator));
+        if (sellerId == null) return false;
+        Company buyer = CompanyManager.getCompany(proposal.getCompanyId()),
+                seller = CompanyManager.getCompany(sellerId);
+        return buyer != null
+                && seller != null
+                && buyer != seller
+                && GovernanceAuthorizationService.mayManage(actor, sellerId);
     }
 
     public static synchronized CorporateActionManager.Result emergencyContribution(
@@ -94,12 +93,7 @@ public final class CorporateRestructuringService {
         String[] asset = proposal == null || proposal.getTextValue() == null
                 ? new String[0]
                 : proposal.getTextValue().split("\\|", 2);
-        UUID sellerCompanyId;
-        try {
-            sellerCompanyId = asset.length == 2 ? UUID.fromString(asset[0]) : null;
-        } catch (IllegalArgumentException ignored) {
-            sellerCompanyId = null;
-        }
+        UUID sellerCompanyId = asset.length == 2 ? Uuids.parseOrNull(asset[0]) : null;
         String commodityId = asset.length == 2 ? asset[1] : "";
         long quantityLong = proposal == null ? 0 : proposal.getValue2();
         int quantity = quantityLong > Integer.MAX_VALUE ? -1 : (int) quantityLong;
@@ -124,16 +118,19 @@ public final class CorporateRestructuringService {
                 || !GovernanceAuthorizationService.mayManage(sellerApprover, sellerCompanyId)
                 || buyer.getCash() < price
                 || !seller.canDeposit(price)
-                || seller.getInventoryAmount(commodityId) < quantity
-                || !buyer.canAddInventory(commodityId, quantity)) {
+                || CompanyInventoryFacade.availableInput(seller, commodityId) < quantity
+                || !CompanyInventoryFacade.canReceive(buyer, commodityId, quantity)) {
             return CorporateActionManager.Result.fail("资产收购请求无效或未获授权");
         }
-        if (!buyer.withdraw(price) || !seller.removeInventory(commodityId, quantity)) {
+        if (!buyer.withdraw(price)) return CorporateActionManager.Result.fail("资产预留失败");
+        CompanyInventoryFacade.Consumption taken =
+                CompanyInventoryFacade.consumeInputAtomically(seller, java.util.Map.of(commodityId, quantity));
+        if (taken == null) {
             if (buyer.canDeposit(price)) buyer.deposit(price);
             return CorporateActionManager.Result.fail("资产预留失败");
         }
-        if (!buyer.addInventory(commodityId, quantity) || !seller.deposit(price)) {
-            seller.addInventory(commodityId, quantity);
+        if (!CompanyInventoryFacade.receive(buyer, commodityId, quantity) || !seller.deposit(price)) {
+            CompanyInventoryFacade.rollback(seller, taken);
             buyer.deposit(price);
             return CorporateActionManager.Result.fail("资产交割失败");
         }

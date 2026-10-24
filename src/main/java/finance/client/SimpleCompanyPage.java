@@ -6,7 +6,7 @@ import finance.client.ui.UiBuilder;
 import finance.client.ui.UiBuilder.Btn;
 import finance.company.CompanyManagementAction;
 import finance.company.CompanyType;
-import finance.gui.FinanceMenu;
+import finance.gui.CompanyRows;
 import finance.network.SimpleActionPacket;
 import finance.simple.SimpleBossService;
 import finance.simple.SimpleCenterService;
@@ -21,7 +21,7 @@ final class SimpleCompanyPage {
     private SimpleCompanyPage() {}
 
     static void company(UiBuilder ui, View v, State s, Actions a) {
-        FinanceMenu.CompanyInfo info = v.company();
+        CompanyRows.CompanyInfo info = v.company();
         if (info == null) {
             newCompany(ui, v, s, a);
             return;
@@ -194,7 +194,7 @@ final class SimpleCompanyPage {
             return;
         }
         SimpleBossService.BossInfo b = boss(v);
-        FinanceMenu.CompanyInfo info = v.company();
+        CompanyRows.CompanyInfo info = v.company();
         if (extra(v, "wage") && b.wageActive()) {
             wageRow(ui, v, a, y);
             y += 18;
@@ -204,11 +204,11 @@ final class SimpleCompanyPage {
 
         // 待投票的提案
         if (extra(v, "shareholder")) {
-            List<FinanceMenu.CompanyProposalRow> open = v.proposals().stream()
+            List<CompanyRows.CompanyProposalRow> open = v.proposals().stream()
                     .filter(p -> "ACTIVE".equals(p.status()) && !p.playerVoted())
                     .toList();
             for (int i = 0; i < Math.min(2, open.size()) && y + 15 <= limit; i++) {
-                FinanceMenu.CompanyProposalRow p = open.get(i);
+                CompanyRows.CompanyProposalRow p = open.get(i);
                 String id = p.proposalId().toString();
                 int bx = ui.buttonsRight(
                         RIGHT - 2,
