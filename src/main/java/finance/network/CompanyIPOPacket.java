@@ -38,6 +38,7 @@ public class CompanyIPOPacket {
         this.quantity = quantity;
     }
 
+    /** 格式：动作、id，START 多一个发行价，最后是数量（发行数或认购股数）。改格式要同步升协议号。 */
     public static void encode(CompanyIPOPacket packet, FriendlyByteBuf buffer) {
         buffer.writeEnum(packet.action);
         buffer.writeUUID(packet.id);
@@ -56,6 +57,7 @@ public class CompanyIPOPacket {
         ctx.get().enqueueWork(() -> {
             ServerPlayer player = ctx.get().getSender();
             if (player == null) return;
+            // 客户端只发意图：这里只挡明显无效的包，价格、余额、权限都在服务层校验
             if (packet.action == null || packet.id == null || !NetworkValidation.isPositive(packet.quantity)) {
                 GuiFeedbackPacket.send(player, "上市请求无效。");
                 return;
