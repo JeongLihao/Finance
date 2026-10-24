@@ -52,6 +52,8 @@ public final class SimpleOpportunityService {
 
     /** 便宜到多少（市价 ÷ 每股价值）算“被低估”。 */
     static final double CHEAP = 0.8;
+    /** 新股认购机会卡一次认多少股（钱不够就少认）。 */
+    static final long IPO_CARD_SHARES = 100;
 
     public static List<Card> cards(
             ServerPlayer player,
@@ -101,6 +103,23 @@ public final class SimpleOpportunityService {
                         "也可以发 100 磅公司债：NPC 投资者 3 天内认购，钱到账后 90 天还本，期间按月付息。", "发债", "ISSUE_BOND", "", 10_000, true));
             if (pledgeValue(company) >= 5_000)
                 out.add(Card.act("仓库里的货能抵押：押给银行先借一笔，还清后货自动解押。", "抵押借钱", "PLEDGE", "", 0, true));
+        }
+        // 3b. 别家公司在上市认购：认一笔（每股按估值定价，钱先进托管，没上市原路退回）
+        for (finance.company.IpoSubscription ipo : finance.company.CompanyIPOService.open()) {
+            if (company != null && company.getCompanyId().equals(ipo.companyId())) continue;
+            Company target = CompanyManager.getCompany(ipo.companyId());
+            long shares =
+                    Math.min(ipo.remainingShares(), Math.min(IPO_CARD_SHARES, balance / Math.max(1, ipo.issuePrice())));
+            if (target == null || shares <= 0) continue;
+            out.add(Card.act(
+                    "「" + target.getName() + "」正在上市认购：每股 " + MoneyFormat.pounds(ipo.issuePrice()) + "，还剩 "
+                            + ipo.remainingShares() + " 股，第 " + ipo.endDay() + " 天结算。没认够就全额退款。",
+                    "认 " + shares + " 股",
+                    "IPO_SUBSCRIBE",
+                    ipo.id().toString(),
+                    shares,
+                    false));
+            break;
         }
         // 4. 招不到工人
         if (allowed.test("wage") && boss.wageActive() && boss.wage() < boss.reservationWage()) {

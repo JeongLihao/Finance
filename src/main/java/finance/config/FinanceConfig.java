@@ -63,7 +63,9 @@ public final class FinanceConfig {
     private static final LongOption CB_MM_EMERGENCY_LOAN_CAP = new LongOption(5_000_000L);
     private static final IntOption CB_MM_LOAN_REPAYMENT_BPS = new IntOption(2_000);
     private static final IntOption FACTORY_SPEED_PERCENT = new IntOption(100);
-    private static final LongOption IPO_FEE = new LongOption(5_000L);
+    private static final LongOption IPO_FEE = new LongOption(1_000L);
+    private static final IntOption IPO_SUBSCRIPTION_DAYS = new IntOption(5);
+    private static final IntOption IPO_MIN_FILL_BPS = new IntOption(5_000);
     private static final LongOption CAPITAL_PROJECT_GOVERNANCE_THRESHOLD = new LongOption(50_000L);
     private static final IntOption CAPITAL_PROJECT_MAX_DURATION_DAYS = new IntOption(60);
     private static final IntOption DEFAULT_BENCHMARK_RATE_BPS = new IntOption(500);
@@ -438,8 +440,12 @@ public final class FinanceConfig {
                 .defineInRange("storageLevelDiscountBasisPoints", STORAGE_LEVEL_DISCOUNT_BPS.def, 0, 2_000));
         MANAGEMENT_LEVEL_DISCOUNT_BPS.bind(builder.comment("管理每升一级，机器维护费打的折扣，单位为基点；600 表示每级便宜 6%。")
                 .defineInRange("managementLevelDiscountBasisPoints", MANAGEMENT_LEVEL_DISCOUNT_BPS.def, 0, 2_000));
-        IPO_FEE.bind(builder.comment("公司发起 IPO 时向所有者收取的费用；下限钳制 5000，服主配 0 会让小号每号净赚 5000（P0-1）。")
-                .defineInRange("ipoFee", IPO_FEE.def, 5_000L, Long.MAX_VALUE));
+        IPO_FEE.bind(builder.comment("发起上市认购时收的上市费，付给 NPC 资金池，认购失败也不退。募资是认购人真金白银付的，不再凭空增发，所以不需要靠上市费防刷钱。")
+                .defineInRange("ipoFee", IPO_FEE.def, 0L, Long.MAX_VALUE));
+        IPO_SUBSCRIPTION_DAYS.bind(builder.comment("上市认购期，单位为 MC 天。期间 NPC 投资者和玩家认购，认购款放在独立托管里。")
+                .defineInRange("ipoSubscriptionDays", IPO_SUBSCRIPTION_DAYS.def, 1, 30));
+        IPO_MIN_FILL_BPS.bind(builder.comment("认购期结束时至少认满发行量的多少（基点）才上市；不够就取消，认购款原路退回。5000 = 50%。")
+                .defineInRange("ipoMinFillBasisPoints", IPO_MIN_FILL_BPS.def, 1, 10_000));
         CAPITAL_PROJECT_GOVERNANCE_THRESHOLD.bind(builder.comment("资本项目预算达到或超过该金额时必须显式授权；上市公司走股东提案，非上市公司由所有者确认。")
                 .defineInRange(
                         "capitalProjectGovernanceThreshold",
@@ -1752,6 +1758,14 @@ public final class FinanceConfig {
 
     public static int caravanSellPriceCapMultiplier() {
         return CARAVAN_SELL_PRICE_CAP_MULTIPLIER.get();
+    }
+
+    public static int ipoSubscriptionDays() {
+        return IPO_SUBSCRIPTION_DAYS.get();
+    }
+
+    public static int ipoMinFillBasisPoints() {
+        return IPO_MIN_FILL_BPS.get();
     }
 
     public static long ipoFee() {

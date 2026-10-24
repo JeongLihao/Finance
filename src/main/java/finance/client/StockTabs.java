@@ -187,12 +187,17 @@ public final class StockTabs {
                 screen.font(), g, "使用上方价格/股数，触发后自动提交卖单", 188, tradeY + 66, 180, FinanceGui.COL_TEXT_DIM);
 
         CompanyRows.CompanyFinancingRow financing = selectedFinancingProject();
+        // 选中的股票没有增发时，显示第一个进行中的新股认购（还没有股票，选不中）
+        if (financing == null) financing = firstIpoRow();
         if (financing != null) {
             int fy = tradeY + 92;
+            boolean ipo = financing.symbol().isEmpty();
             FinanceGui.drawClippedString(
                     screen.font(),
                     g,
-                    "融资 " + financing.raisedAmount() + "/" + financing.fundingTarget()
+                    (ipo
+                                    ? "新股 " + financing.companyName() + " 第 " + financing.deadlineMcDay() + " 天截止"
+                                    : "融资 " + financing.raisedAmount() + "/" + financing.fundingTarget())
                             + " 股 " + financing.subscribedShares() + "/" + financing.issueQuantity()
                             + " 价 " + financing.issuePrice(),
                     12,
@@ -207,10 +212,17 @@ public final class StockTabs {
                     fy,
                     48,
                     FinanceGui.COL_TEXT_DIM);
+            CompanyRows.CompanyFinancingRow row = financing;
             screen.filledButton(g, "认购", 300, fy - 2, 42, FinanceGui.COL_GOOD, () -> {
                 long qty = screen.requireAmount(screen.stockQuantityBox, "认购股数");
-                screen.setStatus("已提交增发认购");
-                FinancePacketHandler.CHANNEL.sendToServer(CompanyFinancingPacket.subscribe(financing.projectId(), qty));
+                if (ipo) {
+                    screen.setStatus("已提交新股认购");
+                    FinancePacketHandler.CHANNEL.sendToServer(
+                            finance.network.CompanyIPOPacket.subscribe(row.projectId(), qty));
+                } else {
+                    screen.setStatus("已提交增发认购");
+                    FinancePacketHandler.CHANNEL.sendToServer(CompanyFinancingPacket.subscribe(row.projectId(), qty));
+                }
             });
         }
 
@@ -383,6 +395,17 @@ public final class StockTabs {
             }
         }
         return rows;
+    }
+
+    /** 第一个进行中的新股认购（股票代码为空的融资行），不含自己公司的。 */
+    CompanyRows.CompanyFinancingRow firstIpoRow() {
+        CompanyRows.CompanyInfo mine = screen.menu().getPlayerCompany();
+        for (CompanyRows.CompanyFinancingRow row : screen.menu().getCompanyFinancingRows()) {
+            if (!row.symbol().isEmpty()) continue;
+            if (mine != null && mine.playerOwned() && mine.companyId().equals(row.companyId())) continue;
+            return row;
+        }
+        return null;
     }
 
     public CompanyRows.CompanyFinancingRow selectedFinancingProject() {

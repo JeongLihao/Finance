@@ -38,12 +38,16 @@ public final class NpcFloatPlacementService {
         return Math.max(stock.getLastPrice(), stock.getFairValue());
     }
 
-    /** 当前可配售的残差股数。股本核对不一致时返回 0。 */
+    /**
+     * 当前可配售的残差股数。股本核对不一致时返回 0。
+     * 股东名册的“系统流动性”里含做市商库存（做市商不是持仓账户），那部分已经有主，不能再配售。
+     */
     public static long availableResidual(Stock stock, long day) {
         if (stock == null) return 0;
         ShareholderRegistryService.Snapshot snapshot = ShareholderRegistryService.snapshot(stock.getCompanyId(), day);
         if (!snapshot.consistent()) return 0;
-        return Math.max(0, snapshot.systemLiquidity());
+        long marketMaker = finance.market.MarketMakerLedger.getStockInventory(stock.getSymbol());
+        return Math.max(0, snapshot.systemLiquidity() - Math.max(0, marketMaker));
     }
 
     public static Result place(UUID investor, String symbol, long quantity, long day) {

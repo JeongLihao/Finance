@@ -326,24 +326,31 @@ public final class SimpleCenterService {
         return Result.ok("工厂升到 " + (before + 1) + " 级，花了 " + MoneyFormat.pounds(cost) + "。", -cost);
     }
 
-    /** 一键上市：发行价按估值折算，玩家不用自己定价。 */
-    public static Result quickIpo(UUID playerId) {
+    /** 一键发起上市认购：发行价按每股估值定，玩家不用自己定价；NPC 投资者觉得值才会认购。 */
+    public static Result quickIpo(UUID playerId, long day) {
         Company company = CompanyManager.getCompanyByOwner(playerId);
         if (company == null) return Result.fail("你还没有公司。");
         if (company.isPublic()) return Result.fail("公司已经上市了。");
+        if (CompanyIPOService.openFor(company.getCompanyId()) != null) return Result.fail("公司已经在上市认购中了。");
         long totalShares = Math.round(QUICK_IPO_SHARES / CompanyIPOService.DEFAULT_FLOAT_RATIO);
         long price = Math.max(
                 1,
                 Math.min(
                         CompanyIPOService.MAX_ISSUE_PRICE,
                         finance.stock.StockValuation.companyValue(company) / totalShares));
-        long quantity = Math.min(QUICK_IPO_SHARES, Math.max(1, CompanyIPOService.MAX_TOTAL_RAISE / price));
         long before = AccountManager.getBalance(playerId);
-        CompanyIPOService.IPOResult result = CompanyIPOService.ipo(playerId, company.getCompanyId(), price, quantity);
+        CompanyIPOService.Result result =
+                CompanyIPOService.start(playerId, company.getCompanyId(), price, QUICK_IPO_SHARES, day);
         if (!result.success()) return Result.fail(result.message());
-        return Result.ok(
-                "公司上市了！卖出 " + quantity + " 股，每股 " + MoneyFormat.pounds(price) + "，募到的钱进了公司账上。",
-                AccountManager.getBalance(playerId) - before);
+        return Result.ok(result.message(), AccountManager.getBalance(playerId) - before);
+    }
+
+    /** 认购别家的新股（简单模式机会卡）。 */
+    public static Result subscribeIpo(UUID playerId, UUID subscriptionId, long shares, long day) {
+        CompanyIPOService.Result result = CompanyIPOService.subscribe(playerId, subscriptionId, shares, day);
+        if (!result.success()) return Result.fail(result.message());
+        long cost = result.subscription() == null ? 0 : result.subscription().issuePrice() * shares;
+        return Result.ok(result.message(), -cost);
     }
 
     // ------------------------------------------------------------ 银行
@@ -442,6 +449,26 @@ public final class SimpleCenterService {
      * extras：这个玩家现在能用的进阶玩法（组名和单项名）；locked：还没解锁、做到进度就能解锁的组；
      * unlockedNow：刚解锁、要弹出介绍的组；cards：机会卡；bets：押注；futuresMarginBps：商品押注每份要交的保证金比例。
      */
+    /** 自己公司进行中的上市认购；没有时 endDay = −1。 */
+    public record IpoProgress(long subscribed, long quantity, long minimum, long endDay) {
+        public static final IpoProgress NONE = new IpoProgress(0, 0, 0, -1);
+
+        public boolean open() {
+            return endDay >= 0;
+        }
+
+        static IpoProgress of(Company company) {
+            finance.company.IpoSubscription s =
+                    company == null ? null : CompanyIPOService.openFor(company.getCompanyId());
+            if (s == null) return NONE;
+            return new IpoProgress(
+                    s.subscribedShares(),
+                    s.issueQuantity(),
+                    s.minimumShares(FinanceConfig.ipoMinFillBasisPoints()),
+                    s.endDay());
+        }
+    }
+
     public record Status(
             long bankBalance,
             int bankRateBps,
@@ -449,6 +476,7 @@ public final class SimpleCenterService {
             long nextUpgradeCost,
             long companyValuation,
             long ipoMinValuation,
+            IpoProgress ipo,
             long stockUnlockBalance,
             String advancedMode,
             List<String> extras,
@@ -535,6 +563,7 @@ public final class SimpleCenterService {
                 company == null ? 0 : nextUpgradeCost(company),
                 company == null ? 0 : finance.stock.StockValuation.companyValue(company),
                 FinanceConfig.simpleIpoMinValuation(),
+                IpoProgress.of(company),
                 FinanceConfig.simpleStockUnlockBalance(),
                 FinanceConfig.simpleAdvancedMode(),
                 SimpleUnlocks.allowedNames(unlocked, instant, disabled),

@@ -43,6 +43,8 @@ public final class RivalService {
     static final int IPO_MIN_AGE_DAYS = 30;
 
     static final long IPO_MIN_CASH = 80_000L;
+    /** 竞争公司上市发行的股数（占总股本 40%）。 */
+    static final long IPO_SHARES = 4_000L;
 
     private RivalService() {}
 
@@ -270,17 +272,25 @@ public final class RivalService {
                 || day - profile.createdDay() < IPO_MIN_AGE_DAYS
                 || company.getCash() < IPO_MIN_CASH
                 || company.getSmoothedDailyProfit() <= 0) return;
-        long price = Math.max(1, Math.min(CompanyIPOService.MAX_ISSUE_PRICE, company.getEstimatedValue() / 25_000));
-        long quantity = Math.max(1, Math.min(100_000, CompanyIPOService.MAX_TOTAL_RAISE / price));
-        var result = CompanyIPOService.ipoOwnerless(
-                company.getCompanyId(), RivalProfile.investmentAccount(company.getCompanyId()), price, quantity);
+        if (CompanyIPOService.openFor(company.getCompanyId()) != null) return;
+        // 和玩家一键上市一样：发行 40%，发行价按每股估值，NPC 投资者觉得值才认购
+        long quantity = IPO_SHARES;
+        long totalShares = Math.round(quantity / CompanyIPOService.DEFAULT_FLOAT_RATIO);
+        long price = Math.max(
+                1,
+                Math.min(
+                        CompanyIPOService.MAX_ISSUE_PRICE,
+                        finance.stock.StockValuation.companyValue(company) / totalShares));
+        var result = CompanyIPOService.startOwnerless(
+                company.getCompanyId(), RivalProfile.investmentAccount(company.getCompanyId()), price, quantity, day);
         if (!result.success()) return;
-        profile.record(day, "IPO", result.stock().getSymbol() + " @" + price);
+        profile.record(day, "IPO", "认购 @" + price);
         news(
                 55,
-                company.getName() + "上市",
-                company.getName() + "以每股 " + price + " 发行 " + quantity + " 股，股票代码 "
-                        + result.stock().getSymbol() + "。",
+                company.getName() + "发起上市认购",
+                company.getName() + "以每股 " + price + " 发行 " + quantity + " 股，认购期 "
+                        + (result.subscription().endDay()
+                                - result.subscription().startDay()) + " 天。",
                 false);
     }
 

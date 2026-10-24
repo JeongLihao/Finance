@@ -255,18 +255,26 @@ class MarketMakerLedgerTest {
         AccountManager.deposit(OWNER, 100_000L);
 
         long mmBefore = AccountManager.getBalance(MM);
-        CompanyIPOService.IPOResult result = CompanyIPOService.ipo(OWNER, ipoCompanyId, 10L, 1000L);
+        CompanyIPOService.Result result = CompanyIPOService.start(OWNER, ipoCompanyId, 10L, 1000L, 0);
 
         assertTrue(result.success(), result.message());
-        // 发行量 1000 × 5% = 50 股，以发行价 10 划入做市商库存
-        assertEquals(50, MarketMakerLedger.getStockInventory("MMTC"));
-        assertEquals(mmBefore - 500, AccountManager.getBalance(MM), "做市商应真实支付 500");
-        // 公司原有 20_000 + 募资 10_000 + 做市商认购款 500
-        assertEquals(30_500L, company.getCash());
+        // 发起认购时做市商就用自己的钱认 1000 × 5% = 50 股，钱进托管
+        // 做市商账户也是 NPC 资金池：付出 500 认购款，收到上市费
+        assertEquals(
+                mmBefore - 500 + finance.config.FinanceConfig.ipoFee(), AccountManager.getBalance(MM), "做市商应真实支付 500");
+        assertEquals(50, result.subscription().subscribedBy(MM));
         assertTrue(AccountManager.getTransactions().stream()
-                .anyMatch(r -> r.getType() == TransactionType.MARKET_MAKER_BUY
-                        && "MMTC".equals(r.getObjectName())
-                        && r.getQuantity() == 50));
+                .anyMatch(r -> r.getType() == TransactionType.IPO_SUBSCRIBE && r.getQuantity() == 50));
+        AccountManager.deposit(TRADER, 950L * 10);
+        assertTrue(CompanyIPOService.subscribe(TRADER, result.subscription().id(), 950, 0)
+                .success());
+
+        CompanyIPOService.processDay(result.subscription().endDay());
+
+        // 结算后做市商那 50 股进它的库存，公司只收到认购人付的钱：原有 20_000 + 1000 股 × 10
+        assertTrue(company.isPublic());
+        assertEquals(50, MarketMakerLedger.getStockInventory("MMTC"));
+        assertEquals(30_000L, company.getCash());
     }
 
     @Test
@@ -279,13 +287,19 @@ class MarketMakerLedgerTest {
         CompanyManager.registerDirect(company);
         AccountManager.deposit(OWNER, 100_000L);
 
-        CompanyIPOService.IPOResult result = CompanyIPOService.ipo(OWNER, ipoCompanyId, 10L, 1000L);
+        CompanyIPOService.Result result = CompanyIPOService.start(OWNER, ipoCompanyId, 10L, 1000L, 0);
 
-        // 预留被跳过，但 IPO 本身不受影响
+        // 做市商没钱就不认，认购本身不受影响
         assertTrue(result.success(), result.message());
+        assertEquals(0, result.subscription().subscribedBy(MM));
+        AccountManager.deposit(TRADER, 1000L * 10);
+        assertTrue(CompanyIPOService.subscribe(TRADER, result.subscription().id(), 1000, 0)
+                .success());
+        CompanyIPOService.processDay(result.subscription().endDay());
+        assertTrue(company.isPublic());
         assertEquals(0, MarketMakerLedger.getStockInventory("BROK"));
-        assertEquals(30_000L, company.getCash(), "公司只收到募资，无认购款");
-        assertEquals(0, AccountManager.getBalance(MM));
+        assertEquals(30_000L, company.getCash(), "公司只收到认购人付的钱");
+        assertEquals(finance.config.FinanceConfig.ipoFee(), AccountManager.getBalance(MM), "只收到上市费");
     }
 
     @Test
@@ -296,7 +310,7 @@ class MarketMakerLedgerTest {
         AccountManager.deposit(OWNER, 100_000L);
         long before = AccountManager.getBalance(OWNER);
 
-        CompanyIPOService.IPOResult result = CompanyIPOService.ipo(OWNER, ipoCompanyId, 10L, 1000L);
+        CompanyIPOService.Result result = CompanyIPOService.start(OWNER, ipoCompanyId, 10L, 1000L, 0);
 
         // 开公司只要 10 磅，没有估值门槛就能“开公司→上市→提现”刷钱
         assertFalse(result.success());

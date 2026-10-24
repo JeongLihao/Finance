@@ -185,10 +185,19 @@ class RivalServiceTest {
         works.recordGameplayRevenue(5_000);
         long cashBefore = works.getCash();
         RivalService.processDay(40, ON);
-        assertTrue(works.isPublic(), "成立满 30 天、现金充足且盈利时上市");
+        IpoSubscription ipo = CompanyIPOService.openFor(works.getCompanyId());
+        assertNotNull(ipo, "成立满 30 天、现金充足且盈利时发起上市认购");
+        assertFalse(works.isPublic(), "认购期结束才上市");
+        assertTrue(ipo.issuePrice() <= CompanyIPOService.MAX_ISSUE_PRICE);
+        UUID buyer = UUID.randomUUID();
+        AccountManager.getOrCreateSystemAccount(buyer);
+        AccountManager.deposit(buyer, ipo.issuePrice() * ipo.remainingShares());
+        assertTrue(CompanyIPOService.subscribe(buyer, ipo.id(), ipo.remainingShares(), 40)
+                .success());
+        CompanyIPOService.processDay(ipo.endDay());
+        assertTrue(works.isPublic());
         Stock stock = StockMarketManager.getStockByCompanyId(works.getCompanyId());
-        long raise = stock.getFloatShares() * stock.getFairValue();
-        assertTrue(raise <= CompanyIPOService.MAX_TOTAL_RAISE);
+        long raise = stock.getFloatShares() * ipo.issuePrice();
         UUID founder = RivalProfile.investmentAccount(works.getCompanyId());
         assertEquals(
                 stock.getTotalShares() - stock.getFloatShares(),
@@ -202,18 +211,19 @@ class RivalServiceTest {
     void ownerlessIpoRejectsPlayerCompanies() {
         Company mine = new Company(UUID.randomUUID(), "Mine", CompanyType.FOOD, 200_000, UUID.randomUUID());
         CompanyManager.registerDirect(mine);
-        assertFalse(CompanyIPOService.ipoOwnerless(mine.getCompanyId(), UUID.randomUUID(), 10, 100)
+        assertFalse(CompanyIPOService.startOwnerless(mine.getCompanyId(), UUID.randomUUID(), 10, 100, 0)
                 .success());
         Company npc = new Company(UUID.randomUUID(), "NPC", CompanyType.FOOD, 200_000);
         CompanyManager.registerDirect(npc);
         assertFalse(
-                CompanyIPOService.ipoOwnerless(npc.getCompanyId(), UUID.randomUUID(), 101, 10)
+                CompanyIPOService.startOwnerless(npc.getCompanyId(), UUID.randomUUID(), 101, 10, 0)
                         .success(),
                 "发行价上限");
         assertFalse(
-                CompanyIPOService.ipoOwnerless(npc.getCompanyId(), UUID.randomUUID(), 100, 101)
+                CompanyIPOService.startOwnerless(
+                                npc.getCompanyId(), UUID.randomUUID(), 100, CompanyIPOService.MAX_ISSUE_QUANTITY + 1, 0)
                         .success(),
-                "募资上限");
+                "发行量上限");
     }
 
     @Test

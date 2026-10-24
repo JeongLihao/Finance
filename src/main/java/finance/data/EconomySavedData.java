@@ -81,7 +81,7 @@ public class EconomySavedData extends SavedData {
     private static final org.slf4j.Logger LOGGER = com.mojang.logging.LogUtils.getLogger();
 
     public static final String DATA_NAME = "finance_data";
-    private static final int DATA_VERSION = 44;
+    private static final int DATA_VERSION = 45;
 
     public static int currentDataVersion() {
         return DATA_VERSION;
@@ -132,6 +132,7 @@ public class EconomySavedData extends SavedData {
         finance.data.serializer.NpcEconomyDataSerializer.save(tag);
         finance.data.serializer.RivalDataSerializer.save(tag);
         finance.data.serializer.CentralBankDataSerializer.save(tag);
+        finance.data.serializer.IpoSubscriptionDataSerializer.save(tag);
         finance.macro.MacroPersistence.save(tag);
 
         // ---- 保存交易记录（仅最近 500 条） ----
@@ -475,6 +476,7 @@ public class EconomySavedData extends SavedData {
         finance.data.serializer.NpcEconomyDataSerializer.load(tag);
         finance.data.serializer.RivalDataSerializer.load(tag);
         finance.data.serializer.CentralBankDataSerializer.load(tag);
+        finance.data.serializer.IpoSubscriptionDataSerializer.load(tag);
         finance.macro.MacroPersistence.load(tag);
         RecentTradeService.rebuildFromHistories();
         Map<String, Integer> skipped = finance.data.serializer.LoadWarnings.takeSummary();
@@ -533,6 +535,7 @@ public class EconomySavedData extends SavedData {
         finance.centralbank.CentralBankService.clearDirect();
         finance.centralbank.PriceStabilizationService.clearDirect();
         finance.debt.CorporateBondManager.clearDirect();
+        finance.company.CompanyIPOService.clearDirect();
         finance.debt.CompanyLoanManager.clearDirect();
         finance.bondmarket.BondMarketManager.clearDirect();
         finance.bondmarket.BondPortfolioManager.clearDirect();
