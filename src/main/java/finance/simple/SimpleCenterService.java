@@ -38,8 +38,11 @@ import net.minecraft.server.level.ServerPlayer;
  */
 public final class SimpleCenterService {
 
-    /** 三项升级各最多 5 级，合起来就是“工厂等级”0～15。 */
-    public static final int MAX_FACTORY_LEVEL = 15;
+    /**
+     * 仓储、管理两项升级各最多 5 级，合起来就是“工厂等级”0～10。玩家公司的产量全靠机器，
+     * 生产线等级只管 NPC 公司的抽象日产，所以简单模式不升它。
+     */
+    public static final int MAX_FACTORY_LEVEL = 10;
     /** 一键上市：发行 4000 股（占总股本 40%），发行价按估值折算。 */
     static final long QUICK_IPO_SHARES = 4_000L;
 
@@ -71,7 +74,11 @@ public final class SimpleCenterService {
         String name = commodity.getDisplayName();
         int owned = InventoryUtil.countItemInInventory(player, commodity.getItemId());
         int wanted = Math.min(Math.max(0, quantity), owned);
-        if (wanted <= 0) return Result.fail("背包里没有" + name + "。");
+        if (wanted <= 0)
+            return Result.fail(
+                    InventoryUtil.countSpecialInInventory(player, commodity.getItemId()) > 0
+                            ? "背包里的" + name + "附魔过、改过名或有损耗，市场不收。"
+                            : "背包里没有" + name + "。");
         String blocked = NpcMarketMaker.npcBuyBlockReason(commodityId);
         if (blocked != null) return Result.fail(name + "：" + blocked);
         UUID id = player.getUUID();
@@ -283,31 +290,23 @@ public final class SimpleCenterService {
 
     // ------------------------------------------------------------ 公司
 
-    /** 工厂等级 = 生产线 + 仓储 + 管理三项等级之和。 */
+    /** 工厂等级 = 仓储 + 管理两项等级之和。 */
     public static int factoryLevel(Company company) {
-        return company.getProductionLevel() + company.getStorageLevel() + company.getManagementLevel();
+        return company.getStorageLevel() + company.getManagementLevel();
     }
 
-    /** 下一次升级的是哪一项：等级最低的那项（同级时按生产线、仓储、管理的顺序）；已满级返回 null。 */
+    /** 下一次升级的是哪一项：等级低的那项（同级先升仓储）；已满级返回 null。 */
     static CompanyManagementAction nextUpgrade(Company company) {
-        int p = company.getProductionLevel(), s = company.getStorageLevel(), m = company.getManagementLevel();
-        int min = Math.min(p, Math.min(s, m));
-        if (min >= MAX_FACTORY_LEVEL / 3) return null;
-        if (p == min) return CompanyManagementAction.UPGRADE_PRODUCTION;
-        if (s == min) return CompanyManagementAction.UPGRADE_STORAGE;
-        return CompanyManagementAction.UPGRADE_MANAGEMENT;
+        int s = company.getStorageLevel(), m = company.getManagementLevel();
+        if (Math.min(s, m) >= MAX_FACTORY_LEVEL / 2) return null;
+        return s <= m ? CompanyManagementAction.UPGRADE_STORAGE : CompanyManagementAction.UPGRADE_MANAGEMENT;
     }
 
     /** 下一次升级要花多少；满级返回 0。 */
     public static long nextUpgradeCost(Company company) {
         CompanyManagementAction next = nextUpgrade(company);
         if (next == null) return 0;
-        return company.getUpgradeCost(
-                switch (next) {
-                    case UPGRADE_PRODUCTION -> "PRODUCTION";
-                    case UPGRADE_STORAGE -> "STORAGE";
-                    default -> "MANAGEMENT";
-                });
+        return company.getUpgradeCost(next == CompanyManagementAction.UPGRADE_STORAGE ? "STORAGE" : "MANAGEMENT");
     }
 
     public static Result upgradeFactory(UUID playerId) {
@@ -362,6 +361,31 @@ public final class SimpleCenterService {
         return bank == null ? null : BankingManager.demandAccount(bank.id(), player, CustomerType.PLAYER, day, create);
     }
 
+    /**
+     * 玩家在各家银行有钱的活期账户，现在用的那家排最前。新存款只进现在用的那家，
+     * 但它停业、降级换了一家以后，以前存的和定期到期转回的钱还在原来那家，照样要能看到、能取。
+     */
+    static List<BankCustomerAccount> demandAccounts(UUID player) {
+        CommercialBank main = mainBank();
+        return BankingManager.accounts().values().stream()
+                .filter(a -> player.equals(a.ownerId())
+                        && a.ownerType() == CustomerType.PLAYER
+                        && a.type() == BankAccountType.DEMAND_DEPOSIT
+                        && a.status() == BankAccountStatus.ACTIVE
+                        && a.available() > 0)
+                .sorted(Comparator.comparing(
+                        (BankCustomerAccount a) -> main == null || !a.bankId().equals(main.id())))
+                .toList();
+    }
+
+    /** 各家银行活期加起来能取多少。 */
+    public static long bankBalance(UUID player) {
+        long total = 0;
+        for (BankCustomerAccount a : demandAccounts(player))
+            total = total > Long.MAX_VALUE - a.available() ? Long.MAX_VALUE : total + a.available();
+        return total;
+    }
+
     public static Result bankDeposit(ServerPlayer player, long amount) {
         CommercialBank bank = mainBank();
         if (bank == null) return Result.fail("现在没有银行营业。");
@@ -372,16 +396,23 @@ public final class SimpleCenterService {
         return Result.ok("存入银行 " + MoneyFormat.pounds(amount) + "，每天都有利息。", -amount);
     }
 
+    /** 从活期取钱：先取现在用的那家，不够再从以前存过的银行取。 */
     public static Result bankWithdraw(ServerPlayer player, long amount) {
-        CommercialBank bank = mainBank();
+        if (amount <= 0) return Result.fail("取出金额要大于 0。");
+        List<BankCustomerAccount> accounts = demandAccounts(player.getUUID());
+        if (accounts.isEmpty()) return Result.fail("银行里没有你的存款。");
         long day = EconomyCycleService.currentMcDay(player.server);
-        BankCustomerAccount account = demandAccount(player.getUUID(), bank, day, false);
-        if (account == null || account.available() <= 0) return Result.fail("银行里没有你的存款。");
-        long take = Math.min(amount, account.available());
-        if (take <= 0) return Result.fail("取出金额要大于 0。");
-        BankingManager.Result result = BankingManager.withdrawPlayer(player.getUUID(), account.id(), take, day);
-        if (!result.success()) return Result.fail(result.message());
-        return Result.ok("从银行取出 " + MoneyFormat.pounds(take) + "。", take);
+        long taken = 0;
+        String failure = null;
+        for (BankCustomerAccount account : accounts) {
+            long take = Math.min(amount - taken, account.available());
+            if (take <= 0) break;
+            BankingManager.Result result = BankingManager.withdrawPlayer(player.getUUID(), account.id(), take, day);
+            if (result.success()) taken += take;
+            else if (failure == null) failure = result.message();
+        }
+        if (taken <= 0) return Result.fail(failure == null ? "银行里没有你的存款。" : failure);
+        return Result.ok("从银行取出 " + MoneyFormat.pounds(taken) + "。", taken);
     }
 
     // ------------------------------------------------------------ 启动资金
@@ -478,12 +509,7 @@ public final class SimpleCenterService {
         SimpleBetService.applyPending(player);
         SimpleBetService.sweepIdle(id);
         CommercialBank bank = mainBank();
-        BankCustomerAccount account = demandAccount(id, bank, day, false);
-        long bankBalance = account != null
-                        && account.status() == BankAccountStatus.ACTIVE
-                        && account.type() == BankAccountType.DEMAND_DEPOSIT
-                ? account.available()
-                : 0;
+        long bankBalance = bankBalance(id);
         int rate = bank == null ? 0 : PublicBankViewService.crop(bank, false).demandRateBps();
         Company company = CompanyManager.getCompanyByOwner(id);
 
@@ -519,7 +545,7 @@ public final class SimpleCenterService {
                 boss,
                 finance.playerservice.PlayerServicesService.cash(id, new finance.cash.PlayerCashPurse(player), day),
                 valuations(player.server.getTickCount()),
-                SimpleWealthService.history(player, day, SimpleWealthService.netWorth(id)),
+                SimpleWealthService.history(player, day, SimpleWealthService.netWorth(player)),
                 SimpleWealthService.rankLines(player.server, id),
                 SimpleBetService.stats(player).line());
     }

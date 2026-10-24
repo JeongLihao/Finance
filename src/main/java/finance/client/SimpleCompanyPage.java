@@ -97,8 +97,7 @@ final class SimpleCompanyPage {
         // 工厂
         y += 56;
         ui.card(LEFT, y, WIDTH, 38, CARD, CARD_BORDER);
-        int level =
-                st == null ? info.productionLevel() + info.storageLevel() + info.managementLevel() : st.factoryLevel();
+        int level = st == null ? info.storageLevel() + info.managementLevel() : st.factoryLevel();
         boolean full = level >= SimpleCenterService.MAX_FACTORY_LEVEL;
         long cost = st == null ? 0 : st.nextUpgradeCost();
         String block = full ? "已经满级了" : v.balance() < cost ? "还差 " + MoneyFormat.pounds(cost - v.balance()) : null;
@@ -111,7 +110,7 @@ final class SimpleCompanyPage {
         textW = bx - LEFT - PAD - 8;
         ui.text(LEFT + PAD, y + 4, textW, "工厂等级 " + level + " / " + SimpleCenterService.MAX_FACTORY_LEVEL, TEXT);
         ui.progress(LEFT + PAD, y + 16, textW, level / (double) SimpleCenterService.MAX_FACTORY_LEVEL);
-        ui.text(LEFT + PAD, y + 25, textW, "升级：每天产得更多、开销更少。", DIM);
+        ui.text(LEFT + PAD, y + 25, textW, "升级：仓储和管理轮着升，每天开销更少。", DIM);
 
         // 上市
         y += 42;

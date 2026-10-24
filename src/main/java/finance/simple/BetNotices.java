@@ -73,7 +73,14 @@ public final class BetNotices {
             ServerPlayer player = server.getPlayerList().getPlayer(p.ownerId());
             if (player != null) SimpleBetService.settlePnl(player, key, pnl);
             else SimpleBetService.defer(p.ownerId(), key, pnl, true);
-            long back = SimpleBetService.sweepIdle(p.ownerId());
+            // 先退这一笔的押金（开仓时那份保证金）和赚亏，身上还有别的商品押注也照退；没押注了再把剩下的全退
+            long stake = FuturesMath.margin(
+                    p.averageEntryPrice(),
+                    contract.contractSize(),
+                    p.quantity(),
+                    finance.config.FinanceConfig.futuresInitialMarginBps());
+            long back = SimpleBetService.releaseFutures(p.ownerId(), Math.max(0, stake) + pnl)
+                    + SimpleBetService.sweepIdle(p.ownerId());
             String result = pnl >= 0 ? "，赚了 " + MoneyFormat.pounds(pnl) : "，亏了 " + MoneyFormat.pounds(-pnl);
             PlayerNotices.tell(
                     server,

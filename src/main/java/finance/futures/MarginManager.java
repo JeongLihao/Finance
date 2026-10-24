@@ -64,10 +64,24 @@ public final class MarginManager {
         return true;
     }
 
+    /** 可取的保证金：现金减去挂单冻结、持仓初始保证金和还没日终结算的亏损。 */
     public static synchronized long availableToWithdraw(UUID owner) {
         MarginAccount a = account(owner);
         if (a == null) return 0;
-        return Math.max(0, a.cashBalance() - a.frozenForOrders() - initialRequirement(owner));
+        long free = a.cashBalance() - a.frozenForOrders() - initialRequirement(owner), loss = unsettledLoss(owner);
+        return free <= loss ? 0 : free - loss;
+    }
+
+    /**
+     * 已成交、还没日终结算的亏损（平仓的差价先记在待结算里）。结算只从账户现金里扣，
+     * 所以结算前不能让人把这部分保证金先取走，否则亏损就落到担保基金头上。
+     */
+    static synchronized long unsettledLoss(UUID owner) {
+        BigInteger loss = BigInteger.ZERO;
+        for (Map.Entry<Key, Long> e : PENDING_VARIATION.entrySet())
+            if (e.getKey().ownerId().equals(owner) && e.getValue() < 0)
+                loss = loss.subtract(BigInteger.valueOf(e.getValue()));
+        return loss.compareTo(BigInteger.valueOf(Long.MAX_VALUE)) > 0 ? Long.MAX_VALUE : loss.longValue();
     }
 
     public static synchronized boolean freezeOrder(UUID owner, long amount) {

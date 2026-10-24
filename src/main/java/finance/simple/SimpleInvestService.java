@@ -169,10 +169,8 @@ public final class SimpleInvestService {
         UUID id = player.getUUID();
         long day = EconomyCycleService.currentMcDay(player.server);
         List<Holding> out = new ArrayList<>();
-        CommercialBank bank = SimpleCenterService.mainBank();
-        BankCustomerAccount demand = SimpleCenterService.demandAccount(id, bank, day, false);
-        if (demand != null && demand.available() > 0)
-            out.add(new Holding("bank", "活期存款", demand.available(), "随时可取", "取回"));
+        long demand = SimpleCenterService.bankBalance(id);
+        if (demand > 0) out.add(new Holding("bank", "活期存款", demand, "随时可取", "取回"));
         for (TimeDeposit t : BankingManager.timeDeposits().values()) {
             if (!t.ownerId().equals(id)) continue;
             if (t.status() == TimeDepositStatus.MATURED) {

@@ -506,18 +506,35 @@ public final class MarginService {
 
     /** 主动平掉融资仓：按市价卖进市场，先息后本还款，剩下的钱进账户。 */
     public static synchronized Result closeFinanced(UUID playerId, String symbol) {
+        return closeFinanced(playerId, symbol, Long.MAX_VALUE);
+    }
+
+    /**
+     * 平掉一只股票的融资仓，卖出所得最多还 debtCap 的借款，利息按这部分占总借款的比例还，剩下的进钱包。
+     * 借款和利息是整个账户一笔；押注一笔一笔结束时只还这一笔借的，别的仓位的借款留着。
+     * 平完已经没有融资仓时，剩下的借款照常用保证金结清。
+     */
+    public static synchronized Result closeFinanced(UUID playerId, String symbol, long debtCap) {
         String key = norm(symbol);
         Stock stock = StockMarketManager.getStock(key);
         MarginAccount acct = MarginPoolManager.getAccount(playerId);
         long qty = acct.financedSharesOf(key);
         if (stock == null || qty <= 0) return Result.fail("没有这只股票的融资仓。");
         if (stock.isTradingPaused()) return Result.fail("该股票停牌或熔断中，稍后再平。");
+        long debt = acct.getFinancedDebt(), interest = acct.getFinancedInterestOwed();
+        long debtShare = Math.min(debt, Math.max(0, debtCap));
+        long interestShare = debtShare >= debt
+                ? interest
+                : BigInteger.valueOf(interest)
+                        .multiply(BigInteger.valueOf(debtShare))
+                        .divide(BigInteger.valueOf(debt))
+                        .longValue();
         long price = stock.impactedPrice(qty, false); // 平仓按自己砸下去之后的价
         long proceeds = multiplyCap(qty, price);
-        long interestPay = Math.min(proceeds, acct.getFinancedInterestOwed());
+        long interestPay = Math.min(proceeds, interestShare);
         acct.reduceFinancedInterest(interestPay);
         proceeds -= interestPay;
-        long debtPay = Math.min(proceeds, acct.getFinancedDebt());
+        long debtPay = Math.min(proceeds, debtShare);
         acct.reduceFinancedDebt(debtPay);
         proceeds -= debtPay;
         if (proceeds > 0) AccountManager.deposit(playerId, proceeds);

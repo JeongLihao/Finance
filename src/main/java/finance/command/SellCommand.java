@@ -37,6 +37,10 @@ public final class SellCommand {
             c.getSource().sendFailure(Component.literal(hand.isEmpty() ? "手上没有东西。" : "市场不收这种东西。"));
             return 0;
         }
+        if (!InventoryUtil.isPlain(hand)) {
+            c.getSource().sendFailure(Component.literal("手上这件附魔过、改过名或有损耗，市场不收。"));
+            return 0;
+        }
         int quantity = all ? InventoryUtil.countItemInInventory(player, commodity.getItemId()) : hand.getCount();
         SimpleCenterService.Result r = SimpleCenterService.quickSell(player, commodity.getId(), quantity);
         if (!r.success()) {
