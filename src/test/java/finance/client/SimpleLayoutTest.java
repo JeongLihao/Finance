@@ -123,6 +123,7 @@ class SimpleLayoutTest {
                         HUGE,
                         HUGE,
                         20_000,
+                        SimpleCenterService.IpoProgress.NONE,
                         3_000,
                         "player",
                         extras,

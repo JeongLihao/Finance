@@ -67,7 +67,9 @@ public record SimpleActionPacket(Action action, String target, long amount, long
         ISSUE_BOND,
         PLEDGE,
         /** 价格提醒：target = s:股票代码 或 c:商品 ID。 */
-        PRICE_ALERT
+        PRICE_ALERT,
+        /** 认购新股：target = 认购 ID，amount = 股数。 */
+        IPO_SUBSCRIBE
     }
 
     public SimpleActionPacket(Action action, String target, long amount) {
@@ -123,7 +125,8 @@ public record SimpleActionPacket(Action action, String target, long amount, long
                             ? SimpleCenterService.quickBuy(player, commodity, items)
                             : invalid();
                     case UPGRADE_FACTORY -> SimpleCenterService.upgradeFactory(player.getUUID());
-                    case QUICK_IPO -> SimpleCenterService.quickIpo(player.getUUID());
+                    case QUICK_IPO -> SimpleCenterService.quickIpo(
+                            player.getUUID(), finance.cycle.EconomyCycleService.currentMcDay(player.server));
                     case BANK_DEPOSIT -> SimpleCenterService.bankDeposit(player, p.amount);
                     case BANK_WITHDRAW -> SimpleCenterService.bankWithdraw(player, p.amount);
                     case PLACE_SELL_ORDER, PLACE_BUY_ORDER -> NetworkValidation.isValidCommodityId(commodity)
@@ -160,6 +163,11 @@ public record SimpleActionPacket(Action action, String target, long amount, long
                             finance.simple.SimpleBossService.issueBond(player, Math.max(0, p.amount)));
                     case PLEDGE -> invest(finance.simple.SimpleBossService.pledge(player));
                     case PRICE_ALERT -> invest(finance.simple.SimpleInvestService.priceAlert(player, safe(p.target)));
+                    case IPO_SUBSCRIBE -> SimpleCenterService.subscribeIpo(
+                            player.getUUID(),
+                            uuid(p.target),
+                            Math.max(0, p.amount),
+                            finance.cycle.EconomyCycleService.currentMcDay(player.server));
                     case TAKEOVER -> invest(finance.simple.SimpleBossService.takeover(player, uuid(p.target)));
                     case SQUEEZE -> invest(finance.simple.SimpleBossService.squeeze(player, uuid(p.target)));
                     case CHARTER_BANK -> invest(

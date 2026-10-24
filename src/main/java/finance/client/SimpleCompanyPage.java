@@ -118,13 +118,29 @@ final class SimpleCompanyPage {
         if (info.isPublic()) {
             ui.text(LEFT + PAD, y + 4, WIDTH - 2 * PAD, "公司已上市。", FinanceGui.COL_GOOD);
             ui.wrapped(LEFT + PAD, y + 17, WIDTH - 2 * PAD, "别人买你的股票时公司更值钱；你是大股东，每周也拿分红。", DIM, 2);
+        } else if (st != null && st.ipo().open()) {
+            SimpleCenterService.IpoProgress ipo = st.ipo();
+            ui.text(
+                    LEFT + PAD,
+                    y + 4,
+                    WIDTH - 2 * PAD,
+                    "上市认购中：已认 " + ipo.subscribed() + " / " + ipo.quantity() + " 股，第 " + ipo.endDay() + " 天结算",
+                    TEXT);
+            ui.progress(LEFT + PAD, y + 16, WIDTH - 2 * PAD, ipo.subscribed() / (double) Math.max(1, ipo.quantity()));
+            ui.wrapped(
+                    LEFT + PAD,
+                    y + 25,
+                    WIDTH - 2 * PAD,
+                    "投资者每天按估值认购，钱先放在托管里。认满 " + ipo.minimum() + " 股就上市、钱进公司；不够就取消，钱退回给认购的人。",
+                    DIM,
+                    2);
         } else {
             long valuation = valuation(v);
             long min = st == null ? 20_000 : st.ipoMinValuation();
             bx = ui.buttonRight(
                     RIGHT - PAD,
                     y + 14,
-                    "让公司上市",
+                    "发起上市认购",
                     () -> a.simple(SimpleActionPacket.Action.QUICK_IPO, "", 0),
                     valuation >= min ? null : "估值还差 " + MoneyFormat.pounds(min - valuation));
             textW = bx - LEFT - PAD - 8;
@@ -135,7 +151,7 @@ final class SimpleCompanyPage {
                     "上市：估值 " + MoneyFormat.pounds(valuation) + " / " + MoneyFormat.pounds(min),
                     TEXT);
             ui.progress(LEFT + PAD, y + 16, textW, valuation / (double) Math.max(1, min));
-            ui.wrapped(LEFT + PAD, y + 25, textW, "把公司 40% 的股份卖给大家，换一大笔钱进公司账上。要付上市费，发行价按估值自动定。", DIM, 2);
+            ui.wrapped(LEFT + PAD, y + 25, textW, "拿出 40% 的股份让投资者认购几天，认够了才上市、钱进公司。要付上市费，发行价按估值自动定。", DIM, 2);
         }
         loanAndDividendRow(ui, v, a, y + 52);
     }

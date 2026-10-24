@@ -109,7 +109,10 @@ public final class FinanceFormat {
             case "STOCK_ORDER_CANCEL" -> "股票撤单";
             case "COMPANY_ACTION" -> "公司操作";
             case "COMPANY_CREATE" -> "创建公司";
-            case "COMPANY_IPO" -> "公司IPO";
+            case "COMPANY_IPO" -> "公司上市募资";
+            case "IPO_SUBSCRIBE" -> "认购新股";
+            case "IPO_REFUND" -> "新股认购退款";
+            case "IPO_FEE" -> "上市费";
             case "DIVIDEND" -> "分红";
             case "CONDITIONAL_STOCK_TRIGGER" -> "条件触发";
             case "CONDITIONAL_STOCK_CANCEL" -> "条件取消";

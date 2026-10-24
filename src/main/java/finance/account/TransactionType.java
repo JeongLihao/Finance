@@ -174,5 +174,11 @@ public enum TransactionType {
     /** 等值兑换钞：持有人兑现，存入自己的账户（现金发行处 → 持有人）。 */
     EXCHANGE_NOTE_REDEEM,
     /** 公司日常开销：机器维护费、库存持有利息和仓储费（公司现金 → NPC 资金池）。 */
-    COMPANY_RUNNING_COST
+    COMPANY_RUNNING_COST,
+    /** 上市认购：认购人付款进认购托管。 */
+    IPO_SUBSCRIBE,
+    /** 上市认购取消：托管原路退回认购人。 */
+    IPO_REFUND,
+    /** 上市费：发起人（或无主公司现金）付给 NPC 资金池。 */
+    IPO_FEE
 }

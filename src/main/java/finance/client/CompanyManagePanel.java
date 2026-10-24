@@ -161,7 +161,20 @@ final class CompanyManagePanel {
                     CompanyManagePacket.amount(CompanyManagementAction.WITHDRAW, amount));
             screen.setStatus("已提交公司提取");
         });
-        if (!company.isPublic()) {
+        CompanyRows.CompanyFinancingRow ipo = financingForCompany(company.companyId());
+        if (!company.isPublic() && ipo != null && ipo.symbol().isEmpty()) {
+            FinanceGui.drawClippedString(
+                    screen.font(),
+                    g,
+                    "上市认购中：已认 " + ipo.subscribedShares() + "/" + ipo.issueQuantity() + " 股，每股 " + ipo.issuePrice()
+                            + "，第 " + ipo.deadlineMcDay() + " 天结算（认满 "
+                            + ipo.fundingTarget() / Math.max(1, ipo.issuePrice())
+                            + " 股才上市）",
+                    12,
+                    cardY + 138,
+                    360,
+                    FinanceGui.COL_ACCENT);
+        } else if (!company.isPublic()) {
             g.drawString(screen.font(), "发行价", 12, cardY + 138, FinanceGui.COL_TEXT_DIM, false);
             g.drawString(screen.font(), "发行数", 126, cardY + 138, FinanceGui.COL_TEXT_DIM, false);
             long price = Math.max(1, FinanceFormat.parseLong(screen.ipoPriceBox.getValue()));
@@ -177,9 +190,9 @@ final class CompanyManagePanel {
             screen.filledButton(g, "提交IPO", 322, cardY + 136, 50, FinanceGui.COL_GOOD, () -> {
                 long ipoPrice = screen.requireAmount(screen.ipoPriceBox, "发行价");
                 long ipoQuantity = screen.requireAmount(screen.ipoQuantityBox, "发行数");
-                screen.setStatus("已提交公司IPO");
+                screen.setStatus("已发起上市认购");
                 FinancePacketHandler.CHANNEL.sendToServer(
-                        new CompanyIPOPacket(company.companyId(), ipoPrice, ipoQuantity));
+                        CompanyIPOPacket.start(company.companyId(), ipoPrice, ipoQuantity));
             });
         } else {
             CompanyRows.CompanyFinancingRow financing = financingForCompany(company.companyId());

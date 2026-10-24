@@ -77,8 +77,12 @@
 	storageLevelDiscountBasisPoints = 1200
 	# 管理每升一级机器维护费便宜多少，基点；600 表示 6%。
 	managementLevelDiscountBasisPoints = 600
-	# 发起 IPO 时向公司所有者收取的费用。
-	ipoFee = 5000
+	# 发起上市认购时收的上市费，付给 NPC 资金池，认购失败也不退。
+	ipoFee = 1000
+	# 上市认购期，单位为 MC 天。期间 NPC 投资者和玩家认购，认购款放在独立托管里。
+	ipoSubscriptionDays = 5
+	# 认购期结束时至少认满发行量的多少（基点）才上市；不够就取消、原路退款。5000 = 50%。
+	ipoMinFillBasisPoints = 5000
 
 [proposal]
 	# 股东提案最低参与率。0.25 = 至少 25% 投票权参与，提案才可能通过。
@@ -163,7 +167,7 @@ maxContractRateBasisPoints = 10000
 - 想减少刷屏式提醒和委托：降低 `maxPriceAlertsPerPlayer` 与 `maxConditionalStockOrdersPerPlayer`。
 - 想降低做市商对玩家的自动成交能力：提高 `stockMarketMaker.spread`。
 - 想让股东投票更像正式治理：提高 `proposal.minParticipationRatio`。
-- 想减少公司上市速度：提高 `company.ipoFee`。
+- 想让上市更难：提高 `company.ipoMinFillBasisPoints`（要认满更多才上市）或 `company.ipoFee`；想给认购更多时间：提高 `ipoSubscriptionDays`。
 - 想降低期货杠杆：提高 `futures.initialMarginBasisPoints`，并保持初始率高于维持率和强平率。
 - 想降低单笔成交操纵日结的可能：提高 `futures.minimumSettlementVolume`，或降低 `maxSettlementSpotDeviationBasisPoints`。
 - 想抑制银行扩张：提高准备金率或最低资本充足率、降低单一借款人上限。降低保险上限只影响之后的处置计算，不会删除存款。

@@ -223,7 +223,12 @@ final class SimpleHomePage {
                         valuation / (double) Math.max(1, min),
                         Page.COMPANY);
             }
-            return new Goal(locked(v, "boss") ? "公司可以上市了！上市后解锁「大老板」" : "公司可以上市了！", 1, Page.COMPANY);
+            if (st != null && st.ipo().open())
+                return new Goal(
+                        "上市认购中：已认 " + st.ipo().subscribed() + " / " + st.ipo().quantity() + " 股",
+                        st.ipo().subscribed() / (double) Math.max(1, st.ipo().quantity()),
+                        Page.COMPANY);
+            return new Goal(locked(v, "boss") ? "公司可以发起上市了！上市后解锁「大老板」" : "公司可以发起上市了！", 1, Page.COMPANY);
         }
         int level = st == null ? 0 : st.factoryLevel();
         if (level < SimpleCenterService.MAX_FACTORY_LEVEL) {

@@ -63,6 +63,10 @@ public record SimpleStatusPacket(SimpleCenterService.Status status) {
         buf.writeVarLong(Math.max(0, s.nextUpgradeCost()));
         buf.writeVarLong(Math.max(0, s.companyValuation()));
         buf.writeVarLong(Math.max(0, s.ipoMinValuation()));
+        buf.writeVarLong(Math.max(0, s.ipo().subscribed()));
+        buf.writeVarLong(Math.max(0, s.ipo().quantity()));
+        buf.writeVarLong(Math.max(0, s.ipo().minimum()));
+        buf.writeLong(s.ipo().endDay());
         buf.writeVarLong(Math.max(0, s.stockUnlockBalance()));
         buf.writeUtf(s.advancedMode(), 16);
         writeLines(buf, s.extras(), MAX_NAMES);
@@ -222,10 +226,10 @@ public record SimpleStatusPacket(SimpleCenterService.Status status) {
     public static SimpleStatusPacket decode(FriendlyByteBuf buf) {
         long bank = buf.readVarLong();
         int rate = buf.readVarInt(), level = buf.readVarInt();
-        long cost = buf.readVarLong(),
-                valuation = buf.readVarLong(),
-                ipoMin = buf.readVarLong(),
-                stockUnlock = buf.readVarLong();
+        long cost = buf.readVarLong(), valuation = buf.readVarLong(), ipoMin = buf.readVarLong();
+        SimpleCenterService.IpoProgress ipo = new SimpleCenterService.IpoProgress(
+                buf.readVarLong(), buf.readVarLong(), buf.readVarLong(), buf.readLong());
+        long stockUnlock = buf.readVarLong();
         String mode = buf.readUtf(16);
         List<String> extras = readLines(buf, MAX_NAMES);
         List<String> locked = readLines(buf), unlockedNow = readLines(buf);
@@ -339,6 +343,7 @@ public record SimpleStatusPacket(SimpleCenterService.Status status) {
                 cost,
                 valuation,
                 ipoMin,
+                ipo,
                 stockUnlock,
                 mode,
                 extras,

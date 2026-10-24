@@ -235,6 +235,23 @@ public class FinanceGuiOpener {
                     project.getSubscriptions().getOrDefault(playerId, 0L),
                     project.getDeadlineMcDay()));
         }
+        // 上市认购也走这张表：股票代码留空表示新股认购（还没有股票），筹资目标是“认满最低比例”的金额
+        for (finance.company.IpoSubscription ipo : finance.company.CompanyIPOService.open()) {
+            Company ipoCompany = CompanyManager.getCompany(ipo.companyId());
+            if (ipoCompany == null) continue;
+            companyFinancingRows.add(new CompanyRows.CompanyFinancingRow(
+                    ipo.id(),
+                    ipo.companyId(),
+                    ipoCompany.getName(),
+                    "",
+                    ipo.issueQuantity(),
+                    ipo.issuePrice(),
+                    ipo.issuePrice() * ipo.minimumShares(finance.config.FinanceConfig.ipoMinFillBasisPoints()),
+                    ipo.issuePrice() * ipo.subscribedShares(),
+                    ipo.subscribedShares(),
+                    ipo.subscribedBy(playerId),
+                    ipo.endDay()));
+        }
         List<CompanyRows.CompanyProposalRow> companyProposalRows = new ArrayList<>();
         for (CompanyProposal proposal : CompanyProposalManager.getProposals()) {
             if (boardroomCompanyId != null && !boardroomCompanyId.equals(proposal.getCompanyId())) continue;
