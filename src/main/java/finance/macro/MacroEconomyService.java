@@ -71,7 +71,10 @@ public final class MacroEconomyService {
         Map<String, Long> stallStock = stallStock(settlementId);
         Map<String, Long> needs = new TreeMap<>();
         for (NeedCategory category : NeedCategory.values()) {
-            double units = econ.required.getOrDefault(category, 0.0);
+            // 利率传导：实际利率偏紧时村民少买（存钱），偏松时多买；需求本身变少，不算“没满足”
+            double units = econ.required.getOrDefault(category, 0.0)
+                    * RateTransmission.consumptionBps(category)
+                    / (double) RateTransmission.NEUTRAL_BPS;
             Map<String, Long> goods = MacroNeeds.allocate(
                     category,
                     units,

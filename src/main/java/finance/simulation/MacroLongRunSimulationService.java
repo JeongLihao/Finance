@@ -29,6 +29,7 @@ import finance.macro.MacroLaborService;
 import finance.macro.SettlementEconomy;
 import finance.market.MarketPrice;
 import finance.market.NpcMarketMaker;
+import finance.policy.MonetaryPolicyService;
 import finance.settlement.SettlementManager;
 import finance.settlement.SettlementRecord;
 import finance.village.VillageManager;
@@ -80,6 +81,37 @@ public final class MacroLongRunSimulationService {
 
     public static final int SHOCK_END = 240;
 
+    /** 利率场景从这天开始（磨合期结束后），每 {@link #RATE_STEP_DAYS} 天调一次 {@link #RATE_STEP_BPS}。 */
+    public static final int RATE_SCENARIO_START = STEADY_STATE_DAY;
+
+    public static final int RATE_STEP_DAYS = 30;
+    public static final int RATE_STEP_BPS = 100;
+
+    /**
+     * 模拟场景：基线带铁厂停工冲击、利率不动；加息 / 降息场景不停工，从 {@link #RATE_SCENARIO_START} 起
+     * 每 30 天把基准利率调 100 基点（加息到 1000、降息到 0 为止），检验利率能不能经需求和库存传到 CPI。
+     */
+    public enum Scenario {
+        BASELINE,
+        HIKES,
+        CUTS,
+        /** 带停工冲击，央行每 30 天按议息规则（{@link finance.policy.PolicyRuleService}）用模拟里的 CPI 自动调息。 */
+        POLICY;
+
+        boolean shock() {
+            return this == BASELINE || this == POLICY;
+        }
+
+        /** 这一天的基准利率（基点）；BASELINE / POLICY 返回 −1（不按固定路径调）。 */
+        int rateForDay(int day, int initial) {
+            if (this == BASELINE || this == POLICY || day < RATE_SCENARIO_START) return -1;
+            int steps = (day - RATE_SCENARIO_START) / RATE_STEP_DAYS + 1;
+            return this == HIKES
+                    ? Math.min(1_000, initial + steps * RATE_STEP_BPS)
+                    : Math.max(0, initial - steps * RATE_STEP_BPS);
+        }
+    }
+
     private MacroLongRunSimulationService() {}
 
     /** 一个聚落一天的状态。 */
@@ -97,6 +129,7 @@ public final class MacroLongRunSimulationService {
             long burned,
             long issued,
             long runningCosts,
+            int rateBps,
             Map<String, Long> companyCash) {
         public long population() {
             return settlements.stream().mapToLong(SettlementDay::population).sum();
@@ -232,6 +265,10 @@ public final class MacroLongRunSimulationService {
 
     /** 跑两遍同样的模拟并比较指纹（确定性），返回第一遍的结果；结束后恢复调用前的全部运行时状态。 */
     public static synchronized Result run(int days) {
+        return run(days, Scenario.BASELINE);
+    }
+
+    public static synchronized Result run(int days, Scenario scenario) {
         if (days < 1 || days > MAX_DAYS) throw new IllegalArgumentException("days");
         CompoundTag original = new EconomySavedData().save(new CompoundTag());
         // 商品库存单独存档，不在 EconomySavedData 里，要另外备份
@@ -239,8 +276,8 @@ public final class MacroLongRunSimulationService {
         CommodityInventoryManager.getInventories()
                 .forEach((id, inv) -> inventories.put(id, Map.copyOf(inv.getAllCommodities())));
         try {
-            Result first = runOnce(days);
-            Result second = runOnce(days);
+            Result first = runOnce(days, scenario);
+            Result second = runOnce(days, scenario);
             boolean same = fingerprint(first).equals(fingerprint(second));
             return new Result(
                     first.days(), first.daily(), first.factors(), first.initialMoney(), first.companyStartCash(), same);
@@ -260,7 +297,7 @@ public final class MacroLongRunSimulationService {
 
     private record Firm(String name, Company company) {}
 
-    private static Result runOnce(int days) {
+    private static Result runOnce(int days, Scenario scenario) {
         EconomySavedData.resetRuntimeState();
         CommodityInventoryManager.clearInventoriesDirect();
         CommodityRegistry.resetToDefaults();
@@ -289,11 +326,21 @@ public final class MacroLongRunSimulationService {
         Firm shocked = firms.get(firms.size() - 1);
         for (int day = 1; day <= days; day++) {
             AccountManager.clearTransactions();
+            int rate = scenario.rateForDay(day, finance.config.FinanceConfig.defaultBenchmarkRateBasisPoints());
+            if (rate >= 0) MonetaryPolicyService.setBenchmarkRate(day, rate, "模拟：" + scenario.name());
+            if (scenario == Scenario.POLICY && day % RATE_STEP_DAYS == 0 && daily.size() > RATE_STEP_DAYS) {
+                double now = daily.get(daily.size() - 1).cpi(),
+                        base = daily.get(daily.size() - 1 - RATE_STEP_DAYS).cpi();
+                int current = MonetaryPolicyService.benchmarkRateBasisPoints();
+                finance.policy.PolicyRuleService.Evaluation eval =
+                        finance.policy.PolicyRuleService.evaluate(current, now, base, 0);
+                MonetaryPolicyService.setBenchmarkRate(day, eval.recommendedBps(), "模拟议息：" + eval.explanation());
+            }
             // 冲击：铁厂在第 SHOCK_START 天把工资降到保留工资以下（全员离职、停产），SHOCK_END 天恢复
-            if (day == SHOCK_START)
+            if (scenario.shock() && day == SHOCK_START)
                 MacroLaborService.setWage(
                         shocked.company().getOwnerId(), shocked.company().getCompanyId(), 0);
-            if (day == SHOCK_END)
+            if (scenario.shock() && day == SHOCK_END)
                 MacroLaborService.setWage(
                         shocked.company().getOwnerId(),
                         shocked.company().getCompanyId(),
@@ -488,6 +535,7 @@ public final class MacroLongRunSimulationService {
                 burned,
                 issued,
                 runningCosts,
+                MonetaryPolicyService.benchmarkRateBasisPoints(),
                 cash);
     }
 

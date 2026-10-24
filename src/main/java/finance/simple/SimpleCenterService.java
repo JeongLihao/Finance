@@ -565,6 +565,8 @@ public final class SimpleCenterService {
         int rate = finance.policy.MonetaryPolicyService.benchmarkRateBasisPoints();
         String rateMeaning = rate >= 500 ? "存钱利息高，借钱贵。" : rate <= 200 ? "借钱便宜，存钱利息少。" : "利率适中。";
         out.add("利率 " + pct(rate) + "：" + rateMeaning);
+        String stance = stanceMeaning(finance.macro.RateTransmission.realRateGapBps());
+        if (!stance.isEmpty()) out.add(stance);
         int inflation = finance.centralbank.CentralBankService.inflationBps();
         int target = finance.centralbank.CentralBankService.inflationTargetBps();
         String priceMeaning = inflation > target + 100
@@ -591,14 +593,21 @@ public final class SimpleCenterService {
         return out;
     }
 
+    /** 扣掉通胀后利率是偏紧还是偏松，对物价意味着什么（见 {@link finance.macro.RateTransmission}）。 */
+    static String stanceMeaning(int gapBps) {
+        if (gapBps > 100) return "扣掉通胀后利率偏高：村民少买东西、商人少囤货，物价会往下走。";
+        if (gapBps < -100) return "扣掉通胀后利率偏低：村民多买东西、商人愿意囤货，物价会往上走。";
+        return "";
+    }
+
     /** 流通中的钱和最近 7 天的变化。 */
     static String moneyLine() {
         var m = finance.centralbank.MoneySupplyService.summary();
         String head = "流通中的钱 " + MoneyFormat.compact(m.circulating()) + "（账户 " + MoneyFormat.compact(m.accounts())
                 + "、公司 " + MoneyFormat.compact(m.companies()) + "、央行钞票 " + MoneyFormat.compact(m.notes()) + "）";
-        if (!m.hasHistory()) return head + "。钱都是央行发的，钱比货涨得快，物价就会涨。";
+        if (!m.hasHistory()) return head + "。钱都是央行发的。";
         return head + "，最近 7 天" + (m.change7d() >= 0 ? "多了 " : "少了 ") + MoneyFormat.compact(Math.abs(m.change7d()))
-                + "。钱比货涨得快，物价就会涨，央行会加息把钱收回去。";
+                + "。物价涨得快时央行加息：村民少买、商人少囤，物价回落。";
     }
 
     /** 央行储备投放到第几档、下一档还差多少成交额。 */
