@@ -279,24 +279,22 @@ public final class CompanyIPOService {
 
     /** 每天：NPC 投资者认购，然后结算期满或已认满的认购。必须在 NPC 投资者补足资金之后调用。 */
     public static void processDay(long day) {
-        boolean changed = false;
+        // 认购、结算、取消各自会 markDirty，这里不用再记“有没有变”
         // 遍历副本：结算时会改状态，trimClosed 还会删条目
         for (IpoSubscription s : new ArrayList<>(SUBSCRIPTIONS.values())) {
             if (s.status() != IpoSubscription.Status.OPEN) continue;
             Company company = CompanyManager.getCompany(s.companyId());
             // 公司被删或已经从别的路上市了，这次认购作废，钱退回
             if (company == null || company.isPublic()) {
-                changed |= cancel(s, "公司已不存在或已上市");
+                cancel(s, "公司已不存在或已上市");
                 continue;
             }
             // 认购期内且没认满：NPC 投资者认购当天的份额
             if (day < s.endDay() && s.remainingShares() > 0) npcDemand(s, company, day);
             // 到期或已认满：结算（认满可以提前上市）
             if (day >= s.endDay() || s.remainingShares() == 0) settle(s, company, day);
-            changed = true; // NPC 认购也改了状态
         }
         trimClosed();
-        if (changed) EconomySavedData.markDirty();
     }
 
     /** NPC 投资者对每股价值的看法相对基本面的倍数：价值派要折价才买，短线派愿意多付一点。 */
@@ -462,6 +460,7 @@ public final class CompanyIPOService {
             if (it.next().status() != IpoSubscription.Status.OPEN) {
                 it.remove();
                 closed--;
+                EconomySavedData.markDirty();
             }
         }
     }
